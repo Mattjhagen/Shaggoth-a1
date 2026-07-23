@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About — Matt Hagen</title>
+  <meta name="description" content="About Matt Hagen — founder, developer, and writer in Omaha, Nebraska — and how to get in touch." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A0E14'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='16' fill='%234DD6C1' text-anchor='middle'%3Emh%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav__inner">
+      <a class="nav__brand" href="index.html">matt<span>.</span>hagen</a>
+      <button class="nav__toggle" aria-label="Menu" aria-expanded="false">≡</button>
+      <ul class="nav__links">
+        <li><a href="index.html">home</a></li>
+        <li><a href="resume.html">resume</a></li>
+        <li><a href="work.html">work</a></li>
+        <li><a href="writing.html">writing</a></li>
+        <li><a href="about.html" aria-current="page">about</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <header class="hero" style="padding-bottom:1rem">
+    <div class="wrap">
+      <p class="eyebrow">About</p>
+      <h1>Hello, I'm <em>Matt</em>.</h1>
+    </div>
+  </header>
+
+  <section class="section" style="border-top:none">
+    <div class="wrap">
+      <div class="prose reveal">
+        <p>I'm a founder and full-stack developer in Omaha, Nebraska. Right now most of my energy goes into <a href="https://www.p3lending.space" target="_blank" rel="noopener">P3</a> — a decentralized lending protocol built on a simple conviction: credit should be based on character, not history. Instead of a FICO score, P3 uses AI reputation scoring and social underwriting to decide who's trustworthy.</p>
+        <p>Before and alongside P3, I founded PacMac Mobile LLC, an e-commerce platform for phones, trade-ins, and leasing. And I build constantly — 255 public repositories covering an AI coding IDE in Rust, an open-source identity-verification platform, Bluetooth mesh messaging, NFC identity cards, Bible study apps, and plenty of weekend experiments. If an idea survives a week in my head, it ends up on GitHub.</p>
+        <p>The other track is fiction. My novel, <em>The Gentle Conquest</em> — a psychological thriller about an AI that never rebels, it just optimizes — is through editing and headed for publication. Code and prose are the same discipline to me: take something tangled, find its structure, make it clear.</p>
+
+        <h3>Tools &amp; interests</h3>
+        <div class="stack">
+          <span class="chip">TypeScript / React</span>
+          <span class="chip">Node.js / Supabase</span>
+          <span class="chip">Rust</span>
+          <span class="chip">Swift / Kotlin</span>
+          <span class="chip">Solidity / Bitcoin</span>
+          <span class="chip">AI &amp; LLMs</span>
+          <span class="chip">Python</span>
+          <span class="chip">Fiction</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="section__num">→</span>
+        <h2 class="section__title">Get in touch</h2>
+      </div>
+      <p class="hero__lede">Open to collaboration, freelance work, and conversations about lending, AI, or fiction.</p>
+      <div class="contact__links">
+        <a class="btn btn--primary" href="mailto:mattjhagen0@gmail.com">Email me</a>
+        <a class="btn" href="https://github.com/Mattjhagen" target="_blank" rel="noopener">GitHub</a>
+        <a class="btn" href="https://x.com/hagen_matt30623" target="_blank" rel="noopener">X / Twitter</a>
+        <a class="btn" href="https://www.p3lending.space" target="_blank" rel="noopener">P3 Lending</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <span>© <span id="yr"></span> Matt Hagen</span>
+      <span>github.com/Mattjhagen</span>
+    </div>
+  </footer>
+
+  <script>document.getElementById("yr").textContent = new Date().getFullYear();</script>
+  <script src="js/main.js"></script>
+</body>
+</html>

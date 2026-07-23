@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Work — Matt Hagen</title>
+  <meta name="description" content="Software projects by Matt Hagen — P3 Lending, Archon IDE, Idswyft, Mesh Messenger, TapCard, and more." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A0E14'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='16' fill='%234DD6C1' text-anchor='middle'%3Emh%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav__inner">
+      <a class="nav__brand" href="index.html">matt<span>.</span>hagen</a>
+      <button class="nav__toggle" aria-label="Menu" aria-expanded="false">≡</button>
+      <ul class="nav__links">
+        <li><a href="index.html">home</a></li>
+        <li><a href="resume.html">resume</a></li>
+        <li><a href="work.html" aria-current="page">work</a></li>
+        <li><a href="writing.html">writing</a></li>
+        <li><a href="about.html">about</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <header class="hero" style="padding-bottom:1rem">
+    <div class="wrap">
+      <p class="eyebrow">Software</p>
+      <h1>Selected <em>work</em>.</h1>
+      <p class="hero__lede">A slice of 255 public repositories — fintech, AI tooling, identity, mesh networking, and mobile. Everything below links to real code.</p>
+    </div>
+  </header>
+
+  <section class="section" style="border-top:none">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="section__num">01</span>
+        <h2 class="section__title">Flagship</h2>
+      </div>
+      <div class="grid">
+        <article class="card reveal" style="grid-column: 1 / -1">
+          <span class="card__tag">Fintech · TypeScript · Solidity</span>
+          <h3 class="card__title">P3 Lending Protocol</h3>
+          <p class="card__desc">A decentralized peer-to-peer lending marketplace that replaces FICO with AI reputation scoring and social underwriting — credit based on character, not history. React/TypeScript + Vite frontend, Netlify Functions, Supabase (PostgreSQL) with RLS, Solidity contracts, Stripe repayments, OAuth and passwordless auth, admin PWA push notifications, AI support chat, audit logging, and Playwright/Vitest test suites.</p>
+          <div class="card__links">
+            <a href="https://www.p3lending.space" target="_blank" rel="noopener">Live →</a>
+            <a href="https://github.com/Mattjhagen/P3-Lending-Protocol" target="_blank" rel="noopener">Source →</a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="section__num">02</span>
+        <h2 class="section__title">Projects</h2>
+      </div>
+      <div class="grid">
+        <article class="card reveal">
+          <span class="card__tag">AI tooling · Rust + React</span>
+          <h3 class="card__title">Archon IDE</h3>
+          <p class="card__desc">A local-first AI coding assistant with a Tauri-like architecture: an actix-web Rust backend serving a React/TypeScript frontend. Monaco editor, PTY terminal via xterm.js, git2-powered version control, and multi-provider AI chat (OpenAI, Anthropic, Ollama) over WebSockets.</p>
+          <div class="card__links">
+            <a href="https://github.com/Mattjhagen/archon-ide" target="_blank" rel="noopener">Source →</a>
+          </div>
+        </article>
+
+        <article class="card reveal">
+          <span class="card__tag">Identity · Node/TS · ML</span>
+          <h3 class="card__title">Idswyft</h3>
+          <p class="card__desc">Open-source, self-hosted identity verification: document OCR for IDs from 19 countries, PDF417/MRZ parsing with cross-validation, liveness detection with anti-spoof scoring, and face matching. REST API + JS SDK, webhooks with retries, GDPR/CCPA-minded design, one-command Docker deploy.</p>
+          <div class="card__links">
+            <a href="https://github.com/Mattjhagen/idswyft" target="_blank" rel="noopener">Source →</a>
+          </div>
+        </article>
+
+        <article class="card reveal">
+          <span class="card__tag">Networking · TypeScript</span>
+          <h3 class="card__title">Mesh Messenger</h3>
+          <p class="card__desc">Peer-to-peer mesh messaging over Bluetooth — messages hop between nearby nodes with no mobile data, Wi-Fi, or central servers, end-to-end encrypted. Built with React Native, BLE, WebRTC, and local-first storage. MIT licensed.</p>
+          <div class="card__links">
+            <a href="https://github.com/Mattjhagen/mesh-messenger" target="_blank" rel="noopener">Source →</a>
+          </div>
+        </article>
+
+        <article class="card reveal">
+          <span class="card__tag">Mobile · Swift + Kotlin</span>
+          <h3 class="card__title">TapCard</h3>
+          <p class="card__desc">A digital identity platform for Android and iOS: share contact and identity details with an NFC tap. Native Android NFC read/write, SwiftUI iOS reader, Supabase backend, Firebase Crashlytics/Analytics, and a web profile platform.</p>
+          <div class="card__links">
+            <a href="https://github.com/Mattjhagen/TapCard" target="_blank" rel="noopener">Source →</a>
+          </div>
+        </article>
+
+        <article class="card reveal">
+          <span class="card__tag">Mobile · React Native</span>
+          <h3 class="card__title">Rooted Daily</h3>
+          <p class="card__desc">A devotional platform with the full KJV Bible offline — 31,000+ verses in SQLite — dual 365-day reading plans, progress tracking, and AI-assisted reflective journaling. React Native/Expo, TypeScript, Zustand, Supabase.</p>
+          <div class="card__links">
+            <a href="https://github.com/Mattjhagen/Rooted_Daily" target="_blank" rel="noopener">Source →</a>
+          </div>
+        </article>
+
+        <article class="card reveal">
+          <span class="card__tag">E-commerce · Node.js</span>
+          <h3 class="card__title">PacMac Mobile</h3>
+          <p class="card__desc">A production e-commerce platform for mobile devices: catalog, cart, and Stripe checkout, plus Phobio trade-in valuations, Progressive Leasing lease-to-own, Nomad Internet service, and SendGrid order emails. Node.js/Express backend, deployed on Vercel.</p>
+          <div class="card__links">
+            <a href="https://packie-ai.vercel.app" target="_blank" rel="noopener">Live →</a>
+            <a href="https://github.com/Mattjhagen/PackieAI" target="_blank" rel="noopener">Source →</a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="section__num">03</span>
+        <h2 class="section__title">And more</h2>
+      </div>
+      <div class="grid">
+        <article class="card reveal">
+          <span class="card__tag">Web studio · HTML/CSS/JS</span>
+          <h3 class="card__title">PurePulse</h3>
+          <p class="card__desc">"Your website, built right." Clean, fast, professional websites for small businesses — including live client work like Schmidt Construction.</p>
+          <div class="card__links">
+            <a href="https://github.com/Mattjhagen/PurePulse" target="_blank" rel="noopener">Source →</a>
+          </div>
+        </article>
+
+        <article class="card reveal">
+          <span class="card__tag">This site · Static</span>
+          <h3 class="card__title">mattjhagen.xyz</h3>
+          <p class="card__desc">This portfolio — hand-written HTML/CSS/JS, no framework, no build step. Dark techy theme with a typed-terminal hero, deployed on GitHub Pages with a custom domain.</p>
+          <div class="card__links">
+            <a href="https://github.com/Mattjhagen/mattjhagen-portfolio" target="_blank" rel="noopener">Source →</a>
+          </div>
+        </article>
+
+        <article class="card reveal">
+          <span class="card__tag">Everything else</span>
+          <h3 class="card__title">~250 more repos</h3>
+          <p class="card__desc">iOS and Android apps, Bitcoin CLIs, LLM experiments, scrapers, civic tools, and whatever got built last weekend. The commit log tells the story.</p>
+          <div class="card__links">
+            <a href="https://github.com/Mattjhagen?tab=repositories" target="_blank" rel="noopener">Browse GitHub →</a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <span>© <span id="yr"></span> Matt Hagen</span>
+      <span>github.com/Mattjhagen</span>
+    </div>
+  </footer>
+
+  <script>document.getElementById("yr").textContent = new Date().getFullYear();</script>
+  <script src="js/main.js"></script>
+</body>
+</html>

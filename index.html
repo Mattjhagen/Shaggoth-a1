@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Matt Hagen — Founder, Developer & Writer</title>
+  <meta name="description" content="Matt Hagen — founder of P3 Labs and PacMac Mobile, full-stack developer with 255 public repos, and author. Omaha, Nebraska." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A0E14'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='16' fill='%234DD6C1' text-anchor='middle'%3Emh%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav__inner">
+      <a class="nav__brand" href="index.html">matt<span>.</span>hagen</a>
+      <button class="nav__toggle" aria-label="Menu" aria-expanded="false">≡</button>
+      <ul class="nav__links">
+        <li><a href="index.html" aria-current="page">home</a></li>
+        <li><a href="resume.html">resume</a></li>
+        <li><a href="work.html">work</a></li>
+        <li><a href="writing.html">writing</a></li>
+        <li><a href="about.html">about</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="wrap">
+      <p class="eyebrow">Founder · Developer · Writer</p>
+      <h1>I build <em>products</em> and write <em>stories</em>.</h1>
+      <p class="hero__lede">Founder of P3 Labs and PacMac Mobile in Omaha, Nebraska. I ship across the stack — fintech, AI tooling, identity, mobile — and I'm finishing a novel. 255 public repos say I don't sit still.</p>
+
+      <div class="terminal">
+        <div class="terminal__bar">
+          <span class="dot dot--r"></span><span class="dot dot--y"></span><span class="dot dot--g"></span>
+          <span class="terminal__title">matt@hagen: ~/portfolio</span>
+        </div>
+        <div class="terminal__body" data-typed='[
+          "<span class=&quot;terminal__prompt&quot;>$</span> whoami",
+          "<span class=&quot;s&quot;>matt hagen</span> <span class=&quot;c&quot;>— founder · full-stack dev · author</span>",
+          "<span class=&quot;terminal__prompt&quot;>$</span> cat ~/.location",
+          "<span class=&quot;k&quot;>Omaha, Nebraska, USA</span>",
+          "<span class=&quot;terminal__prompt&quot;>$</span> gh repo list --json name | jq length",
+          "<span class=&quot;s&quot;>255</span>",
+          "<span class=&quot;terminal__prompt&quot;>$</span> cat status.txt",
+          "<span class=&quot;c&quot;>// credit based on character, not history</span><span class=&quot;cursor&quot;></span>"
+        ]'>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="section__num">01</span>
+        <h2 class="section__title">Featured builds</h2>
+      </div>
+      <div class="grid">
+        <article class="card reveal">
+          <span class="card__tag">Fintech · Flagship</span>
+          <h3 class="card__title">P3 Lending Protocol</h3>
+          <p class="card__desc">Decentralized P2P lending powered by AI reputation scoring and social underwriting. React/TypeScript, Supabase, Solidity, Stripe.</p>
+          <div class="card__links">
+            <a href="https://www.p3lending.space" target="_blank" rel="noopener">Live →</a>
+            <a href="https://github.com/Mattjhagen/P3-Lending-Protocol" target="_blank" rel="noopener">Source →</a>
+          </div>
+        </article>
+        <article class="card reveal">
+          <span class="card__tag">AI tooling · Rust</span>
+          <h3 class="card__title">Archon IDE</h3>
+          <p class="card__desc">A local-first AI coding assistant — Rust backend, React frontend, Monaco editor, PTY terminal, and multi-provider AI chat.</p>
+          <div class="card__links">
+            <a href="https://github.com/Mattjhagen/archon-ide" target="_blank" rel="noopener">Source →</a>
+          </div>
+        </article>
+        <article class="card reveal">
+          <span class="card__tag">Identity · Open source</span>
+          <h3 class="card__title">Idswyft</h3>
+          <p class="card__desc">Self-hosted identity verification: document OCR, liveness detection, and face matching behind a developer-friendly API.</p>
+          <div class="card__links">
+            <a href="https://github.com/Mattjhagen/idswyft" target="_blank" rel="noopener">Source →</a>
+          </div>
+        </article>
+      </div>
+      <div class="contact__links" style="margin-top:2rem">
+        <a class="btn" href="work.html">All work →</a>
+        <a class="btn btn--primary" href="resume.html">View résumé →</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="section__num">02</span>
+        <h2 class="section__title">By the numbers</h2>
+      </div>
+      <div class="stats reveal">
+        <div class="stat"><div class="stat__num">255</div><div class="stat__label">public repositories</div></div>
+        <div class="stat"><div class="stat__num">2</div><div class="stat__label">companies founded</div></div>
+        <div class="stat"><div class="stat__num">9+</div><div class="stat__label">languages shipped in</div></div>
+        <div class="stat"><div class="stat__num">1</div><div class="stat__label">novel in production</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="section__num">03</span>
+        <h2 class="section__title">Two tracks</h2>
+      </div>
+      <div class="grid">
+        <article class="card reveal">
+          <span class="card__tag">Software</span>
+          <h3 class="card__title">Code &amp; projects</h3>
+          <p class="card__desc">Fintech, AI tools, identity, mesh networking, and mobile apps. Built to work, documented to last.</p>
+          <div class="card__links"><a href="work.html">View work →</a></div>
+        </article>
+        <article class="card reveal">
+          <span class="card__tag">Fiction</span>
+          <h3 class="card__title">Books &amp; writing</h3>
+          <p class="card__desc">Long-form fiction, including the psychological thriller <em>The Gentle Conquest</em>.</p>
+          <div class="card__links"><a href="writing.html">Read more →</a></div>
+        </article>
+        <article class="card reveal">
+          <span class="card__tag">Contact</span>
+          <h3 class="card__title">Get in touch</h3>
+          <p class="card__desc">Open to collaboration, freelance, and conversations about either craft.</p>
+          <div class="card__links"><a href="about.html">About &amp; contact →</a></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="section__num">04</span>
+        <h2 class="section__title">Latest</h2>
+      </div>
+      <div class="embed reveal">
+        <iframe
+          src="https://www.facebook.com/plugins/post.php?href=https%3A%2F%2Fwww.facebook.com%2Fmattjhagen%2Fposts%2Fpfbid0HY1smfkk3E8z1JtXRfQmPJXnBEuAin6bahsJJYeEtLzz42VvgiUA89y1DzCPgphwl&show_text=true&width=500"
+          width="500" height="570"
+          style="border:none;overflow:hidden" scrolling="no" frameborder="0"
+          allowfullscreen="true"
+          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+          title="Facebook post by Matt Hagen"
+          loading="lazy"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <span>© <span id="yr"></span> Matt Hagen</span>
+      <span>github.com/Mattjhagen</span>
+    </div>
+  </footer>
+
+  <script>document.getElementById("yr").textContent = new Date().getFullYear();</script>
+  <script src="js/main.js"></script>
+</body>
+</html>

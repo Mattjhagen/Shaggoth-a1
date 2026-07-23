@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Résumé — Matt Hagen</title>
+  <meta name="description" content="Résumé of Matt Hagen — founder of P3 Labs and PacMac Mobile, full-stack developer, and author. Omaha, Nebraska." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A0E14'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='16' fill='%234DD6C1' text-anchor='middle'%3Emh%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav__inner">
+      <a class="nav__brand" href="index.html">matt<span>.</span>hagen</a>
+      <button class="nav__toggle" aria-label="Menu" aria-expanded="false">≡</button>
+      <ul class="nav__links">
+        <li><a href="index.html">home</a></li>
+        <li><a href="resume.html" aria-current="page">resume</a></li>
+        <li><a href="work.html">work</a></li>
+        <li><a href="writing.html">writing</a></li>
+        <li><a href="about.html">about</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <header class="hero" style="padding-bottom:1rem">
+    <div class="wrap">
+      <p class="eyebrow">Résumé</p>
+      <h1>Matt <em>Hagen</em></h1>
+      <p class="hero__lede">Founder &amp; full-stack developer — Omaha, Nebraska. I ship products across web, mobile, AI, and payments: 255 public repositories and counting.</p>
+      <div class="contact__links no-print">
+        <a class="btn btn--primary" href="mailto:mattjhagen0@gmail.com">Email me</a>
+        <a class="btn" href="https://github.com/Mattjhagen" target="_blank" rel="noopener">GitHub</a>
+        <a class="btn" href="https://www.p3lending.space" target="_blank" rel="noopener">p3lending.space</a>
+        <a class="btn" href="#" onclick="window.print();return false;">Print / PDF</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="section" style="border-top:none">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="section__num">01</span>
+        <h2 class="section__title">Experience</h2>
+      </div>
+      <div class="rz reveal">
+        <div class="rz__item">
+          <h3 class="rz__role">Founder</h3>
+          <p class="rz__org">P3 Labs — <a href="https://www.p3lending.space" target="_blank" rel="noopener">p3lending.space</a></p>
+          <p class="rz__desc">Building P3, a decentralized peer-to-peer lending protocol powered by AI reputation scoring and social underwriting — credit based on character, not history.</p>
+          <ul>
+            <li>Designed and built the full platform: React/TypeScript + Vite frontend, Netlify Functions backend, Supabase (PostgreSQL) with row-level security, and Solidity smart contracts.</li>
+            <li>Shipped Stripe-powered loan repayments, Google/Apple OAuth and passwordless auth, an admin PWA with push notifications, AI-assisted support chat, and a public status dashboard.</li>
+            <li>Hardened for compliance with audit logging, RLS test suites, Playwright end-to-end tests, and Docker deployment.</li>
+          </ul>
+        </div>
+        <div class="rz__item">
+          <h3 class="rz__role">Founder</h3>
+          <p class="rz__org">PacMac Mobile LLC</p>
+          <p class="rz__desc">A production e-commerce platform for mobile devices, trade-ins, leasing, and internet service.</p>
+          <ul>
+            <li>Built the storefront and Node.js/Express backend with Stripe checkout and SendGrid transactional email.</li>
+            <li>Integrated Phobio device trade-in valuations, Progressive Leasing lease-to-own financing, and Nomad Internet service partnerships.</li>
+          </ul>
+        </div>
+        <div class="rz__item">
+          <h3 class="rz__role">Open-source builder</h3>
+          <p class="rz__org">github.com/Mattjhagen — 255 public repos</p>
+          <p class="rz__desc">A steady output of tools, apps, and experiments across the stack — from a Rust-based AI IDE to an identity-verification platform to Bluetooth mesh messaging. Highlights on the <a href="work.html">work page</a>.</p>
+        </div>
+        <div class="rz__item">
+          <h3 class="rz__role">Author</h3>
+          <p class="rz__org">The Gentle Conquest — psychological thriller</p>
+          <p class="rz__desc">Full-length novel (prologue, 35 chapters, epilogue). Manuscript complete through editorial audit and revision; EPUB/PDF build system done, headed for publication. More on the <a href="writing.html">writing page</a>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="section__num">02</span>
+        <h2 class="section__title">Skills</h2>
+      </div>
+      <div class="skillgroups reveal">
+        <div class="skillgroup">
+          <h3>Languages</h3>
+          <div class="stack" style="margin-top:0">
+            <span class="chip">TypeScript</span><span class="chip">JavaScript</span><span class="chip">Python</span><span class="chip">Swift</span><span class="chip">Kotlin</span><span class="chip">Rust</span><span class="chip">Solidity</span><span class="chip">SQL</span><span class="chip">Shell</span>
+          </div>
+        </div>
+        <div class="skillgroup">
+          <h3>Frontend</h3>
+          <div class="stack" style="margin-top:0">
+            <span class="chip">React</span><span class="chip">React Native / Expo</span><span class="chip">Vite</span><span class="chip">Tailwind CSS</span><span class="chip">Monaco Editor</span><span class="chip">xterm.js</span>
+          </div>
+        </div>
+        <div class="skillgroup">
+          <h3>Backend &amp; data</h3>
+          <div class="stack" style="margin-top:0">
+            <span class="chip">Node.js / Express</span><span class="chip">Supabase</span><span class="chip">PostgreSQL</span><span class="chip">SQLite</span><span class="chip">Netlify Functions</span><span class="chip">actix-web (Rust)</span>
+          </div>
+        </div>
+        <div class="skillgroup">
+          <h3>AI &amp; ML</h3>
+          <div class="stack" style="margin-top:0">
+            <span class="chip">OpenAI / Anthropic APIs</span><span class="chip">Ollama / local LLMs</span><span class="chip">OCR (PaddleOCR)</span><span class="chip">TensorFlow</span><span class="chip">ONNX Runtime</span>
+          </div>
+        </div>
+        <div class="skillgroup">
+          <h3>Mobile &amp; connectivity</h3>
+          <div class="stack" style="margin-top:0">
+            <span class="chip">iOS (SwiftUI)</span><span class="chip">Android</span><span class="chip">NFC</span><span class="chip">Bluetooth LE mesh</span><span class="chip">WebRTC</span><span class="chip">WebSockets</span>
+          </div>
+        </div>
+        <div class="skillgroup">
+          <h3>Payments, Web3 &amp; infra</h3>
+          <div class="stack" style="margin-top:0">
+            <span class="chip">Stripe</span><span class="chip">Smart contracts</span><span class="chip">Bitcoin tooling</span><span class="chip">Docker</span><span class="chip">Netlify / Vercel / Cloudflare</span><span class="chip">Git / GitHub</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="section__num">03</span>
+        <h2 class="section__title">GitHub at a glance</h2>
+      </div>
+      <div class="stats reveal">
+        <div class="stat"><div class="stat__num">255</div><div class="stat__label">public repositories</div></div>
+        <div class="stat"><div class="stat__num">2015</div><div class="stat__label">on GitHub since</div></div>
+        <div class="stat"><div class="stat__num">9+</div><div class="stat__label">languages shipped in</div></div>
+        <div class="stat"><div class="stat__num">6</div><div class="stat__label">achievement badges</div></div>
+      </div>
+      <p class="card__note" style="margin-top:1.25rem">// badges: Pull Shark ×2 · Pair Extraordinaire ×2 · Quickdraw · YOLO</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="section__num">→</span>
+        <h2 class="section__title">Contact</h2>
+      </div>
+      <p class="hero__lede">Open to collaboration, freelance work, and conversations about lending, AI, or fiction.</p>
+      <div class="contact__links">
+        <a class="btn btn--primary" href="mailto:mattjhagen0@gmail.com">mattjhagen0@gmail.com</a>
+        <a class="btn" href="https://github.com/Mattjhagen" target="_blank" rel="noopener">github.com/Mattjhagen</a>
+        <a class="btn" href="https://x.com/hagen_matt30623" target="_blank" rel="noopener">@hagen_matt30623</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <span>© <span id="yr"></span> Matt Hagen</span>
+      <span>github.com/Mattjhagen</span>
+    </div>
+  </footer>
+
+  <script>document.getElementById("yr").textContent = new Date().getFullYear();</script>
+  <script src="js/main.js"></script>
+</body>
+</html>

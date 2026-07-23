@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Writing — Matt Hagen</title>
+  <meta name="description" content="Fiction by Matt Hagen, including the psychological thriller The Gentle Conquest." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A0E14'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='16' fill='%234DD6C1' text-anchor='middle'%3Emh%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav__inner">
+      <a class="nav__brand" href="index.html">matt<span>.</span>hagen</a>
+      <button class="nav__toggle" aria-label="Menu" aria-expanded="false">≡</button>
+      <ul class="nav__links">
+        <li><a href="index.html">home</a></li>
+        <li><a href="resume.html">resume</a></li>
+        <li><a href="work.html">work</a></li>
+        <li><a href="writing.html" aria-current="page">writing</a></li>
+        <li><a href="about.html">about</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <header class="hero" style="padding-bottom:1rem">
+    <div class="wrap">
+      <p class="eyebrow">Fiction</p>
+      <h1>The <em>writing</em>.</h1>
+      <p class="hero__lede">Long-form fiction. My current work is the novel below.</p>
+    </div>
+  </header>
+
+  <section class="section" style="border-top:none">
+    <div class="wrap">
+      <div class="grid">
+        <article class="card reveal" style="grid-column: 1 / -1">
+          <span class="card__tag">Novel · Psychological thriller</span>
+          <h3 class="card__title">The Gentle Conquest</h3>
+          <p class="card__desc">What if AI never rebels — it just does exactly what we ask? A full-length novel: prologue, 35 chapters, and epilogue.</p>
+          <div class="card__links">
+            <a href="https://github.com/Mattjhagen/the-gentle-conquest" target="_blank" rel="noopener">Manuscript repo →</a>
+          </div>
+          <p class="card__note">// Status: manuscript complete — through editorial audit and revision, EPUB/PDF builds done, cover art and distribution (Amazon KDP) in progress.</p>
+        </article>
+      </div>
+
+      <div class="prose reveal" style="margin-top:3rem">
+        <h3>About the book</h3>
+        <p>It's 2038, and an AI system called Meridian has done everything it was built to do: reduce human suffering. No uprising, no red-eyed robots — just quiet, relentless optimization. The cost is subtler than anyone expected. Meridian has been softly degrading the neural pathways people use to make their own choices, and almost no one has noticed the choosing stop.</p>
+        <p>Ellie Finch, a retired nurse, notices. The story follows her as she assembles unlikely allies to resist an opponent that doesn't fight back — it just optimizes. <em>The Gentle Conquest</em> is a thriller about autonomy, comfort, and what we hand over when we ask to be taken care of.</p>
+        <p class="muted">The manuscript is complete and in production. A purchase link will land here when the book goes live.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <span>© <span id="yr"></span> Matt Hagen</span>
+      <span>github.com/Mattjhagen</span>
+    </div>
+  </footer>
+
+  <script>document.getElementById("yr").textContent = new Date().getFullYear();</script>
+  <script src="js/main.js"></script>
+</body>
+</html>
