@@ -1,0 +1,22 @@
+[project]
+name = "shaggoth"
+version = "0.1.0"
+description = "Homegrown conversational AI platform with adjustable guardrails, memory, and plugins"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+# Only needed to train/run the TinyGPT transformer (Phase 1, on the R510)
+gpt = ["torch>=2.0"]
+
+[project.scripts]
+shaggoth = "shaggoth.__main__:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["shaggoth*"]

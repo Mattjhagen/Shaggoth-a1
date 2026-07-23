@@ -1,0 +1,30 @@
+Artificial intelligence began as a question about machines and thinking.
+Alan Turing asked whether a machine could imitate a human in conversation.
+The Turing test measures whether a machine can hold a convincing conversation.
+Early programs like ELIZA used simple patterns to reflect what people said.
+ELIZA showed that even simple pattern matching can feel surprisingly human.
+Language models predict the next word from the words that came before.
+A Markov chain predicts the next word using only the most recent words.
+Transformers use attention to look at every word in the context at once.
+Attention lets a model decide which earlier words matter for the next word.
+Training a model means showing it text and adjusting its weights to reduce error.
+Small models can learn the rhythm of language from a tiny corpus.
+A larger corpus and more parameters give a model more fluent language.
+Guardrails keep a model helpful by filtering harmful requests and outputs.
+Good guardrails are adjustable so their owner can tune what is allowed.
+Memory lets a chatbot connect today's conversation with earlier ones.
+A chatbot with memory can bring up topics you mentioned before.
+The homelab server trains the model at night when nobody is using it.
+The Dell R510 is an older server but it still trains small models fine.
+Tailscale connects machines into a private network that feels local.
+Open source tools make it possible to build your own AI from scratch.
+Building your own model teaches you more than using someone else's API.
+Start small, make it work, then scale it up one piece at a time.
+A base platform grows through plugins that add new features over time.
+Every feature should be a plugin so the core stays small and readable.
+The mobile app will talk to the same API that the command line uses.
+Conversations are stored in a database so nothing is forgotten.
+The model improves every time it trains on a bigger corpus.
+Ask good questions and listen carefully to the answers.
+Curiosity is the engine of every good project.
+Machines learn patterns, but people choose what the patterns are for.

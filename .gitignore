@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Runtime artifacts
+data/*.db
+data/*.db-journal
+var/
+*.ckpt
+*.pt
+markov_model.json
