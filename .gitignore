@@ -1,0 +1,51 @@
+# Dependencies
+.build/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+*.xcuserstate
+*.moved-aside
+
+# XcodeGen
+*.xcodeproj
+
+# Config
+Config/Config.xcconfig
+
+# Reference (read-only, not part of app)
+.reference/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Swift Package Manager
+.build/
+Packages/
+Package.pins
+Package.resolved
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Archives
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Secrets
+*.p12
+*.mobileprovision
+*.cer
+
+# CocoaPods
+Pods/
