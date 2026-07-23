@@ -304,6 +304,7 @@ body::after {
 .rz__org::before { content: "@ "; color: var(--fog); }
 .rz__desc { color: var(--fog); font-size: .9rem; }
 .rz__desc a { color: var(--signal); }
+.rz__org a { color: var(--signal); }
 .rz ul { margin: .6rem 0 0 1.1rem; color: var(--fog); font-size: .9rem; list-style: none; }
 .rz ul li { margin-bottom: .35rem; position: relative; }
 .rz ul li::before { content: "▸"; color: var(--signal); position: absolute; left: -1.1rem; }
