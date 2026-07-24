@@ -11,7 +11,11 @@ struct BuildScreenView: View {
     @FocusState private var isAgentFocused: Bool
     @State private var showDeployOptions = false
     @State private var inputText = ""
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) var dismiss: DismissAction
+
+    init(viewModel: BuilderViewModel) {
+        self.viewModel = viewModel
+    }
 
     enum BuildTab: String, CaseIterable {
         case preview

@@ -4,7 +4,13 @@ struct DeployOptionsView: View {
     let projectName: String
     let projectDescription: String?
     let onDeploy: (DeployPlatform) -> Void
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) var dismiss: DismissAction
+
+    init(projectName: String, projectDescription: String?, onDeploy: @escaping (DeployPlatform) -> Void) {
+        self.projectName = projectName
+        self.projectDescription = projectDescription
+        self.onDeploy = onDeploy
+    }
 
     enum DeployPlatform: String, CaseIterable, Identifiable {
         case fly

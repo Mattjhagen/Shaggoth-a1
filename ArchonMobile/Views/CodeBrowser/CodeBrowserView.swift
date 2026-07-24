@@ -5,7 +5,7 @@ struct CodeBrowserView: View {
     var onProjectSelected: (ArchonProject) -> Void = { _ in }
     var onShowBuilder: () -> Void = {}
     @StateObject private var viewModel = CodeBrowserViewModel()
-    @Environment(\.horizontalSizeClass) var hSizeClass
+    @Environment(\.horizontalSizeClass) var hSizeClass: UserInterfaceSizeClass?
     @EnvironmentObject var authManager: AuthManager
     @State private var selectedCodeTab: CodeTab = .code
     @State private var showFileExplorer = false
@@ -13,6 +13,14 @@ struct CodeBrowserView: View {
     @State private var availableProjects: [ArchonProject] = []
     @State private var isLoadingProjects = false
     private let projectsClient: ProjectsClientProtocol = SupabaseProjectsClient()
+
+    init(project: ArchonProject?,
+         onProjectSelected: @escaping (ArchonProject) -> Void = { _ in },
+         onShowBuilder: @escaping () -> Void = {}) {
+        self.project = project
+        self.onProjectSelected = onProjectSelected
+        self.onShowBuilder = onShowBuilder
+    }
 
     enum CodeTab: String, CaseIterable {
         case code
