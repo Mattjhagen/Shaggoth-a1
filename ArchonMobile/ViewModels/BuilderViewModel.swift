@@ -347,6 +347,16 @@ final class BuilderViewModel: ObservableObject {
             provider.models.map { (providerId: provider.id, modelId: $0.id) }
         }.filter {
             $0.providerId != initialProviderId || $0.modelId != initialModelId
+        }.sorted {
+            // Prefer another model on the same provider before handing the
+            // conversation to a different service. This keeps free/local
+            // OpenCode fallback models ahead of metered cloud providers.
+            let lhsSameProvider = $0.providerId == initialProviderId
+            let rhsSameProvider = $1.providerId == initialProviderId
+            if lhsSameProvider != rhsSameProvider {
+                return lhsSameProvider
+            }
+            return false
         }
         let candidates = [initial] + alternatives
         var lastError: Error?
