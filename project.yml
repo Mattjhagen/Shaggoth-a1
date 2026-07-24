@@ -28,6 +28,7 @@ targets:
           - CFBundleURLSchemes:
               - archon
               - com.archonmobile.auth
+              - com.matthagen.archon
         ITSAppUsesNonExemptEncryption: false
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
