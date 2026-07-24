@@ -470,7 +470,7 @@ struct CodeBrowserView: View {
             Spacer()
 
             Button("Save") {
-                viewModel.saveEdits()
+                Task { await viewModel.saveEdits() }
             }
             .font(.system(.subheadline, design: .rounded).weight(.semibold))
             .foregroundStyle(DesignSystem.Colors.accent)

@@ -92,18 +92,16 @@ final class CodeBrowserViewModel: ObservableObject {
         isEditing = true
     }
 
-    func saveEdits() {
+    func saveEdits() async {
         guard let file = selectedFile else { return }
         let newContent = editingContent
-        Task {
-            do {
-                let updated = try await filesClient.updateFile(id: file.id, content: newContent)
-                updateFileContent(id: updated.id, newContent: updated.content, updatedAt: updated.updatedAt)
-                isEditing = false
-                errorMessage = nil
-            } catch {
-                errorMessage = "Could not save file: \(error.localizedDescription)"
-            }
+        do {
+            let updated = try await filesClient.updateFile(id: file.id, content: newContent)
+            updateFileContent(id: updated.id, newContent: updated.content, updatedAt: updated.updatedAt)
+            isEditing = false
+            errorMessage = nil
+        } catch {
+            errorMessage = "Could not save file: \(error.localizedDescription)"
         }
     }
 

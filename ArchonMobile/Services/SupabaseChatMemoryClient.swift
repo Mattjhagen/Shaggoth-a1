@@ -14,7 +14,12 @@ protocol ChatMemoryClientProtocol {
 
 protocol ChatSessionMemoryClientProtocol: ChatMemoryClientProtocol {
     func fetchSessions() async throws -> [ChatSession]
-    func createSession(title: String, providerId: String?, modelId: String?) async throws -> ChatSession
+    func createSession(
+        title: String,
+        providerId: String?,
+        modelId: String?,
+        projectId: String?
+    ) async throws -> ChatSession
     func fetchMessages(sessionId: UUID, limit: Int) async throws -> [ChatMessage]
     func fetchCrossSessionMemory(excluding sessionId: UUID, limit: Int) async throws -> [ChatMessage]
     func saveMessage(
@@ -31,11 +36,13 @@ struct ChatSession: Identifiable, Equatable, Codable {
     let title: String
     let provider: String?
     let model: String?
+    let projectId: UUID?
     let createdAt: Date
     let updatedAt: Date
 
     enum CodingKeys: String, CodingKey {
         case id, title, provider, model
+        case projectId = "project_id"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
@@ -82,7 +89,12 @@ final class SupabaseChatMemoryClient: ChatSessionMemoryClientProtocol {
         }
     }
 
-    func createSession(title: String, providerId: String?, modelId: String?) async throws -> ChatSession {
+    func createSession(
+        title: String,
+        providerId: String?,
+        modelId: String?,
+        projectId: String?
+    ) async throws -> ChatSession {
         guard let user = client.auth.currentUser else {
             throw APIError(message: "You must be signed in to create a conversation.", code: 401)
         }
@@ -93,7 +105,8 @@ final class SupabaseChatMemoryClient: ChatSessionMemoryClientProtocol {
                 userId: user.id,
                 title: String(title.prefix(80)),
                 provider: providerId,
-                model: modelId
+                model: modelId,
+                projectId: projectId.flatMap(UUID.init(uuidString:))
             ))
             .select()
             .execute()
@@ -274,10 +287,12 @@ private struct ChatSessionInsertPayload: Encodable {
     let title: String
     let provider: String?
     let model: String?
+    let projectId: UUID?
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case title, provider, model
+        case projectId = "project_id"
     }
 }
 

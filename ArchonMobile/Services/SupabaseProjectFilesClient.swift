@@ -13,6 +13,7 @@ protocol ProjectFilesClientProtocol {
     func fetchFiles(projectId: String) async throws -> [CloudProjectFile]
     func createStarterFiles(projectId: String) async throws -> [CloudProjectFile]
     func updateFile(id: UUID, content: String) async throws -> CloudProjectFile
+    func upsertGeneratedFiles(_ files: [GeneratedProjectFile], projectId: String) async throws
 }
 
 final class SupabaseProjectFilesClient: ProjectFilesClientProtocol {
@@ -75,6 +76,29 @@ final class SupabaseProjectFilesClient: ProjectFilesClientProtocol {
             .value
 
         return row.file
+    }
+
+    func upsertGeneratedFiles(_ files: [GeneratedProjectFile], projectId: String) async throws {
+        guard
+            !files.isEmpty,
+            let projectUUID = UUID(uuidString: projectId),
+            let user = client.auth.currentUser
+        else { return }
+
+        let payloads = files.map {
+            ProjectFileInsertPayload(
+                projectId: projectUUID,
+                userId: user.id,
+                path: $0.path,
+                content: $0.content,
+                mimeType: $0.mimeType
+            )
+        }
+
+        try await client
+            .from("project_files")
+            .upsert(payloads, onConflict: "project_id,path")
+            .execute()
     }
 }
 

@@ -4,9 +4,9 @@ import XCTest
 @MainActor
 final class CodeBrowserViewModelTests: XCTestCase {
 
-    func testInitialFileTreeLoaded() {
+    func testInitialFileTreeIsEmptyUntilProjectLoads() {
         let vm = CodeBrowserViewModel()
-        XCTAssertFalse(vm.fileTree.isEmpty, "File tree should load mock data")
+        XCTAssertTrue(vm.fileTree.isEmpty)
     }
 
     func testSelectFile() {
@@ -77,15 +77,16 @@ final class CodeBrowserViewModelTests: XCTestCase {
         XCTAssertEqual(vm.editingContent, file.content)
     }
 
-    func testSaveEdits() {
-        let vm = CodeBrowserViewModel()
+    func testSaveEdits() async {
         let mockTree = FileNode.mock()
         let file = mockTree[0].children![0]
+        let files = TestProjectFilesClient(file: file)
+        let vm = CodeBrowserViewModel(filesClient: files)
 
         vm.selectFile(file)
         vm.startEditing()
         vm.editingContent = "Modified content"
-        vm.saveEdits()
+        await vm.saveEdits()
 
         XCTAssertFalse(vm.isEditing)
         XCTAssertEqual(vm.selectedFile?.content, "Modified content")
@@ -116,6 +117,7 @@ final class CodeBrowserViewModelTests: XCTestCase {
 
     func testSearchFiltering() {
         let vm = CodeBrowserViewModel()
+        vm.fileTree = FileNode.mock()
 
         vm.searchQuery = "README"
         let results = vm.filteredTree
@@ -125,4 +127,27 @@ final class CodeBrowserViewModelTests: XCTestCase {
 
         vm.searchQuery = ""
     }
+}
+
+private final class TestProjectFilesClient: ProjectFilesClientProtocol {
+    private let file: FileNode
+
+    init(file: FileNode) {
+        self.file = file
+    }
+
+    func fetchFiles(projectId: String) async throws -> [CloudProjectFile] { [] }
+    func createStarterFiles(projectId: String) async throws -> [CloudProjectFile] { [] }
+
+    func updateFile(id: UUID, content: String) async throws -> CloudProjectFile {
+        CloudProjectFile(
+            id: file.id,
+            path: file.name,
+            content: content,
+            mimeType: "text/plain",
+            updatedAt: Date()
+        )
+    }
+
+    func upsertGeneratedFiles(_ files: [GeneratedProjectFile], projectId: String) async throws {}
 }

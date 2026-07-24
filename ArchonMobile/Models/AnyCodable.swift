@@ -39,8 +39,12 @@ public struct AnyCodable: Codable {
             try container.encode(boolVal)
         case let stringVal as String:
             try container.encode(stringVal)
+        case let arrayVal as [AnyCodable]:
+            try container.encode(arrayVal)
         case let arrayVal as [Any]:
             try container.encode(arrayVal.map { AnyCodable($0) })
+        case let dictVal as [String: AnyCodable]:
+            try container.encode(dictVal)
         case let dictVal as [String: Any]:
             var encodedDict: [String: AnyCodable] = [:]
             for (k, v) in dictVal { encodedDict[k] = AnyCodable(v) }

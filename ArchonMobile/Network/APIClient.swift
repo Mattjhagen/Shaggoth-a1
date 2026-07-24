@@ -20,7 +20,8 @@ protocol PersistentAIClientProtocol: AIClientProtocol {
         history: [APIMessage],
         model: String,
         provider: String,
-        fallbackModels: [AIFallbackModel]
+        fallbackModels: [AIFallbackModel],
+        projectId: String?
     ) async throws -> PersistentAIJob
     func getPersistentJob(id: String) async throws -> PersistentAIJob
 }
@@ -172,6 +173,7 @@ class AuthenticatedAPIClient: APIClientProtocol, PersistentAIClientProtocol {
             messages: messages,
             model: model,
             provider: provider,
+            projectId: nil,
             maxTokens: 4096,
             temperature: 0.7,
             reasoningEffort: "medium",
@@ -187,7 +189,8 @@ class AuthenticatedAPIClient: APIClientProtocol, PersistentAIClientProtocol {
         history: [APIMessage],
         model: String,
         provider: String,
-        fallbackModels: [AIFallbackModel]
+        fallbackModels: [AIFallbackModel],
+        projectId: String?
     ) async throws -> PersistentAIJob {
         let url = Environment.current.apiBaseURL.appendingPathComponent("ai/jobs")
         var messages = history
@@ -198,6 +201,7 @@ class AuthenticatedAPIClient: APIClientProtocol, PersistentAIClientProtocol {
             messages: messages,
             model: model,
             provider: provider,
+            projectId: projectId,
             maxTokens: 4096,
             temperature: 0.7,
             reasoningEffort: "medium",
