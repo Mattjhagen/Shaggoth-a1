@@ -4,6 +4,8 @@ struct BuilderView: View {
     @StateObject private var viewModel = BuilderViewModel()
     @State private var inputText = ""
     @State private var showModelPicker = false
+    @State private var showBuildScreen = false
+    @FocusState private var isComposerFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -11,21 +13,17 @@ struct BuilderView: View {
                 DesignSystem.Colors.base.ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // Model selector bar
                     modelSelectorBar
                     Divider().overlay(DesignSystem.Colors.borderFaint)
 
-                    // Chat content
                     chatContent
 
-                    // Error banner
                     if let error = viewModel.errorMessage {
                         errorBanner(error)
                     }
 
                     Divider().overlay(DesignSystem.Colors.borderFaint)
 
-                    // Composer
                     composerBar
                 }
             }
@@ -48,6 +46,9 @@ struct BuilderView: View {
             }
             .sheet(isPresented: $showModelPicker) {
                 modelPickerSheet
+            }
+            .fullScreenCover(isPresented: $showBuildScreen) {
+                BuildScreenView(viewModel: viewModel)
             }
             .task {
                 await viewModel.loadInitialState()
@@ -247,6 +248,10 @@ struct BuilderView: View {
                     .font(.system(.body, design: .rounded))
                     .foregroundStyle(DesignSystem.Colors.textPrimary)
                     .lineLimit(1...5)
+                    .focused($isComposerFocused)
+                    .onAppear {
+                        isComposerFocused = true
+                    }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(DesignSystem.Colors.elevated)
@@ -254,19 +259,34 @@ struct BuilderView: View {
 
                 if viewModel.isTaskActive {
                     Button {
-                        Task { await viewModel.cancelActiveTask() }
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            showBuildScreen = true
+                        }
                     } label: {
-                        Image(systemName: "stop.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(DesignSystem.Colors.danger)
+                        HStack(spacing: 6) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 14))
+                            Text("View Build")
+                                .font(.system(.caption, design: .rounded).weight(.semibold))
+                        }
+                        .foregroundStyle(DesignSystem.Colors.base)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(DesignSystem.Colors.accent)
+                        .clipShape(Capsule())
                     }
-                    .accessibilityLabel("Cancel running task")
+                    .accessibilityLabel("View build progress")
                     .dsTouchTarget()
                 } else {
                     Button {
                         let text = inputText
                         inputText = ""
-                        Task { await viewModel.send(message: text) }
+                        Task {
+                            await viewModel.send(message: text)
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                showBuildScreen = true
+                            }
+                        }
                     } label: {
                         if viewModel.isStreaming {
                             ProgressView()

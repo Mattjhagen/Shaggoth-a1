@@ -3,6 +3,27 @@ import SwiftUI
 struct CodeBrowserView: View {
     @StateObject private var viewModel = CodeBrowserViewModel()
     @Environment(\.horizontalSizeClass) private var hSizeClass
+    @EnvironmentObject var authManager: AuthManager
+    @State private var selectedCodeTab: CodeTab = .code
+
+    enum CodeTab: String, CaseIterable {
+        case code
+        case todo
+
+        var label: String {
+            switch self {
+            case .code: return "Code"
+            case .todo: return "Tasks"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .code: return "chevron.left.forwardslash.chevron.right"
+            case .todo: return "checklist"
+            }
+        }
+    }
 
     var body: some View {
         Group {
@@ -139,42 +160,72 @@ struct CodeBrowserView: View {
 
     private var editorColumn: some View {
         VStack(spacing: 0) {
-            if let file = viewModel.selectedFile {
-                // Tab bar
-                if !viewModel.openFiles.isEmpty {
-                    tabBar
-                    Divider().overlay(DesignSystem.Colors.borderFaint)
-                }
+            codeTabBar
+            Divider().background(DesignSystem.Colors.surfaceBorder)
 
-                // Editor content
-                VStack(spacing: 0) {
-                    if viewModel.showPreview && viewModel.isPreviewableFile {
-                        // Split view: code + preview
-                        GeometryReader { geo in
-                            VStack(spacing: 0) {
-                                syntaxEditor
-                                    .frame(height: geo.size.height * 0.55)
-
-                                Divider().overlay(DesignSystem.Colors.borderFaint)
-
-                                PreviewPaneView(htmlContent: file.content ?? "")
-                                    .frame(minHeight: 100)
-                            }
-                        }
-                    } else {
-                        syntaxEditor
-                    }
-                }
-
-                // Save bar for editing mode
-                if viewModel.isEditing {
-                    editBar
-                }
+            if selectedCodeTab == .todo {
+                TodoView(projectId: "current", projectName: "Tasks")
+                    .environmentObject(authManager)
             } else {
-                emptyEditorState
+                if let file = viewModel.selectedFile {
+                    if !viewModel.openFiles.isEmpty {
+                        tabBar
+                        Divider().overlay(DesignSystem.Colors.borderFaint)
+                    }
+
+                    VStack(spacing: 0) {
+                        if viewModel.showPreview && viewModel.isPreviewableFile {
+                            GeometryReader { geo in
+                                VStack(spacing: 0) {
+                                    syntaxEditor
+                                        .frame(height: geo.size.height * 0.55)
+
+                                    Divider().overlay(DesignSystem.Colors.borderFaint)
+
+                                    PreviewPaneView(htmlContent: file.content ?? "")
+                                        .frame(minHeight: 100)
+                                }
+                            }
+                        } else {
+                            syntaxEditor
+                        }
+                    }
+
+                    if viewModel.isEditing {
+                        editBar
+                    }
+                } else {
+                    emptyEditorState
+                }
             }
         }
         .background(DesignSystem.Colors.base)
+    }
+
+    // MARK: - Code/Todo Tab Bar
+
+    private var codeTabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(CodeTab.allCases, id: \.self) { tab in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        selectedCodeTab = tab
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: tab.icon)
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(tab.label)
+                            .font(.system(.caption, design: .rounded).weight(.semibold))
+                    }
+                    .foregroundStyle(selectedCodeTab == tab ? DesignSystem.Colors.accent : DesignSystem.Colors.textMuted)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(DesignSystem.Colors.surface)
     }
 
     private var syntaxEditor: some View {
