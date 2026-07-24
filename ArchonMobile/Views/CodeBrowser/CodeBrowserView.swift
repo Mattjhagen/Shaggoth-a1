@@ -1,8 +1,16 @@
 import SwiftUI
 
 struct CodeBrowserView: View {
+    let project: ArchonProject?
+    var onProjectSelected: (ArchonProject) -> Void = { _ in }
+    var onShowBuilder: () -> Void = {}
     @StateObject private var viewModel = CodeBrowserViewModel()
-    @Environment(\.horizontalSizeClass) private var hSizeClass
+    @State private var showFileExplorer = false
+    @State private var showProjectPicker = false
+    @State private var availableProjects: [ArchonProject] = []
+    @State private var isLoadingProjects = false
+    private let projectsClient: ProjectsClientProtocol = SupabaseProjectsClient()
+    @SwiftUI.Environment(\.horizontalSizeClass) private var hSizeClass
 
     var body: some View {
         Group {
@@ -14,7 +22,25 @@ struct CodeBrowserView: View {
         }
         .environmentObject(viewModel)
         .tint(DesignSystem.Colors.accent)
-        .preferredColorScheme(.dark)
+        .task(id: project?.id) {
+            await loadAvailableProjects()
+            if let project {
+                await viewModel.loadProject(project)
+            } else {
+                viewModel.clearProject()
+            }
+        }
+        .alert("Code Workspace", isPresented: Binding(
+            get: { viewModel.errorMessage != nil },
+            set: { if !$0 { viewModel.errorMessage = nil } }
+        )) {
+            Button("OK") { viewModel.errorMessage = nil }
+        } message: {
+            Text(viewModel.errorMessage ?? "")
+        }
+        .sheet(isPresented: $showProjectPicker) {
+            projectPickerSheet
+        }
     }
 
     // MARK: - iPad Layout
@@ -25,6 +51,11 @@ struct CodeBrowserView: View {
                 .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 340)
         } detail: {
             editorColumn
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        builderButton
+                    }
+                }
         }
         .background(DesignSystem.Colors.base)
     }
@@ -37,8 +68,8 @@ struct CodeBrowserView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        NavigationLink {
-                            fileExplorerSheet
+                        Button {
+                            showFileExplorer = true
                         } label: {
                             Image(systemName: "sidebar.left")
                         }
@@ -47,15 +78,24 @@ struct CodeBrowserView: View {
                     }
 
                     ToolbarItem(placement: .principal) {
-                        Text(viewModel.selectedFile?.name ?? "Code")
-                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                            .foregroundStyle(DesignSystem.Colors.textPrimary)
-                            .lineLimit(1)
-                            .accessibilityAddTraits(.isHeader)
+                        VStack(spacing: 1) {
+                            Text(project?.name ?? "Select Project")
+                                .font(.system(.caption, design: .rounded).weight(.semibold))
+                                .foregroundStyle(DesignSystem.Colors.accent)
+                                .lineLimit(1)
+                            Text(viewModel.selectedFile?.name ?? "Code")
+                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                .foregroundStyle(DesignSystem.Colors.textPrimary)
+                                .lineLimit(1)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityAddTraits(.isHeader)
                     }
 
-                    if viewModel.isPreviewableFile {
-                        ToolbarItem(placement: .topBarTrailing) {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        builderButton
+
+                        if viewModel.isPreviewableFile {
                             Button {
                                 viewModel.togglePreview()
                             } label: {
@@ -64,59 +104,120 @@ struct CodeBrowserView: View {
                             .accessibilityLabel(viewModel.showPreview ? "Hide preview" : "Show preview")
                             .dsTouchTarget()
                         }
+
+                        if viewModel.selectedFile != nil && !viewModel.isEditing {
+                            Button {
+                                viewModel.startEditing()
+                            } label: {
+                                Image(systemName: "pencil")
+                            }
+                            .accessibilityLabel("Edit file")
+                            .dsTouchTarget()
+                        }
                     }
                 }
+                .sheet(isPresented: $showFileExplorer) {
+                    fileExplorerSheet
+                }
         }
+    }
+
+    private var builderButton: some View {
+        Button {
+            onShowBuilder()
+        } label: {
+            Image(systemName: "sparkles")
+        }
+        .accessibilityLabel("Open Builder conversations")
+        .dsTouchTarget()
     }
 
     // MARK: - File Explorer
 
     private var fileExplorerColumn: some View {
-        List(viewModel.filteredTree, children: \.children) { node in
-            Button {
-                viewModel.selectFile(node)
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: node.iconName)
-                        .font(.subheadline)
-                        .foregroundStyle(node.iconColor)
-                        .frame(width: 20)
+        VStack(spacing: 0) {
+            activeProjectHeader
 
-                    Text(node.name)
-                        .font(.system(.subheadline, design: .rounded))
-                        .foregroundStyle(
-                            viewModel.selectedFile?.id == node.id
-                                ? DesignSystem.Colors.accent
-                                : DesignSystem.Colors.textPrimary
-                        )
-                        .lineLimit(1)
+            List(viewModel.filteredTree, children: \.children) { node in
+                Button {
+                    viewModel.selectFile(node)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: node.iconName)
+                            .font(.subheadline)
+                            .foregroundStyle(node.iconColor)
+                            .frame(width: 20)
 
-                    Spacer()
+                        Text(node.name)
+                            .font(.system(.subheadline, design: .rounded))
+                            .foregroundStyle(
+                                viewModel.selectedFile?.id == node.id
+                                    ? DesignSystem.Colors.accent
+                                    : DesignSystem.Colors.textPrimary
+                            )
+                            .lineLimit(1)
 
-                    if let size = node.size {
-                        Text(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))
-                            .font(.system(.caption2, design: .rounded))
-                            .foregroundStyle(DesignSystem.Colors.textMuted)
+                        Spacer()
+
+                        if let size = node.size {
+                            Text(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))
+                                .font(.system(.caption2, design: .rounded))
+                                .foregroundStyle(DesignSystem.Colors.textMuted)
+                        }
                     }
+                    .frame(minHeight: 44)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(
+                        node.type == .folder ? "Folder, \(node.name)" : "File, \(node.name)"
+                    )
                 }
-                .frame(minHeight: 44)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(
-                    node.type == .folder ? "Folder, \(node.name)" : "File, \(node.name)"
+                .disabled(node.type == .folder)
+                .listRowBackground(
+                    viewModel.selectedFile?.id == node.id
+                        ? DesignSystem.Colors.accentDim
+                        : Color.clear
                 )
             }
-            .disabled(node.type == .folder)
-            .listRowBackground(
-                viewModel.selectedFile?.id == node.id
-                    ? DesignSystem.Colors.accentDim
-                    : Color.clear
-            )
+            .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
         }
         .navigationTitle("Explorer")
-        .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
         .background(DesignSystem.Colors.surface)
         .searchable(text: $viewModel.searchQuery, prompt: "Search files")
+    }
+
+    private var activeProjectHeader: some View {
+        Button {
+            showProjectPicker = true
+        } label: {
+            HStack(spacing: 11) {
+                Image(systemName: project == nil ? "folder.badge.questionmark" : "folder.fill")
+                    .font(.body)
+                    .foregroundStyle(DesignSystem.Colors.accent)
+                    .frame(width: 26)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ACTIVE PROJECT")
+                        .font(.system(.caption2, design: .rounded).weight(.bold))
+                        .foregroundStyle(DesignSystem.Colors.textMuted)
+                    Text(project?.name ?? "Select a project")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundStyle(DesignSystem.Colors.textPrimary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption)
+                    .foregroundStyle(DesignSystem.Colors.textSecondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(DesignSystem.Colors.elevated)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Active project: \(project?.name ?? "none"). Change project")
     }
 
     private var fileExplorerSheet: some View {
@@ -125,13 +226,17 @@ struct CodeBrowserView: View {
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") {
-                            // Dismiss
+                            showFileExplorer = false
                         }
                         .dsTouchTarget()
                     }
                 }
         }
-        .preferredColorScheme(.dark)
+        .onChange(of: viewModel.selectedFile?.id) { _, selectedFileId in
+            if selectedFileId != nil {
+                showFileExplorer = false
+            }
+        }
         .tint(DesignSystem.Colors.accent)
     }
 
@@ -139,6 +244,9 @@ struct CodeBrowserView: View {
 
     private var editorColumn: some View {
         VStack(spacing: 0) {
+            activeProjectHeader
+            Divider().overlay(DesignSystem.Colors.borderFaint)
+
             if let file = viewModel.selectedFile {
                 // Tab bar
                 if !viewModel.openFiles.isEmpty {
@@ -157,7 +265,7 @@ struct CodeBrowserView: View {
 
                                 Divider().overlay(DesignSystem.Colors.borderFaint)
 
-                                PreviewPaneView(htmlContent: file.content ?? "")
+                                PreviewPaneView(htmlContent: viewModel.previewHTML)
                                     .frame(minHeight: 100)
                             }
                         }
@@ -188,18 +296,100 @@ struct CodeBrowserView: View {
 
     private var emptyEditorState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "chevron.left.forwardslash.chevron.right")
+            Image(systemName: project == nil ? "folder.badge.questionmark" : "chevron.left.forwardslash.chevron.right")
                 .font(.system(size: 48))
                 .foregroundStyle(DesignSystem.Colors.textMuted)
 
-            Text("Select a file to edit")
+            Text(project == nil ? "Select a project" : "Select a file to edit")
                 .font(.system(.headline, design: .rounded))
                 .foregroundStyle(DesignSystem.Colors.textSecondary)
+
+            if project == nil {
+                Button("Choose Project") {
+                    showProjectPicker = true
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(DesignSystem.Colors.accent)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DesignSystem.Colors.base)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("No file selected. Open the file explorer to choose a file.")
+        .accessibilityLabel(
+            project == nil
+                ? "No project selected. Choose a project to open its code."
+                : "No file selected. Open the file explorer to choose a file."
+        )
+    }
+
+    private var projectPickerSheet: some View {
+        NavigationStack {
+            ZStack {
+                DesignSystem.Colors.base.ignoresSafeArea()
+
+                if isLoadingProjects && availableProjects.isEmpty {
+                    ProgressView("Loading projects…")
+                } else if availableProjects.isEmpty {
+                    ContentUnavailableView(
+                        "No Projects",
+                        systemImage: "folder",
+                        description: Text("Create a project from the Projects tab first.")
+                    )
+                } else {
+                    List(availableProjects) { candidate in
+                        Button {
+                            onProjectSelected(candidate)
+                            showProjectPicker = false
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "folder.fill")
+                                    .foregroundStyle(DesignSystem.Colors.accent)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(candidate.name)
+                                        .font(.system(.body, design: .rounded).weight(.semibold))
+                                        .foregroundStyle(DesignSystem.Colors.textPrimary)
+                                    Text(candidate.status.rawValue.capitalized)
+                                        .font(.system(.caption, design: .rounded))
+                                        .foregroundStyle(DesignSystem.Colors.textSecondary)
+                                }
+                                Spacer()
+                                if candidate.id == project?.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(DesignSystem.Colors.accent)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .listRowBackground(DesignSystem.Colors.elevated)
+                    }
+                    .scrollContentBackground(.hidden)
+                }
+            }
+            .navigationTitle("Choose Project")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        showProjectPicker = false
+                    }
+                }
+            }
+            .task {
+                await loadAvailableProjects()
+            }
+        }
+        .tint(DesignSystem.Colors.accent)
+    }
+
+    private func loadAvailableProjects() async {
+        isLoadingProjects = true
+        defer { isLoadingProjects = false }
+        do {
+            availableProjects = try await projectsClient.fetchProjects()
+                .sorted { $0.updatedAt > $1.updatedAt }
+        } catch {
+            viewModel.errorMessage = "Could not load projects: \(error.localizedDescription)"
+        }
     }
 
     // MARK: - Tab Bar
@@ -345,5 +535,5 @@ extension FileNode {
 }
 
 #Preview {
-    CodeBrowserView()
+    CodeBrowserView(project: nil)
 }

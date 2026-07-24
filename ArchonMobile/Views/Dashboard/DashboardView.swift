@@ -4,6 +4,11 @@ struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @EnvironmentObject var authManager: AuthManager
     @State private var showSettings = false
+    private let onProjectSelected: (ArchonProject) -> Void
+
+    init(onProjectSelected: @escaping (ArchonProject) -> Void = { _ in }) {
+        self.onProjectSelected = onProjectSelected
+    }
 
     var body: some View {
         NavigationStack {
@@ -47,7 +52,6 @@ struct DashboardView: View {
                 Text(viewModel.errorMessage ?? "")
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     // MARK: - Content
@@ -60,6 +64,7 @@ struct DashboardView: View {
                     ForEach(viewModel.activeProjects) { project in
                         ProjectCardView(project: project) {
                             viewModel.selectedProject = project
+                            onProjectSelected(project)
                         } onDelete: {
                             Task { await viewModel.deleteProject(project) }
                         }
@@ -71,6 +76,7 @@ struct DashboardView: View {
                     ForEach(viewModel.draftProjects) { project in
                         ProjectCardView(project: project) {
                             viewModel.selectedProject = project
+                            onProjectSelected(project)
                         } onDelete: {
                             Task { await viewModel.deleteProject(project) }
                         }
@@ -82,6 +88,7 @@ struct DashboardView: View {
                     ForEach(viewModel.archivedProjects) { project in
                         ProjectCardView(project: project) {
                             viewModel.selectedProject = project
+                            onProjectSelected(project)
                         } onDelete: {
                             Task { await viewModel.deleteProject(project) }
                         }
@@ -241,7 +248,6 @@ struct DashboardView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
     }
 }
 
@@ -290,6 +296,7 @@ struct ProjectCardView: View {
             .padding(DesignSystem.Spacing.lg)
             .background(DesignSystem.Colors.elevated)
             .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous))
+            .archonLiquidGlass(cornerRadius: DesignSystem.Radius.md, interactive: true)
             .overlay(
                 RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous)
                     .stroke(DesignSystem.Colors.surfaceBorder.opacity(0.5), lineWidth: 1)

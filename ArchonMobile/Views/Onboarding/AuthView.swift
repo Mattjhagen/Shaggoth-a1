@@ -162,7 +162,6 @@ struct AuthView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
         .dynamicTypeSize(.xSmall ... .accessibility3)
         .animation(.easeInOut(duration: 0.2), value: isSignUp)
     }

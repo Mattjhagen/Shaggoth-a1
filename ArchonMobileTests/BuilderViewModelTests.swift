@@ -74,6 +74,33 @@ final class HangSleeper: SleeperProtocol {
     }
 }
 
+final class SpyChatMemoryClient: ChatMemoryClientProtocol {
+    var storedMessages: [ChatMessage] = []
+    var fetchError: Error?
+    var saveError: Error?
+    private(set) var savedMessages: [ChatMessage] = []
+    private(set) var deletedMessageIds: [UUID] = []
+
+    func fetchMessages(limit: Int) async throws -> [ChatMessage] {
+        if let fetchError { throw fetchError }
+        return Array(storedMessages.suffix(limit))
+    }
+
+    func saveMessage(
+        _ message: ChatMessage,
+        providerId: String?,
+        modelId: String?,
+        projectId: String?
+    ) async throws {
+        if let saveError { throw saveError }
+        savedMessages.append(message)
+    }
+
+    func deleteMessage(id: UUID) async throws {
+        deletedMessageIds.append(id)
+    }
+}
+
 // MARK: - Fixtures
 
 private func provider(id: String, configured: Bool?) -> ProviderMetadata {
@@ -161,6 +188,50 @@ final class BuilderViewModelTests: XCTestCase {
         XCTAssertTrue(vm.messages.isEmpty)
         XCTAssertNil(vm.currentTask)
         vm.stopPolling()
+    }
+
+    func testLoadsSavedChatMemory() async {
+        let spy = SpyAPIClient()
+        spy.providers = [provider(id: "p", configured: true)]
+        let memory = SpyChatMemoryClient()
+        memory.storedMessages = [
+            ChatMessage(role: .user, content: "Remember this"),
+            ChatMessage(role: .assistant, content: "I remember"),
+        ]
+        let vm = BuilderViewModel(apiClient: spy, memoryClient: memory, sleeper: HangSleeper())
+
+        await vm.loadInitialState()
+
+        XCTAssertEqual(vm.messages, memory.storedMessages)
+        XCTAssertNil(vm.errorMessage)
+    }
+
+    func testSavesUserAndAssistantMessagesToMemory() async {
+        let spy = SpyAPIClient()
+        spy.providers = [provider(id: "p", configured: true)]
+        let memory = SpyChatMemoryClient()
+        let vm = BuilderViewModel(apiClient: spy, memoryClient: memory, sleeper: HangSleeper())
+
+        await vm.loadInitialState()
+        await vm.send(message: "Build it")
+
+        XCTAssertEqual(memory.savedMessages.map(\.role), [.user, .assistant])
+        XCTAssertEqual(memory.savedMessages.map(\.content), ["Build it", "Test response"])
+    }
+
+    func testDoesNotSendWhenUserMessageCannotBeSaved() async {
+        let spy = SpyAPIClient()
+        spy.providers = [provider(id: "p", configured: true)]
+        let memory = SpyChatMemoryClient()
+        memory.saveError = APIError(message: "memory unavailable", code: 503)
+        let vm = BuilderViewModel(apiClient: spy, memoryClient: memory, sleeper: HangSleeper())
+
+        await vm.loadInitialState()
+        await vm.send(message: "Do not lose this")
+
+        XCTAssertTrue(vm.messages.isEmpty)
+        XCTAssertTrue(spy.createdRequests.isEmpty)
+        XCTAssertEqual(vm.errorMessage, "Could not save your message: memory unavailable (HTTP 503)")
     }
 
     func testEmptyMessageNotSent() async {

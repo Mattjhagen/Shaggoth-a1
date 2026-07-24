@@ -3,7 +3,7 @@ import Combine
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
-    @Published var appearance: AppearanceMode = .system
+    @Published var appearance: AppearanceMode = .dark
     @Published var apiEndpoint: String = ""
     @Published var showResetAlert = false
     @Published var showDeleteAlert = false
@@ -13,12 +13,14 @@ final class SettingsViewModel: ObservableObject {
     enum AppearanceMode: String, CaseIterable {
         case light
         case dark
+        case glass
         case system
 
         var displayName: String {
             switch self {
             case .light: return "Light"
             case .dark: return "Dark"
+            case .glass: return "Glass"
             case .system: return "System"
             }
         }
@@ -27,6 +29,7 @@ final class SettingsViewModel: ObservableObject {
             switch self {
             case .light: return "sun.max.fill"
             case .dark: return "moon.fill"
+            case .glass: return "circle.hexagongrid.fill"
             case .system: return "circle.lefthalf.filled"
             }
         }

@@ -32,6 +32,6 @@ enum Environment {
 
     var apiBaseURL: URL {
         let custom = Bundle.main.infoDictionary?["API_BASE_URL"] as? String
-        return URL(string: custom ?? "https://app.relayapp.pro/api")!
+        return URL(string: custom ?? "https://archon-ide-pacmac.fly.dev/api")!
     }
 }

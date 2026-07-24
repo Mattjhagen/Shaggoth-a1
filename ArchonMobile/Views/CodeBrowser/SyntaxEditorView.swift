@@ -275,27 +275,22 @@ final class CodeTextView: UITextView {
 
 extension DesignSystem.Colors {
     enum UIKitColors {
-        static let base      = UIColor(hex: 0x0A0A14)
-        static let surface   = UIColor(hex: 0x14142A)
-        static let border    = UIColor(hex: 0x2A2A50)
-        static let text      = UIColor(hex: 0xEEEEF8)
-        static let textMuted = UIColor(hex: 0x505070)
-        static let accent    = UIColor(hex: 0x00E8CA)
-        static let keyword   = UIColor(hex: 0xFF79C6)
-        static let string    = UIColor(hex: 0xF1FA8C)
-        static let comment   = UIColor(hex: 0x6272A4)
-        static let number    = UIColor(hex: 0xBD93F9)
-        static let attribute = UIColor(hex: 0x8BE9FD)
-    }
-}
+        static let base      = adaptive(light: 0xFFFFFF, dark: 0x0A0A14)
+        static let surface   = adaptive(light: 0xF1F3F8, dark: 0x14142A)
+        static let border    = adaptive(light: 0xD6D9E6, dark: 0x2A2A50)
+        static let text      = adaptive(light: 0x171724, dark: 0xEEEEF8)
+        static let textMuted = adaptive(light: 0x6D7084, dark: 0x505070)
+        static let accent    = adaptive(light: 0x007F73, dark: 0x00E8CA)
+        static let keyword   = adaptive(light: 0xA626A4, dark: 0xFF79C6)
+        static let string    = adaptive(light: 0x508000, dark: 0xF1FA8C)
+        static let comment   = adaptive(light: 0x6A737D, dark: 0x6272A4)
+        static let number    = adaptive(light: 0x7A3E9D, dark: 0xBD93F9)
+        static let attribute = adaptive(light: 0x005CC5, dark: 0x8BE9FD)
 
-private extension UIColor {
-    convenience init(hex: UInt32) {
-        self.init(
-            red:   CGFloat((hex >> 16) & 0xFF) / 255,
-            green: CGFloat((hex >> 8) & 0xFF) / 255,
-            blue:  CGFloat(hex & 0xFF) / 255,
-            alpha: 1
-        )
+        private static func adaptive(light: UInt32, dark: UInt32) -> UIColor {
+            UIColor { traits in
+                UIColor(hex: traits.userInterfaceStyle == .dark ? dark : light)
+            }
+        }
     }
 }

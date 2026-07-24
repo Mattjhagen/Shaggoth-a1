@@ -3,28 +3,56 @@ import SwiftUI
 // MARK: - Archon Mobile Design System
 
 /// Centralized design tokens for the entire app.
-/// Dark-mode-first with automatic light-mode adaptation.
+/// Dark-mode-first with a high-contrast light appearance.
 enum DesignSystem {
 
     // MARK: - Colors
 
     enum Colors {
+        private static var isGlass: Bool {
+            UserDefaults.standard.string(forKey: "appearance") == "glass"
+        }
+
         // Brand
-        static let accent        = Color("AccentColor")
-        static let accentDeep    = Color(hex: 0x009A8C)
-        static let accentDim     = Color(hex: 0x00E8CA).opacity(0.12)
+        static let accent        = Color(dynamicLight: 0x007F73, dark: 0x00E8CA)
+        static let accentDeep    = Color(dynamicLight: 0x00665D, dark: 0x009A8C)
+        static var accentDim: Color {
+            isGlass
+                ? Color(dynamicLight: 0xCFF8EF, dark: 0x17413F).opacity(0.72)
+                : Color(dynamicLight: 0xD8F4EF, dark: 0x102D31)
+        }
 
         // Surfaces
-        static let base          = Color(hex: 0x0A0A14)
-        static let surface       = Color(hex: 0x14142A)
-        static let elevated      = Color(hex: 0x1E1E3A)
-        static let surfaceBorder = Color(hex: 0x2A2A50)
-        static let borderFaint   = Color(hex: 0x1A1A32)
+        static var base: Color {
+            isGlass
+                ? Color(dynamicLight: 0xF7FBFF, dark: 0x080B16).opacity(0.62)
+                : Color(dynamicLight: 0xF7F8FC, dark: 0x0A0A14)
+        }
+        static var surface: Color {
+            isGlass
+                ? Color(dynamicLight: 0xFFFFFF, dark: 0x151A2E).opacity(0.68)
+                : Color(dynamicLight: 0xFFFFFF, dark: 0x14142A)
+        }
+        static var elevated: Color {
+            isGlass
+                ? Color(dynamicLight: 0xFFFFFF, dark: 0x252A42).opacity(0.72)
+                : Color(dynamicLight: 0xECEEF6, dark: 0x1E1E3A)
+        }
+        static var surfaceBorder: Color {
+            isGlass
+                ? Color(dynamicLight: 0xFFFFFF, dark: 0xAAB4D8).opacity(0.42)
+                : Color(dynamicLight: 0xD6D9E6, dark: 0x2A2A50)
+        }
+        static var borderFaint: Color {
+            isGlass
+                ? Color(dynamicLight: 0xD5E0EA, dark: 0x7180A5).opacity(0.28)
+                : Color(dynamicLight: 0xE5E7EF, dark: 0x1A1A32)
+        }
 
         // Text
-        static let textPrimary   = Color(hex: 0xEEEEF8)
-        static let textSecondary = Color(hex: 0x8888AA)
-        static let textMuted     = Color(hex: 0x505070)
+        static let textPrimary   = Color(dynamicLight: 0x171724, dark: 0xEEEEF8)
+        static let textSecondary = Color(dynamicLight: 0x55566B, dark: 0x8888AA)
+        static let textMuted     = Color(dynamicLight: 0x85879A, dark: 0x505070)
 
         // Semantic
         static let success       = Color(hex: 0x23D18B)
@@ -99,6 +127,25 @@ extension Color {
                   blue:  Double(hex & 0xFF) / 255,
                   opacity: opacity)
     }
+
+    init(dynamicLight lightHex: UInt32, dark darkHex: UInt32) {
+        self.init(UIColor { traits in
+            UIColor(
+                hex: traits.userInterfaceStyle == .dark ? darkHex : lightHex
+            )
+        })
+    }
+}
+
+extension UIColor {
+    convenience init(hex: UInt32) {
+        self.init(
+            red: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: 1
+        )
+    }
 }
 
 // MARK: - View Helpers
@@ -113,6 +160,37 @@ extension View {
         padding(Spacing.lg)
             .background(DesignSystem.Colors.elevated)
             .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+            .archonLiquidGlass(cornerRadius: Radius.md)
+    }
+
+    func archonLiquidGlass(cornerRadius: CGFloat, interactive: Bool = false) -> some View {
+        modifier(ArchonLiquidGlassModifier(cornerRadius: cornerRadius, interactive: interactive))
+    }
+}
+
+private struct ArchonLiquidGlassModifier: ViewModifier {
+    let cornerRadius: CGFloat
+    let interactive: Bool
+    @AppStorage("appearance") private var appearance = "dark"
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if appearance == "glass" {
+            if #available(iOS 26.0, *) {
+                content.glassEffect(
+                    .regular
+                        .tint(DesignSystem.Colors.accent.opacity(0.08))
+                        .interactive(interactive),
+                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                )
+            } else {
+                content
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            }
+        } else {
+            content
+        }
     }
 }
 
