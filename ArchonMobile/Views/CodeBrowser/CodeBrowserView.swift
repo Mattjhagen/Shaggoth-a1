@@ -5,7 +5,7 @@ struct CodeBrowserView: View {
     var onProjectSelected: (ArchonProject) -> Void = { _ in }
     var onShowBuilder: () -> Void = {}
     @StateObject private var viewModel = CodeBrowserViewModel()
-    @Environment(\.horizontalSizeClass) private var hSizeClass: UserInterfaceSizeClass?
+    @Environment(\.horizontalSizeClass) var hSizeClass
     @EnvironmentObject var authManager: AuthManager
     @State private var selectedCodeTab: CodeTab = .code
     @State private var showFileExplorer = false

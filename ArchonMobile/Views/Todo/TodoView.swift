@@ -38,7 +38,7 @@ struct TodoView: View {
                 }
             }
             .task {
-                if let userId = authManager.user?.id {
+                if let userId = authManager.currentUser?.id {
                     await viewModel.loadTodos(projectId: projectId, userId: userId)
                 }
             }
