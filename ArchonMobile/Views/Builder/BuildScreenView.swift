@@ -10,6 +10,7 @@ struct BuildScreenView: View {
     @State private var isPreviewFullScreen = false
     @FocusState private var isAgentFocused: Bool
     @State private var showDeployOptions = false
+    @State private var inputText = ""
     @Environment(\.dismiss) private var dismiss
 
     enum BuildTab: String, CaseIterable {
@@ -51,8 +52,8 @@ struct BuildScreenView: View {
         }
         .sheet(isPresented: $showDeployOptions) {
             DeployOptionsView(
-                projectName: viewModel.selectedProject?.name ?? "App",
-                projectDescription: viewModel.selectedProject?.description,
+                projectName: viewModel.activeProject?.name ?? "App",
+                projectDescription: viewModel.activeProject?.description,
                 onDeploy: { platform in
                     // Handle deploy to selected platform
                 }
@@ -118,7 +119,7 @@ struct BuildScreenView: View {
 
             if let task = viewModel.currentTask, task.status.isActive {
                 Button {
-                    viewModel.cancelActiveTask()
+                    Task { await viewModel.cancelActiveTask() }
                 } label: {
                     Image(systemName: "stop.circle.fill")
                         .font(.system(size: 20))
@@ -246,7 +247,7 @@ struct BuildScreenView: View {
                     currentStep: task.currentStep,
                     maxSteps: task.maxSteps,
                     status: task.status,
-                    projectName: viewModel.selectedProject?.name ?? "Your App"
+                    projectName: viewModel.activeProject?.name ?? "Your App"
                 )
                 .frame(maxHeight: .infinity)
             } else {
@@ -355,7 +356,7 @@ struct BuildScreenView: View {
             codeToolbar
             Divider().background(DesignSystem.Colors.surfaceBorder)
 
-            CodeBrowserView()
+            CodeBrowserView(project: viewModel.activeProject)
                 .environmentObject(codeViewModel)
         }
     }
@@ -468,7 +469,7 @@ struct BuildScreenView: View {
 
     private var agentComposer: some View {
         HStack(alignment: .bottom, spacing: 12) {
-            TextField("Ask the AI agent...", text: $viewModel.inputText, axis: .vertical)
+            TextField("Ask the AI agent...", text: $inputText, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...5)
                 .focused($isAgentFocused)
@@ -486,7 +487,7 @@ struct BuildScreenView: View {
 
             if viewModel.isStreaming || viewModel.currentTask?.status.isActive == true {
                 Button {
-                    viewModel.cancelActiveTask()
+                    Task { await viewModel.cancelActiveTask() }
                 } label: {
                     Image(systemName: "stop.circle.fill")
                         .font(.system(size: 32))
@@ -495,13 +496,13 @@ struct BuildScreenView: View {
                 .dsTouchTarget()
             } else {
                 Button {
-                    viewModel.send(message: viewModel.inputText, projectId: viewModel.selectedProject?.id)
+                    Task { await viewModel.send(message: inputText, projectId: viewModel.activeProject?.id) }
                 } label: {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 32))
-                        .foregroundStyle(viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? DesignSystem.Colors.textMuted : DesignSystem.Colors.accent)
+                        .foregroundStyle(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? DesignSystem.Colors.textMuted : DesignSystem.Colors.accent)
                 }
-                .disabled(viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .dsTouchTarget()
             }
         }
@@ -522,7 +523,7 @@ struct BuildScreenView: View {
                     PreviewPaneView(htmlContent: generatedHTML)
                 }
             }
-            .navigationTitle("Preview: \(viewModel.selectedProject?.name ?? "App")")
+            .navigationTitle("Preview: \(viewModel.activeProject?.name ?? "App")")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -558,7 +559,7 @@ struct BuildScreenView: View {
     // MARK: - Generated HTML
 
     private var generatedHTML: String {
-        if let project = viewModel.selectedProject {
+        if let project = viewModel.activeProject {
             let projectName = project.name
             let description = project.description ?? "Built with Archon"
             return """
