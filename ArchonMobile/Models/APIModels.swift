@@ -18,6 +18,7 @@ struct ChatAPIRequest: Encodable {
     let messages: [APIMessage]
     let model: String
     let provider: String
+    let projectId: String?
     let maxTokens: Int?
     let temperature: Double?
     let reasoningEffort: String?
@@ -25,6 +26,7 @@ struct ChatAPIRequest: Encodable {
 
     enum CodingKeys: String, CodingKey {
         case messages, model, provider
+        case projectId = "project_id"
         case maxTokens = "max_tokens"
         case temperature
         case reasoningEffort = "reasoning_effort"
@@ -40,12 +42,25 @@ struct ChatAPIResponse: Decodable {
     let tokensUsed: APITokenUsage?
     let reasoningEffort: String?
     let creditUnits: Int?
+    var generatedFiles: [GeneratedProjectFile]? = nil
 
     enum CodingKeys: String, CodingKey {
         case content, model, provider
         case tokensUsed
         case reasoningEffort
         case creditUnits
+        case generatedFiles
+    }
+}
+
+struct GeneratedProjectFile: Decodable, Equatable {
+    let path: String
+    let content: String
+    let mimeType: String
+
+    enum CodingKeys: String, CodingKey {
+        case path, content
+        case mimeType
     }
 }
 

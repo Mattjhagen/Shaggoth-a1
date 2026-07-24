@@ -51,14 +51,14 @@ final class PollingTests: XCTestCase {
         let sleeper = MockSleeper()
 
         let sleepExpectation = XCTestExpectation(description: "Poll cycle 1")
+        sleepExpectation.isInverted = true
         sleeper.sleepCalled = sleepExpectation
 
         let vm = BuilderViewModel(apiClient: mockAPI, sleeper: sleeper)
         vm.stopPolling()
 
         // After stopping, sleep should never be called
-        try? await Task.sleep(nanoseconds: 50_000_000)
-        XCTAssertNil(sleeper.sleepCalled)
+        await fulfillment(of: [sleepExpectation], timeout: 0.05)
     }
 
     private func terminalTask(id: String, status: TaskStatus) -> ArchonTask {

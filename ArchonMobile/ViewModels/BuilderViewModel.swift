@@ -34,11 +34,14 @@ final class BuilderViewModel: ObservableObject {
     @Published var sessions: [ChatSession] = []
     @Published var currentSession: ChatSession?
     @Published var isShowingConversation = false
+    @Published var activeProject: ArchonProject?
 
     private let aiClient: AIClientProtocol
     private let tasksClient: TasksClientProtocol?
     private let memoryClient: ChatMemoryClientProtocol?
     private let sleeper: SleeperProtocol
+    private let projectsClient: ProjectsClientProtocol?
+    private let filesClient: ProjectFilesClientProtocol?
     private var pollingTask: Task<Void, Never>?
     private var processedEventIds = Set<String>()
     private static let providerPreferenceKey = "builder.selectedProviderId"
@@ -48,11 +51,15 @@ final class BuilderViewModel: ObservableObject {
     init(
         aiClient: AIClientProtocol = AuthenticatedAPIClient(),
         memoryClient: ChatMemoryClientProtocol = SupabaseChatMemoryClient(),
+        projectsClient: ProjectsClientProtocol = SupabaseProjectsClient(),
+        filesClient: ProjectFilesClientProtocol = SupabaseProjectFilesClient(),
         sleeper: SleeperProtocol = DefaultSleeper()
     ) {
         self.aiClient = aiClient
         self.tasksClient = nil
         self.memoryClient = memoryClient
+        self.projectsClient = projectsClient
+        self.filesClient = filesClient
         self.sleeper = sleeper
         self.selectedProviderId = UserDefaults.standard.string(forKey: Self.providerPreferenceKey)
         self.selectedModelId = UserDefaults.standard.string(forKey: Self.modelPreferenceKey)
@@ -61,11 +68,14 @@ final class BuilderViewModel: ObservableObject {
     init(
         apiClient: APIClientProtocol,
         memoryClient: ChatMemoryClientProtocol? = nil,
+        filesClient: ProjectFilesClientProtocol? = nil,
         sleeper: SleeperProtocol = DefaultSleeper()
     ) {
         self.aiClient = apiClient
         self.tasksClient = apiClient
         self.memoryClient = memoryClient
+        self.projectsClient = apiClient
+        self.filesClient = filesClient
         self.sleeper = sleeper
         self.selectedProviderId = UserDefaults.standard.string(forKey: Self.providerPreferenceKey)
         self.selectedModelId = UserDefaults.standard.string(forKey: Self.modelPreferenceKey)
@@ -81,6 +91,10 @@ final class BuilderViewModel: ObservableObject {
 
     var isTaskActive: Bool {
         currentTask?.status.isActive ?? false
+    }
+
+    func useProject(_ project: ArchonProject?) {
+        activeProject = project
     }
 
     // MARK: - Lifecycle
@@ -179,6 +193,14 @@ final class BuilderViewModel: ObservableObject {
         do {
             messages = try await sessionClient.fetchMessages(sessionId: session.id, limit: 50)
             currentSession = session
+            if let projectId = session.projectId?.uuidString,
+               let projectsClient,
+               let projects = try? await projectsClient.fetchProjects(),
+               let project = projects.first(where: {
+                   $0.id.caseInsensitiveCompare(projectId) == .orderedSame
+               }) {
+                activeProject = project
+            }
             selectedProviderId = session.provider ?? selectedProviderId
             selectedModelId = session.model ?? selectedModelId
             isShowingConversation = true
@@ -202,13 +224,33 @@ final class BuilderViewModel: ObservableObject {
         isStreaming = true
         defer { isStreaming = false }
 
+        var effectiveProjectId = projectId ?? activeProject?.id
+        if effectiveProjectId == nil {
+            guard let projectsClient else {
+                errorMessage = "A project is required before starting a build."
+                return
+            }
+            do {
+                let created = try await projectsClient.createProject(CreateProjectRequest(
+                    name: Self.projectName(from: trimmed),
+                    description: String(trimmed.prefix(240))
+                ))
+                activeProject = created
+                effectiveProjectId = created.id
+            } catch {
+                errorMessage = "Could not create a project for this build: \(error.localizedDescription)"
+                return
+            }
+        }
+
         if currentSession == nil,
            let sessionClient = memoryClient as? ChatSessionMemoryClientProtocol {
             do {
                 let session = try await sessionClient.createSession(
                     title: trimmed,
                     providerId: providerId,
-                    modelId: modelId
+                    modelId: modelId,
+                    projectId: effectiveProjectId
                 )
                 currentSession = session
                 sessions.insert(session, at: 0)
@@ -222,7 +264,7 @@ final class BuilderViewModel: ObservableObject {
         messages.append(userMessage)
 
         do {
-            try await saveToMemory(userMessage, providerId: providerId, modelId: modelId, projectId: projectId)
+            try await saveToMemory(userMessage, providerId: providerId, modelId: modelId, projectId: effectiveProjectId)
         } catch {
             messages.removeAll { $0.id == userMessage.id }
             errorMessage = "Could not save your message: \(error.localizedDescription)"
@@ -238,7 +280,7 @@ final class BuilderViewModel: ObservableObject {
                     provider: providerId,
                     model: modelId,
                     reasoningEffort: .medium,
-                    projectId: projectId
+                    projectId: effectiveProjectId
                 ))
                 currentTask = task
                 startPolling(taskId: task.id)
@@ -256,7 +298,7 @@ final class BuilderViewModel: ObservableObject {
                     initialProviderId: providerId,
                     initialModelId: modelId,
                     sessionId: sessionId,
-                    projectId: projectId,
+                    projectId: effectiveProjectId,
                     client: persistentClient
                 )
                 response = result.response
@@ -282,8 +324,21 @@ final class BuilderViewModel: ObservableObject {
             let assistantMessage = ChatMessage(role: .assistant, content: response.content)
             messages.append(assistantMessage)
 
+            if let generatedFiles = response.generatedFiles,
+               let effectiveProjectId,
+               let filesClient {
+                do {
+                    try await filesClient.upsertGeneratedFiles(
+                        generatedFiles,
+                        projectId: effectiveProjectId
+                    )
+                } catch {
+                    errorMessage = "Build completed, but generated files could not be synchronized: \(error.localizedDescription)"
+                }
+            }
+
             do {
-                try await saveToMemory(assistantMessage, providerId: providerId, modelId: modelId, projectId: projectId)
+                try await saveToMemory(assistantMessage, providerId: providerId, modelId: modelId, projectId: effectiveProjectId)
             } catch {
                 errorMessage = "Response received, but chat memory could not be saved: \(error.localizedDescription)"
             }
@@ -370,7 +425,8 @@ final class BuilderViewModel: ObservableObject {
                     provider: candidate.providerId,
                     fallbackModels: alternatives.map {
                         AIFallbackModel(provider: $0.providerId, model: $0.modelId)
-                    }
+                    },
+                    projectId: projectId
                 )
                 updateBuildLogs(from: job)
                 savePendingJob(PendingAIJob(
@@ -402,6 +458,13 @@ final class BuilderViewModel: ObservableObject {
         }
 
         throw lastError ?? APIError(message: "No configured AI model could continue the build.", code: 402)
+    }
+
+    private static func projectName(from request: String) -> String {
+        let clean = request
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return String(clean.prefix(60))
     }
 
     private static func shouldHandoff(after error: Error) -> Bool {
@@ -438,6 +501,20 @@ final class BuilderViewModel: ObservableObject {
         do {
             let response = try await waitForPersistentJob(pending.id, client: persistentClient)
             let assistantMessage = ChatMessage(role: .assistant, content: response.content)
+            var fileSyncError: Error?
+
+            if let generatedFiles = response.generatedFiles,
+               let projectId = pending.projectId,
+               let filesClient {
+                do {
+                    try await filesClient.upsertGeneratedFiles(
+                        generatedFiles,
+                        projectId: projectId
+                    )
+                } catch {
+                    fileSyncError = error
+                }
+            }
 
             if let sessionClient = memoryClient as? ChatSessionMemoryClientProtocol {
                 try await sessionClient.saveMessage(
@@ -456,7 +533,9 @@ final class BuilderViewModel: ObservableObject {
             if let sessionClient = memoryClient as? ChatSessionMemoryClientProtocol {
                 sessions = try await sessionClient.fetchSessions()
             }
-            errorMessage = nil
+            errorMessage = fileSyncError.map {
+                "Build completed, but generated files could not be synchronized: \($0.localizedDescription)"
+            }
         } catch {
             if loadPendingJob() == nil || Date() >= pending.expiresAt {
                 clearPendingJob()

@@ -79,6 +79,7 @@ final class SpyChatMemoryClient: ChatMemoryClientProtocol {
     var fetchError: Error?
     var saveError: Error?
     private(set) var savedMessages: [ChatMessage] = []
+    private(set) var savedProjectIds: [String?] = []
     private(set) var deletedMessageIds: [UUID] = []
 
     func fetchMessages(limit: Int) async throws -> [ChatMessage] {
@@ -94,10 +95,24 @@ final class SpyChatMemoryClient: ChatMemoryClientProtocol {
     ) async throws {
         if let saveError { throw saveError }
         savedMessages.append(message)
+        savedProjectIds.append(projectId)
     }
 
     func deleteMessage(id: UUID) async throws {
         deletedMessageIds.append(id)
+    }
+}
+
+final class SpyProjectFilesClient: ProjectFilesClientProtocol {
+    private(set) var upserts: [(files: [GeneratedProjectFile], projectId: String)] = []
+
+    func fetchFiles(projectId: String) async throws -> [CloudProjectFile] { [] }
+    func createStarterFiles(projectId: String) async throws -> [CloudProjectFile] { [] }
+    func updateFile(id: UUID, content: String) async throws -> CloudProjectFile {
+        throw APIError(message: "not implemented", code: 501)
+    }
+    func upsertGeneratedFiles(_ files: [GeneratedProjectFile], projectId: String) async throws {
+        upserts.append((files, projectId))
     }
 }
 
@@ -217,6 +232,45 @@ final class BuilderViewModelTests: XCTestCase {
 
         XCTAssertEqual(memory.savedMessages.map(\.role), [.user, .assistant])
         XCTAssertEqual(memory.savedMessages.map(\.content), ["Build it", "Test response"])
+    }
+
+    func testBuildWithoutSelectedProjectCreatesAndLinksProject() async {
+        let spy = SpyAPIClient()
+        spy.providers = [provider(id: "p", configured: true)]
+        spy.chatResponse = ChatAPIResponse(
+            content: "Built index.html",
+            model: "p-model",
+            provider: "p",
+            tokensUsed: nil,
+            reasoningEffort: nil,
+            creditUnits: nil,
+            generatedFiles: [
+                GeneratedProjectFile(
+                    path: "index.html",
+                    content: "<h1>It works</h1>",
+                    mimeType: "text/html"
+                )
+            ]
+        )
+        let memory = SpyChatMemoryClient()
+        let files = SpyProjectFilesClient()
+        let vm = BuilderViewModel(
+            apiClient: spy,
+            memoryClient: memory,
+            filesClient: files,
+            sleeper: HangSleeper()
+        )
+
+        await vm.loadInitialState()
+        await vm.send(message: "Build a todo app")
+
+        let project = try? XCTUnwrap(vm.activeProject)
+        XCTAssertEqual(spy.createdProjectRequests.count, 1)
+        XCTAssertEqual(spy.createdRequests.first?.projectId, project?.id)
+        XCTAssertEqual(memory.savedProjectIds.count, 2)
+        XCTAssertTrue(memory.savedProjectIds.allSatisfy { $0 == project?.id })
+        XCTAssertEqual(files.upserts.first?.projectId, project?.id)
+        XCTAssertEqual(files.upserts.first?.files.first?.path, "index.html")
     }
 
     func testDoesNotSendWhenUserMessageCannotBeSaved() async {

@@ -4,15 +4,21 @@ import UIKit
 struct BuilderView: View {
     let project: ArchonProject?
     let homeRequestToken: UUID
+    let onProjectCreated: (ArchonProject) -> Void
     @StateObject private var viewModel = BuilderViewModel()
     @State private var inputText = ""
     @State private var showModelPicker = false
     @State private var showNewSessionConfirmation = false
     @FocusState private var isComposerFocused: Bool
 
-    init(project: ArchonProject? = nil, homeRequestToken: UUID = UUID()) {
+    init(
+        project: ArchonProject? = nil,
+        homeRequestToken: UUID = UUID(),
+        onProjectCreated: @escaping (ArchonProject) -> Void = { _ in }
+    ) {
         self.project = project
         self.homeRequestToken = homeRequestToken
+        self.onProjectCreated = onProjectCreated
     }
 
     var body: some View {
@@ -108,7 +114,16 @@ struct BuilderView: View {
                 modelPickerSheet
             }
             .task {
+                viewModel.useProject(project)
                 await viewModel.loadInitialState()
+            }
+            .onChange(of: project) { _, newProject in
+                viewModel.useProject(newProject)
+            }
+            .onChange(of: viewModel.activeProject) { _, newProject in
+                if let newProject, newProject.id != project?.id {
+                    onProjectCreated(newProject)
+                }
             }
             .onChange(of: homeRequestToken) { _, _ in
                 isComposerFocused = false
@@ -436,7 +451,12 @@ struct BuilderView: View {
                     Button {
                         let text = inputText
                         inputText = ""
-                        Task { await viewModel.send(message: text, projectId: project?.id) }
+                        Task {
+                            await viewModel.send(
+                                message: text,
+                                projectId: project?.id ?? viewModel.activeProject?.id
+                            )
+                        }
                     } label: {
                         if viewModel.isStreaming {
                             ProgressView()

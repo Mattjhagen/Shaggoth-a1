@@ -33,7 +33,13 @@ struct MainTabView: View {
                 }
                 .tag(Tab.dashboard)
 
-            BuilderView(project: selectedProject, homeRequestToken: builderHomeRequest)
+            BuilderView(
+                project: selectedProject,
+                homeRequestToken: builderHomeRequest,
+                onProjectCreated: { project in
+                    selectedProject = project
+                }
+            )
                 .tabItem {
                     Label("Builder", systemImage: "sparkles")
                 }
