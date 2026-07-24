@@ -16,15 +16,9 @@ struct ArchonTask: Codable, Identifiable, Hashable {
     var updatedAt: Date
 
     enum CodingKeys: String, CodingKey {
-        case id, title, status, provider, model
-        case reasoningEffort = "reasoning_effort"
-        case currentStep = "current_step"
-        case maxSteps = "max_steps"
-        case creditsUsed = "credits_used"
-        case creditLimit = "credit_limit"
-        case projectId = "project_id"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
+        case id, title, status, provider, model, reasoningEffort
+        case currentStep, maxSteps, creditsUsed, creditLimit
+        case projectId, createdAt, updatedAt
     }
 }
 

@@ -43,9 +43,9 @@ struct ChatAPIResponse: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case content, model, provider
-        case tokensUsed = "tokens_used"
-        case reasoningEffort = "reasoning_effort"
-        case creditUnits = "credit_units"
+        case tokensUsed
+        case reasoningEffort
+        case creditUnits
     }
 }
 
@@ -64,7 +64,7 @@ struct PersistentAIJob: Decodable {
 
         enum CodingKeys: String, CodingKey {
             case id, sequence, kind, summary
-            case createdAt = "created_at"
+            case createdAt
         }
     }
 
@@ -92,7 +92,7 @@ struct PersistentAIJob: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case id, status, response, error, logs
-        case expiresAt = "expires_at"
+        case expiresAt
     }
 
     init(from decoder: Decoder) throws {

@@ -11,9 +11,9 @@ struct TaskEvent: Codable, Identifiable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id
-        case taskId = "task_id"
+        case taskId
         case sequence
-        case timestamp = "created_at"
+        case timestamp = "createdAt"
         case type = "kind"
         case content = "summary"
         case metadata
