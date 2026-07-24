@@ -73,7 +73,6 @@ struct OnboardingFlow: View {
                 .padding(.bottom, 48)
             }
         }
-        .preferredColorScheme(.dark)
         .dynamicTypeSize(.xSmall ... .accessibility3)
     }
 }

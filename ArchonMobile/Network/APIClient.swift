@@ -1,31 +1,45 @@
 import Foundation
 
-// MARK: - APIClient Protocol
+// MARK: - Projects Client Protocol
 
-protocol APIClientProtocol {
-    // Projects
+protocol ProjectsClientProtocol {
     func fetchProjects() async throws -> [ArchonProject]
     func createProject(_ request: CreateProjectRequest) async throws -> ArchonProject
     func updateProject(id: String, _ request: UpdateProjectRequest) async throws -> ArchonProject
     func deleteProject(id: String) async throws
+}
 
-    // Tasks
+protocol AIClientProtocol {
+    func sendMessage(_ message: String, history: [APIMessage], model: String, provider: String) async throws -> ChatAPIResponse
+    func fetchProviders() async throws -> [ProviderMetadata]
+}
+
+protocol PersistentAIClientProtocol: AIClientProtocol {
+    func startPersistentMessage(
+        _ message: String,
+        history: [APIMessage],
+        model: String,
+        provider: String,
+        fallbackModels: [AIFallbackModel]
+    ) async throws -> PersistentAIJob
+    func getPersistentJob(id: String) async throws -> PersistentAIJob
+}
+
+protocol TasksClientProtocol {
     func fetchTasks(projectId: String?) async throws -> [ArchonTask]
     func getTaskDetails(id: String) async throws -> ArchonTask
     func getTaskEvents(id: String) async throws -> [TaskEvent]
     func cancelTask(id: String) async throws
     func createTask(_ request: CreateTaskRequest) async throws -> ArchonTask
-
-    // Chat
-    func sendMessage(_ message: String, history: [APIMessage], model: String, provider: String) async throws -> ChatAPIResponse
-
-    // Providers
-    func fetchProviders() async throws -> [ProviderMetadata]
 }
+
+// MARK: - APIClient Protocol
+
+protocol APIClientProtocol: ProjectsClientProtocol, AIClientProtocol, TasksClientProtocol {}
 
 // MARK: - Authenticated API Client
 
-class AuthenticatedAPIClient: APIClientProtocol {
+class AuthenticatedAPIClient: APIClientProtocol, PersistentAIClientProtocol {
     private let urlSession: URLSession
     private let tokenProvider: () async throws -> String
 
@@ -151,18 +165,55 @@ class AuthenticatedAPIClient: APIClientProtocol {
     func sendMessage(_ message: String, history: [APIMessage], model: String, provider: String) async throws -> ChatAPIResponse {
         let url = Environment.current.apiBaseURL.appendingPathComponent("ai/chat")
         var messages = history
-        messages.append(APIMessage(role: "user", content: message))
+        if messages.last?.role != "user" || messages.last?.content != message {
+            messages.append(APIMessage(role: "user", content: message))
+        }
         let body = ChatAPIRequest(
             messages: messages,
             model: model,
             provider: provider,
             maxTokens: 4096,
             temperature: 0.7,
-            reasoningEffort: "medium"
+            reasoningEffort: "medium",
+            fallbackModels: nil
         )
         let encoder = JSONEncoder()
         let encoded = try encoder.encode(body)
         return try await performRequest(url: url, method: "POST", body: encoded, retryCount: 1)
+    }
+
+    func startPersistentMessage(
+        _ message: String,
+        history: [APIMessage],
+        model: String,
+        provider: String,
+        fallbackModels: [AIFallbackModel]
+    ) async throws -> PersistentAIJob {
+        let url = Environment.current.apiBaseURL.appendingPathComponent("ai/jobs")
+        var messages = history
+        if messages.last?.role != "user" || messages.last?.content != message {
+            messages.append(APIMessage(role: "user", content: message))
+        }
+        let request = ChatAPIRequest(
+            messages: messages,
+            model: model,
+            provider: provider,
+            maxTokens: 4096,
+            temperature: 0.7,
+            reasoningEffort: "medium",
+            fallbackModels: fallbackModels
+        )
+        return try await performRequest(
+            url: url,
+            method: "POST",
+            body: try JSONEncoder().encode(request),
+            retryCount: 1
+        )
+    }
+
+    func getPersistentJob(id: String) async throws -> PersistentAIJob {
+        let url = Environment.current.apiBaseURL.appendingPathComponent("ai/jobs/\(id)")
+        return try await performRequest(url: url, method: "GET")
     }
 
     // MARK: - Providers

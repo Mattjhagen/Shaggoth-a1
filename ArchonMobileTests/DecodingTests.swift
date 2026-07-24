@@ -129,6 +129,30 @@ final class DecodingTests: XCTestCase {
         XCTAssertEqual(provider.configured, true)
     }
 
+    func testDecodePersistentJobWithoutLegacyExpiry() throws {
+        let json = """
+        {
+            "id": "f188ed0c-e041-4a09-babe-109ce7cc4ac5",
+            "status": "queued",
+            "response": null,
+            "error": null,
+            "logs": [{
+                "id": "e9e6c5f0-037e-469a-8a88-31938b0e7e6d",
+                "sequence": 1,
+                "created_at": "2026-07-24T06:37:57.123456Z",
+                "kind": "planning",
+                "summary": "Build queued on Archon Cloud"
+            }]
+        }
+        """.data(using: .utf8)!
+
+        let job = try makeDecoder().decode(PersistentAIJob.self, from: json)
+
+        XCTAssertEqual(job.status.rawValue, "queued")
+        XCTAssertEqual(job.logs?.first?.summary, "Build queued on Archon Cloud")
+        XCTAssertNil(job.expiresAt)
+    }
+
     func testDecodeChatMessage() throws {
         let json = """
         {

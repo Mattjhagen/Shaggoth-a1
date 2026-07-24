@@ -50,7 +50,7 @@ A complete, polished iOS app for building apps with AI. Describe what you want i
 
 ### Prerequisites
 
-- macOS with Xcode 15 or later
+- macOS with a current App Store-supported Xcode release
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 
 ### Setup
@@ -58,16 +58,17 @@ A complete, polished iOS app for building apps with AI. Describe what you want i
 1. **Clone and configure:**
 
 ```bash
-cd ios
+git clone https://github.com/Mattjhagen/archon-ios.git
+cd archon-ios
 cp Config/Config.example.xcconfig Config/Config.xcconfig
 ```
 
 2. **Edit `Config/Config.xcconfig`** with your Supabase credentials:
 
 ```
-SUPABASE_ANON_KEY = your_key_here
-SUPABASE_URL = https://your-project.supabase.co
-API_BASE_URL = https://app.relayapp.pro/api
+SUPABASE_ANON_KEY = your_publishable_key_here
+SUPABASE_URL = https:/$()/your-project.supabase.co
+API_BASE_URL = https:/$()/archon-ide-pacmac.fly.dev/api
 ```
 
 3. **Generate the Xcode project:**
@@ -84,9 +85,11 @@ open ArchonMobile.xcodeproj
 
 Select an iOS 17+ simulator and press Cmd+R.
 
-### Demo Mode
+Production builds use the authenticated Supabase and Fly services. `MockAPIClient` is retained only for unit tests and SwiftUI development.
 
-The app includes a `MockAPIClient` with rich demo data. The entire app is fully navigable in the simulator with zero backend — just launch and explore.
+## TestFlight
+
+See [TESTFLIGHT.md](TESTFLIGHT.md) for the verified release checklist, App Store Connect metadata, and upload steps.
 
 ## Project Structure
 

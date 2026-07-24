@@ -1,7 +1,9 @@
 import SwiftUI
+import AuthenticationServices
 
 struct AuthView: View {
     @EnvironmentObject var authManager: AuthManager
+    @SwiftUI.Environment(\.colorScheme) private var colorScheme: ColorScheme
     @State private var email = ""
     @State private var password = ""
     @State private var isSignUp = false
@@ -95,6 +97,15 @@ struct AuthView: View {
                             .accessibilityLabel("Authentication error: \(error)")
                     }
 
+                    if let message = authManager.authMessage {
+                        Text(message)
+                            .font(.caption)
+                            .foregroundStyle(DesignSystem.Colors.success)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                            .accessibilityLabel(message)
+                    }
+
                     // Sign in/up buttons
                     VStack(spacing: 12) {
                         Button {
@@ -129,22 +140,16 @@ struct AuthView: View {
                         }
                         .padding(.horizontal, 16)
 
-                        // Apple Sign In
-                        Button {
-                            authManager.startAppleSignIn()
-                        } label: {
-                            HStack {
-                                Image(systemName: "apple.logo")
-                                    .font(.title3)
-                                Text("Sign in with Apple")
-                                    .font(.headline)
-                            }
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity, minHeight: 50)
+                        SignInWithAppleButton(.signIn) { request in
+                            request.requestedScopes = [.email, .fullName]
+                        } onCompletion: { result in
+                            authManager.completeAppleSignIn(result)
                         }
-                        .background(Color.black)
+                        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                        .frame(maxWidth: .infinity, minHeight: 50)
                         .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous))
-                        .dsTouchTarget()
+                        .disabled(authManager.isLoading)
+                        .accessibilityLabel("Sign in with Apple")
                     }
                     .padding(.horizontal, 32)
 
@@ -162,7 +167,6 @@ struct AuthView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
         .dynamicTypeSize(.xSmall ... .accessibility3)
         .animation(.easeInOut(duration: 0.2), value: isSignUp)
     }
