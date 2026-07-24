@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-class KeychainSessionStore {
+final class KeychainSessionStore: @unchecked Sendable {
     private let service: String
 
     init(service: String = "com.archon.mobile.auth") {

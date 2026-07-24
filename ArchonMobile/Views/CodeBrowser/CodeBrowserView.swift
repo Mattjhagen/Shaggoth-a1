@@ -247,7 +247,7 @@ struct CodeBrowserView: View {
             activeProjectHeader
             Divider().overlay(DesignSystem.Colors.borderFaint)
 
-            if let file = viewModel.selectedFile {
+            if viewModel.selectedFile != nil {
                 // Tab bar
                 if !viewModel.openFiles.isEmpty {
                     tabBar

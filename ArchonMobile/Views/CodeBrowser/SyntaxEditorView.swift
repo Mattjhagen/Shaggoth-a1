@@ -54,7 +54,7 @@ struct SyntaxEditorView: UIViewRepresentable {
         func textView(
             _ textView: UITextView,
             shouldChangeTextIn range: NSRange,
-            replacementText replacementText: String
+            replacementText: String
         ) -> Bool {
             guard replacementText == "\n",
                   let editor = textView as? CodeTextView

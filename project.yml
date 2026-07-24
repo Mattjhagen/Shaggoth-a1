@@ -22,14 +22,32 @@ targets:
       path: ArchonMobile/Info.plist
       properties:
         CFBundleDisplayName: Archon
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - archon
               - com.archonmobile.auth
+        ITSAppUsesNonExemptEncryption: false
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+        UIApplicationShortcutItems:
+          - UIApplicationShortcutItemIconType: UIApplicationShortcutIconTypeCompose
+            UIApplicationShortcutItemTitle: New Build
+            UIApplicationShortcutItemType: com.matthagen.archon.new-build
+          - UIApplicationShortcutItemIconType: UIApplicationShortcutIconTypeSearch
+            UIApplicationShortcutItemTitle: Conversations
+            UIApplicationShortcutItemType: com.matthagen.archon.conversations
+          - UIApplicationShortcutItemIconType: UIApplicationShortcutIconTypeHome
+            UIApplicationShortcutItemTitle: Projects
+            UIApplicationShortcutItemType: com.matthagen.archon.projects
+          - UIApplicationShortcutItemIconType: UIApplicationShortcutIconTypeBookmark
+            UIApplicationShortcutItemTitle: Code
+            UIApplicationShortcutItemType: com.matthagen.archon.code
         UIApplicationSupportsIndirectInputEvents: true
         UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
         UIUserInterfaceStyle: Automatic
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         SUPABASE_URL: $(SUPABASE_URL)
@@ -47,7 +65,10 @@ targets:
         CURRENT_PROJECT_VERSION: 1
         PRODUCT_BUNDLE_IDENTIFIER: com.matthagen.archon
         DEVELOPMENT_TEAM: "WZMXKCK98R"
+        CODE_SIGN_STYLE: Automatic
         SUPPORTS_DYNAMIC_MACCATALYST: "NO"
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: "NO"
+        TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
   ArchonMobileTests:

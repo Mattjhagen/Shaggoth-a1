@@ -9,6 +9,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var showDeleteAlert = false
     @Published var isSigningOut = false
     @Published var appVersion: String = "1.0.0"
+    @Published var apiEndpointError: String?
 
     enum AppearanceMode: String, CaseIterable {
         case light
@@ -43,7 +44,8 @@ final class SettingsViewModel: ObservableObject {
         self.apiEndpoint = UserDefaults.standard.string(forKey: "apiEndpoint") ?? Environment.current.apiBaseURL.absoluteString
 
         if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
-            self.appVersion = version
+            let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String
+            self.appVersion = build.map { "\(version) (\($0))" } ?? version
         }
     }
 
@@ -54,7 +56,16 @@ final class SettingsViewModel: ObservableObject {
 
     func saveAPIEndpoint(_ url: String) {
         apiEndpoint = url
-        UserDefaults.standard.set(url, forKey: "apiEndpoint")
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            UserDefaults.standard.removeObject(forKey: "apiEndpoint")
+            apiEndpointError = nil
+        } else if Environment.validAPIURL(trimmed) != nil {
+            UserDefaults.standard.set(trimmed, forKey: "apiEndpoint")
+            apiEndpointError = nil
+        } else {
+            apiEndpointError = "Enter a complete HTTPS URL. The last valid endpoint remains active."
+        }
     }
 
     func signOut() async {

@@ -387,6 +387,11 @@ actor LocalChatMemoryStore {
         persist()
     }
 
+    func clear(userId: String) {
+        snapshot.users.removeValue(forKey: userId)
+        persist()
+    }
+
     private func persist() {
         do {
             try FileManager.default.createDirectory(
@@ -399,6 +404,10 @@ actor LocalChatMemoryStore {
                 [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
                 ofItemAtPath: fileURL.path
             )
+            var protectedFileURL = fileURL
+            var resourceValues = URLResourceValues()
+            resourceValues.isExcludedFromBackup = true
+            try? protectedFileURL.setResourceValues(resourceValues)
         } catch {
             // Cloud memory remains authoritative if the local cache cannot be written.
         }

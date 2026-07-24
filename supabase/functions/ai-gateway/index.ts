@@ -12,7 +12,7 @@ type GatewayRequest = {
   reasoning_effort?: "low" | "medium" | "high";
 };
 
-const OPENAI_MODELS = new Set(["gpt-5.4-mini", "gpt-5-mini"]);
+const OPENAI_MODELS = new Set(["gpt-5.6-sol", "gpt-5.6-terra"]);
 const jsonHeaders = { "Content-Type": "application/json" };
 
 function json(body: unknown, status = 200): Response {
@@ -60,8 +60,8 @@ Deno.serve(async (request: Request) => {
         configured: Boolean(Deno.env.get("OPENAI_API_KEY")),
         requiresKey: true,
         models: [
-          { id: "gpt-5.4-mini", name: "GPT-5.4 mini" },
-          { id: "gpt-5-mini", name: "GPT-5 mini" },
+          { id: "gpt-5.6-sol", name: "GPT-5.6 Sol" },
+          { id: "gpt-5.6-terra", name: "GPT-5.6 Terra" },
         ],
       }],
     });
@@ -74,7 +74,7 @@ Deno.serve(async (request: Request) => {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) return json({ error: "OpenAI is not configured" }, 503);
 
-  const model = body.model ?? "gpt-5.4-mini";
+  const model = body.model ?? "gpt-5.6-terra";
   if (!OPENAI_MODELS.has(model)) {
     return json({ error: "Unsupported OpenAI model" }, 400);
   }

@@ -51,9 +51,13 @@ struct SettingsView: View {
                     } header: {
                         Text("API Configuration")
                     } footer: {
-                        Text("Configure the backend API endpoint for production use.")
+                        Text(viewModel.apiEndpointError ?? "Use an HTTPS endpoint for the production Archon service.")
                             .font(.system(.caption2, design: .rounded))
-                            .foregroundStyle(DesignSystem.Colors.textMuted)
+                            .foregroundStyle(
+                                viewModel.apiEndpointError == nil
+                                    ? DesignSystem.Colors.textMuted
+                                    : DesignSystem.Colors.danger
+                            )
                     }
 
                     Section {
@@ -86,6 +90,7 @@ struct SettingsView: View {
                     Section {
                         aboutRow
                         licensesRow
+                        privacyPolicyRow
                     } header: {
                         Text("About")
                     }
@@ -107,7 +112,10 @@ struct SettingsView: View {
                 .navigationTitle("Settings")
             }
             .task {
-                profileImageData = ProfilePhotoStore.load()
+                profileImageData = ProfilePhotoStore.load(userId: authManager.currentUser?.id)
+            }
+            .onChange(of: authManager.currentUser?.id) { _, userId in
+                profileImageData = ProfilePhotoStore.load(userId: userId)
             }
             .onChange(of: selectedPhoto) { _, newPhoto in
                 guard let newPhoto else { return }
@@ -186,7 +194,7 @@ struct SettingsView: View {
                   let preparedData = sourceImage.profilePhotoData else {
                 throw ProfilePhotoError.invalidImage
             }
-            try ProfilePhotoStore.save(preparedData)
+            try ProfilePhotoStore.save(preparedData, userId: authManager.currentUser?.id)
             profileImageData = preparedData
         } catch {
             profilePhotoError = "The selected photo could not be saved. Please choose another image."
@@ -196,7 +204,7 @@ struct SettingsView: View {
 
     private func removeProfilePhoto() {
         do {
-            try ProfilePhotoStore.remove()
+            try ProfilePhotoStore.remove(userId: authManager.currentUser?.id)
             profileImageData = nil
         } catch {
             profilePhotoError = "The profile photo could not be removed."
@@ -275,6 +283,21 @@ struct SettingsView: View {
         }
         .listRowBackground(DesignSystem.Colors.elevated)
         .accessibilityHint("Shows open-source acknowledgements")
+    }
+
+    private var privacyPolicyRow: some View {
+        Link(destination: URL(string: "https://github.com/Mattjhagen/archon-ios/blob/main/PRIVACY.md")!) {
+            HStack {
+                Text("Privacy Policy")
+                    .font(.system(.body, design: .rounded))
+                    .foregroundStyle(DesignSystem.Colors.textPrimary)
+                Spacer()
+                Image(systemName: "arrow.up.right.square")
+                    .foregroundStyle(DesignSystem.Colors.textMuted)
+            }
+        }
+        .listRowBackground(DesignSystem.Colors.elevated)
+        .accessibilityHint("Opens the Archon privacy policy")
     }
 
 }
@@ -382,9 +405,18 @@ private struct AccountManagementView: View {
                     Button(role: .destructive) {
                         viewModel.showDeleteAlert = true
                     } label: {
-                        Label("Delete Account", systemImage: "trash")
-                            .foregroundStyle(DesignSystem.Colors.danger)
+                        HStack {
+                            if authManager.isDeletingAccount {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "trash")
+                            }
+                            Text(authManager.isDeletingAccount ? "Deleting Account…" : "Delete Account")
+                        }
+                        .foregroundStyle(DesignSystem.Colors.danger)
                     }
+                    .disabled(authManager.isDeletingAccount)
                     .listRowBackground(DesignSystem.Colors.elevated)
                     .accessibilityLabel("Delete your account permanently")
                 } header: {
@@ -392,6 +424,17 @@ private struct AccountManagementView: View {
                 } footer: {
                     Text("Deleting your account permanently removes your projects, conversations, files, and account data.")
                         .foregroundStyle(DesignSystem.Colors.textMuted)
+                }
+
+                if let error = authManager.authError {
+                    Section {
+                        Text(error)
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundStyle(DesignSystem.Colors.danger)
+                            .listRowBackground(DesignSystem.Colors.elevated)
+                    } header: {
+                        Text("Account Status")
+                    }
                 }
             }
             .scrollContentBackground(.hidden)
@@ -411,33 +454,6 @@ private struct AccountManagementView: View {
 
 private enum ProfilePhotoError: Error {
     case invalidImage
-}
-
-private enum ProfilePhotoStore {
-    private static var fileURL: URL? {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("Archon", isDirectory: true)
-            .appendingPathComponent("profile-photo.jpg")
-    }
-
-    static func load() -> Data? {
-        guard let fileURL else { return nil }
-        return try? Data(contentsOf: fileURL)
-    }
-
-    static func save(_ data: Data) throws {
-        guard let fileURL else { return }
-        try FileManager.default.createDirectory(
-            at: fileURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        try data.write(to: fileURL, options: .atomic)
-    }
-
-    static func remove() throws {
-        guard let fileURL, FileManager.default.fileExists(atPath: fileURL.path) else { return }
-        try FileManager.default.removeItem(at: fileURL)
-    }
 }
 
 private extension UIImage {
