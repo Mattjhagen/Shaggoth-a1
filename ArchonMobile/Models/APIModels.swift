@@ -85,7 +85,10 @@ struct PersistentAIJob: Decodable {
     let response: ChatAPIResponse?
     let error: String?
     let logs: [Log]?
-    let expiresAt: Date
+    /// Older gateway deployments did not include an expiry in the initial
+    /// accepted-job response. Treat it as optional so a successful 202 can
+    /// always be resumed rather than failing during JSON decoding.
+    let expiresAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id, status, response, error, logs

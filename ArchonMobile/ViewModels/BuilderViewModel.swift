@@ -369,7 +369,10 @@ final class BuilderViewModel: ObservableObject {
                     providerId: candidate.providerId,
                     modelId: candidate.modelId,
                     projectId: projectId,
-                    expiresAt: job.expiresAt
+                    // Jobs created by an older server may not include an
+                    // expiry in the initial response. Keep a conservative
+                    // local deadline so the build can still be resumed.
+                    expiresAt: job.expiresAt ?? Date().addingTimeInterval(15 * 60)
                 ))
                 let response = try await waitForPersistentJob(job.id, client: client)
                 clearPendingJob()
