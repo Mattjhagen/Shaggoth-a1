@@ -71,10 +71,33 @@ class AuthManager: NSObject, ObservableObject {
         do {
             let response = try await supabaseClient.auth.signUp(email: email, password: password)
             if case .user = response {
-                authMessage = "Check your email to confirm your account, then return here to sign in."
+                authMessage = "Check your email and open the confirmation link on this iPhone. Archon will finish signing you in automatically."
             }
         } catch {
             self.authError = error.localizedDescription
+        }
+    }
+
+    // MARK: - Email Confirmation and OAuth Callback
+
+    /// Completes Supabase's PKCE flow after an email confirmation link opens
+    /// Archon. The auth state listener updates the app UI to the signed-in
+    /// experience as soon as the session is stored in the keychain.
+    func handleAuthCallback(_ url: URL) {
+        guard url.scheme?.lowercased() == Environment.authRedirectURL.scheme else { return }
+
+        isLoading = true
+        authError = nil
+        authMessage = nil
+
+        Task {
+            defer { isLoading = false }
+            do {
+                _ = try await supabaseClient.auth.session(from: url)
+                authMessage = "Email confirmed. You’re signed in."
+            } catch {
+                authError = "Could not complete sign-in: \(error.localizedDescription)"
+            }
         }
     }
 

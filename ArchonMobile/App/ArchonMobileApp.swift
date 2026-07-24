@@ -37,6 +37,9 @@ struct ArchonMobileApp: App {
             .onChange(of: keepScreenAwake) { _, _ in
                 updateScreenTimeout()
             }
+            .onOpenURL { url in
+                authManager.handleAuthCallback(url)
+            }
         }
     }
 

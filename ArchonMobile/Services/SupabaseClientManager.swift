@@ -28,7 +28,8 @@ class SupabaseClientManager {
             supabaseKey: Environment.current.supabaseAnonKey,
             options: SupabaseClientOptions(
                 auth: .init(
-                    storage: SupabaseKeychainStorage()
+                    storage: SupabaseKeychainStorage(),
+                    redirectToURL: Environment.authRedirectURL
                 )
             )
         )

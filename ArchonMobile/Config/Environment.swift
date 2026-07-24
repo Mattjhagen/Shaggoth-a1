@@ -13,6 +13,10 @@ enum Environment {
         #endif
     }
 
+    /// Native callback used for Supabase email confirmation and OAuth flows.
+    /// This exact URL must also be present in Supabase Auth's Redirect URLs.
+    static let authRedirectURL = URL(string: "com.matthagen.archon://auth/callback")!
+
     var supabaseURL: URL {
         switch self {
         case .development:

@@ -27,6 +27,7 @@
 			<array>
 				<string>archon</string>
 				<string>com.archonmobile.auth</string>
+				<string>com.matthagen.archon</string>
 			</array>
 		</dict>
 	</array>
