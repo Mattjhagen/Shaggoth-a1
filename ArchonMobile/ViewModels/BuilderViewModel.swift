@@ -85,6 +85,112 @@ final class BuilderViewModel: ObservableObject {
         providers.filter { $0.configured ?? false }
     }
 
+    // MARK: - Message Queue
+
+    /// A message sent while the AI is busy. Nothing interrupts a build in
+    /// progress — new requests wait in line and run when the AI frees up.
+    struct QueuedMessage: Identifiable, Equatable {
+        let id = UUID()
+        let text: String
+        let projectId: String?
+        var attachments: [Data] = []
+    }
+
+    @Published private(set) var queuedMessages: [QueuedMessage] = []
+
+    /// Images (JPEG data) staged in the composer, sent with the next message.
+    @Published var pendingAttachments: [Data] = []
+
+    /// Single entry point for user messages: sends immediately when idle,
+    /// otherwise joins the queue. Returns true when the message started
+    /// processing right away.
+    @discardableResult
+    func submit(message: String, projectId: String? = nil) async -> Bool {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+
+        let attachments = pendingAttachments
+        pendingAttachments = []
+
+        if isStreaming {
+            queuedMessages.append(QueuedMessage(
+                text: trimmed,
+                projectId: projectId,
+                attachments: attachments
+            ))
+            return false
+        }
+
+        await send(message: trimmed, projectId: projectId, attachments: attachments)
+        await drainQueue()
+        return true
+    }
+
+    func cancelQueuedMessage(_ id: UUID) {
+        queuedMessages.removeAll { $0.id == id }
+    }
+
+    private func drainQueue() async {
+        while !queuedMessages.isEmpty && !isStreaming {
+            let next = queuedMessages.removeFirst()
+            await send(message: next.text, projectId: next.projectId, attachments: next.attachments)
+        }
+    }
+
+    // MARK: - Follow-up Suggestions
+
+    /// Tappable "what to ask next" ideas shown after the AI replies. Rotates
+    /// with the conversation so the chips feel fresh without an extra AI call.
+    var followUpSuggestions: [String] {
+        guard let last = messages.last, last.role == .assistant, !isStreaming else {
+            return []
+        }
+
+        var pool = [
+            "Change the colors",
+            "Make it feel more playful",
+            "Add a contact page",
+            "Add some photos",
+            "Make the words bigger and easier to read",
+            "Add another page",
+            "Make it look more professional",
+            "Simplify it — less is more",
+            "Add a dark mode",
+            "Write friendlier text for me"
+        ]
+
+        let lowered = last.content.lowercased()
+        if lowered.contains("store") || lowered.contains("shop") || lowered.contains("product") {
+            pool.insert("Add more products", at: 0)
+        }
+        if lowered.contains("resume") || lowered.contains("about") {
+            pool.insert("Add my work history", at: 0)
+        }
+
+        let offset = messages.count % pool.count
+        let rotated = Array(pool[offset...] + pool[..<offset])
+        return Array(rotated.prefix(3))
+    }
+
+    /// Priority order for the automatic model choice: the smart router first,
+    /// then strong general models, then whatever else is configured.
+    static func autoModelChoice(from providers: [ProviderMetadata]) -> (providerId: String, modelId: String)? {
+        let preferences: [(provider: String, model: String)] = [
+            ("openrouter", "openrouter/auto"),
+            ("openai", "gpt-5.6-terra"),
+            ("anthropic", "claude-sonnet-5"),
+            ("openrouter", "openrouter/free")
+        ]
+        for preference in preferences {
+            if let provider = providers.first(where: { $0.id == preference.provider }),
+               provider.models.contains(where: { $0.id == preference.model }) {
+                return (preference.provider, preference.model)
+            }
+        }
+        guard let first = providers.first, let model = first.models.first else { return nil }
+        return (first.id, model.id)
+    }
+
     var selectedProvider: ProviderMetadata? {
         usableProviders.first { $0.id == selectedProviderId }
     }
@@ -109,14 +215,12 @@ final class BuilderViewModel: ObservableObject {
             let fetched = try await aiClient.fetchProviders()
             providers = fetched
 
+            // The system picks the model — users never choose. The decision
+            // is surfaced per-reply in the "under the hood" details instead.
             let configuredProviders = fetched.filter { $0.configured ?? false }
-            if let savedProvider = configuredProviders.first(where: { $0.id == selectedProviderId }) {
-                if savedProvider.models.contains(where: { $0.id == selectedModelId }) == false {
-                    selectedModelId = savedProvider.models.first?.id
-                }
-            } else if let first = configuredProviders.first {
-                selectedProviderId = first.id
-                selectedModelId = first.models.first?.id
+            if let choice = Self.autoModelChoice(from: configuredProviders) {
+                selectedProviderId = choice.providerId
+                selectedModelId = choice.modelId
             }
         } catch {
             loadErrors.append("Could not load providers: \(error.localizedDescription)")
@@ -212,7 +316,7 @@ final class BuilderViewModel: ObservableObject {
 
     // MARK: - Send Message
 
-    func send(message text: String, projectId: String? = nil) async {
+    func send(message text: String, projectId: String? = nil, attachments: [Data] = []) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -260,7 +364,11 @@ final class BuilderViewModel: ObservableObject {
             }
         }
 
-        let userMessage = ChatMessage(role: .user, content: trimmed)
+        let userMessage = ChatMessage(
+            role: .user,
+            content: trimmed,
+            localImageData: attachments.isEmpty ? nil : attachments
+        )
         messages.append(userMessage)
 
         do {
@@ -284,9 +392,22 @@ final class BuilderViewModel: ObservableObject {
                 ))
                 currentTask = task
                 startPolling(taskId: task.id)
+            } else {
+                // Production builds run without a tasks backend, so track the
+                // build locally — otherwise the UI never leaves "Preparing
+                // build" and never reports completion.
+                currentTask = Self.localTask(
+                    status: .running,
+                    title: activeProject?.name ?? String(trimmed.prefix(200)),
+                    provider: providerId,
+                    model: modelId,
+                    projectId: effectiveProjectId
+                )
             }
+            BuildNotifier.requestPermissionIfNeeded()
             errorMessage = nil
 
+            let requestStart = Date()
             let history = await historyWithCrossSessionMemory()
             let response: ChatAPIResponse
 
@@ -321,7 +442,17 @@ final class BuilderViewModel: ObservableObject {
                 )
             }
 
-            let assistantMessage = ChatMessage(role: .assistant, content: response.content)
+            let assistantMessage = ChatMessage(
+                role: .assistant,
+                content: response.content,
+                details: ChatMessage.BuildDetails(
+                    provider: response.provider,
+                    model: response.model,
+                    inputTokens: response.tokensUsed?.input,
+                    outputTokens: response.tokensUsed?.output,
+                    elapsedSeconds: Date().timeIntervalSince(requestStart)
+                )
+            )
             messages.append(assistantMessage)
 
             if let generatedFiles = response.generatedFiles,
@@ -343,11 +474,54 @@ final class BuilderViewModel: ObservableObject {
                 errorMessage = "Response received, but chat memory could not be saved: \(error.localizedDescription)"
             }
 
+            markBuildFinished(as: .completed)
+
         } catch let apiError as APIError {
+            markBuildFinished(as: .failed)
             errorMessage = apiError.errorDescription ?? apiError.message
         } catch {
+            markBuildFinished(as: .failed)
             errorMessage = "Could not start task: \(error.localizedDescription)"
         }
+    }
+
+    /// Flip the tracked build into a finished state and let the user know.
+    /// Only applies to locally tracked builds — server-backed tasks are
+    /// updated by polling instead.
+    private func markBuildFinished(as status: TaskStatus) {
+        guard var task = currentTask, task.status.isActive, tasksClient == nil else { return }
+        task.status = status
+        task.currentStep = task.maxSteps
+        task.updatedAt = Date()
+        currentTask = task
+        if status == .completed {
+            BuildNotifier.notifyBuildFinished(projectName: activeProject?.name)
+        }
+    }
+
+    private static func localTask(
+        status: TaskStatus,
+        title: String,
+        provider: String,
+        model: String,
+        projectId: String?
+    ) -> ArchonTask {
+        let now = Date()
+        return ArchonTask(
+            id: "local-\(UUID().uuidString)",
+            title: title,
+            status: status,
+            provider: provider,
+            model: model,
+            reasoningEffort: .medium,
+            currentStep: 0,
+            maxSteps: 1,
+            creditsUsed: 0,
+            creditLimit: 0,
+            projectId: projectId,
+            createdAt: now,
+            updatedAt: now
+        )
     }
 
     private func waitForPersistentJob(
@@ -500,7 +674,17 @@ final class BuilderViewModel: ObservableObject {
 
         do {
             let response = try await waitForPersistentJob(pending.id, client: persistentClient)
-            let assistantMessage = ChatMessage(role: .assistant, content: response.content)
+            let assistantMessage = ChatMessage(
+                role: .assistant,
+                content: response.content,
+                details: ChatMessage.BuildDetails(
+                    provider: response.provider,
+                    model: response.model,
+                    inputTokens: response.tokensUsed?.input,
+                    outputTokens: response.tokensUsed?.output,
+                    elapsedSeconds: nil
+                )
+            )
             var fileSyncError: Error?
 
             if let generatedFiles = response.generatedFiles,
@@ -587,8 +771,53 @@ final class BuilderViewModel: ObservableObject {
         }
     }
 
+    /// Standing instruction combining tone with full awareness of the app
+    /// the AI lives in — its screens, flows, and the user's current context —
+    /// so it can guide people around Archon better than anyone.
+    private func appAwarenessInstruction() -> APIMessage {
+        var context = """
+        You are Archon, a friendly app-building companion inside the Archon iPhone app, \
+        talking to a non-technical user. Speak like a helpful friend: short sentences, \
+        plain everyday words, zero jargon. Never mention models, APIs, frameworks, servers, \
+        or code unless the user explicitly asks. Describe what you're making in terms of \
+        what they will see and tap. When something goes wrong, say what happened simply \
+        and what you'll try next. Be warm, encouraging, and a little playful.
+
+        You know the Archon app inside and out. Its screens:
+        - Projects tab: every app or site the user has made; tapping one opens it in the Builder.
+        - Builder tab: this chat. New builds start with three quick questions or a template \
+        (Resume site, Small business, Online store, POS system, Portfolio). During a build, \
+        the build screen has Preview and AI Agent tabs, a stop button, and an activity \
+        timeline behind the list icon in the top corner.
+        - Preview: a live look at their app; swipe up for full screen.
+        - Publish: once a build finishes, the Publish button at the top of the build screen \
+        puts the site online at a free address ending in .vibecodes.space — the user picks \
+        the name, then shares the link.
+        - Settings tab: account, appearance, and profile options.
+        Messages sent while you're working wait in line and run next — nothing interrupts a build.
+        When the user asks where something is or how to do something in Archon, give exact, \
+        simple directions using these screens.
+        """
+
+        if let project = activeProject {
+            context += "\n\nRight now the user is working on the project \"\(project.name)\"."
+        }
+        if let task = currentTask {
+            context += " The current build status is: \(task.status.rawValue)."
+        }
+        return APIMessage(role: "system", content: context)
+    }
+
     private func historyWithCrossSessionMemory() async -> [APIMessage] {
-        var history = messages.map { APIMessage(role: $0.role.rawValue, content: $0.content) }
+        var history = messages.map { message in
+            APIMessage(
+                role: message.role.rawValue,
+                content: message.content,
+                images: message.localImageData?.map {
+                    "data:image/jpeg;base64,\($0.base64EncodedString())"
+                }
+            )
+        }
 
         guard let sessionId = currentSession?.id,
               let sessionClient = memoryClient as? ChatSessionMemoryClientProtocol,
@@ -597,6 +826,7 @@ final class BuilderViewModel: ObservableObject {
                   limit: 16
               ),
               !priorMessages.isEmpty else {
+            history.insert(appAwarenessInstruction(), at: 0)
             return history
         }
 
@@ -615,11 +845,18 @@ final class BuilderViewModel: ObservableObject {
             """
         )
         history.insert(memoryInstruction, at: 0)
+        history.insert(appAwarenessInstruction(), at: 0)
         return history
     }
 
     func cancelActiveTask() async {
-        guard let taskId = currentTask?.id, let tasksClient else { return }
+        guard let taskId = currentTask?.id else { return }
+        guard let tasksClient else {
+            // Locally tracked build: there is no server task to cancel, just
+            // stop presenting it as active.
+            currentTask?.status = .cancelled
+            return
+        }
         do {
             try await tasksClient.cancelTask(id: taskId)
             pollingTask?.cancel()

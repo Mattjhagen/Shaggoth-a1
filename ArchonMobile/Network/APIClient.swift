@@ -92,12 +92,12 @@ class AuthenticatedAPIClient: APIClientProtocol, PersistentAIClientProtocol {
     // MARK: - Projects
 
     func fetchProjects() async throws -> [ArchonProject] {
-        let url = Environment.current.apiBaseURL.appendingPathComponent("projects")
+        let url = AppEnvironment.current.apiBaseURL.appendingPathComponent("projects")
         return try await performRequest(url: url, method: "GET")
     }
 
     func createProject(_ request: CreateProjectRequest) async throws -> ArchonProject {
-        let url = Environment.current.apiBaseURL.appendingPathComponent("projects")
+        let url = AppEnvironment.current.apiBaseURL.appendingPathComponent("projects")
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         let body = try encoder.encode(request)
@@ -105,7 +105,7 @@ class AuthenticatedAPIClient: APIClientProtocol, PersistentAIClientProtocol {
     }
 
     func updateProject(id: String, _ request: UpdateProjectRequest) async throws -> ArchonProject {
-        let url = Environment.current.apiBaseURL.appendingPathComponent("projects/\(id)")
+        let url = AppEnvironment.current.apiBaseURL.appendingPathComponent("projects/\(id)")
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         let body = try encoder.encode(request)
@@ -113,7 +113,7 @@ class AuthenticatedAPIClient: APIClientProtocol, PersistentAIClientProtocol {
     }
 
     func deleteProject(id: String) async throws {
-        let url = Environment.current.apiBaseURL.appendingPathComponent("projects/\(id)")
+        let url = AppEnvironment.current.apiBaseURL.appendingPathComponent("projects/\(id)")
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         let token = try await tokenProvider()
@@ -127,22 +127,22 @@ class AuthenticatedAPIClient: APIClientProtocol, PersistentAIClientProtocol {
     // MARK: - Tasks
 
     func fetchTasks(projectId: String? = nil) async throws -> [ArchonTask] {
-        let url = Environment.current.apiBaseURL.appendingPathComponent("agent/tasks")
+        let url = AppEnvironment.current.apiBaseURL.appendingPathComponent("agent/tasks")
         return try await performRequest(url: url, method: "GET")
     }
 
     func getTaskDetails(id: String) async throws -> ArchonTask {
-        let url = Environment.current.apiBaseURL.appendingPathComponent("agent/tasks/\(id)")
+        let url = AppEnvironment.current.apiBaseURL.appendingPathComponent("agent/tasks/\(id)")
         return try await performRequest(url: url, method: "GET")
     }
 
     func getTaskEvents(id: String) async throws -> [TaskEvent] {
-        let url = Environment.current.apiBaseURL.appendingPathComponent("agent/tasks/\(id)/events")
+        let url = AppEnvironment.current.apiBaseURL.appendingPathComponent("agent/tasks/\(id)/events")
         return try await performRequest(url: url, method: "GET")
     }
 
     func cancelTask(id: String) async throws {
-        let url = Environment.current.apiBaseURL.appendingPathComponent("agent/tasks/\(id)/cancel")
+        let url = AppEnvironment.current.apiBaseURL.appendingPathComponent("agent/tasks/\(id)/cancel")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         let token = try await tokenProvider()
@@ -154,7 +154,7 @@ class AuthenticatedAPIClient: APIClientProtocol, PersistentAIClientProtocol {
     }
 
     func createTask(_ createRequest: CreateTaskRequest) async throws -> ArchonTask {
-        let url = Environment.current.apiBaseURL.appendingPathComponent("agent/tasks")
+        let url = AppEnvironment.current.apiBaseURL.appendingPathComponent("agent/tasks")
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         let body = try encoder.encode(createRequest)
@@ -164,7 +164,7 @@ class AuthenticatedAPIClient: APIClientProtocol, PersistentAIClientProtocol {
     // MARK: - Chat
 
     func sendMessage(_ message: String, history: [APIMessage], model: String, provider: String) async throws -> ChatAPIResponse {
-        let url = Environment.current.apiBaseURL.appendingPathComponent("ai/chat")
+        let url = AppEnvironment.current.apiBaseURL.appendingPathComponent("ai/chat")
         var messages = history
         if messages.last?.role != "user" || messages.last?.content != message {
             messages.append(APIMessage(role: "user", content: message))
@@ -192,7 +192,7 @@ class AuthenticatedAPIClient: APIClientProtocol, PersistentAIClientProtocol {
         fallbackModels: [AIFallbackModel],
         projectId: String?
     ) async throws -> PersistentAIJob {
-        let url = Environment.current.apiBaseURL.appendingPathComponent("ai/jobs")
+        let url = AppEnvironment.current.apiBaseURL.appendingPathComponent("ai/jobs")
         var messages = history
         if messages.last?.role != "user" || messages.last?.content != message {
             messages.append(APIMessage(role: "user", content: message))
@@ -216,14 +216,14 @@ class AuthenticatedAPIClient: APIClientProtocol, PersistentAIClientProtocol {
     }
 
     func getPersistentJob(id: String) async throws -> PersistentAIJob {
-        let url = Environment.current.apiBaseURL.appendingPathComponent("ai/jobs/\(id)")
+        let url = AppEnvironment.current.apiBaseURL.appendingPathComponent("ai/jobs/\(id)")
         return try await performRequest(url: url, method: "GET")
     }
 
     // MARK: - Providers
 
     func fetchProviders() async throws -> [ProviderMetadata] {
-        let url = Environment.current.apiBaseURL.appendingPathComponent("ai/providers")
+        let url = AppEnvironment.current.apiBaseURL.appendingPathComponent("ai/providers")
         return try await performRequest(url: url, method: "GET")
     }
 }

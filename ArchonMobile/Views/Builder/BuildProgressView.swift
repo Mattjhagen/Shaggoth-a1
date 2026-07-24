@@ -92,11 +92,7 @@ struct BuildProgressView: View {
                     .foregroundStyle(DesignSystem.Colors.danger)
                     .transition(.scale.combined(with: .opacity))
             } else {
-                Image(systemName: "hammer.fill")
-                    .font(.system(size: 40))
-                    .foregroundStyle(DesignSystem.Colors.accent)
-                    .rotationEffect(.degrees(rotationAngle))
-                    .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: rotationAngle)
+                ColliderLoadingView(size: 96)
             }
 
             if showPulse && status.isActive {
@@ -117,31 +113,31 @@ struct BuildProgressView: View {
     private var statusText: some View {
         switch status {
         case .queued:
-            Text("Queued...")
+            Text("Waiting in line…")
                 .foregroundStyle(DesignSystem.Colors.textSecondary)
         case .planning:
-            Text("Planning your app...")
+            Text("Sketching out your app…")
                 .foregroundStyle(DesignSystem.Colors.info)
         case .running:
-            Text("Building your app...")
+            Text("Building your app…")
                 .foregroundStyle(DesignSystem.Colors.accent)
         case .verifying:
-            Text("Verifying build...")
+            Text("Double-checking everything…")
                 .foregroundStyle(DesignSystem.Colors.warning)
         case .completed:
-            Text("Build complete!")
+            Text("All done!")
                 .foregroundStyle(DesignSystem.Colors.success)
         case .failed:
-            Text("Build failed")
+            Text("Something didn't work")
                 .foregroundStyle(DesignSystem.Colors.danger)
         case .cancelled:
-            Text("Build cancelled")
+            Text("Build stopped")
                 .foregroundStyle(DesignSystem.Colors.textMuted)
         case .cancelling:
-            Text("Cancelling...")
+            Text("Stopping…")
                 .foregroundStyle(DesignSystem.Colors.warning)
         case .blocked:
-            Text("Build blocked")
+            Text("Needs your attention")
                 .foregroundStyle(DesignSystem.Colors.danger)
         }
     }
@@ -273,9 +269,7 @@ struct BuildProgressView: View {
                         )
                 }
             }
-            Text("AI is working...")
-                .font(.system(.caption, design: .rounded))
-                .foregroundStyle(DesignSystem.Colors.textMuted)
+            WittyLoadingText()
         }
         .opacity(status.isActive ? 1 : 0)
     }

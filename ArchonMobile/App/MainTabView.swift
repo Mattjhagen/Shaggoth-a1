@@ -45,18 +45,11 @@ struct MainTabView: View {
                 }
                 .tag(Tab.builder)
 
-            CodeBrowserView(
-                project: selectedProject,
-                onProjectSelected: { project in
-                    selectedProject = project
-                },
-                onShowBuilder: {
-                    builderHomeRequest = UUID()
-                    selectedTab = .builder
-                }
-            )
+            // Code browsing is a future in-app purchase — the tab shows a
+            // locked teaser until then (CodeBrowserView stays in the app).
+            CodeAccessLockedView()
                 .tabItem {
-                    Label("Code", systemImage: "chevron.left.forwardslash.chevron.right")
+                    Label("Code", systemImage: "lock")
                 }
                 .tag(Tab.code)
 

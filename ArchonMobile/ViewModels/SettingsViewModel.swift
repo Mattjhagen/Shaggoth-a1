@@ -41,7 +41,7 @@ final class SettingsViewModel: ObservableObject {
            let mode = AppearanceMode(rawValue: saved) {
             self.appearance = mode
         }
-        self.apiEndpoint = UserDefaults.standard.string(forKey: "apiEndpoint") ?? Environment.current.apiBaseURL.absoluteString
+        self.apiEndpoint = UserDefaults.standard.string(forKey: "apiEndpoint") ?? AppEnvironment.current.apiBaseURL.absoluteString
 
         if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
             let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String
@@ -60,7 +60,7 @@ final class SettingsViewModel: ObservableObject {
         if trimmed.isEmpty {
             UserDefaults.standard.removeObject(forKey: "apiEndpoint")
             apiEndpointError = nil
-        } else if Environment.validAPIURL(trimmed) != nil {
+        } else if AppEnvironment.validAPIURL(trimmed) != nil {
             UserDefaults.standard.set(trimmed, forKey: "apiEndpoint")
             apiEndpointError = nil
         } else {

@@ -7,7 +7,7 @@ struct BuilderView: View {
     let onProjectCreated: (ArchonProject) -> Void
     @StateObject private var viewModel = BuilderViewModel()
     @State private var inputText = ""
-    @State private var showModelPicker = false
+    @State private var preselectedTemplate: IdeaTemplate?
     @State private var showBuildScreen = false
     @State private var showNewSessionConfirmation = false
     @FocusState private var isComposerFocused: Bool
@@ -111,9 +111,6 @@ struct BuilderView: View {
             .sheet(isPresented: $viewModel.showEventTimeline) {
                 eventTimelineSheet
             }
-            .sheet(isPresented: $showModelPicker) {
-                modelPickerSheet
-            }
             .fullScreenCover(isPresented: $showBuildScreen) {
                 BuildScreenView(viewModel: viewModel)
             }
@@ -145,18 +142,19 @@ struct BuilderView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("What do you want to build?")
+                    Text("What do you want to make?")
                         .font(.system(.title2, design: .rounded).weight(.bold))
                         .foregroundStyle(DesignSystem.Colors.textPrimary)
-                    Text("Start fresh with a suggestion or reopen a saved conversation.")
+                    Text("Pick a starting point or continue where you left off.")
                         .font(.system(.subheadline, design: .rounded))
                         .foregroundStyle(DesignSystem.Colors.textSecondary)
                 }
                 .padding(.bottom, 4)
 
-                quickStartCard("A todo app with categories and due dates", icon: "checklist")
-                quickStartCard("A weather dashboard with animated icons", icon: "cloud.sun")
-                quickStartCard("A recipe finder with search and filters", icon: "fork.knife")
+                ForEach(IdeaTemplate.allCases) { template in
+                    templateCard(template)
+                }
+                templateCard(nil)
 
                 if let project {
                     HStack(spacing: 8) {
@@ -217,17 +215,17 @@ struct BuilderView: View {
         }
     }
 
-    private func quickStartCard(_ prompt: String, icon: String) -> some View {
+    /// A template shortcut card; `nil` is the "something else" free-form entry.
+    private func templateCard(_ template: IdeaTemplate?) -> some View {
         Button {
+            preselectedTemplate = template
             viewModel.startNewSession()
-            inputText = prompt
-            isComposerFocused = true
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: icon)
+                Image(systemName: template?.icon ?? "lightbulb")
                     .foregroundStyle(DesignSystem.Colors.accent)
                     .frame(width: 28)
-                Text(prompt)
+                Text(template?.title ?? "Something else — describe it your way")
                     .font(.system(.subheadline, design: .rounded).weight(.medium))
                     .foregroundStyle(DesignSystem.Colors.textPrimary)
                     .multilineTextAlignment(.leading)
@@ -244,32 +242,13 @@ struct BuilderView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Model Selector
+    // MARK: - Status Bar
 
+    // The system decides which AI serves each request — no model picker.
+    // The choice is visible per-reply in each message's "under the hood" log.
     private var modelSelectorBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                Button {
-                    showModelPicker = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "cpu")
-                            .font(.caption2)
-                        Text(selectedModelLabel)
-                            .font(.system(.caption, design: .rounded).weight(.medium))
-                            .lineLimit(1)
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 8))
-                    }
-                    .foregroundStyle(DesignSystem.Colors.textSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(DesignSystem.Colors.elevated)
-                    .clipShape(Capsule())
-                }
-                .accessibilityLabel("Select model. Current: \(selectedModelLabel)")
-                .dsTouchTarget()
-
                 if viewModel.isTaskActive {
                     HStack(spacing: 4) {
                         ProgressView()
@@ -293,12 +272,6 @@ struct BuilderView: View {
             .padding(.vertical, 8)
         }
         .background(DesignSystem.Colors.surface)
-    }
-
-    private var selectedModelLabel: String {
-        guard let provider = viewModel.selectedProvider else { return "Select Model" }
-        let model = provider.models.first { $0.id == viewModel.selectedModelId }
-        return model.map { "\(provider.name) · \($0.name)" } ?? provider.name
     }
 
     private func statusChip(_ status: TaskStatus) -> some View {
@@ -336,8 +309,9 @@ struct BuilderView: View {
                         }
 
                         if viewModel.isStreaming {
-                            HStack {
+                            HStack(spacing: 10) {
                                 TypingIndicator()
+                                WittyLoadingText()
                                 Spacer()
                             }
                             .padding(.horizontal, DesignSystem.Spacing.lg)
@@ -359,77 +333,64 @@ struct BuilderView: View {
     // MARK: - Empty State
 
     private var emptyChatState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-                .frame(minHeight: 80)
-
+        VStack(spacing: 20) {
             ZStack {
                 Circle()
                     .fill(DesignSystem.Colors.accent.opacity(0.1))
-                    .frame(width: 80, height: 80)
+                    .frame(width: 72, height: 72)
 
                 Image(systemName: "sparkles")
-                    .font(.system(size: 32))
+                    .font(.system(size: 28))
                     .foregroundStyle(DesignSystem.Colors.accent)
+                    .dsGlow(radius: 12, opacity: 0.4)
             }
             .accessibilityHidden(true)
+            .padding(.top, 20)
 
-            VStack(spacing: 8) {
-                Text("What do you want to build?")
+            VStack(spacing: 6) {
+                Text("Let's make something!")
                     .font(.system(.title3, design: .rounded).weight(.semibold))
                     .foregroundStyle(DesignSystem.Colors.textPrimary)
                     .accessibilityAddTraits(.isHeader)
 
-                Text("Describe your app idea and I'll build it for you")
+                Text("Answer a couple of quick questions —\nwe'll take care of the rest.")
                     .font(.system(.subheadline, design: .rounded))
                     .foregroundStyle(DesignSystem.Colors.textSecondary)
                     .multilineTextAlignment(.center)
             }
 
-            // Quick prompts
-            VStack(spacing: 10) {
-                quickPrompt("A todo app with categories and due dates")
-                quickPrompt("A weather dashboard with animated icons")
-                quickPrompt("A recipe finder with search and filters")
+            IdeaCaptureView(preselectedTemplate: preselectedTemplate) { prompt in
+                preselectedTemplate = nil
+                Task {
+                    await viewModel.send(
+                        message: prompt,
+                        projectId: project?.id ?? viewModel.activeProject?.id
+                    )
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        showBuildScreen = true
+                    }
+                }
             }
-            .padding(.horizontal, 32)
-            .padding(.top, 8)
-
-            Spacer()
+            .padding(.horizontal, 24)
         }
-        .accessibilityElement(children: .combine)
-    }
-
-    private func quickPrompt(_ text: String) -> some View {
-        Button {
-            inputText = text
-        } label: {
-            HStack {
-                Image(systemName: "bubble.left")
-                    .font(.caption)
-                Text(text)
-                    .font(.system(.subheadline, design: .rounded))
-                    .lineLimit(1)
-                Spacer()
-                Image(systemName: "arrow.up.circle")
-                    .font(.caption)
-            }
-            .foregroundStyle(DesignSystem.Colors.textSecondary)
-            .padding(12)
-            .background(DesignSystem.Colors.elevated)
-            .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.sm, style: .continuous))
-            .archonLiquidGlass(cornerRadius: DesignSystem.Radius.sm, interactive: true)
-        }
-        .buttonStyle(.plain)
-        .dsTouchTarget()
-        .accessibilityLabel("Quick prompt: \(text)")
     }
 
     // MARK: - Composer
 
     private var composerBar: some View {
         VStack(spacing: 0) {
+            if !viewModel.pendingAttachments.isEmpty {
+                AttachmentTray(viewModel: viewModel)
+            }
+
+            if !viewModel.queuedMessages.isEmpty {
+                queuedMessagesRow
+            } else if !viewModel.followUpSuggestions.isEmpty {
+                suggestionsRow
+            }
+
             HStack(alignment: .bottom, spacing: 10) {
+                AttachmentPickerButton(viewModel: viewModel)
                 TextField("Describe your app...", text: $inputText, axis: .vertical)
                     .focused($isComposerFocused)
                     .font(.system(.body, design: .rounded))
@@ -457,41 +418,40 @@ struct BuilderView: View {
                             Text("View Build")
                                 .font(.system(.caption, design: .rounded).weight(.semibold))
                         }
-                        .foregroundStyle(DesignSystem.Colors.base)
+                        .foregroundStyle(DesignSystem.Colors.onAccent)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(DesignSystem.Colors.accent)
+                        .background(DesignSystem.Colors.accentGradient)
                         .clipShape(Capsule())
                     }
                     .accessibilityLabel("View build progress")
                     .dsTouchTarget()
-                } else {
-                    Button {
-                        let text = inputText
-                        inputText = ""
-                        Task {
-                            await viewModel.send(
-                                message: text,
-                                projectId: project?.id ?? viewModel.activeProject?.id
-                            )
+                }
+
+                // Sending never interrupts a build — while the AI is busy,
+                // new messages join the queue instead.
+                Button {
+                    let text = inputText
+                    inputText = ""
+                    Task {
+                        let sentNow = await viewModel.submit(
+                            message: text,
+                            projectId: project?.id ?? viewModel.activeProject?.id
+                        )
+                        if sentNow {
                             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                                 showBuildScreen = true
                             }
                         }
-                    } label: {
-                        if viewModel.isStreaming {
-                            ProgressView()
-                                .frame(width: 36, height: 36)
-                        } else {
-                            Image(systemName: "arrow.up.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(canSend ? DesignSystem.Colors.accent : DesignSystem.Colors.textMuted)
-                        }
                     }
-                    .disabled(!canSend || viewModel.isStreaming)
-                    .accessibilityLabel("Send message")
-                    .dsTouchTarget()
+                } label: {
+                    Image(systemName: viewModel.isStreaming ? "text.append" : "arrow.up.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(canSend ? DesignSystem.Colors.accent : DesignSystem.Colors.textMuted)
                 }
+                .disabled(!canSend)
+                .accessibilityLabel(viewModel.isStreaming ? "Add message to queue" : "Send message")
+                .dsTouchTarget()
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -501,6 +461,89 @@ struct BuilderView: View {
 
     private var canSend: Bool {
         !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && viewModel.selectedProviderId != nil
+    }
+
+    // MARK: - Suggestions & Queue Rows
+
+    private var suggestionsRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(viewModel.followUpSuggestions, id: \.self) { suggestion in
+                    Button {
+                        Task {
+                            await viewModel.submit(
+                                message: suggestion,
+                                projectId: project?.id ?? viewModel.activeProject?.id
+                            )
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkle")
+                                .font(.system(size: 9))
+                            Text(suggestion)
+                                .font(.system(.caption, design: .rounded).weight(.medium))
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(DesignSystem.Colors.accent)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(DesignSystem.Colors.accent.opacity(0.1))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule().strokeBorder(DesignSystem.Colors.accent.opacity(0.25), lineWidth: 1)
+                        )
+                    }
+                    .dsPressable()
+                    .accessibilityLabel("Suggestion: \(suggestion)")
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+        }
+        .background(DesignSystem.Colors.surface)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
+    }
+
+    private var queuedMessagesRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Waiting in line — sends when the AI is free")
+                .font(.system(.caption2, design: .rounded).weight(.medium))
+                .foregroundStyle(DesignSystem.Colors.textMuted)
+                .padding(.horizontal, 14)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(viewModel.queuedMessages) { queued in
+                        HStack(spacing: 6) {
+                            Image(systemName: "hourglass")
+                                .font(.system(size: 9))
+                            Text(queued.text)
+                                .font(.system(.caption, design: .rounded))
+                                .lineLimit(1)
+                                .frame(maxWidth: 180, alignment: .leading)
+
+                            Button {
+                                viewModel.cancelQueuedMessage(queued.id)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(DesignSystem.Colors.textMuted)
+                            }
+                            .accessibilityLabel("Remove from queue")
+                        }
+                        .foregroundStyle(DesignSystem.Colors.textSecondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(DesignSystem.Colors.elevated)
+                        .clipShape(Capsule())
+                    }
+                }
+                .padding(.horizontal, 14)
+            }
+        }
+        .padding(.vertical, 8)
+        .background(DesignSystem.Colors.surface)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 
     // MARK: - Error Banner
@@ -568,52 +611,6 @@ struct BuilderView: View {
         }
     }
 
-    private var modelPickerSheet: some View {
-        NavigationStack {
-            ZStack {
-                DesignSystem.Colors.base.ignoresSafeArea()
-
-                List {
-                    ForEach(viewModel.usableProviders) { provider in
-                        Section(provider.name) {
-                            ForEach(provider.models, id: \.id) { model in
-                                Button {
-                                    viewModel.selectedProviderId = provider.id
-                                    viewModel.selectedModelId = model.id
-                                    showModelPicker = false
-                                } label: {
-                                    HStack {
-                                        Text(model.name)
-                                            .font(.system(.body, design: .rounded))
-                                            .foregroundStyle(DesignSystem.Colors.textPrimary)
-
-                                        Spacer()
-
-                                        if viewModel.selectedModelId == model.id {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .foregroundStyle(DesignSystem.Colors.accent)
-                                        }
-                                    }
-                                }
-                                .dsTouchTarget()
-                            }
-                        }
-                    }
-                }
-                .scrollContentBackground(.hidden)
-            }
-            .navigationTitle("Select Model")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        showModelPicker = false
-                    }
-                    .dsTouchTarget()
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Chat Bubble
@@ -621,6 +618,7 @@ struct BuilderView: View {
 struct ChatBubbleView: View {
     let message: ChatMessage
     @State private var copied = false
+    @State private var showDetails = false
 
     var body: some View {
         HStack {
@@ -629,6 +627,21 @@ struct ChatBubbleView: View {
             }
 
             VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 4) {
+                if let imageDatas = message.localImageData, !imageDatas.isEmpty {
+                    HStack(spacing: 6) {
+                        ForEach(Array(imageDatas.enumerated()), id: \.offset) { _, data in
+                            if let image = UIImage(data: data) {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 88, height: 88)
+                                    .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.sm, style: .continuous))
+                            }
+                        }
+                    }
+                    .accessibilityLabel("\(imageDatas.count) attached image\(imageDatas.count == 1 ? "" : "s")")
+                }
+
                 Text(message.content)
                     .font(.system(.body, design: .rounded))
                     .foregroundStyle(message.role == .user ? DesignSystem.Colors.base : DesignSystem.Colors.textPrimary)
@@ -656,8 +669,34 @@ struct ChatBubbleView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(copied ? "Message copied" : "Copy message")
+
+                    if message.role == .assistant, message.details != nil {
+                        Button {
+                            withAnimation(DesignSystem.Animation.snappy) {
+                                showDetails.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "wrench.and.screwdriver")
+                                    .font(.system(size: 9))
+                                Text("Under the hood")
+                                    .font(.system(.caption2, design: .rounded).weight(.medium))
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .rotationEffect(.degrees(showDetails ? 180 : 0))
+                            }
+                            .foregroundStyle(showDetails ? DesignSystem.Colors.accent : DesignSystem.Colors.textMuted)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(showDetails ? "Hide technical details" : "Show technical details")
+                    }
                 }
                 .padding(.horizontal, 4)
+
+                if showDetails, let details = message.details {
+                    underTheHoodLog(details)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
 
             if message.role == .assistant {
@@ -682,6 +721,39 @@ struct ChatBubbleView: View {
             return AnyShapeStyle(DesignSystem.Colors.accent)
         } else {
             return AnyShapeStyle(DesignSystem.Colors.elevated)
+        }
+    }
+
+    /// The technical log tucked beneath friendly replies — which AI served
+    /// the request, token counts, and timing, for the curious.
+    private func underTheHoodLog(_ details: ChatMessage.BuildDetails) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            logRow("AI", "\(details.provider) · \(details.model)")
+            if let input = details.inputTokens, let output = details.outputTokens {
+                logRow("Tokens", "\(input) in · \(output) out")
+            }
+            if let seconds = details.elapsedSeconds {
+                logRow("Time", String(format: "%.1fs", seconds))
+            }
+        }
+        .padding(10)
+        .background(DesignSystem.Colors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.sm, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.Radius.sm, style: .continuous)
+                .strokeBorder(DesignSystem.Colors.borderFaint, lineWidth: 1)
+        )
+    }
+
+    private func logRow(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(label)
+                .font(.system(.caption2, design: .rounded).weight(.semibold))
+                .foregroundStyle(DesignSystem.Colors.textMuted)
+                .frame(width: 44, alignment: .leading)
+            Text(value)
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(DesignSystem.Colors.textSecondary)
         }
     }
 }

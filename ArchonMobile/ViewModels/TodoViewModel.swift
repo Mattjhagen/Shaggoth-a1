@@ -97,7 +97,7 @@ final class TodoViewModel: ObservableObject {
     }
 
     func clearCompleted() async {
-        guard let projectId = projectId, let userId = userId else { return }
+        guard projectId != nil, userId != nil else { return }
 
         let completedIds = todos.filter { $0.isCompleted }.map { $0.id }
         for id in completedIds {

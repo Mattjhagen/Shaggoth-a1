@@ -268,6 +268,21 @@ class MockAPIClient: APIClientProtocol {
                 requiresKey: true
             ),
             ProviderMetadata(
+                id: "openrouter",
+                name: "OpenRouter",
+                models: [
+                    ModelMetadata(id: "openrouter/auto", name: "Auto (Best Available)"),
+                    ModelMetadata(id: "openrouter/free", name: "Free Models (Auto)"),
+                    ModelMetadata(id: "anthropic/claude-sonnet-5", name: "Claude Sonnet 5"),
+                    ModelMetadata(id: "anthropic/claude-opus-5", name: "Claude Opus 5"),
+                    ModelMetadata(id: "openai/gpt-5.6-terra", name: "GPT-5.6 Terra"),
+                    ModelMetadata(id: "google/gemini-3.6-flash", name: "Gemini 3.6 Flash"),
+                    ModelMetadata(id: "x-ai/grok-4.5", name: "Grok 4.5")
+                ],
+                configured: true,
+                requiresKey: true
+            ),
+            ProviderMetadata(
                 id: "mock",
                 name: "Demo (Simulated)",
                 models: [

@@ -24,12 +24,12 @@ class SupabaseClientManager {
 
     private init() {
         client = SupabaseClient(
-            supabaseURL: Environment.current.supabaseURL,
-            supabaseKey: Environment.current.supabaseAnonKey,
+            supabaseURL: AppEnvironment.current.supabaseURL,
+            supabaseKey: AppEnvironment.current.supabaseAnonKey,
             options: SupabaseClientOptions(
                 auth: .init(
                     storage: SupabaseKeychainStorage(),
-                    redirectToURL: Environment.authRedirectURL
+                    redirectToURL: AppEnvironment.authRedirectURL
                 )
             )
         )

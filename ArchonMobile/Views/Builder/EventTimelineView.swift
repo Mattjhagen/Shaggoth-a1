@@ -20,9 +20,14 @@ struct EventTimelineView: View {
             } else {
                 ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
                     timelineRow(event: event, isLast: index == events.count - 1)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .opacity
+                        ))
                 }
             }
         }
+        .animation(DesignSystem.Animation.fluid, value: events.count)
     }
 
     @ViewBuilder
@@ -30,17 +35,55 @@ struct EventTimelineView: View {
         HStack(alignment: .top, spacing: 14) {
             // Timeline line and dot
             VStack(spacing: 0) {
-                Image(systemName: event.type.icon)
-                    .font(.system(size: 10))
-                    .foregroundStyle(dotColor(for: event.type))
-                    .frame(width: 28, height: 28)
-                    .background(dotColor(for: event.type).opacity(0.15))
-                    .clipShape(Circle())
-                    .padding(.top, 2)
+                ZStack {
+                    if isLast && event.type.isLive {
+                        PulsingHalo(color: dotColor(for: event.type))
+                            .frame(width: 30, height: 30)
+                    }
+
+                    Image(systemName: event.type.icon)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(dotColor(for: event.type))
+                        .frame(width: 30, height: 30)
+                        .background(
+                            Circle().fill(
+                                RadialGradient(
+                                    colors: [
+                                        dotColor(for: event.type).opacity(0.30),
+                                        dotColor(for: event.type).opacity(0.08)
+                                    ],
+                                    center: .center,
+                                    startRadius: 2,
+                                    endRadius: 16
+                                )
+                            )
+                        )
+                        .overlay(
+                            Circle().strokeBorder(
+                                dotColor(for: event.type).opacity(0.35),
+                                lineWidth: 1
+                            )
+                        )
+                        .dsGlow(
+                            dotColor(for: event.type),
+                            radius: isLast ? 10 : 0,
+                            opacity: isLast ? 0.4 : 0
+                        )
+                }
+                .padding(.top, 2)
 
                 if !isLast {
-                    Rectangle()
-                        .fill(DesignSystem.Colors.surfaceBorder)
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    dotColor(for: event.type).opacity(0.45),
+                                    DesignSystem.Colors.surfaceBorder.opacity(0.6)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
                         .frame(width: 2)
                         .frame(minHeight: 20)
                 }
@@ -100,6 +143,33 @@ struct EventTimelineView: View {
         case .fileEdit: return .orange
         case .message: return DesignSystem.Colors.accent
         }
+    }
+}
+
+private extension TaskEvent.EventType {
+    /// Events that represent work still in flight get a breathing pulse.
+    var isLive: Bool {
+        switch self {
+        case .completion, .error: return false
+        default: return true
+        }
+    }
+}
+
+/// Expanding ring that radiates from the newest live event's dot.
+private struct PulsingHalo: View {
+    let color: Color
+    @State private var expanded = false
+
+    var body: some View {
+        Circle()
+            .stroke(color.opacity(expanded ? 0 : 0.5), lineWidth: 2)
+            .scaleEffect(expanded ? 1.9 : 1)
+            .onAppear {
+                withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
+                    expanded = true
+                }
+            }
     }
 }
 

@@ -6,6 +6,14 @@ import Foundation
 struct APIMessage: Encodable {
     let role: String
     let content: String
+    /// Attached images as data URLs; omitted entirely for text-only messages.
+    var images: [String]?
+
+    init(role: String, content: String, images: [String]? = nil) {
+        self.role = role
+        self.content = content
+        self.images = images
+    }
 }
 
 struct AIFallbackModel: Encodable {

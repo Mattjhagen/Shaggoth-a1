@@ -84,7 +84,7 @@ class AuthManager: NSObject, ObservableObject {
     /// Archon. The auth state listener updates the app UI to the signed-in
     /// experience as soon as the session is stored in the keychain.
     func handleAuthCallback(_ url: URL) {
-        guard url.scheme?.lowercased() == Environment.authRedirectURL.scheme else { return }
+        guard url.scheme?.lowercased() == AppEnvironment.authRedirectURL.scheme else { return }
 
         isLoading = true
         authError = nil

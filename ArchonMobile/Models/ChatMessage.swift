@@ -7,6 +7,16 @@ struct ChatMessage: Codable, Identifiable, Equatable {
     let role: MessageRole
     let content: String
     let timestamp: Date
+    /// Technical details hidden behind the "under the hood" disclosure.
+    /// Optional so previously saved conversations decode unchanged.
+    var details: BuildDetails?
+    /// Attached image data (JPEG), kept out of Codable so chat memory stays
+    /// lightweight — attachments display for the current session only.
+    var localImageData: [Data]?
+
+    enum CodingKeys: String, CodingKey {
+        case id, role, content, timestamp, details
+    }
 
     enum MessageRole: String, Codable {
         case user
@@ -14,11 +24,31 @@ struct ChatMessage: Codable, Identifiable, Equatable {
         case system
     }
 
-    init(id: UUID = UUID(), role: MessageRole, content: String, timestamp: Date = Date()) {
+    /// What actually happened behind a friendly assistant reply — the model
+    /// that served it, token counts, and elapsed time. Users never need this,
+    /// but the curious can peek.
+    struct BuildDetails: Codable, Equatable {
+        let provider: String
+        let model: String
+        let inputTokens: Int?
+        let outputTokens: Int?
+        let elapsedSeconds: Double?
+    }
+
+    init(
+        id: UUID = UUID(),
+        role: MessageRole,
+        content: String,
+        timestamp: Date = Date(),
+        details: BuildDetails? = nil,
+        localImageData: [Data]? = nil
+    ) {
         self.id = id
         self.role = role
         self.content = content
         self.timestamp = timestamp
+        self.details = details
+        self.localImageData = localImageData
     }
 
     static func == (lhs: ChatMessage, rhs: ChatMessage) -> Bool {

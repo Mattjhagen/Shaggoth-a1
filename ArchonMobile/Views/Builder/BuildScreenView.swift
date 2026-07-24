@@ -17,15 +17,15 @@ struct BuildScreenView: View {
         self.viewModel = viewModel
     }
 
+    // The Code tab is intentionally absent: full codebase access will be a
+    // paid unlock later (the CodeBrowser module stays in the app for that).
     enum BuildTab: String, CaseIterable {
         case preview
-        case code
         case agent
 
         var label: String {
             switch self {
             case .preview: return "Preview"
-            case .code: return "Code"
             case .agent: return "AI Agent"
             }
         }
@@ -33,7 +33,6 @@ struct BuildScreenView: View {
         var icon: String {
             switch self {
             case .preview: return "eye.fill"
-            case .code: return "chevron.left.forwardslash.chevron.right"
             case .agent: return "sparkles"
             }
         }
@@ -51,17 +50,13 @@ struct BuildScreenView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showFullPreview) {
+        .fullScreenCover(isPresented: $showFullPreview) {
             fullPreviewSheet
         }
         .sheet(isPresented: $showDeployOptions) {
-            DeployOptionsView(
-                projectName: viewModel.activeProject?.name ?? "App",
-                projectDescription: viewModel.activeProject?.description,
-                onDeploy: { platform in
-                    // Handle deploy to selected platform
-                }
-            )
+            if let project = viewModel.activeProject {
+                PublishFlowView(project: project)
+            }
         }
     }
 
@@ -105,16 +100,17 @@ struct BuildScreenView: View {
                     showDeployOptions = true
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "arrow.up.circle")
+                        Image(systemName: "globe")
                             .font(.system(size: 12, weight: .semibold))
-                        Text("Deploy")
+                        Text("Publish")
                             .font(.system(.caption, design: .rounded).weight(.semibold))
                     }
-                    .foregroundStyle(DesignSystem.Colors.base)
+                    .foregroundStyle(DesignSystem.Colors.onAccent)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(DesignSystem.Colors.accent)
+                    .background(DesignSystem.Colors.accentGradient)
                     .clipShape(Capsule())
+                    .dsGlow(radius: 8, opacity: 0.35)
                 }
                 .dsTouchTarget()
             }
@@ -183,27 +179,19 @@ struct BuildScreenView: View {
 
     @ViewBuilder
     private var content: some View {
-        if viewModel.currentTask == nil {
-            buildProgressPlaceholder
-        } else if let task = viewModel.currentTask, task.status.isActive {
-            if selectedTab == .preview {
-                previewTab(withProgress: true)
-            } else if selectedTab == .code {
-                codeTab
-            } else {
-                agentTab
-            }
-        } else if let task = viewModel.currentTask, task.status == .completed {
-            switch selectedTab {
-            case .preview:
+        // The Code and AI Agent tabs must always honor the tab selection —
+        // only the Preview tab reflects build progress states.
+        switch selectedTab {
+        case .preview:
+            if let task = viewModel.currentTask, task.status == .completed {
                 previewTab(withProgress: false)
-            case .code:
-                codeTab
-            case .agent:
-                agentTab
+            } else if let task = viewModel.currentTask, task.status.isActive {
+                previewTab(withProgress: true)
+            } else {
+                buildProgressPlaceholder
             }
-        } else {
-            buildProgressPlaceholder
+        case .agent:
+            agentTab
         }
     }
 
@@ -213,29 +201,18 @@ struct BuildScreenView: View {
         VStack(spacing: 24) {
             Spacer()
 
-            ZStack {
-                Circle()
-                    .fill(DesignSystem.Colors.accent.opacity(0.1))
-                    .frame(width: 100, height: 100)
-
-                Image(systemName: "hammer.fill")
-                    .font(.system(size: 40))
-                    .foregroundStyle(DesignSystem.Colors.accent)
-            }
+            ColliderLoadingView(size: 140)
 
             VStack(spacing: 8) {
-                Text("Preparing build...")
+                Text("Getting everything ready…")
                     .font(.system(.title3, design: .rounded).weight(.semibold))
                     .foregroundStyle(DesignSystem.Colors.textPrimary)
 
-                Text("Setting up your project")
+                Text("Your app is being set up. Feel free to look around —\nwe'll let you know the moment it's done.")
                     .font(.system(.subheadline, design: .rounded))
                     .foregroundStyle(DesignSystem.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
             }
-
-            ProgressView()
-                .scaleEffect(1.2)
-                .tint(DesignSystem.Colors.accent)
 
             Spacer()
         }
@@ -450,8 +427,12 @@ struct BuildScreenView: View {
                     }
 
                     if viewModel.isStreaming {
-                        TypingIndicator()
-                            .id("typing")
+                        HStack(spacing: 10) {
+                            TypingIndicator()
+                            WittyLoadingText()
+                            Spacer()
+                        }
+                        .id("typing")
                     }
                 }
                 .padding(.horizontal, 16)
@@ -472,8 +453,74 @@ struct BuildScreenView: View {
     // MARK: - Agent Composer
 
     private var agentComposer: some View {
+        VStack(spacing: 0) {
+            if !viewModel.pendingAttachments.isEmpty {
+                AttachmentTray(viewModel: viewModel)
+            }
+
+            if !viewModel.queuedMessages.isEmpty {
+                queuedBanner
+            } else if !viewModel.followUpSuggestions.isEmpty {
+                agentSuggestionsRow
+            }
+
+            agentComposerField
+        }
+    }
+
+    private var agentSuggestionsRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(viewModel.followUpSuggestions, id: \.self) { suggestion in
+                    Button {
+                        Task {
+                            await viewModel.submit(
+                                message: suggestion,
+                                projectId: viewModel.activeProject?.id
+                            )
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkle")
+                                .font(.system(size: 9))
+                            Text(suggestion)
+                                .font(.system(.caption, design: .rounded).weight(.medium))
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(DesignSystem.Colors.accent)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(DesignSystem.Colors.accent.opacity(0.1))
+                        .clipShape(Capsule())
+                    }
+                    .dsPressable()
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .background(DesignSystem.Colors.surface)
+    }
+
+    private var queuedBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "hourglass")
+                .font(.system(size: 10))
+            Text("\(viewModel.queuedMessages.count) message\(viewModel.queuedMessages.count == 1 ? "" : "s") waiting — sends when the AI is free")
+                .font(.system(.caption2, design: .rounded).weight(.medium))
+            Spacer()
+        }
+        .foregroundStyle(DesignSystem.Colors.textMuted)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(DesignSystem.Colors.surface)
+    }
+
+    private var agentComposerField: some View {
         HStack(alignment: .bottom, spacing: 12) {
-            TextField("Ask the AI agent...", text: $inputText, axis: .vertical)
+            AttachmentPickerButton(viewModel: viewModel)
+
+            TextField("Ask for anything...", text: $inputText, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...5)
                 .focused($isAgentFocused)
@@ -497,18 +544,26 @@ struct BuildScreenView: View {
                         .font(.system(size: 32))
                         .foregroundStyle(DesignSystem.Colors.danger)
                 }
-                .dsTouchTarget()
-            } else {
-                Button {
-                    Task { await viewModel.send(message: inputText, projectId: viewModel.activeProject?.id) }
-                } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 32))
-                        .foregroundStyle(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? DesignSystem.Colors.textMuted : DesignSystem.Colors.accent)
-                }
-                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityLabel("Stop the build")
                 .dsTouchTarget()
             }
+
+            // Never interrupts the build — while the AI is busy, new
+            // messages wait in the queue.
+            Button {
+                let text = inputText
+                inputText = ""
+                Task {
+                    await viewModel.submit(message: text, projectId: viewModel.activeProject?.id)
+                }
+            } label: {
+                Image(systemName: viewModel.isStreaming ? "text.append" : "arrow.up.circle.fill")
+                    .font(.system(size: viewModel.isStreaming ? 26 : 32))
+                    .foregroundStyle(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? DesignSystem.Colors.textMuted : DesignSystem.Colors.accent)
+            }
+            .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .accessibilityLabel(viewModel.isStreaming ? "Add message to queue" : "Send message")
+            .dsTouchTarget()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -524,6 +579,15 @@ struct BuildScreenView: View {
 
                 VStack(spacing: 0) {
                     dragHandleFull
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 30)
+                                .onEnded { value in
+                                    if value.translation.height > 60 {
+                                        showFullPreview = false
+                                    }
+                                }
+                        )
                     PreviewPaneView(htmlContent: generatedHTML)
                 }
             }

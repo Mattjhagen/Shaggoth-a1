@@ -8,6 +8,12 @@ struct AuthView: View {
     @State private var password = ""
     @State private var isSignUp = false
     @State private var showPassword = false
+    @State private var glowPulse = false
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case email, password
+    }
 
     var body: some View {
         ZStack {
@@ -21,14 +27,41 @@ struct AuthView: View {
                     VStack(spacing: 12) {
                         ZStack {
                             Circle()
+                                .fill(
+                                    AngularGradient(
+                                        colors: DesignSystem.Colors.gemGlowColors,
+                                        center: .center
+                                    )
+                                )
+                                .frame(width: 132, height: 132)
+                                .blur(radius: 42)
+                                .opacity(glowPulse ? 0.55 : 0.28)
+                                .scaleEffect(glowPulse ? 1.08 : 0.9)
+
+                            Circle()
                                 .fill(DesignSystem.Colors.accent.opacity(0.15))
                                 .frame(width: 88, height: 88)
+                                .overlay(
+                                    Circle().strokeBorder(
+                                        DesignSystem.Colors.accentGradient,
+                                        lineWidth: 1.5
+                                    )
+                                    .opacity(0.6)
+                                )
 
                             Image(systemName: "sparkles")
                                 .font(.system(size: 40, weight: .light))
                                 .foregroundStyle(DesignSystem.Colors.accent)
+                                .dsGlow(radius: 16, opacity: 0.5)
                         }
                         .accessibilityHidden(true)
+                        .onAppear {
+                            withAnimation(
+                                .easeInOut(duration: 2.6).repeatForever(autoreverses: true)
+                            ) {
+                                glowPulse = true
+                            }
+                        }
 
                         Text("Archon")
                             .font(.system(.largeTitle, design: .rounded).weight(.bold))
@@ -54,10 +87,22 @@ struct AuthView: View {
                                 .keyboardType(.emailAddress)
                                 .autocorrectionDisabled()
                                 .textInputAutocapitalization(.never)
+                                .focused($focusedField, equals: .email)
                         }
                         .padding(14)
                         .background(DesignSystem.Colors.elevated)
                         .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous)
+                                .strokeBorder(
+                                    focusedField == .email
+                                        ? DesignSystem.Colors.accent.opacity(0.6)
+                                        : DesignSystem.Colors.borderFaint,
+                                    lineWidth: 1
+                                )
+                        )
+                        .dsGlow(radius: 10, opacity: focusedField == .email ? 0.18 : 0)
+                        .animation(DesignSystem.Animation.standard, value: focusedField)
 
                         // Password field
                         HStack {
@@ -68,9 +113,11 @@ struct AuthView: View {
                             if showPassword {
                                 TextField("Password", text: $password)
                                     .textContentType(isSignUp ? .newPassword : .password)
+                                    .focused($focusedField, equals: .password)
                             } else {
                                 SecureField("Password", text: $password)
                                     .textContentType(isSignUp ? .newPassword : .password)
+                                    .focused($focusedField, equals: .password)
                             }
 
                             Button {
@@ -84,6 +131,17 @@ struct AuthView: View {
                         .padding(14)
                         .background(DesignSystem.Colors.elevated)
                         .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous)
+                                .strokeBorder(
+                                    focusedField == .password
+                                        ? DesignSystem.Colors.accent.opacity(0.6)
+                                        : DesignSystem.Colors.borderFaint,
+                                    lineWidth: 1
+                                )
+                        )
+                        .dsGlow(radius: 10, opacity: focusedField == .password ? 0.18 : 0)
+                        .animation(DesignSystem.Animation.standard, value: focusedField)
                     }
                     .padding(.horizontal, 32)
 
@@ -161,6 +219,7 @@ struct AuthView: View {
                             .font(.subheadline)
                             .foregroundStyle(DesignSystem.Colors.accent)
                     }
+                    .dsPressable()
                     .dsTouchTarget()
 
                     Spacer(minLength: 40)
