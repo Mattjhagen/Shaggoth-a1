@@ -267,7 +267,7 @@ final class BuilderViewModel: ObservableObject {
                         ?? result.providerId
                     messages.append(ChatMessage(
                         role: .system,
-                        content: "Credit limit reached. Build continued with \(providerName) · \(result.modelId)."
+                        content: "The selected model was unavailable. Build continued with \(providerName) · \(result.modelId)."
                     ))
                 }
             } else {
@@ -385,7 +385,7 @@ final class BuilderViewModel: ObservableObject {
             } catch {
                 lastError = error
                 clearPendingJob()
-                guard Self.isCreditLimitError(error), index < candidates.count - 1 else {
+                guard Self.shouldHandoff(after: error), index < candidates.count - 1 else {
                     throw error
                 }
             }
@@ -394,18 +394,28 @@ final class BuilderViewModel: ObservableObject {
         throw lastError ?? APIError(message: "No configured AI model could continue the build.", code: 402)
     }
 
-    private static func isCreditLimitError(_ error: Error) -> Bool {
-        if let apiError = error as? APIError, apiError.code == 402 {
-            return true
+    private static func shouldHandoff(after error: Error) -> Bool {
+        if let apiError = error as? APIError {
+            if apiError.code == 401 || apiError.code == 403 {
+                return false
+            }
+            if apiError.code == 402 || apiError.code == 408 || apiError.code == 429 {
+                return true
+            }
+            if let code = apiError.code, (500...599).contains(code) {
+                return true
+            }
         }
 
         let text = error.localizedDescription.lowercased()
-        let creditSignals = [
+        let recoverableSignals = [
             "credit", "quota", "billing", "payment required",
             "insufficient_quota", "insufficient funds", "usage limit",
-            "spending limit", "rate limit"
+            "spending limit", "rate limit", "timed out", "timeout",
+            "temporarily unavailable", "no provider available",
+            "model failed", "server could not be reached"
         ]
-        return creditSignals.contains { text.contains($0) }
+        return recoverableSignals.contains { text.contains($0) }
     }
 
     private func resumePendingJobIfNeeded() async {
