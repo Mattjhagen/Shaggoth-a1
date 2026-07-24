@@ -153,6 +153,22 @@ final class DecodingTests: XCTestCase {
         XCTAssertNil(job.expiresAt)
     }
 
+    func testDecodePersistentJobWithIncompleteInProgressMetadata() throws {
+        let json = """
+        {
+            "id": "f188ed0c-e041-4a09-babe-109ce7cc4ac5",
+            "status": "starting",
+            "logs": [{"id": "log-1"}]
+        }
+        """.data(using: .utf8)!
+
+        let job = try makeDecoder().decode(PersistentAIJob.self, from: json)
+
+        XCTAssertEqual(job.id, "f188ed0c-e041-4a09-babe-109ce7cc4ac5")
+        XCTAssertEqual(job.status.rawValue, "queued")
+        XCTAssertNil(job.logs)
+    }
+
     func testDecodeChatMessage() throws {
         let json = """
         {

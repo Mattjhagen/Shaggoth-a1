@@ -94,4 +94,18 @@ struct PersistentAIJob: Decodable {
         case id, status, response, error, logs
         case expiresAt = "expires_at"
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // `id` is the only field needed to poll an accepted build. Keep the
+        // client compatible with gateway versions that omit or evolve the
+        // in-progress metadata rather than failing before the model runs.
+        id = try container.decode(String.self, forKey: .id)
+        status = (try? container.decode(Status.self, forKey: .status)) ?? .queued
+        response = try? container.decodeIfPresent(ChatAPIResponse.self, forKey: .response)
+        error = try? container.decodeIfPresent(String.self, forKey: .error)
+        logs = try? container.decodeIfPresent([Log].self, forKey: .logs)
+        expiresAt = try? container.decodeIfPresent(Date.self, forKey: .expiresAt)
+    }
 }
