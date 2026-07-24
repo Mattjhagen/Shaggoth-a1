@@ -74,6 +74,48 @@ final class HangSleeper: SleeperProtocol {
     }
 }
 
+final class SpyChatMemoryClient: ChatMemoryClientProtocol {
+    var storedMessages: [ChatMessage] = []
+    var fetchError: Error?
+    var saveError: Error?
+    private(set) var savedMessages: [ChatMessage] = []
+    private(set) var savedProjectIds: [String?] = []
+    private(set) var deletedMessageIds: [UUID] = []
+
+    func fetchMessages(limit: Int) async throws -> [ChatMessage] {
+        if let fetchError { throw fetchError }
+        return Array(storedMessages.suffix(limit))
+    }
+
+    func saveMessage(
+        _ message: ChatMessage,
+        providerId: String?,
+        modelId: String?,
+        projectId: String?
+    ) async throws {
+        if let saveError { throw saveError }
+        savedMessages.append(message)
+        savedProjectIds.append(projectId)
+    }
+
+    func deleteMessage(id: UUID) async throws {
+        deletedMessageIds.append(id)
+    }
+}
+
+final class SpyProjectFilesClient: ProjectFilesClientProtocol {
+    private(set) var upserts: [(files: [GeneratedProjectFile], projectId: String)] = []
+
+    func fetchFiles(projectId: String) async throws -> [CloudProjectFile] { [] }
+    func createStarterFiles(projectId: String) async throws -> [CloudProjectFile] { [] }
+    func updateFile(id: UUID, content: String) async throws -> CloudProjectFile {
+        throw APIError(message: "not implemented", code: 501)
+    }
+    func upsertGeneratedFiles(_ files: [GeneratedProjectFile], projectId: String) async throws {
+        upserts.append((files, projectId))
+    }
+}
+
 // MARK: - Fixtures
 
 private func provider(id: String, configured: Bool?) -> ProviderMetadata {
@@ -163,6 +205,89 @@ final class BuilderViewModelTests: XCTestCase {
         vm.stopPolling()
     }
 
+    func testLoadsSavedChatMemory() async {
+        let spy = SpyAPIClient()
+        spy.providers = [provider(id: "p", configured: true)]
+        let memory = SpyChatMemoryClient()
+        memory.storedMessages = [
+            ChatMessage(role: .user, content: "Remember this"),
+            ChatMessage(role: .assistant, content: "I remember"),
+        ]
+        let vm = BuilderViewModel(apiClient: spy, memoryClient: memory, sleeper: HangSleeper())
+
+        await vm.loadInitialState()
+
+        XCTAssertEqual(vm.messages, memory.storedMessages)
+        XCTAssertNil(vm.errorMessage)
+    }
+
+    func testSavesUserAndAssistantMessagesToMemory() async {
+        let spy = SpyAPIClient()
+        spy.providers = [provider(id: "p", configured: true)]
+        let memory = SpyChatMemoryClient()
+        let vm = BuilderViewModel(apiClient: spy, memoryClient: memory, sleeper: HangSleeper())
+
+        await vm.loadInitialState()
+        await vm.send(message: "Build it")
+
+        XCTAssertEqual(memory.savedMessages.map(\.role), [.user, .assistant])
+        XCTAssertEqual(memory.savedMessages.map(\.content), ["Build it", "Test response"])
+    }
+
+    func testBuildWithoutSelectedProjectCreatesAndLinksProject() async {
+        let spy = SpyAPIClient()
+        spy.providers = [provider(id: "p", configured: true)]
+        spy.chatResponse = ChatAPIResponse(
+            content: "Built index.html",
+            model: "p-model",
+            provider: "p",
+            tokensUsed: nil,
+            reasoningEffort: nil,
+            creditUnits: nil,
+            generatedFiles: [
+                GeneratedProjectFile(
+                    path: "index.html",
+                    content: "<h1>It works</h1>",
+                    mimeType: "text/html"
+                )
+            ]
+        )
+        let memory = SpyChatMemoryClient()
+        let files = SpyProjectFilesClient()
+        let vm = BuilderViewModel(
+            apiClient: spy,
+            memoryClient: memory,
+            filesClient: files,
+            sleeper: HangSleeper()
+        )
+
+        await vm.loadInitialState()
+        await vm.send(message: "Build a todo app")
+
+        let project = try? XCTUnwrap(vm.activeProject)
+        XCTAssertEqual(spy.createdProjectRequests.count, 1)
+        XCTAssertEqual(spy.createdRequests.first?.projectId, project?.id)
+        XCTAssertEqual(memory.savedProjectIds.count, 2)
+        XCTAssertTrue(memory.savedProjectIds.allSatisfy { $0 == project?.id })
+        XCTAssertEqual(files.upserts.first?.projectId, project?.id)
+        XCTAssertEqual(files.upserts.first?.files.first?.path, "index.html")
+    }
+
+    func testDoesNotSendWhenUserMessageCannotBeSaved() async {
+        let spy = SpyAPIClient()
+        spy.providers = [provider(id: "p", configured: true)]
+        let memory = SpyChatMemoryClient()
+        memory.saveError = APIError(message: "memory unavailable", code: 503)
+        let vm = BuilderViewModel(apiClient: spy, memoryClient: memory, sleeper: HangSleeper())
+
+        await vm.loadInitialState()
+        await vm.send(message: "Do not lose this")
+
+        XCTAssertTrue(vm.messages.isEmpty)
+        XCTAssertTrue(spy.createdRequests.isEmpty)
+        XCTAssertEqual(vm.errorMessage, "Could not save your message: memory unavailable (HTTP 503)")
+    }
+
     func testEmptyMessageNotSent() async {
         let spy = SpyAPIClient()
         spy.providers = [provider(id: "p", configured: true)]
@@ -236,11 +361,14 @@ final class DashboardViewModelTests: XCTestCase {
         ]
         let vm = DashboardViewModel(apiClient: spy)
         await vm.loadProjects()
+        vm.selectedProject = spy.projects[0]
 
-        await vm.deleteProject(spy.projects[0])
+        let deleted = await vm.deleteProject(spy.projects[0])
 
+        XCTAssertTrue(deleted)
         XCTAssertTrue(spy.deletedProjectIds.contains("p1"))
         XCTAssertTrue(vm.projects.isEmpty)
+        XCTAssertNil(vm.selectedProject)
     }
 
     func testFilterProjects() async {

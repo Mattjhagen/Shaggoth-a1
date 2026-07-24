@@ -1,11 +1,26 @@
 import SwiftUI
+import UIKit
 
 struct BuilderView: View {
+    let project: ArchonProject?
+    let homeRequestToken: UUID
+    let onProjectCreated: (ArchonProject) -> Void
     @StateObject private var viewModel = BuilderViewModel()
     @State private var inputText = ""
     @State private var showModelPicker = false
     @State private var showBuildScreen = false
+    @State private var showNewSessionConfirmation = false
     @FocusState private var isComposerFocused: Bool
+
+    init(
+        project: ArchonProject? = nil,
+        homeRequestToken: UUID = UUID(),
+        onProjectCreated: @escaping (ArchonProject) -> Void = { _ in }
+    ) {
+        self.project = project
+        self.homeRequestToken = homeRequestToken
+        self.onProjectCreated = onProjectCreated
+    }
 
     var body: some View {
         NavigationStack {
@@ -13,33 +28,85 @@ struct BuilderView: View {
                 DesignSystem.Colors.base.ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    modelSelectorBar
-                    Divider().overlay(DesignSystem.Colors.borderFaint)
+                    if viewModel.isShowingConversation {
+                        modelSelectorBar
+                        Divider().overlay(DesignSystem.Colors.borderFaint)
+                        chatContent
 
-                    chatContent
+                        if let error = viewModel.errorMessage {
+                            errorBanner(error)
+                        }
 
-                    if let error = viewModel.errorMessage {
-                        errorBanner(error)
+                        Divider().overlay(DesignSystem.Colors.borderFaint)
+                        composerBar
+                    } else {
+                        conversationHome
                     }
-
-                    Divider().overlay(DesignSystem.Colors.borderFaint)
-
-                    composerBar
                 }
             }
-            .navigationTitle("Builder")
+            .navigationTitle(viewModel.isShowingConversation ? (viewModel.currentSession?.title ?? "New App") : "Conversations")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        viewModel.showEventTimeline.toggle()
-                    } label: {
-                        Image(systemName: "list.bullet.rectangle")
-                            .foregroundStyle(viewModel.showEventTimeline ? DesignSystem.Colors.accent : DesignSystem.Colors.textSecondary)
+                if viewModel.isShowingConversation {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            isComposerFocused = false
+                            Task { await viewModel.showConversationList() }
+                        } label: {
+                            Label("Chats", systemImage: "chevron.left")
+                                .labelStyle(.titleAndIcon)
+                        }
+                        .foregroundStyle(DesignSystem.Colors.accent)
+                        .accessibilityLabel("Return to conversations")
+                        .dsTouchTarget()
                     }
-                    .accessibilityLabel("Toggle event timeline")
-                    .dsTouchTarget()
                 }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 8) {
+                        Button {
+                            isComposerFocused = false
+                            showNewSessionConfirmation = true
+                        } label: {
+                            Image(systemName: "square.and.pencil")
+                                .foregroundStyle(DesignSystem.Colors.accent)
+                        }
+                        .accessibilityLabel("Start new session")
+                        .dsTouchTarget()
+
+                        if viewModel.isShowingConversation {
+                            Button {
+                                isComposerFocused = false
+                                viewModel.showEventTimeline.toggle()
+                            } label: {
+                                Image(systemName: "list.bullet.rectangle")
+                                    .foregroundStyle(viewModel.showEventTimeline ? DesignSystem.Colors.accent : DesignSystem.Colors.textSecondary)
+                            }
+                            .accessibilityLabel("Toggle event timeline")
+                            .dsTouchTarget()
+                        }
+                    }
+                }
+
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        isComposerFocused = false
+                    }
+                }
+            }
+            .confirmationDialog(
+                "Start a new session?",
+                isPresented: $showNewSessionConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("New Session") {
+                    inputText = ""
+                    viewModel.startNewSession()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Your existing messages remain saved in Supabase.")
             }
             .sheet(isPresented: $viewModel.showEventTimeline) {
                 eventTimelineSheet
@@ -51,13 +118,130 @@ struct BuilderView: View {
                 BuildScreenView(viewModel: viewModel)
             }
             .task {
+                viewModel.useProject(project)
                 await viewModel.loadInitialState()
+            }
+            .onChange(of: project) { _, newProject in
+                viewModel.useProject(newProject)
+            }
+            .onChange(of: viewModel.activeProject) { _, newProject in
+                if let newProject, newProject.id != project?.id {
+                    onProjectCreated(newProject)
+                }
+            }
+            .onChange(of: homeRequestToken) { _, _ in
+                isComposerFocused = false
+                Task { await viewModel.showConversationList() }
             }
             .onDisappear {
                 viewModel.stopPolling()
             }
         }
-        .preferredColorScheme(.dark)
+    }
+
+    // MARK: - Conversation Home
+
+    private var conversationHome: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("What do you want to build?")
+                        .font(.system(.title2, design: .rounded).weight(.bold))
+                        .foregroundStyle(DesignSystem.Colors.textPrimary)
+                    Text("Start fresh with a suggestion or reopen a saved conversation.")
+                        .font(.system(.subheadline, design: .rounded))
+                        .foregroundStyle(DesignSystem.Colors.textSecondary)
+                }
+                .padding(.bottom, 4)
+
+                quickStartCard("A todo app with categories and due dates", icon: "checklist")
+                quickStartCard("A weather dashboard with animated icons", icon: "cloud.sun")
+                quickStartCard("A recipe finder with search and filters", icon: "fork.knife")
+
+                if let project {
+                    HStack(spacing: 8) {
+                        Image(systemName: "folder.fill")
+                            .foregroundStyle(DesignSystem.Colors.accent)
+                        Text("Building in \(project.name)")
+                            .font(.system(.caption, design: .rounded).weight(.semibold))
+                            .foregroundStyle(DesignSystem.Colors.textSecondary)
+                    }
+                    .padding(.top, 4)
+                }
+
+                if !viewModel.sessions.isEmpty {
+                    Text("Recent Conversations")
+                        .font(.system(.headline, design: .rounded).weight(.semibold))
+                        .foregroundStyle(DesignSystem.Colors.textPrimary)
+                        .padding(.top, 12)
+
+                    ForEach(viewModel.sessions) { session in
+                        Button {
+                            Task { await viewModel.openSession(session) }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "bubble.left.and.bubble.right")
+                                    .foregroundStyle(DesignSystem.Colors.accent)
+                                    .frame(width: 28)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(session.title)
+                                        .font(.system(.body, design: .rounded).weight(.medium))
+                                        .foregroundStyle(DesignSystem.Colors.textPrimary)
+                                        .lineLimit(2)
+                                    Text(session.updatedAt, style: .relative)
+                                        .font(.system(.caption, design: .rounded))
+                                        .foregroundStyle(DesignSystem.Colors.textMuted)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(DesignSystem.Colors.textMuted)
+                            }
+                            .padding(14)
+                            .background(DesignSystem.Colors.elevated)
+                            .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous))
+                            .archonLiquidGlass(cornerRadius: DesignSystem.Radius.md, interactive: true)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                if let error = viewModel.errorMessage {
+                    errorBanner(error)
+                }
+            }
+            .padding(20)
+        }
+        .refreshable {
+            await viewModel.showConversationList()
+        }
+    }
+
+    private func quickStartCard(_ prompt: String, icon: String) -> some View {
+        Button {
+            viewModel.startNewSession()
+            inputText = prompt
+            isComposerFocused = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .foregroundStyle(DesignSystem.Colors.accent)
+                    .frame(width: 28)
+                Text(prompt)
+                    .font(.system(.subheadline, design: .rounded).weight(.medium))
+                    .foregroundStyle(DesignSystem.Colors.textPrimary)
+                    .multilineTextAlignment(.leading)
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.caption)
+                    .foregroundStyle(DesignSystem.Colors.textMuted)
+            }
+            .padding(14)
+            .background(DesignSystem.Colors.elevated)
+            .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous))
+            .archonLiquidGlass(cornerRadius: DesignSystem.Radius.md, interactive: true)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Model Selector
@@ -165,7 +349,8 @@ struct BuilderView: View {
             }
             .onChange(of: viewModel.messages.count) { _, _ in
                 withAnimation {
-                    proxy.scrollTo(viewModel.messages.last?.id ?? "typing", anchor: .bottom)
+                    let target = viewModel.messages.last.map { AnyHashable($0.id) } ?? AnyHashable("typing")
+                    proxy.scrollTo(target, anchor: .bottom)
                 }
             }
         }
@@ -233,6 +418,7 @@ struct BuilderView: View {
             .padding(12)
             .background(DesignSystem.Colors.elevated)
             .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.sm, style: .continuous))
+            .archonLiquidGlass(cornerRadius: DesignSystem.Radius.sm, interactive: true)
         }
         .buttonStyle(.plain)
         .dsTouchTarget()
@@ -245,6 +431,7 @@ struct BuilderView: View {
         VStack(spacing: 0) {
             HStack(alignment: .bottom, spacing: 10) {
                 TextField("Describe your app...", text: $inputText, axis: .vertical)
+                    .focused($isComposerFocused)
                     .font(.system(.body, design: .rounded))
                     .foregroundStyle(DesignSystem.Colors.textPrimary)
                     .lineLimit(1...5)
@@ -256,6 +443,7 @@ struct BuilderView: View {
                     .padding(.vertical, 10)
                     .background(DesignSystem.Colors.elevated)
                     .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous))
+                    .archonLiquidGlass(cornerRadius: DesignSystem.Radius.md, interactive: true)
 
                 if viewModel.isTaskActive {
                     Button {
@@ -282,7 +470,10 @@ struct BuilderView: View {
                         let text = inputText
                         inputText = ""
                         Task {
-                            await viewModel.send(message: text)
+                            await viewModel.send(
+                                message: text,
+                                projectId: project?.id ?? viewModel.activeProject?.id
+                            )
                             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                                 showBuildScreen = true
                             }
@@ -375,7 +566,6 @@ struct BuilderView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     private var modelPickerSheet: some View {
@@ -423,7 +613,6 @@ struct BuilderView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
     }
 }
 
@@ -431,6 +620,7 @@ struct BuilderView: View {
 
 struct ChatBubbleView: View {
     let message: ChatMessage
+    @State private var copied = false
 
     var body: some View {
         HStack {
@@ -447,10 +637,27 @@ struct ChatBubbleView: View {
                     .background(bubbleBackground)
                     .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous))
 
-                Text(message.timestamp, style: .time)
-                    .font(.system(.caption2, design: .rounded))
-                    .foregroundStyle(DesignSystem.Colors.textMuted)
-                    .padding(.horizontal, 4)
+                HStack(spacing: 8) {
+                    Text(message.timestamp, style: .time)
+                        .font(.system(.caption2, design: .rounded))
+                        .foregroundStyle(DesignSystem.Colors.textMuted)
+
+                    Button {
+                        UIPasteboard.general.string = message.content
+                        copied = true
+                        Task {
+                            try? await Task.sleep(nanoseconds: 1_500_000_000)
+                            copied = false
+                        }
+                    } label: {
+                        Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc")
+                            .font(.system(.caption2, design: .rounded).weight(.medium))
+                            .foregroundStyle(copied ? DesignSystem.Colors.accent : DesignSystem.Colors.textMuted)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(copied ? "Message copied" : "Copy message")
+                }
+                .padding(.horizontal, 4)
             }
 
             if message.role == .assistant {
@@ -458,13 +665,21 @@ struct ChatBubbleView: View {
             }
         }
         .padding(.horizontal, DesignSystem.Spacing.lg)
+        .contextMenu {
+            Button {
+                UIPasteboard.general.string = message.content
+                copied = true
+            } label: {
+                Label("Copy Message", systemImage: "doc.on.doc")
+            }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(message.role == .user ? "You" : "Assistant"): \(message.content)")
     }
 
-    private var bubbleBackground: some ShapeStyle {
+    private var bubbleBackground: AnyShapeStyle {
         if message.role == .user {
-            return DesignSystem.Colors.accent
+            return AnyShapeStyle(DesignSystem.Colors.accent)
         } else {
             return AnyShapeStyle(DesignSystem.Colors.elevated)
         }

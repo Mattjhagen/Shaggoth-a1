@@ -13,9 +13,10 @@ final class DashboardViewModel: ObservableObject {
     @Published var searchText = ""
     @Published var selectedProject: ArchonProject?
 
-    private let apiClient: APIClientProtocol
+    private let apiClient: ProjectsClientProtocol
+    private var activeLoadID: UUID?
 
-    init(apiClient: APIClientProtocol = MockAPIClient()) {
+    init(apiClient: ProjectsClientProtocol = SupabaseProjectsClient()) {
         self.apiClient = apiClient
     }
 
@@ -42,13 +43,25 @@ final class DashboardViewModel: ObservableObject {
     }
 
     func loadProjects() async {
+        let loadID = UUID()
+        activeLoadID = loadID
         isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
+        defer {
+            if activeLoadID == loadID {
+                isLoading = false
+                activeLoadID = nil
+            }
+        }
 
         do {
-            projects = try await apiClient.fetchProjects()
+            let loadedProjects = try await apiClient.fetchProjects()
+            guard activeLoadID == loadID else { return }
+            projects = loadedProjects
+        } catch is CancellationError {
+            // SwiftUI routinely cancels an older task when a newer refresh starts.
         } catch {
+            guard activeLoadID == loadID else { return }
             errorMessage = "Failed to load projects: \(error.localizedDescription)"
         }
     }
@@ -73,12 +86,18 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
-    func deleteProject(_ project: ArchonProject) async {
+    @discardableResult
+    func deleteProject(_ project: ArchonProject) async -> Bool {
         do {
             try await apiClient.deleteProject(id: project.id)
             projects.removeAll { $0.id == project.id }
+            if selectedProject?.id == project.id {
+                selectedProject = nil
+            }
+            return true
         } catch {
             errorMessage = "Failed to delete project: \(error.localizedDescription)"
+            return false
         }
     }
 }

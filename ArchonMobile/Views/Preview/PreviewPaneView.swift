@@ -40,7 +40,7 @@ struct PreviewPaneView: UIViewRepresentable {
 struct FullPreviewScreen: View {
     let htmlContent: String
     let projectName: String
-    @Environment(\.dismiss) private var dismiss
+    @SwiftUI.Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -62,7 +62,6 @@ struct FullPreviewScreen: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
     }
 }
 

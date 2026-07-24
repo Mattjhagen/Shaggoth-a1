@@ -43,6 +43,9 @@ timeline.xctimeline
 playground.xcworkspace
 
 # Secrets
+.env
+.env.*
+!.env.example
 *.p12
 *.mobileprovision
 *.cer

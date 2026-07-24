@@ -47,7 +47,7 @@ class MockAPIClient: APIClientProtocol {
             title: "Add animated weather icons",
             status: .completed,
             provider: "anthropic",
-            model: "claude-sonnet-4-20250514",
+            model: "claude-sonnet-5",
             reasoningEffort: .medium,
             currentStep: 12,
             maxSteps: 12,
@@ -62,7 +62,7 @@ class MockAPIClient: APIClientProtocol {
             title: "Build drag-and-drop kanban board",
             status: .running,
             provider: "anthropic",
-            model: "claude-sonnet-4-20250514",
+            model: "claude-sonnet-5",
             reasoningEffort: .high,
             currentStep: 8,
             maxSteps: 25,
@@ -92,7 +92,7 @@ class MockAPIClient: APIClientProtocol {
             title: "Fix recipe search indexing",
             status: .failed,
             provider: "anthropic",
-            model: "claude-haiku-4-20250414",
+            model: "claude-haiku-4-5",
             reasoningEffort: .low,
             currentStep: 3,
             maxSteps: 10,
@@ -154,7 +154,7 @@ class MockAPIClient: APIClientProtocol {
         guard let index = projects.firstIndex(where: { $0.id == id }) else {
             throw APIError(message: "Project not found", code: 404)
         }
-        var updated = projects[index]
+        let updated = projects[index]
         if let name = request.name { projects[index].name = name }
         if let desc = request.description { projects[index] = ArchonProject(id: updated.id, name: projects[index].name, description: desc, status: updated.status, createdAt: updated.createdAt, updatedAt: Date()) }
         projects[index] = ArchonProject(id: updated.id, name: projects[index].name, description: projects[index].description, status: updated.status, createdAt: updated.createdAt, updatedAt: Date())
@@ -251,8 +251,8 @@ class MockAPIClient: APIClientProtocol {
                 id: "anthropic",
                 name: "Anthropic",
                 models: [
-                    ModelMetadata(id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4"),
-                    ModelMetadata(id: "claude-haiku-4-20250414", name: "Claude Haiku 4")
+                    ModelMetadata(id: "claude-sonnet-5", name: "Claude Sonnet 5"),
+                    ModelMetadata(id: "claude-haiku-4-5", name: "Claude Haiku 4.5")
                 ],
                 configured: true,
                 requiresKey: true

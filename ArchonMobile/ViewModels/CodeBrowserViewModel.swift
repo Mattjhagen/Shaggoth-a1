@@ -14,8 +14,42 @@ final class CodeBrowserViewModel: ObservableObject {
     @Published var searchQuery = ""
     @Published var showPreview = false
 
-    init() {
-        self.fileTree = FileNode.load()
+    private let filesClient: ProjectFilesClientProtocol
+    private var projectId: String?
+
+    init(filesClient: ProjectFilesClientProtocol = SupabaseProjectFilesClient()) {
+        self.filesClient = filesClient
+    }
+
+    func loadProject(_ project: ArchonProject) async {
+        projectId = project.id
+        isLoading = true
+        errorMessage = nil
+        selectedFile = nil
+        openFiles = []
+        defer { isLoading = false }
+
+        do {
+            var files = try await filesClient.fetchFiles(projectId: project.id)
+            if files.isEmpty {
+                files = try await filesClient.createStarterFiles(projectId: project.id)
+            }
+            fileTree = files.map(Self.fileNode)
+            if let first = fileTree.first {
+                selectFile(first)
+            }
+        } catch {
+            fileTree = []
+            errorMessage = "Could not load project files: \(error.localizedDescription)"
+        }
+    }
+
+    func clearProject() {
+        projectId = nil
+        fileTree = []
+        selectedFile = nil
+        openFiles = []
+        errorMessage = nil
     }
 
     var filteredTree: [FileNode] {
@@ -58,10 +92,17 @@ final class CodeBrowserViewModel: ObservableObject {
         isEditing = true
     }
 
-    func saveEdits() {
+    func saveEdits() async {
         guard let file = selectedFile else { return }
-        updateFileContent(id: file.id, newContent: editingContent)
-        isEditing = false
+        let newContent = editingContent
+        do {
+            let updated = try await filesClient.updateFile(id: file.id, content: newContent)
+            updateFileContent(id: updated.id, newContent: updated.content, updatedAt: updated.updatedAt)
+            isEditing = false
+            errorMessage = nil
+        } catch {
+            errorMessage = "Could not save file: \(error.localizedDescription)"
+        }
     }
 
     func cancelEdits() {
@@ -69,11 +110,12 @@ final class CodeBrowserViewModel: ObservableObject {
         editingContent = selectedFile?.content ?? ""
     }
 
-    private func updateFileContent(id: UUID, newContent: String) {
+    private func updateFileContent(id: UUID, newContent: String, updatedAt: Date) {
         func update(nodes: inout [FileNode]) -> Bool {
             for i in 0..<nodes.count {
                 if nodes[i].id == id {
                     nodes[i].content = newContent
+                    nodes[i].updatedAt = updatedAt
                     return true
                 }
                 if nodes[i].children != nil {
@@ -90,16 +132,28 @@ final class CodeBrowserViewModel: ObservableObject {
         var newTree = fileTree
         if update(nodes: &newTree) {
             fileTree = newTree
-            FileNode.save(fileTree)
         }
 
         if selectedFile?.id == id {
             selectedFile?.content = newContent
+            selectedFile?.updatedAt = updatedAt
         }
 
         if let index = openFiles.firstIndex(where: { $0.id == id }) {
             openFiles[index].content = newContent
+            openFiles[index].updatedAt = updatedAt
         }
+    }
+
+    private static func fileNode(_ file: CloudProjectFile) -> FileNode {
+        FileNode(
+            id: file.id,
+            name: file.path,
+            type: .file,
+            content: file.content,
+            size: Int64(file.content.utf8.count),
+            updatedAt: file.updatedAt
+        )
     }
 
     func togglePreview() {
@@ -109,5 +163,37 @@ final class CodeBrowserViewModel: ObservableObject {
     var isPreviewableFile: Bool {
         guard let name = selectedFile?.name else { return false }
         return name.hasSuffix(".html") || name.hasSuffix(".htm")
+    }
+
+    var previewHTML: String {
+        guard var html = selectedFile?.content else { return "" }
+
+        if let css = fileTree.first(where: { $0.name == "style.css" })?.content {
+            let style = "<style>\n\(css)\n</style>"
+            if html.range(of: "</head>", options: .caseInsensitive) != nil {
+                html = html.replacingOccurrences(
+                    of: "</head>",
+                    with: "\(style)\n</head>",
+                    options: .caseInsensitive
+                )
+            } else {
+                html = "\(style)\n\(html)"
+            }
+        }
+
+        if let javascript = fileTree.first(where: { $0.name == "app.js" })?.content {
+            let script = "<script>\n\(javascript)\n</script>"
+            if html.range(of: "</body>", options: .caseInsensitive) != nil {
+                html = html.replacingOccurrences(
+                    of: "</body>",
+                    with: "\(script)\n</body>",
+                    options: .caseInsensitive
+                )
+            } else {
+                html += "\n\(script)"
+            }
+        }
+
+        return html
     }
 }
