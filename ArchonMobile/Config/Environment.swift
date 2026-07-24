@@ -23,8 +23,7 @@ enum Environment {
             let custom = Bundle.main.infoDictionary?["SUPABASE_URL"] as? String
             return Self.secureURL(
                 custom,
-                fallback: URL(string: "http://localhost:54321")!,
-                allowLocalHTTP: true
+                fallback: URL(string: "https://sbbkmdnyzzidywjkdhye.supabase.co")!
             )
         case .staging:
             return URL(string: "https://staging.archon.app")!
