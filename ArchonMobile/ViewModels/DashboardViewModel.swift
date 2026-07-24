@@ -86,12 +86,18 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
-    func deleteProject(_ project: ArchonProject) async {
+    @discardableResult
+    func deleteProject(_ project: ArchonProject) async -> Bool {
         do {
             try await apiClient.deleteProject(id: project.id)
             projects.removeAll { $0.id == project.id }
+            if selectedProject?.id == project.id {
+                selectedProject = nil
+            }
+            return true
         } catch {
             errorMessage = "Failed to delete project: \(error.localizedDescription)"
+            return false
         }
     }
 }

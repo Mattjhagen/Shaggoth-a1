@@ -5,9 +5,14 @@ struct DashboardView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var showSettings = false
     private let onProjectSelected: (ArchonProject) -> Void
+    private let onProjectDeleted: (ArchonProject) -> Void
 
-    init(onProjectSelected: @escaping (ArchonProject) -> Void = { _ in }) {
+    init(
+        onProjectSelected: @escaping (ArchonProject) -> Void = { _ in },
+        onProjectDeleted: @escaping (ArchonProject) -> Void = { _ in }
+    ) {
         self.onProjectSelected = onProjectSelected
+        self.onProjectDeleted = onProjectDeleted
     }
 
     var body: some View {
@@ -66,7 +71,7 @@ struct DashboardView: View {
                             viewModel.selectedProject = project
                             onProjectSelected(project)
                         } onDelete: {
-                            Task { await viewModel.deleteProject(project) }
+                            delete(project)
                         }
                     }
                 }
@@ -78,7 +83,7 @@ struct DashboardView: View {
                             viewModel.selectedProject = project
                             onProjectSelected(project)
                         } onDelete: {
-                            Task { await viewModel.deleteProject(project) }
+                            delete(project)
                         }
                     }
                 }
@@ -90,13 +95,21 @@ struct DashboardView: View {
                             viewModel.selectedProject = project
                             onProjectSelected(project)
                         } onDelete: {
-                            Task { await viewModel.deleteProject(project) }
+                            delete(project)
                         }
                     }
                 }
             }
             .padding(.horizontal, DesignSystem.Spacing.lg)
             .padding(.top, DesignSystem.Spacing.sm)
+        }
+    }
+
+    private func delete(_ project: ArchonProject) {
+        Task {
+            if await viewModel.deleteProject(project) {
+                onProjectDeleted(project)
+            }
         }
     }
 

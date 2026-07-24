@@ -16,11 +16,18 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            DashboardView { project in
-                selectedProject = project
-                builderHomeRequest = UUID()
-                selectedTab = .builder
-            }
+            DashboardView(
+                onProjectSelected: { project in
+                    selectedProject = project
+                    builderHomeRequest = UUID()
+                    selectedTab = .builder
+                },
+                onProjectDeleted: { project in
+                    guard selectedProject?.id == project.id else { return }
+                    selectedProject = nil
+                    builderHomeRequest = UUID()
+                }
+            )
                 .tabItem {
                     Label("Projects", systemImage: "folder.fill")
                 }

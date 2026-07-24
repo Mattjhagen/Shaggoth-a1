@@ -307,11 +307,14 @@ final class DashboardViewModelTests: XCTestCase {
         ]
         let vm = DashboardViewModel(apiClient: spy)
         await vm.loadProjects()
+        vm.selectedProject = spy.projects[0]
 
-        await vm.deleteProject(spy.projects[0])
+        let deleted = await vm.deleteProject(spy.projects[0])
 
+        XCTAssertTrue(deleted)
         XCTAssertTrue(spy.deletedProjectIds.contains("p1"))
         XCTAssertTrue(vm.projects.isEmpty)
+        XCTAssertNil(vm.selectedProject)
     }
 
     func testFilterProjects() async {
