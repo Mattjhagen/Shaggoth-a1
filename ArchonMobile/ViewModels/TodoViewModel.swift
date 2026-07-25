@@ -8,9 +8,13 @@ final class TodoViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var newTodoTitle = ""
 
-    private let todoClient = SupabaseTodoClient.shared
+    private let todoClient: TodoClientProtocol
     private var projectId: String?
     private var userId: String?
+
+    init(todoClient: TodoClientProtocol = SupabaseTodoClient.shared) {
+        self.todoClient = todoClient
+    }
 
     var completedCount: Int {
         todos.filter { $0.isCompleted }.count

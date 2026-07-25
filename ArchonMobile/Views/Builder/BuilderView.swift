@@ -43,6 +43,7 @@ struct BuilderView: View {
                         conversationHome
                     }
                 }
+                .animation(DesignSystem.Animation.fluid, value: viewModel.isShowingConversation)
             }
             .navigationTitle(viewModel.isShowingConversation ? (viewModel.currentSession?.title ?? "New App") : "Conversations")
             .navigationBarTitleDisplayMode(.inline)

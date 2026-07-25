@@ -20,13 +20,17 @@ struct DashboardView: View {
             ZStack {
                 DesignSystem.Colors.base.ignoresSafeArea()
 
-                if viewModel.isLoading && viewModel.projects.isEmpty {
-                    loadingView
-                } else if viewModel.projects.isEmpty && viewModel.errorMessage == nil {
-                    emptyStateView
-                } else {
-                    contentView
+                Group {
+                    if viewModel.isLoading && viewModel.projects.isEmpty {
+                        loadingView
+                    } else if viewModel.projects.isEmpty && viewModel.errorMessage == nil {
+                        emptyStateView
+                    } else {
+                        contentView
+                    }
                 }
+                .animation(DesignSystem.Animation.fluid, value: viewModel.isLoading)
+                .animation(DesignSystem.Animation.fluid, value: viewModel.projects.isEmpty)
             }
             .navigationTitle("Projects")
             .searchable(text: $viewModel.searchText, prompt: "Search projects")

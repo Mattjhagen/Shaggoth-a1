@@ -90,10 +90,10 @@ struct EventTimelineView: View {
             }
 
             // Content
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(event.type.displayCategory)
-                        .font(.system(.caption2, design: .rounded).weight(.semibold))
+                        .font(.system(.caption, design: .rounded).weight(.semibold))
                         .foregroundStyle(dotColor(for: event.type))
 
                     Spacer()
@@ -103,31 +103,35 @@ struct EventTimelineView: View {
                         .foregroundStyle(DesignSystem.Colors.textMuted)
                 }
 
-                Text(event.content)
+                Text(friendlySummary(for: event))
                     .font(.system(.subheadline, design: .rounded))
                     .foregroundStyle(DesignSystem.Colors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                if let metadata = event.metadata, !metadata.isEmpty {
-                    HStack(spacing: 4) {
-                        ForEach(Array(metadata.keys.sorted()), id: \.self) { key in
-                            if let value = metadata[key]?.value as? String {
-                                Text("\(key): \(value)")
-                                    .font(.system(.caption2, design: .monospaced))
-                                    .foregroundStyle(DesignSystem.Colors.textMuted)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(DesignSystem.Colors.surface)
-                                    .clipShape(Capsule())
-                            }
-                        }
-                    }
+                // Advanced Terminal view for raw outputs and metadata
+                if (event.metadata != nil && event.metadata?.isEmpty == false) || event.content.count > 100 {
+                     TerminalPullOut(rawOutput: event.content, metadata: event.metadata)
+                         .padding(.top, 4)
                 }
             }
             .padding(.bottom, 16)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(event.type.displayCategory): \(event.content). \(event.timestamp.formatted(date: .abbreviated, time: .shortened)).")
+        .accessibilityLabel("\(event.type.displayCategory): \(friendlySummary(for: event)). \(event.timestamp.formatted(date: .abbreviated, time: .shortened)).")
+    }
+
+    private func friendlySummary(for event: TaskEvent) -> String {
+        // If content is very long, it's likely a raw prompt/response. Show a short summary instead.
+        if event.content.count > 100 {
+            switch event.type {
+            case .modelCall: return "Generating response..."
+            case .toolCall: return "Running command..."
+            case .fileEdit: return "Writing code to files..."
+            case .error: return "An error occurred during execution."
+            default: return "Processing task..."
+            }
+        }
+        return event.content
     }
 
     private func dotColor(for type: TaskEvent.EventType) -> Color {
