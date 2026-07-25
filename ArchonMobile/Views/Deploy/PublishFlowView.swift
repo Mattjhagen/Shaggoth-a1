@@ -15,6 +15,7 @@ struct PublishFlowView: View {
     @State private var checkTask: Task<Void, Never>?
     @State private var phase: Phase = .naming
     @State private var errorMessage: String?
+    @State private var showDomainComingSoon = false
 
     private enum Phase: Equatable {
         case naming
@@ -229,11 +230,33 @@ struct PublishFlowView: View {
             }
             .padding(.horizontal, 28)
 
+            // Top of the custom-domain funnel: free subdomain today,
+            // their own branded domain as the upgrade.
+            Button {
+                showDomainComingSoon = true
+            } label: {
+                HStack(spacing: 4) {
+                    Text("Want your own .com?")
+                        .foregroundStyle(DesignSystem.Colors.textSecondary)
+                    Text("Get your domain →")
+                        .foregroundStyle(DesignSystem.Colors.accent)
+                        .fontWeight(.semibold)
+                }
+                .font(DesignSystem.Typography.subhead)
+            }
+            .dsTouchTarget()
+            .padding(.top, 4)
+
             Spacer()
         }
         .overlay(ConfettiView().allowsHitTesting(false))
         .onAppear {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
+        .alert("Coming soon 🌐", isPresented: $showDomainComingSoon) {
+            Button("Can't wait!", role: .cancel) {}
+        } message: {
+            Text("Soon you'll be able to pick your own custom web address — like yourname.com — right here, and we'll connect it for you automatically.")
         }
     }
 

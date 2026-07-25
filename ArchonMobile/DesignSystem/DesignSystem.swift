@@ -13,30 +13,32 @@ enum DesignSystem {
             UserDefaults.standard.string(forKey: "appearance") == "glass"
         }
 
-        // Brand
-        static let accent        = Color(dynamicLight: 0x007F73, dark: 0x00E8CA)
-        static let accentDeep    = Color(dynamicLight: 0x00665D, dark: 0x009A8C)
+        // Brand — vibecodes gold on Relay's void-dark canvas, with violet
+        // as the gradient partner (palette shared with app.relayapp.pro).
+        static let accent        = Color(dynamicLight: 0xA16207, dark: 0xFBBF24)
+        static let accentDeep    = Color(dynamicLight: 0x854D0E, dark: 0xD97706)
         static var accentDim: Color {
             isGlass
-                ? Color(dynamicLight: 0xCFF8EF, dark: 0x17413F).opacity(0.72)
-                : Color(dynamicLight: 0xD8F4EF, dark: 0x102D31)
+                ? Color(dynamicLight: 0xFBF0CE, dark: 0x3A2E10).opacity(0.72)
+                : Color(dynamicLight: 0xFAF0D4, dark: 0x2C230C)
         }
+        static let violet        = Color(dynamicLight: 0x6D28D9, dark: 0x8B5CF6)
 
         // Surfaces
         static var base: Color {
             isGlass
-                ? Color(dynamicLight: 0xF7FBFF, dark: 0x080B16).opacity(0.62)
-                : Color(dynamicLight: 0xF7F8FC, dark: 0x0A0A14)
+                ? Color(dynamicLight: 0xFBFAF7, dark: 0x06101A).opacity(0.62)
+                : Color(dynamicLight: 0xFBFAF7, dark: 0x05050A)
         }
         static var surface: Color {
             isGlass
-                ? Color(dynamicLight: 0xFFFFFF, dark: 0x151A2E).opacity(0.68)
-                : Color(dynamicLight: 0xFFFFFF, dark: 0x14142A)
+                ? Color(dynamicLight: 0xFFFFFF, dark: 0x10131F).opacity(0.68)
+                : Color(dynamicLight: 0xFFFFFF, dark: 0x0D0E1A)
         }
         static var elevated: Color {
             isGlass
-                ? Color(dynamicLight: 0xFFFFFF, dark: 0x252A42).opacity(0.72)
-                : Color(dynamicLight: 0xECEEF6, dark: 0x1E1E3A)
+                ? Color(dynamicLight: 0xFFFFFF, dark: 0x1D2133).opacity(0.72)
+                : Color(dynamicLight: 0xF1EFE7, dark: 0x171A2C)
         }
         static var surfaceBorder: Color {
             isGlass
@@ -57,7 +59,7 @@ enum DesignSystem {
         // Semantic
         static let success       = Color(hex: 0x23D18B)
         static let danger        = Color(hex: 0xF14C4C)
-        static let warning       = Color(hex: 0xE5C241)
+        static let warning       = Color(hex: 0xFB923C)
         static let info          = Color(hex: 0x5BA4F5)
 
         // Adaptive (light + dark)
@@ -68,10 +70,10 @@ enum DesignSystem {
         static let adaptiveSecondaryLabel = Color(.secondaryLabel)
 
         // Gradients
-        /// Primary brand gradient: teal flowing into azure. Legible with
+        /// Primary brand gradient: gold flowing into violet. Legible with
         /// `onAccent` text in both appearances.
         static let accentGradient = LinearGradient(
-            colors: [accent, Color(dynamicLight: 0x1E6FD9, dark: 0x38B6FF)],
+            colors: [accent, violet],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
