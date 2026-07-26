@@ -3,16 +3,18 @@
 Every user message flows through a fixed, inspectable pipeline:
 
     1. guardrails  — input rules may block/refuse before anything else runs
-    2. plugins     — feature commands get first crack at handling the message
-    3. memory      — extract facts; find topic overlaps with past conversations
-    4. generation  — pattern engine (deterministic), else language model
-    5. recall      — if an earlier conversation strongly overlaps, weave in a
+    2. personality  — inject personality traits into response shaping
+    3. knowledge   — retrieve relevant entries from the knowledge base
+    4. plugins     — feature commands get first crack at handling the message
+    5. memory      — extract facts; find topic overlaps with past conversations
+    6. generation  — pattern engine (deterministic), else language model
+    7. recall      — if an earlier conversation strongly overlaps, weave in a
                      topic callback ("last time we talked about ...")
-    6. guardrails  — output rules (redaction, length) filter the reply
-    7. persist     — both sides of the exchange are stored in memory
+    8. guardrails  — output rules (redaction, length) filter the reply
+    9. persist     — both sides of the exchange are stored in memory
 
 Each stage is swappable: pass in your own GuardrailEngine, MemoryStore,
-LanguageModel, or plugin registry to reuse Shaggoth as a base platform.
+LanguageModel, PersonalityEngine, or KnowledgeBase.
 """
 
 from __future__ import annotations
@@ -21,8 +23,10 @@ import time
 from dataclasses import dataclass, field
 
 from ..guardrails import GuardrailEngine
+from ..knowledge.engine import KnowledgeBase
 from ..memory import MemoryStore
 from ..models.base import LanguageModel
+from ..personality.engine import PersonalityEngine
 from ..plugins import PluginRegistry, default_registry
 from .patterns import PatternEngine
 
@@ -33,6 +37,7 @@ class Reply:
     source: str  # guardrail | plugin | pattern | model | fallback
     blocked: bool = False
     rule_id: str | None = None
+    flag: str = "green"
     output_rules_applied: list[str] = field(default_factory=list)
     memory_triggers: list[str] = field(default_factory=list)
     new_facts: dict = field(default_factory=dict)
@@ -45,6 +50,8 @@ class DialogueEngine:
         memory: MemoryStore | None = None,
         model: LanguageModel | None = None,
         plugins: PluginRegistry | None = None,
+        personality: PersonalityEngine | None = None,
+        knowledge: KnowledgeBase | None = None,
         bot_name: str = "Shaggoth",
         recall_threshold: float = 0.35,
         seed: int | None = None,
@@ -53,10 +60,11 @@ class DialogueEngine:
         self.memory = memory or MemoryStore()
         self.model = model
         self.plugins = plugins if plugins is not None else default_registry()
+        self.personality = personality or PersonalityEngine()
+        self.knowledge = knowledge or KnowledgeBase()
         self.patterns = PatternEngine(seed=seed)
         self.bot_name = bot_name
         self.recall_threshold = recall_threshold
-        # Avoid repeating the same callback within a session.
         self._recalled: dict[str, set[int]] = {}
 
     def respond(self, text: str, session_id: str = "default") -> Reply:
@@ -76,38 +84,59 @@ class DialogueEngine:
             self._persist(session_id, text, reply)
             return reply
 
-        # 2. Plugins.
+        # 2. Knowledge: find relevant entries.
+        knowledge_hits = self.knowledge.query(text, limit=2, min_score=0.3)
+        knowledge_context = ""
+        if knowledge_hits and self.model and self.model.is_trained():
+            snippets = []
+            for entry, score in knowledge_hits:
+                snippet = entry.content[:300].strip()
+                snippets.append(f"[Knowledge: {entry.topic}] {snippet}")
+            if snippets:
+                knowledge_context = "\n".join(snippets) + "\n\n"
+
+        # 3. Plugins.
         plugin_response = self.plugins.dispatch(text, memory=self.memory)
         if plugin_response is not None:
             reply = self._finish(Reply(plugin_response, source="plugin"))
             self._persist(session_id, text, reply)
             return reply
 
-        # 3. Memory: facts + topic recall (before storing the new message,
-        #    so the query can't match itself).
+        # 4. Memory: facts + topic recall.
         new_facts = self.memory.extract_and_store_facts(text)
         recalls = self.memory.recall(
             text, current_session=session_id, limit=1,
             min_score=self.recall_threshold,
         )
 
-        # 4. Generation.
+        # 5. Generation (with personality + knowledge context).
+        self.personality.maybe_reload()
+        personality_context = self.personality.trait_prompt()
+
         body = self.patterns.respond(text)
         source = "pattern"
         if body is None and self.model is not None and self.model.is_trained():
-            generated = self.model.generate(prompt=text, max_tokens=40).strip()
+            prompt = text
+            if knowledge_context or personality_context:
+                prompt = f"{personality_context}\n{knowledge_context}User: {text}\nAssistant:"
+            generated = self.model.generate(prompt=prompt, max_tokens=40).strip()
             if generated:
                 body, source = generated, "model"
         if body is None:
             body, source = self.patterns.fallback(), "fallback"
 
-        # Personalize with a remembered name occasionally.
+        # Personalize with remembered name and knowledge.
         name = self.memory.get_fact("name")
         if name and name.lower() not in body.lower() and len(body) < 80:
-            if hash(text) % 4 == 0:  # deterministic, ~25% of short replies
+            if hash(text) % 4 == 0:
                 body = f"{body[:-1]}, {name}{body[-1]}" if body[-1] in ".!?" else f"{body}, {name}"
 
-        # 5. Topic callback from a past conversation.
+        # Inject knowledge quirk if relevant
+        if knowledge_hits and len(body) < 100 and hash(text) % 3 == 0:
+            topic = knowledge_hits[0][0].topic
+            body += f" I just read something about {topic.lower()} — want me to tell you about it?"
+
+        # 6. Topic callback from a past conversation.
         triggers: list[str] = []
         seen = self._recalled.setdefault(session_id, set())
         for recall in recalls:
@@ -118,7 +147,7 @@ class DialogueEngine:
             when = _humanize_age(time.time() - recall.ts)
             body += (
                 f" By the way — {when} you mentioned something related "
-                f"({topic}): “{_snippet(recall.content)}”. "
+                f"({topic}): \"{_snippet(recall.content)}\". "
                 "Has anything changed there?"
             )
             triggers.append(topic)

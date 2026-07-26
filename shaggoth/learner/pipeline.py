@@ -128,24 +128,23 @@ class LearnerPipeline:
                 session.error = "Not enough text to train (need 100+ words)"
                 return
 
-            # 4. Train TinyGPT
+            # 4. Train model (TinyGPT if torch available, else Markov)
             try:
-                from ..models.tinygpt import TinyGPTModel
+                from ..models.tinygpt import TinyGPTModel, TORCH_AVAILABLE
 
-                model = TinyGPTModel()
-
-                # Load existing model to continue training
-                model_file = Path(self.model_path)
-                if model_file.exists():
-                    model.load(self.model_path)
-                    print(f"[learner] Loaded existing model from {self.model_path}")
-
-                model.train(corpus, steps=training_steps, log_every=200)
-                model.save(self.model_path)
-                session.model_path = self.model_path
-                session.training_steps = training_steps
-
-            except ImportError:
+                if TORCH_AVAILABLE:
+                    model = TinyGPTModel()
+                    model_file = Path(self.model_path)
+                    if model_file.exists():
+                        model.load(self.model_path)
+                        print(f"[learner] Loaded existing model from {self.model_path}")
+                    model.train(corpus, steps=training_steps, log_every=200)
+                    model.save(self.model_path)
+                    session.model_path = self.model_path
+                    session.training_steps = training_steps
+                else:
+                    raise RuntimeError("torch not available")
+            except RuntimeError:
                 # Fallback to Markov if torch not available
                 from ..models.markov import MarkovModel
                 model = MarkovModel()
@@ -153,7 +152,7 @@ class LearnerPipeline:
                 markov_path = str(DATA_DIR / "markov_model.json")
                 model.save(markov_path)
                 session.model_path = markov_path
-                session.training_steps = 0  # Markov doesn't have steps
+                session.training_steps = 0
 
             session.status = "completed"
 

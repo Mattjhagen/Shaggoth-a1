@@ -1,12 +1,10 @@
-"""REST API server — the backend the iOS/Android apps and web dashboard talk to.
-
-Standard-library only (http.server), JSON in/out, CORS enabled so web and
-mobile clients can call it directly. Now serves the web dashboard too.
+"""REST API server with optional auth, SSE streaming, and web dashboard.
 
 Endpoints:
+    GET  /                           → web dashboard (static files)
     GET  /health                     → {"ok": true, "version": ...}
     POST /chat                       → body {"message", "session_id"?}
-                                       → {"reply", "source", "blocked", ...}
+    POST /chat/stream                → SSE stream (same body)
     GET  /history?session_id=ID      → {"messages": [...]}
     GET  /facts                      → {"facts": {...}}
     GET  /guardrails                 → full guardrail config
@@ -17,15 +15,18 @@ Endpoints:
     GET  /learn/history              → past learning sessions
     POST /scrape/url                 → scrape a single URL
     GET  /scrape/stats               → scraper statistics
-    GET  /                           → web dashboard (static files)
 
-Run: ``python3 -m shaggoth serve --port 8420``
+Auth: If SHAGGOTH_API_KEY env var or api_key setting is set, all API
+routes (except /health, /, and static files) require
+"Authorization: Bearer <key>".
 """
 
 from __future__ import annotations
 
 import json
 import mimetypes
+import os
+import time
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -33,13 +34,17 @@ from urllib.parse import parse_qs, urlparse
 
 from . import __version__
 from .dialogue import DialogueEngine
+from .knowledge.engine import KnowledgeBase
 from .learner.pipeline import LearnerPipeline
-from .scraper.engine import ScraperEngine
+from .personality.engine import PersonalityEngine
 
 STATIC_DIR = Path(__file__).parent / "static"
+API_KEY = os.environ.get("SHAGGOTH_API_KEY") or ""
+RATE_LIMITS: dict[str, list[float]] = {}
+PUSH_TOKENS: list[dict] = []
 
 
-def make_handler(engine: DialogueEngine, learner: LearnerPipeline):
+def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = ""):
     class Handler(BaseHTTPRequestHandler):
         server_version = f"Shaggoth/{__version__}"
 
@@ -58,7 +63,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline):
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
             self.end_headers()
             self.wfile.write(body)
 
@@ -75,9 +80,8 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline):
                 return {}
 
         def _send_static(self, path: Path) -> None:
-            """Serve a file from the static directory."""
             if not path.exists() or not path.is_file():
-                self._send(404, {"error": "not found"})
+                self._send_json(404, {"error": "not found"})
                 return
             ct, _ = mimetypes.guess_type(str(path))
             ct = ct or "application/octet-stream"
@@ -89,6 +93,27 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline):
             self.end_headers()
             self.wfile.write(body)
 
+        def _check_auth(self) -> bool:
+            if not api_key:
+                return True
+            auth = self.headers.get("Authorization", "")
+            if auth == f"Bearer {api_key}":
+                return True
+            self._send_json(401, {"error": "unauthorized"})
+            return False
+
+        def _rate_limit(self, key: str = "", limit: int = 60, window: float = 60.0) -> bool:
+            if not api_key:
+                return True
+            now = time.time()
+            bucket = RATE_LIMITS.setdefault(key, [])
+            bucket[:] = [t for t in bucket if t > now - window]
+            if len(bucket) >= limit:
+                self._send_json(429, {"error": "rate limit exceeded"})
+                return False
+            bucket.append(now)
+            return True
+
         def log_message(self, fmt, *args):
             pass
 
@@ -96,72 +121,107 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline):
         def do_OPTIONS(self):
             self._send(204)
 
-        def do_GET(self):
-            url = urlparse(self.path)
-            path = url.path
-
-            # --- API routes ---
+        def _route_get(self, path: str, url):
             if path == "/health":
-                self._send_json(200, {"ok": True, "version": __version__})
+                return self._send_json(200, {"ok": True, "version": __version__})
 
-            elif path == "/history":
+            if not self._check_auth():
+                return
+
+            if path == "/history":
                 params = parse_qs(url.query)
                 session_id = (params.get("session_id") or ["default"])[0]
-                self._send_json(200, {"messages": engine.memory.history(session_id)})
+                return self._send_json(200, {"messages": engine.memory.history(session_id)})
 
-            elif path == "/facts":
-                self._send_json(200, {"facts": engine.memory.all_facts()})
+            if path == "/facts":
+                return self._send_json(200, {"facts": engine.memory.all_facts()})
 
-            elif path == "/guardrails":
+            if path == "/guardrails":
                 engine.guardrails.maybe_reload()
-                self._send_json(200, engine.guardrails.config)
+                return self._send_json(200, engine.guardrails.config)
 
-            elif path == "/learn/status":
-                self._send_json(200, learner.status())
+            if path == "/learn/status":
+                return self._send_json(200, learner.status())
 
-            elif path == "/learn/history":
-                self._send_json(200, {"sessions": learner.history()})
+            if path == "/learn/history":
+                return self._send_json(200, {"sessions": learner.history()})
 
-            elif path == "/scrape/stats":
-                self._send_json(200, learner.scraper.stats())
+            if path == "/scrape/stats":
+                return self._send_json(200, learner.scraper.stats())
 
-            # --- Static files (dashboard) ---
-            elif path == "/" or path == "":
-                self._send_static(STATIC_DIR / "index.html")
-            else:
-                # Try serving from static dir
-                file_path = STATIC_DIR / path.lstrip("/")
-                if file_path.exists() and file_path.is_file():
-                    self._send_static(file_path)
-                else:
-                    self._send_json(404, {"error": "not found"})
+            if path == "/personality":
+                engine.personality.maybe_reload()
+                return self._send_json(200, engine.personality.as_dict())
 
-        def do_POST(self):
-            url = urlparse(self.path)
-            path = url.path
+            if path == "/knowledge":
+                return self._send_json(200, {"entries": engine.knowledge.list_entries()})
 
+            if path == "/knowledge/query":
+                params = parse_qs(url.query)
+                q = (params.get("q") or [""])[0]
+                results = engine.knowledge.query(q, limit=5, min_score=0.1)
+                return self._send_json(200, {
+                    "results": [{"topic": e.topic, "content": e.content[:500], "score": round(s, 3)} for e, s in results]
+                })
+
+            if path in ("/", ""):
+                return self._send_static(STATIC_DIR / "index.html")
+
+            file_path = STATIC_DIR / path.lstrip("/")
+            if file_path.exists() and file_path.is_file():
+                return self._send_static(file_path)
+
+            return self._send_json(404, {"error": "not found"})
+
+        def _route_post(self, path: str, url):
             if path == "/chat":
                 body = self._read_json()
                 message = (body.get("message") or "").strip()
                 if not message:
-                    self._send_json(400, {"error": "message is required"})
-                    return
+                    return self._send_json(400, {"error": "message is required"})
                 session_id = body.get("session_id") or "default"
                 reply = engine.respond(message, session_id=session_id)
                 payload = asdict(reply)
                 payload["reply"] = payload.pop("text")
-                self._send_json(200, payload)
+                return self._send_json(200, payload)
 
-            elif path == "/guardrails/rules":
+            if path == "/chat/stream":
+                body = self._read_json()
+                message = (body.get("message") or "").strip()
+                if not message:
+                    return self._send_json(400, {"error": "message is required"})
+                session_id = body.get("session_id") or "default"
+
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Connection", "keep-alive")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+
+                reply = engine.respond(message, session_id=session_id)
+                text = reply.text
+                chunk_size = max(1, len(text) // 20)
+                for i in range(0, len(text), chunk_size):
+                    chunk = text[i : i + chunk_size]
+                    self.wfile.write(f"data: {json.dumps({'token': chunk})}\n\n".encode())
+                    self.wfile.flush()
+                    time.sleep(0.02)
+
+                meta = asdict(reply)
+                meta["reply"] = meta.pop("text")
+                self.wfile.write(f"data: {json.dumps({'done': True, **meta})}\n\n".encode())
+                return
+
+            if path == "/guardrails/rules":
                 rule = self._read_json()
                 try:
                     engine.guardrails.add_rule(rule)
                 except ValueError as exc:
-                    self._send_json(400, {"error": str(exc)})
-                    return
-                self._send_json(201, {"ok": True, "rule_id": rule["id"]})
+                    return self._send_json(400, {"error": str(exc)})
+                return self._send_json(201, {"ok": True, "rule_id": rule["id"]})
 
-            elif path == "/learn/start":
+            if path == "/learn/start":
                 body = self._read_json()
                 session = learner.learn(
                     urls=body.get("urls"),
@@ -170,60 +230,96 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline):
                     training_steps=body.get("training_steps", 1000),
                     background=True,
                 )
-                self._send_json(202, {"ok": True, "session_id": session.session_id})
+                return self._send_json(202, {"ok": True, "session_id": session.session_id})
 
-            elif path == "/scrape/url":
+            if path == "/knowledge/add":
+                body = self._read_json()
+                topic = (body.get("topic") or "").strip()
+                content = (body.get("content") or "").strip()
+                if not topic or not content:
+                    return self._send_json(400, {"error": "topic and content required"})
+                fpath = engine.knowledge.add_entry(topic, content)
+                return self._send_json(201, {"ok": True, "topic": topic, "path": str(fpath)})
+
+            if path == "/knowledge/remove":
+                body = self._read_json()
+                topic = (body.get("topic") or "").strip()
+                if engine.knowledge.remove_entry(topic):
+                    return self._send_json(200, {"ok": True})
+                return self._send_json(404, {"error": f"no entry found: {topic}"})
+
+            if path == "/scrape/url":
                 body = self._read_json()
                 url_to_scrape = (body.get("url") or "").strip()
                 if not url_to_scrape:
-                    self._send_json(400, {"error": "url is required"})
-                    return
+                    return self._send_json(400, {"error": "url is required"})
                 page = learner.scraper.fetch_page(url_to_scrape)
                 if page:
-                    self._send_json(200, {
-                        "ok": True,
-                        "url": page.url,
-                        "title": page.title,
-                        "word_count": page.word_count,
-                    })
-                else:
-                    self._send_json(500, {"error": "failed to fetch page"})
+                    return self._send_json(200, {"ok": True, "url": page.url, "title": page.title, "word_count": page.word_count})
+                return self._send_json(500, {"error": "failed to fetch page"})
 
-            elif path == "/scrape/seed":
+            if path == "/push/register":
+                body = self._read_json()
+                token = (body.get("token") or "").strip()
+                platform = body.get("platform", "unknown")
+                if not token:
+                    return self._send_json(400, {"error": "token is required"})
+                PUSH_TOKENS.append({"token": token, "platform": platform, "time": time.time()})
+                return self._send_json(200, {"ok": True, "tokens_registered": len(PUSH_TOKENS)})
+
+            if path == "/push/tokens":
+                return self._send_json(200, {"tokens": PUSH_TOKENS})
+
+            if path == "/scrape/seed":
                 body = self._read_json()
                 urls = body.get("urls") or []
                 if not urls:
-                    self._send_json(400, {"error": "urls is required"})
-                    return
+                    return self._send_json(400, {"error": "urls is required"})
                 added = learner.scraper.add_seeds(urls)
-                self._send_json(200, {"ok": True, "added": added})
+                return self._send_json(200, {"ok": True, "added": added})
 
-            else:
-                self._send_json(404, {"error": "not found"})
+            return self._send_json(404, {"error": "not found"})
+
+        def _route_delete(self, path: str, url):
+            prefix = "/guardrails/rules/"
+            if path.startswith(prefix):
+                rule_id = path[len(prefix):]
+                if engine.guardrails.remove_rule(rule_id):
+                    return self._send_json(200, {"ok": True})
+                return self._send_json(404, {"error": f"no rule with id {rule_id!r}"})
+            return self._send_json(404, {"error": "not found"})
+
+        def do_GET(self):
+            url = urlparse(self.path)
+            self._route_get(url.path, url)
+
+        def do_POST(self):
+            url = urlparse(self.path)
+            if not self._check_auth():
+                return
+            if not self._rate_limit(self.client_address[0]):
+                return
+            self._route_post(url.path, url)
 
         def do_DELETE(self):
             url = urlparse(self.path)
-            prefix = "/guardrails/rules/"
-            if url.path.startswith(prefix):
-                rule_id = url.path[len(prefix):]
-                if engine.guardrails.remove_rule(rule_id):
-                    self._send_json(200, {"ok": True})
-                else:
-                    self._send_json(404, {"error": f"no rule with id {rule_id!r}"})
-            else:
-                self._send_json(404, {"error": "not found"})
+            if not self._check_auth():
+                return
+            self._route_delete(url.path, url)
 
     return Handler
 
 
-def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420) -> None:
+def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api_key: str = "") -> None:
     learner = LearnerPipeline()
-    httpd = ThreadingHTTPServer((host, port), make_handler(engine, learner))
+    httpd = ThreadingHTTPServer((host, port), make_handler(engine, learner, api_key))
+    auth_status = "enabled" if api_key else "disabled"
     print(f"Shaggoth API listening on http://{host}:{port}")
     print(f"  Dashboard: http://{host}:{port}/")
-    print("  POST /chat   GET /history   GET /facts   GET /guardrails")
-    print("  POST /learn/start   GET /learn/status   GET /learn/history")
-    print("  POST /scrape/url    GET /scrape/stats")
+    print(f"  Auth: {auth_status}")
+    print(f"  POST /chat   GET /history   GET /facts   GET /guardrails")
+    print(f"  POST /chat/stream (SSE)   POST /learn/start   GET /learn/status")
+    print(f"  POST /scrape/url    GET /scrape/stats")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

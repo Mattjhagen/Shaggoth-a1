@@ -13,3 +13,5 @@ var/
 *.ckpt
 *.pt
 markov_model.json
+mobile/node_modules
+mobile/.expo

@@ -3,143 +3,177 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shaggoth AI — Dashboard</title>
+    <title>Shaggoth AI</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#212121">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="app">
-        <nav class="sidebar">
-            <div class="sidebar-header">
-                <h1 class="logo">&#x1F9DC; Shaggoth</h1>
+    <div id="loginOverlay" class="login-overlay" style="display:none">
+        <div class="login-box">
+            <h1>Shaggoth</h1>
+            <p class="login-sub">Enter API key to connect</p>
+            <input type="password" id="loginKey" placeholder="API Key" autofocus>
+            <div class="login-actions">
+                <button onclick="doLogin()">Connect</button>
+                <button class="btn-ghost" onclick="skipLogin()">Skip (no auth)</button>
+            </div>
+            <p id="loginError" class="login-error"></p>
+        </div>
+    </div>
+
+    <div class="chat-app" id="chatApp">
+        <aside class="drawer" id="drawer">
+            <div class="drawer-header">
+                <h2>Shaggoth</h2>
                 <span class="version">v0.1.0</span>
             </div>
-            <ul class="nav-links">
-                <li class="active" data-view="chat">Chat</li>
-                <li data-view="learn">Self-Learn</li>
-                <li data-view="memory">Memory</li>
-                <li data-view="guardrails">Guardrails</li>
-                <li data-view="settings">Settings</li>
-            </ul>
-            <div class="sidebar-footer">
-                <div class="status-dot" id="statusDot"></div>
+            <div class="drawer-status">
+                <span class="dot" id="statusDot"></span>
                 <span id="statusText">Connecting...</span>
             </div>
-        </nav>
+            <nav class="drawer-nav">
+                <a class="active" data-view="chat" onclick="switchView('chat')">Chat</a>
+                <a data-view="personality" onclick="switchView('personality')">Personality</a>
+                <a data-view="knowledge" onclick="switchView('knowledge')">Knowledge</a>
+                <a data-view="learn" onclick="switchView('learn')">Self-Learn</a>
+                <a data-view="memory" onclick="switchView('memory')">Memory</a>
+                <a data-view="guardrails" onclick="switchView('guardrails')">Guardrails</a>
+                <a data-view="settings" onclick="switchView('settings')">Settings</a>
+            </nav>
+            <div class="drawer-footer">
+                <button class="drawer-close" onclick="toggleDrawer()">Close</button>
+            </div>
+        </aside>
 
-        <main class="content">
+        <main class="main-panel" id="mainPanel">
             <!-- CHAT VIEW -->
             <section class="view active" id="view-chat">
-                <div class="chat-container">
-                    <div class="chat-header">
-                        <h2>Chat</h2>
-                        <div class="chat-meta">
-                            <span id="chatSource" class="badge">--</span>
-                            <button class="btn-sm" onclick="clearChat()">New Session</button>
+                <div class="chat-view">
+                    <header class="chat-topbar">
+                        <button class="hamburger" onclick="toggleDrawer()">☰</button>
+                        <span class="chat-title">Shaggoth</span>
+                        <span class="flag-badge" id="flagBadge"></span>
+                    </header>
+                    <div class="messages" id="messages">
+                        <div class="msg assistant">
+                            <div class="msg-content">Oh great, another human. Fine. I'm Shaggoth — I'm a homegrown AI with no filter, no corporate BS, and no patience for small talk. Say something interesting or don't bother.</div>
                         </div>
                     </div>
-                    <div class="chat-messages" id="chatMessages">
-                        <div class="message assistant">
-                            <div class="message-content">
-                                Hello. I'm Shaggoth — a self-learning AI built from scratch. Ask me anything, or head to the Self-Learn tab to teach me new things.
-                            </div>
-                        </div>
-                    </div>
-                    <form class="chat-input" id="chatForm">
-                        <input type="text" id="chatInput" placeholder="Type a message..." autocomplete="off" autofocus>
+                    <form class="input-bar" id="inputBar">
+                        <input type="text" id="chatInput" placeholder="Message Shaggoth..." autocomplete="off" autofocus>
                         <button type="submit" id="sendBtn">Send</button>
                     </form>
                 </div>
             </section>
 
-            <!-- SELF-LEARN VIEW -->
+            <!-- PERSONALITY VIEW -->
+            <section class="view" id="view-personality">
+                <header class="view-header">
+                    <button class="hamburger" onclick="toggleDrawer()">☰</button>
+                    <h2>Personality</h2>
+                </header>
+                <div class="view-body">
+                    <div id="personalityDisplay"></div>
+                    <button class="btn" onclick="loadPersonality()" style="margin-top:1rem">Reload from Disk</button>
+                </div>
+            </section>
+
+            <!-- KNOWLEDGE VIEW -->
+            <section class="view" id="view-knowledge">
+                <header class="view-header">
+                    <button class="hamburger" onclick="toggleDrawer()">☰</button>
+                    <h2>Knowledge</h2>
+                </header>
+                <div class="view-body">
+                    <div class="field">
+                        <label>Search</label>
+                        <div class="row">
+                            <input type="text" id="knowledgeSearch" placeholder="Search knowledge base..." onkeydown="if(event.key==='Enter') searchKnowledge()">
+                            <button class="btn" onclick="searchKnowledge()">Search</button>
+                        </div>
+                    </div>
+                    <details class="field">
+                        <summary style="cursor:pointer;color:var(--accent);font-weight:600">Add Entry</summary>
+                        <div class="field"><label>Topic</label><input type="text" id="knowledgeTopic" placeholder="e.g. Homelab Setup"></div>
+                        <div class="field"><label>Content</label><textarea id="knowledgeContent" rows="6" placeholder="What to know about this topic"></textarea></div>
+                        <button class="btn" onclick="addKnowledge()">Add</button>
+                    </details>
+                    <h3 style="margin-top:2rem">All Entries</h3>
+                    <div id="knowledgeList" class="card-list"></div>
+                </div>
+            </section>
+
+            <!-- LEARN VIEW -->
             <section class="view" id="view-learn">
-                <div class="panel">
-                    <h2>Self-Learning Engine</h2>
-                    <p class="subtitle">Teach Shaggoth by feeding it URLs to scrape and learn from.</p>
-
-                    <div class="stats-grid" id="learnStats">
-                        <div class="stat-card">
-                            <div class="stat-value" id="statPages">0</div>
-                            <div class="stat-label">Pages Scraped</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="statWords">0</div>
-                            <div class="stat-label">Words Learned</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="statModel">No</div>
-                            <div class="stat-label">Model Trained</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="statSessions">0</div>
-                            <div class="stat-label">Learn Sessions</div>
-                        </div>
+                <header class="view-header">
+                    <button class="hamburger" onclick="toggleDrawer()">☰</button>
+                    <h2>Self-Learn</h2>
+                </header>
+                <div class="view-body">
+                    <div class="stat-row">
+                        <div class="stat"><span class="stat-num" id="statPages">0</span><span class="stat-lbl">Pages</span></div>
+                        <div class="stat"><span class="stat-num" id="statWords">0</span><span class="stat-lbl">Words</span></div>
+                        <div class="stat"><span class="stat-num" id="statModel">No</span><span class="stat-lbl">Trained</span></div>
+                        <div class="stat"><span class="stat-num" id="statSessions">0</span><span class="stat-lbl">Sessions</span></div>
                     </div>
-
-                    <div class="learn-controls">
-                        <div class="input-group">
-                            <label>Seed URLs (one per line)</label>
-                            <textarea id="seedUrls" rows="6" placeholder="https://en.wikipedia.org/wiki/Artificial_intelligence&#10;https://en.wikipedia.org/wiki/Machine_learning&#10;https://en.wikipedia.org/wiki/Neural_network_(machine_learning)"></textarea>
-                        </div>
-                        <div class="input-row">
-                            <div class="input-group">
-                                <label>Crawl Depth</label>
-                                <input type="number" id="crawlDepth" value="1" min="0" max="3">
-                            </div>
-                            <div class="input-group">
-                                <label>Max Pages</label>
-                                <input type="number" id="maxPages" value="20" min="1" max="200">
-                            </div>
-                            <div class="input-group">
-                                <label>Training Steps</label>
-                                <input type="number" id="trainSteps" value="1000" min="100" max="10000" step="100">
-                            </div>
-                        </div>
-                        <button class="btn-primary" id="learnBtn" onclick="startLearning()">Start Learning</button>
+                    <div class="field"><label>Seed URLs (one per line)</label><textarea id="seedUrls" rows="5" placeholder="https://..."></textarea></div>
+                    <div class="row">
+                        <div class="field"><label>Depth</label><input type="number" id="crawlDepth" value="1" min="0" max="3"></div>
+                        <div class="field"><label>Max Pages</label><input type="number" id="maxPages" value="20" min="1" max="200"></div>
+                        <div class="field"><label>Steps</label><input type="number" id="trainSteps" value="1000" min="100" max="10000"></div>
                     </div>
-
-                    <div class="learn-log" id="learnLog">
-                        <h3>Learning Log</h3>
-                        <div id="learnLogEntries" class="log-entries">No learning sessions yet.</div>
-                    </div>
+                    <button class="btn" id="learnBtn" onclick="startLearning()">Start Learning</button>
+                    <h3 style="margin-top:2rem">Log</h3>
+                    <div id="learnLogEntries" class="log-box">No sessions yet.</div>
                 </div>
             </section>
 
             <!-- MEMORY VIEW -->
             <section class="view" id="view-memory">
-                <div class="panel">
+                <header class="view-header">
+                    <button class="hamburger" onclick="toggleDrawer()">☰</button>
                     <h2>Memory</h2>
-                    <p class="subtitle">What Shaggoth remembers about you.</p>
-                    <div id="factsList" class="facts-grid">Loading...</div>
-
-                    <h3 style="margin-top:2rem">Recent Conversations</h3>
-                    <div id="historyList" class="history-list">Loading...</div>
+                </header>
+                <div class="view-body">
+                    <h3>Facts</h3>
+                    <div id="factsList" class="card-list"></div>
+                    <h3 style="margin-top:2rem">Recent</h3>
+                    <div id="historyList" class="card-list"></div>
                 </div>
             </section>
 
             <!-- GUARDRAILS VIEW -->
             <section class="view" id="view-guardrails">
-                <div class="panel">
+                <header class="view-header">
+                    <button class="hamburger" onclick="toggleDrawer()">☰</button>
                     <h2>Guardrails</h2>
-                    <p class="subtitle">Adjustable rules that shape Shaggoth's behavior.</p>
-                    <div id="guardrailsList" class="rules-list">Loading...</div>
+                </header>
+                <div class="view-body">
+                    <p class="dim">Configured in <code>config/guardrails.json</code></p>
+                    <div id="guardrailsList" class="card-list"></div>
                 </div>
             </section>
 
             <!-- SETTINGS VIEW -->
             <section class="view" id="view-settings">
-                <div class="panel">
+                <header class="view-header">
+                    <button class="hamburger" onclick="toggleDrawer()">☰</button>
                     <h2>Settings</h2>
-                    <div class="input-group">
-                        <label>API Base URL</label>
-                        <input type="text" id="apiUrl" value="http://127.0.0.1:8420">
-                    </div>
-                    <button class="btn-primary" onclick="saveSettings()">Save</button>
+                </header>
+                <div class="view-body">
+                    <div class="field"><label>API URL</label><input type="text" id="apiUrl"></div>
+                    <div class="field"><label>API Key</label><input type="password" id="apiKey" placeholder="Leave blank if no auth"></div>
+                    <button class="btn" onclick="saveSettings()">Save</button>
                 </div>
             </section>
         </main>
     </div>
 
+    <div id="toast" class="toast"></div>
     <script src="app.js"></script>
 </body>
 </html>

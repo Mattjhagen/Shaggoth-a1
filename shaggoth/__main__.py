@@ -16,11 +16,13 @@ import sys
 import uuid
 from pathlib import Path
 
-from .config import ensure_dirs, load_settings, DATA_DIR
+from .config import ensure_dirs, load_settings, DATA_DIR, CONFIG_DIR
 from .dialogue import DialogueEngine
 from .guardrails import GuardrailEngine
+from .knowledge.engine import KnowledgeBase
 from .memory import MemoryStore
 from .models.markov import MarkovModel
+from .personality.engine import PersonalityEngine
 
 
 def _load_tinygpt(settings: dict):
@@ -62,7 +64,9 @@ def build_engine(settings: dict) -> DialogueEngine:
     return DialogueEngine(
         guardrails=GuardrailEngine(settings["guardrails_path"]),
         memory=MemoryStore(settings["db_path"]),
-        model=model if model.is_trained() else None,
+        model=model if model and model.is_trained() else None,
+        personality=PersonalityEngine(CONFIG_DIR / "personality.json"),
+        knowledge=KnowledgeBase(),
         bot_name=settings["bot_name"],
         recall_threshold=settings["memory_recall_threshold"],
     )
@@ -93,7 +97,8 @@ def cmd_serve(settings: dict, host: str | None, port: int | None) -> int:
     from .server import serve
 
     engine = build_engine(settings)
-    serve(engine, host or settings["server_host"], port or settings["server_port"])
+    api_key = settings.get("api_key") or ""
+    serve(engine, host or settings["server_host"], port or settings["server_port"], api_key=api_key)
     return 0
 
 
@@ -169,6 +174,53 @@ def cmd_guardrails(settings: dict, action: str, text: str | None) -> int:
     return 0
 
 
+def cmd_personality(settings: dict, action: str) -> int:
+    engine = PersonalityEngine(CONFIG_DIR / "personality.json")
+    if action == "show":
+        data = engine.as_dict()
+        print(json.dumps(data, indent=2))
+    elif action == "reload":
+        engine.maybe_reload()
+        print("Personality reloaded.")
+    return 0
+
+
+def cmd_knowledge(settings: dict, action: str, **kwargs) -> int:
+    kb = KnowledgeBase()
+    if action == "list":
+        entries = kb.list_entries()
+        if not entries:
+            print("No knowledge entries.")
+        for e in entries:
+            print(f"  {e['topic']:30s} {e['word_count']:>6} words  {e['path']}")
+    elif action == "add":
+        topic = kwargs.get("topic", "")
+        text = kwargs.get("text") or ""
+        file_path = kwargs.get("file")
+        if file_path:
+            text = Path(file_path).read_text(encoding="utf-8")
+        if not text:
+            print("Provide --text or --file", file=sys.stderr)
+            return 2
+        path = kb.add_entry(topic, text)
+        print(f"Added knowledge entry → {path}")
+    elif action == "remove":
+        topic = kwargs.get("topic", "")
+        if kb.remove_entry(topic):
+            print(f"Removed entry: {topic}")
+        else:
+            print(f"No entry found: {topic}", file=sys.stderr)
+            return 1
+    elif action == "query":
+        text = kwargs.get("text", "")
+        results = kb.query(text, limit=5, min_score=0.1)
+        if not results:
+            print("No relevant knowledge found.")
+        for entry, score in results:
+            print(f"[{score:.2f}] {entry.topic}: {entry.content[:120]}...")
+    return 0
+
+
 def cmd_eval(settings: dict, corpus: str, model_path: str | None) -> int:
     from .models.tinygpt import TinyGPTModel, TORCH_AVAILABLE
     from .models.eval import perplexity
@@ -236,6 +288,21 @@ def main(argv: list[str] | None = None) -> int:
     p_eval.add_argument("--corpus", required=True)
     p_eval.add_argument("--model-path", default=None)
 
+    p_personality = sub.add_parser("personality", help="view or reload personality config")
+    p_personality.add_argument("action", choices=["show", "reload"], nargs="?", default="show")
+
+    p_knowledge = sub.add_parser("knowledge", help="manage knowledge base")
+    p_knowledge_sub = p_knowledge.add_subparsers(dest="action", required=True)
+    p_knowledge_sub.add_parser("list", help="list knowledge entries")
+    p_knowledge_add = p_knowledge_sub.add_parser("add", help="add a knowledge entry")
+    p_knowledge_add.add_argument("--topic", required=True)
+    p_knowledge_add.add_argument("--file", help="file to read content from")
+    p_knowledge_add.add_argument("--text", help="content as text")
+    p_knowledge_rm = p_knowledge_sub.add_parser("remove", help="remove a knowledge entry")
+    p_knowledge_rm.add_argument("--topic", required=True)
+    p_knowledge_query = p_knowledge_sub.add_parser("query", help="search knowledge base")
+    p_knowledge_query.add_argument("--text", required=True)
+
     sub.add_parser("facts", help="show remembered facts")
 
     args = parser.parse_args(argv)
@@ -251,6 +318,11 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_learn(settings, args.urls, args.depth, args.max_pages, args.steps)
     if args.command == "eval":
         return cmd_eval(settings, args.corpus, args.model_path)
+    if args.command == "personality":
+        return cmd_personality(settings, args.action)
+    if args.command == "knowledge":
+        kwargs = {k: getattr(args, k, None) for k in ("topic", "text", "file")}
+        return cmd_knowledge(settings, args.action, **kwargs)
     if args.command == "guardrails":
         return cmd_guardrails(settings, args.action, args.text)
     if args.command == "facts":

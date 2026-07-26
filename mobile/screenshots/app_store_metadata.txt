@@ -1,0 +1,25 @@
+app_store_metadata.txt
+======================
+PROMO TEXT
+Shaggoth AI — your unfiltered, self-hosted homelab AI. Running entirely on your own hardware.
+
+DESCRIPTION
+Shaggoth is a homegrown conversational AI that runs on your own homelab hardware. 
+No subscriptions, no cloud dependencies, no data leaving your network.
+
+Chat naturally with an AI that learns from your conversations and remembers what matters. 
+The knowledge base lets you feed it custom topics, the learning engine improves responses 
+over time, and the guardrail system gives you full control over the AI's behavior.
+
+Features:
+• Private, self-hosted AI on your own hardware
+• Natural conversation with memory and context
+• Custom knowledge base — teach it anything
+• Self-learning pipeline that improves over time
+• Full guardrail system (red/yellow/green flags)
+• Web dashboard + iOS + Android apps
+• Dark mode everywhere
+• No cloud dependencies, no subscriptions
+
+KEYWORDS
+AI,chatbot,homelab,private,self-hosted,llm,assistant,chat,local,privacy,markov,personality
