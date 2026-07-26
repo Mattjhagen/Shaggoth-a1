@@ -2,10 +2,16 @@ import React, { useEffect, useState, useCallback, useRef } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView,
   Platform, ActivityIndicator, Alert, ScrollView, Modal, StatusBar,
-  SafeAreaView, RefreshControl
+  SafeAreaView
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as Notifications from 'expo-notifications'
+import * as Device from 'expo-device'
 import * as api from './src/api/shaggoth'
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false }),
+})
 
 const theme = {
   bg: '#212121', surface: '#171717', surface2: '#2a2a2a',
@@ -36,6 +42,20 @@ export default function App() {
   useEffect(() => {
     api.initStorage()
     api.health().then(() => setConnected(true)).catch(() => {})
+
+    async function setupPush() {
+      if (!Device.isDevice) return
+      const { status: existing } = await Notifications.getPermissionsAsync()
+      let final = existing
+      if (existing !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync()
+        final = status
+      }
+      if (final !== 'granted') return
+      const tokenData = await Notifications.getExpoPushTokenAsync()
+      api.registerPushToken(tokenData.data, Platform.OS).catch(() => {})
+    }
+    setupPush()
   }, [])
 
   const screens = {

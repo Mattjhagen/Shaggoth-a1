@@ -1,3 +1,8 @@
+// Register service worker for PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {})
+}
+
 function detectApi() {
   const saved = localStorage.getItem('shaggoth_api');
   if (saved) return saved.replace(/\/+$/, '');

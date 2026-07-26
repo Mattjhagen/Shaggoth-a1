@@ -41,6 +41,7 @@ from .personality.engine import PersonalityEngine
 STATIC_DIR = Path(__file__).parent / "static"
 API_KEY = os.environ.get("SHAGGOTH_API_KEY") or ""
 RATE_LIMITS: dict[str, list[float]] = {}
+PUSH_TOKENS: list[dict] = []
 
 
 def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = ""):
@@ -256,6 +257,18 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if page:
                     return self._send_json(200, {"ok": True, "url": page.url, "title": page.title, "word_count": page.word_count})
                 return self._send_json(500, {"error": "failed to fetch page"})
+
+            if path == "/push/register":
+                body = self._read_json()
+                token = (body.get("token") or "").strip()
+                platform = body.get("platform", "unknown")
+                if not token:
+                    return self._send_json(400, {"error": "token is required"})
+                PUSH_TOKENS.append({"token": token, "platform": platform, "time": time.time()})
+                return self._send_json(200, {"ok": True, "tokens_registered": len(PUSH_TOKENS)})
+
+            if path == "/push/tokens":
+                return self._send_json(200, {"tokens": PUSH_TOKENS})
 
             if path == "/scrape/seed":
                 body = self._read_json()

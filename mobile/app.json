@@ -37,6 +37,14 @@
         }
       ]
     },
-    "plugins": []
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#a78bfa"
+        }
+      ]
+    ]
   }
 }

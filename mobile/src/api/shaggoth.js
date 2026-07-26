@@ -117,3 +117,11 @@ export async function getKnowledge() {
 export async function searchKnowledge(query) {
   return fetchJson(`/knowledge/query?q=${encodeURIComponent(query)}`)
 }
+
+export async function registerPushToken(token, platform) {
+  return fetchJson('/push/register', {
+    method: 'POST',
+    body: JSON.stringify({ token, platform }),
+  })
+}
+
