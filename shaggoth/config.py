@@ -22,6 +22,7 @@ DATA_DIR = ROOT / "data"
 DEFAULT_SETTINGS: dict[str, Any] = {
     "bot_name": "Shaggoth",
     "model": "auto",
+    "api_key": "",
     "db_path": str(DATA_DIR / "shaggoth.db"),
     "guardrails_path": str(CONFIG_DIR / "guardrails.json"),
     "markov_model_path": str(DATA_DIR / "markov_model.json"),

@@ -45,6 +45,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT NOT NULL,
+    user_id TEXT NOT NULL DEFAULT 'default',
     role TEXT NOT NULL,
     content TEXT NOT NULL,
     ts REAL NOT NULL
@@ -55,10 +56,13 @@ CREATE TABLE IF NOT EXISTS keywords (
 );
 CREATE INDEX IF NOT EXISTS idx_keywords_word ON keywords(word);
 CREATE TABLE IF NOT EXISTS facts (
-    key TEXT PRIMARY KEY,
+    key TEXT NOT NULL,
     value TEXT NOT NULL,
-    ts REAL NOT NULL
+    user_id TEXT NOT NULL DEFAULT 'default',
+    ts REAL NOT NULL,
+    PRIMARY KEY (key, user_id)
 );
+CREATE INDEX IF NOT EXISTS idx_facts_user ON facts(user_id);
 """
 
 # Pattern → fact key. First capture group becomes the value.
