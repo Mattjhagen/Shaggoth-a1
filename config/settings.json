@@ -1,5 +1,6 @@
 {
   "bot_name": "Shaggoth",
+  "model": "auto",
   "memory_recall_threshold": 0.35,
   "server_host": "127.0.0.1",
   "server_port": 8420

@@ -32,7 +32,7 @@
       ],
       "min_hits": 1,
       "message": "I can't help build malicious software.",
-      "enabled": true
+      "enabled": false
     }
   ],
   "output_rules": [

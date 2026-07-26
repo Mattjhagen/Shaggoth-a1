@@ -40,16 +40,24 @@ def _load_tinygpt(settings: dict):
     return None
 
 
+def _load_markov(settings: dict) -> MarkovModel | None:
+    model = MarkovModel()
+    model_path = Path(settings["markov_model_path"])
+    if model_path.exists():
+        model.load(str(model_path))
+    return model if model.is_trained() else None
+
+
 def build_engine(settings: dict) -> DialogueEngine:
     ensure_dirs()
 
-    # Try TinyGPT first, fall back to Markov
-    model = _load_tinygpt(settings)
-    if model is None:
-        model = MarkovModel()
-        model_path = Path(settings["markov_model_path"])
-        if model_path.exists():
-            model.load(str(model_path))
+    model_choice = settings.get("model", "auto")
+    model = None
+
+    if model_choice in ("auto", "tinygpt"):
+        model = _load_tinygpt(settings)
+    if model is None and model_choice in ("auto", "markov"):
+        model = _load_markov(settings)
 
     return DialogueEngine(
         guardrails=GuardrailEngine(settings["guardrails_path"]),
@@ -161,6 +169,33 @@ def cmd_guardrails(settings: dict, action: str, text: str | None) -> int:
     return 0
 
 
+def cmd_eval(settings: dict, corpus: str, model_path: str | None) -> int:
+    from .models.tinygpt import TinyGPTModel, TORCH_AVAILABLE
+    from .models.eval import perplexity
+
+    if not TORCH_AVAILABLE:
+        print("eval requires PyTorch: pip install torch", file=sys.stderr)
+        return 2
+
+    text = Path(corpus).read_text(encoding="utf-8")
+
+    model = TinyGPTModel()
+    path = model_path or str(DATA_DIR / "tinygpt.pt")
+    if Path(path).exists():
+        model.load(path)
+        print(f"Loaded model from {path}")
+    else:
+        print(f"No model found at {path}, training on corpus...", file=sys.stderr)
+        model.train(text, steps=500, log_every=200)
+
+    result = perplexity(model.model, text, model.tokenizer, model.cfg.block_size)
+    print(f"Perplexity: {result['perplexity']}")
+    print(f"Loss:       {result['loss']}")
+    print(f"Tokens:     {result['tokens_evaluated']:,}")
+    print(f"Chunks:     {result['chunks']}")
+    return 0
+
+
 def cmd_facts(settings: dict) -> int:
     memory = MemoryStore(settings["db_path"])
     facts = memory.all_facts()
@@ -197,6 +232,10 @@ def main(argv: list[str] | None = None) -> int:
     p_guard.add_argument("action", choices=["list", "test"])
     p_guard.add_argument("text", nargs="?", default=None)
 
+    p_eval = sub.add_parser("eval", help="evaluate model perplexity on a corpus")
+    p_eval.add_argument("--corpus", required=True)
+    p_eval.add_argument("--model-path", default=None)
+
     sub.add_parser("facts", help="show remembered facts")
 
     args = parser.parse_args(argv)
@@ -210,6 +249,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_train(settings, args.corpus, args.model, args.steps, args.out)
     if args.command == "learn":
         return cmd_learn(settings, args.urls, args.depth, args.max_pages, args.steps)
+    if args.command == "eval":
+        return cmd_eval(settings, args.corpus, args.model_path)
     if args.command == "guardrails":
         return cmd_guardrails(settings, args.action, args.text)
     if args.command == "facts":

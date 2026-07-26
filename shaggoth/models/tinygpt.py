@@ -1,10 +1,10 @@
-"""TinyGPT — a from-scratch GPT-style transformer, written to be read.
+"""TinyGPT - a from-scratch GPT-style transformer, written to be read.
 
 This is the "real" homegrown model: a decoder-only transformer in the
 lineage of *Attention Is All You Need* (Vaswani et al., 2017) and GPT-1/2
 (Radford et al., 2018/2019), at a scale a single machine like the R510 can
-train from scratch on a small corpus. Character-level tokenization keeps the
-whole pipeline dependency-free apart from PyTorch itself.
+train from scratch on a small corpus. Now uses BPE tokenization for much
+better sample quality than the original char-level approach.
 
 PyTorch is an *optional* dependency (``pip install shaggoth[gpt]`` or
 ``pip install torch``). Everything else in Shaggoth runs without it; the
@@ -23,6 +23,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .base import LanguageModel
+from .tokenizer import BPETokenizer
 
 try:
     import torch
@@ -36,31 +37,12 @@ except ImportError:  # pragma: no cover - exercised only without torch
 
 @dataclass
 class GPTConfig:
-    vocab_size: int = 128
-    block_size: int = 128  # context length
+    vocab_size: int = 2048
+    block_size: int = 256
     n_layer: int = 4
     n_head: int = 4
     n_embd: int = 128
     dropout: float = 0.1
-
-
-class CharTokenizer:
-    """Character-level tokenizer: simple, lossless, no external vocab files."""
-
-    def __init__(self, text: str | None = None):
-        self.chars: list[str] = sorted(set(text)) if text else []
-        self.stoi = {c: i for i, c in enumerate(self.chars)}
-        self.itos = dict(enumerate(self.chars))
-
-    def encode(self, text: str) -> list[int]:
-        return [self.stoi[c] for c in text if c in self.stoi]
-
-    def decode(self, ids: list[int]) -> str:
-        return "".join(self.itos.get(i, "") for i in ids)
-
-    @property
-    def vocab_size(self) -> int:
-        return len(self.chars)
 
 
 if TORCH_AVAILABLE:
@@ -79,7 +61,6 @@ if TORCH_AVAILABLE:
         def forward(self, x):
             B, T, C = x.shape
             q, k, v = self.qkv(x).split(C, dim=2)
-            # (B, n_head, T, head_dim)
             q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
             k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
             v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
@@ -156,7 +137,7 @@ class TinyGPTModel(LanguageModel):
                 "TinyGPT needs PyTorch: pip install torch  (see docs/R510_SETUP.md)"
             )
         self.cfg = cfg or GPTConfig()
-        self.tokenizer = CharTokenizer()
+        self.tokenizer = BPETokenizer(vocab_size=self.cfg.vocab_size)
         self.model: "GPT | None" = None
         self._trained = False
 
@@ -173,8 +154,9 @@ class TinyGPTModel(LanguageModel):
         device: str | None = None,
     ) -> None:
         device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self.tokenizer = CharTokenizer(text)
-        self.cfg.vocab_size = self.tokenizer.vocab_size
+        self.tokenizer = BPETokenizer.from_text(text, vocab_size=self.cfg.vocab_size)
+        self.cfg.vocab_size = len(self.tokenizer.vocab)
+
         data = torch.tensor(self.tokenizer.encode(text), dtype=torch.long)
         if len(data) <= self.cfg.block_size + 1:
             raise ValueError("corpus too small for the configured block_size")
@@ -209,25 +191,26 @@ class TinyGPTModel(LanguageModel):
         if self.model is None:
             raise RuntimeError("nothing to save")
         Path(path).parent.mkdir(parents=True, exist_ok=True)
+        tok_path = str(path) + ".tok.json"
+        self.tokenizer.save(tok_path)
         torch.save(
             {
                 "config": asdict(self.cfg),
-                "chars": self.tokenizer.chars,
                 "state_dict": self.model.state_dict(),
             },
             path,
         )
-        # Sidecar JSON so other tools can inspect the checkpoint without torch.
         with open(str(path) + ".json", "w", encoding="utf-8") as fh:
-            json.dump({"config": asdict(self.cfg), "vocab_size": self.tokenizer.vocab_size}, fh)
+            json.dump({"config": asdict(self.cfg), "vocab_size": self.cfg.vocab_size}, fh)
 
     def load(self, path: str) -> None:
         ckpt = torch.load(path, map_location="cpu")
         self.cfg = GPTConfig(**ckpt["config"])
-        self.tokenizer = CharTokenizer()
-        self.tokenizer.chars = ckpt["chars"]
-        self.tokenizer.stoi = {c: i for i, c in enumerate(self.tokenizer.chars)}
-        self.tokenizer.itos = dict(enumerate(self.tokenizer.chars))
+        tok_path = str(path) + ".tok.json"
+        if Path(tok_path).exists():
+            self.tokenizer = BPETokenizer.load(tok_path)
+        else:
+            self.tokenizer = BPETokenizer(vocab_size=self.cfg.vocab_size)
         self.model = GPT(self.cfg)
         self.model.load_state_dict(ckpt["state_dict"])
         self._trained = True
