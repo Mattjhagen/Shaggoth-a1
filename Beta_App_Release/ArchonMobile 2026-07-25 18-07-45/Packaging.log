@@ -1,0 +1,156 @@
+2026-07-25 23:07:43 +0000  Initial pipeline context: <IDEDistributionProcessingPipelineContext: 0x75e490e400; archive(resolved)="<IDEArchive: 0x75e5a8fdb0>", distributionTask(resolved)="2", distributionDestination(resolved)="1", distributionMethod(resolved)="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team(resolved)="<IDEProvisioningDisambiguatableBasicTeam: 0x7613234780; teamID='WZMXKCK98R', teamName='Matthew Hagen', teamType='Individual', username='mattjhagen@ymail.com', isFreeProvisioningTeam='0'>">
+	Chain (16, self inclusive):
+	<IDEDistributionProcessingPipelineContext: 0x75e490e400; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x7613234780; teamID='WZMXKCK98R', teamName='Matthew Hagen', teamType='Individual', username='mattjhagen@ymail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionProcessingPipelineContext: 0x75e490e100; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x7613234780; teamID='WZMXKCK98R', teamName='Matthew Hagen', teamType='Individual', username='mattjhagen@ymail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x75e3315900; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x7613234780; teamID='WZMXKCK98R', teamName='Matthew Hagen', teamType='Individual', username='mattjhagen@ymail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x75e3317980; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x7613234780; teamID='WZMXKCK98R', teamName='Matthew Hagen', teamType='Individual', username='mattjhagen@ymail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x75e3317700; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x7613234780; teamID='WZMXKCK98R', teamName='Matthew Hagen', teamType='Individual', username='mattjhagen@ymail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x75e3316d00; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x7613234780; teamID='WZMXKCK98R', teamName='Matthew Hagen', teamType='Individual', username='mattjhagen@ymail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x75e3317200; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x7613234780; teamID='WZMXKCK98R', teamName='Matthew Hagen', teamType='Individual', username='mattjhagen@ymail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x75e3316f80; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x7613234780; teamID='WZMXKCK98R', teamName='Matthew Hagen', teamType='Individual', username='mattjhagen@ymail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x75e3317c00; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x7613234780; teamID='WZMXKCK98R', teamName='Matthew Hagen', teamType='Individual', username='mattjhagen@ymail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x75e3316300; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team="(null)">
+	<IDEDistributionContext: 0x75e3316580; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team="(null)">
+	<IDEDistributionContext: 0x75e3316800; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team="(null)">
+	<IDEDistributionContext: 0x75e3315400; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="<IDEDistributionMethodDevelopmentSigned: 0x75fa7cfca0>", team="(null)">
+	<IDEDistributionContext: 0x75e3315180; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="(null)", team="(null)">
+	<IDEDistributionContext: 0x75e352ef80; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="(null)", team="(null)">
+	<IDEDistributionContext: 0x75e352ed00; archive = "<IDEArchive: 0x75e5a8fdb0>", distributionMethod="(null)", team="(null)">
+</IDEDistributionProcessingPipelineContext: 0x75e490e400>
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionCreateDestRootStep
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionCopyItemStep
+2026-07-25 23:07:43 +0000  Running /usr/bin/ditto '-V' '/Users/matty/Library/Developer/Xcode/Archives/2026-07-25/ArchonMobile 7-25-26, 6.00 PM.xcarchive/Products/Applications/ArchonMobile.app' '/var/folders/zf/qk7jz3vs10l4zlzd7dqjqgt40000gn/T/XcodeDistPipeline.~~~Bf6AHi/Root/Payload/ArchonMobile.app'
+2026-07-25 23:07:43 +0000  >>> Copying /Users/matty/Library/Developer/Xcode/Archives/2026-07-25/ArchonMobile 7-25-26, 6.00 PM.xcarchive/Products/Applications/ArchonMobile.app 
+2026-07-25 23:07:43 +0000  copying file ./_CodeSignature/CodeResources ... 
+2026-07-25 23:07:43 +0000  3545 bytes for ./_CodeSignature/CodeResources
+2026-07-25 23:07:43 +0000  copying file ./ArchonMobile ... 
+2026-07-25 23:07:43 +0000  4368176 bytes for ./ArchonMobile
+2026-07-25 23:07:43 +0000  copying file ./AppIcon60x60@2x.png ... 
+2026-07-25 23:07:43 +0000  24278 bytes for ./AppIcon60x60@2x.png
+2026-07-25 23:07:43 +0000  copying file ./swift-crypto_Crypto.bundle/PrivacyInfo.xcprivacy ... 
+2026-07-25 23:07:43 +0000  398 bytes for ./swift-crypto_Crypto.bundle/PrivacyInfo.xcprivacy
+2026-07-25 23:07:43 +0000  copying file ./swift-crypto_Crypto.bundle/Info.plist ... 
+2026-07-25 23:07:43 +0000  690 bytes for ./swift-crypto_Crypto.bundle/Info.plist
+2026-07-25 23:07:43 +0000  copying file ./Assets.car ... 
+2026-07-25 23:07:43 +0000  1447304 bytes for ./Assets.car
+2026-07-25 23:07:43 +0000  copying file ./AppIcon76x76@2x~ipad.png ... 
+2026-07-25 23:07:43 +0000  37832 bytes for ./AppIcon76x76@2x~ipad.png
+2026-07-25 23:07:43 +0000  copying file ./PrivacyInfo.xcprivacy ... 
+2026-07-25 23:07:43 +0000  1701 bytes for ./PrivacyInfo.xcprivacy
+2026-07-25 23:07:43 +0000  copying file ./embedded.mobileprovision ... 
+2026-07-25 23:07:43 +0000  12869 bytes for ./embedded.mobileprovision
+2026-07-25 23:07:43 +0000  copying file ./Info.plist ... 
+2026-07-25 23:07:43 +0000  2304 bytes for ./Info.plist
+2026-07-25 23:07:43 +0000  copying file ./PkgInfo ... 
+2026-07-25 23:07:43 +0000  8 bytes for ./PkgInfo
+2026-07-25 23:07:43 +0000  /usr/bin/ditto exited with 0
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionEmbedProfileStep
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionInfoPlistStep
+2026-07-25 23:07:43 +0000  Skipping step: IDEDistributionInfoPlistStep because it said so
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionAppThinningPlistStep
+2026-07-25 23:07:43 +0000  Skipping step: IDEDistributionAppThinningPlistStep because it said so
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionSymbolsStep
+2026-07-25 23:07:43 +0000  Skipping step: IDEDistributionSymbolsStep because it said so
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionAppThinningStep
+2026-07-25 23:07:43 +0000  Skipping step: IDEDistributionAppThinningStep because it said so
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionArchThinningStep
+2026-07-25 23:07:43 +0000  Archs to thin for item /Users/matty/Library/Developer/Xcode/Archives/2026-07-25/ArchonMobile 7-25-26, 6.00 PM.xcarchive/Products/Applications/ArchonMobile.app are []
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionODRStep
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionStripXattrsStep
+2026-07-25 23:07:43 +0000  Skipping stripping extended attributes because the codesign step will strip them.
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionCodesignStep
+2026-07-25 23:07:43 +0000  Entitlements for <IDEDistributionItem: 0x75e5188e40; bundleID='com.matthagen.archon', path='<DVTFilePath:0x75e51727d0:'/Users/matty/Library/Developer/Xcode/Archives/2026-07-25/ArchonMobile 7-25-26, 6.00 PM.xcarchive/Products/Applications/ArchonMobile.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x75e518b000; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x75e51f5260; name='Apple Development: Matthew Hagen (Z6F696U57V)', hash='B7463B02B10C56E3E24879235965DD3DAD320A28', serialNumber='B966EA03F1C641076A3D6B931091557', certificateKinds='(
+    "1.2.840.113635.100.6.1.12",
+    "1.2.840.113635.100.6.1.2"
+), issueDate='2026-06-05 17:35:29 +0000''>', entitlements='{
+    "application-identifier" = "WZMXKCK98R.com.matthagen.archon";
+    "com.apple.developer.applesignin" =     (
+        Default
+    );
+    "com.apple.developer.team-identifier" = WZMXKCK98R;
+    "get-task-allow" = 1;
+}', teamID='WZMXKCK98R', identifier='com.matthagen.archon', executablePath='<DVTFilePath:0x75e6720480:'/Users/matty/Library/Developer/Xcode/Archives/2026-07-25/ArchonMobile 7-25-26, 6.00 PM.xcarchive/Products/Applications/ArchonMobile.app/ArchonMobile'>', hardenedRuntime='0'>'>: {
+    "application-identifier" = "WZMXKCK98R.com.matthagen.archon";
+    "com.apple.developer.applesignin" =     (
+        Default
+    );
+    "com.apple.developer.team-identifier" = WZMXKCK98R;
+    "get-task-allow" = 1;
+}
+2026-07-25 23:07:43 +0000  Associated App Clip Identifiers Filter: Skipping because "com.apple.developer.associated-appclip-app-identifiers" is not present
+2026-07-25 23:07:43 +0000  Entitlements for <IDEDistributionItem: 0x75e5188e40; bundleID='com.matthagen.archon', path='<DVTFilePath:0x75e51727d0:'/Users/matty/Library/Developer/Xcode/Archives/2026-07-25/ArchonMobile 7-25-26, 6.00 PM.xcarchive/Products/Applications/ArchonMobile.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x75e518b000; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x75e51f5260; name='Apple Development: Matthew Hagen (Z6F696U57V)', hash='B7463B02B10C56E3E24879235965DD3DAD320A28', serialNumber='B966EA03F1C641076A3D6B931091557', certificateKinds='(
+    "1.2.840.113635.100.6.1.12",
+    "1.2.840.113635.100.6.1.2"
+), issueDate='2026-06-05 17:35:29 +0000''>', entitlements='{
+    "application-identifier" = "WZMXKCK98R.com.matthagen.archon";
+    "com.apple.developer.applesignin" =     (
+        Default
+    );
+    "com.apple.developer.team-identifier" = WZMXKCK98R;
+    "get-task-allow" = 1;
+}', teamID='WZMXKCK98R', identifier='com.matthagen.archon', executablePath='<DVTFilePath:0x75e6720480:'/Users/matty/Library/Developer/Xcode/Archives/2026-07-25/ArchonMobile 7-25-26, 6.00 PM.xcarchive/Products/Applications/ArchonMobile.app/ArchonMobile'>', hardenedRuntime='0'>'> are: {
+    "application-identifier" = "WZMXKCK98R.com.matthagen.archon";
+    "com.apple.developer.applesignin" =     (
+        Default
+    );
+    "com.apple.developer.team-identifier" = WZMXKCK98R;
+    "get-task-allow" = 1;
+}
+2026-07-25 23:07:43 +0000  Writing entitlements for <IDEDistributionItem: 0x75e5188e40; bundleID='com.matthagen.archon', path='<DVTFilePath:0x75e51727d0:'/Users/matty/Library/Developer/Xcode/Archives/2026-07-25/ArchonMobile 7-25-26, 6.00 PM.xcarchive/Products/Applications/ArchonMobile.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x75e518b000; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x75e51f5260; name='Apple Development: Matthew Hagen (Z6F696U57V)', hash='B7463B02B10C56E3E24879235965DD3DAD320A28', serialNumber='B966EA03F1C641076A3D6B931091557', certificateKinds='(
+    "1.2.840.113635.100.6.1.12",
+    "1.2.840.113635.100.6.1.2"
+), issueDate='2026-06-05 17:35:29 +0000''>', entitlements='{
+    "application-identifier" = "WZMXKCK98R.com.matthagen.archon";
+    "com.apple.developer.applesignin" =     (
+        Default
+    );
+    "com.apple.developer.team-identifier" = WZMXKCK98R;
+    "get-task-allow" = 1;
+}', teamID='WZMXKCK98R', identifier='com.matthagen.archon', executablePath='<DVTFilePath:0x75e6720480:'/Users/matty/Library/Developer/Xcode/Archives/2026-07-25/ArchonMobile 7-25-26, 6.00 PM.xcarchive/Products/Applications/ArchonMobile.app/ArchonMobile'>', hardenedRuntime='0'>'> to: /var/folders/zf/qk7jz3vs10l4zlzd7dqjqgt40000gn/T/XcodeDistPipeline.~~~Bf6AHi/entitlements~~~Hjrhxa
+2026-07-25 23:07:43 +0000  invoking codesign: <NSConcreteTask: 0x75e4a29b80; launchPath='/usr/bin/codesign', arguments='(
+    "-f",
+    "-s",
+    B7463B02B10C56E3E24879235965DD3DAD320A28,
+    "--entitlements",
+    "/var/folders/zf/qk7jz3vs10l4zlzd7dqjqgt40000gn/T/XcodeDistPipeline.~~~Bf6AHi/entitlements~~~Hjrhxa",
+    "--preserve-metadata=identifier,flags,runtime,launch-constraints,library-constraints",
+    "--generate-entitlement-der",
+    "--strip-disallowed-xattrs",
+    "-vvv",
+    "/var/folders/zf/qk7jz3vs10l4zlzd7dqjqgt40000gn/T/XcodeDistPipeline.~~~Bf6AHi/Root/Payload/ArchonMobile.app"
+)'>
+2026-07-25 23:07:43 +0000  codesign output: /var/folders/zf/qk7jz3vs10l4zlzd7dqjqgt40000gn/T/XcodeDistPipeline.~~~Bf6AHi/Root/Payload/ArchonMobile.app: replacing existing signature
+/var/folders/zf/qk7jz3vs10l4zlzd7dqjqgt40000gn/T/XcodeDistPipeline.~~~Bf6AHi/Root/Payload/ArchonMobile.app: signed app bundle with Mach-O thin (arm64) [com.matthagen.archon]
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionZipODRItemStep
+2026-07-25 23:07:43 +0000  Skipping step: IDEDistributionZipODRItemStep because it said so
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionCreateIPAStep
+2026-07-25 23:07:43 +0000  Running /usr/bin/ditto '-V' '-c' '-k' '--norsrc' '/var/folders/zf/qk7jz3vs10l4zlzd7dqjqgt40000gn/T/XcodeDistPipeline.~~~Bf6AHi/Root' '/var/folders/zf/qk7jz3vs10l4zlzd7dqjqgt40000gn/T/XcodeDistPipeline.~~~Bf6AHi/Packages/ArchonMobile.ipa'
+2026-07-25 23:07:43 +0000  >>> Copying /var/folders/zf/qk7jz3vs10l4zlzd7dqjqgt40000gn/T/XcodeDistPipeline.~~~Bf6AHi/Root 
+2026-07-25 23:07:43 +0000  copying file ./Payload/ArchonMobile.app/_CodeSignature/CodeResources ... 
+2026-07-25 23:07:43 +0000  3545 bytes for ./Payload/ArchonMobile.app/_CodeSignature/CodeResources
+2026-07-25 23:07:43 +0000  copying file ./Payload/ArchonMobile.app/ArchonMobile ... 
+2026-07-25 23:07:43 +0000  4368176 bytes for ./Payload/ArchonMobile.app/ArchonMobile
+2026-07-25 23:07:43 +0000  copying file ./Payload/ArchonMobile.app/AppIcon60x60@2x.png ... 
+2026-07-25 23:07:43 +0000  24278 bytes for ./Payload/ArchonMobile.app/AppIcon60x60@2x.png
+2026-07-25 23:07:43 +0000  copying file ./Payload/ArchonMobile.app/swift-crypto_Crypto.bundle/PrivacyInfo.xcprivacy ... 
+2026-07-25 23:07:43 +0000  398 bytes for ./Payload/ArchonMobile.app/swift-crypto_Crypto.bundle/PrivacyInfo.xcprivacy
+2026-07-25 23:07:43 +0000  copying file ./Payload/ArchonMobile.app/swift-crypto_Crypto.bundle/Info.plist ... 
+2026-07-25 23:07:43 +0000  690 bytes for ./Payload/ArchonMobile.app/swift-crypto_Crypto.bundle/Info.plist
+2026-07-25 23:07:43 +0000  copying file ./Payload/ArchonMobile.app/Assets.car ... 
+2026-07-25 23:07:43 +0000  1447304 bytes for ./Payload/ArchonMobile.app/Assets.car
+2026-07-25 23:07:43 +0000  copying file ./Payload/ArchonMobile.app/AppIcon76x76@2x~ipad.png ... 
+2026-07-25 23:07:43 +0000  37832 bytes for ./Payload/ArchonMobile.app/AppIcon76x76@2x~ipad.png
+2026-07-25 23:07:43 +0000  copying file ./Payload/ArchonMobile.app/PrivacyInfo.xcprivacy ... 
+2026-07-25 23:07:43 +0000  1701 bytes for ./Payload/ArchonMobile.app/PrivacyInfo.xcprivacy
+2026-07-25 23:07:43 +0000  copying file ./Payload/ArchonMobile.app/embedded.mobileprovision ... 
+2026-07-25 23:07:43 +0000  12869 bytes for ./Payload/ArchonMobile.app/embedded.mobileprovision
+2026-07-25 23:07:43 +0000  copying file ./Payload/ArchonMobile.app/Info.plist ... 
+2026-07-25 23:07:43 +0000  2304 bytes for ./Payload/ArchonMobile.app/Info.plist
+2026-07-25 23:07:43 +0000  copying file ./Payload/ArchonMobile.app/PkgInfo ... 
+2026-07-25 23:07:43 +0000  8 bytes for ./Payload/ArchonMobile.app/PkgInfo
+2026-07-25 23:07:43 +0000  /usr/bin/ditto exited with 0
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionAppStoreInformationStep
+2026-07-25 23:07:43 +0000  Skipping step: IDEDistributionAppStoreInformationStep because it said so
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionGenerateProcessedDistributionItems
+2026-07-25 23:07:43 +0000  IDEDistributionItem init <DVTFilePath:0x75e3cf6680:'/var/folders/zf/qk7jz3vs10l4zlzd7dqjqgt40000gn/T/XcodeDistPipeline.~~~Bf6AHi/Root/Payload/ArchonMobile.app'>
+2026-07-25 23:07:43 +0000  Processing step: IDEDistributionCreateManifestStep

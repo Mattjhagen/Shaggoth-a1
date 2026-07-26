@@ -48,13 +48,17 @@ enum AppEnvironment {
     }
 
     var apiBaseURL: URL {
-        let fallback = URL(string: "https://archon-ide-pacmac.fly.dev/api")!
+        let fallback = URL(string: "http://127.0.0.1:8420")!
         let saved = UserDefaults.standard.string(forKey: "apiEndpoint")
         if let savedURL = Self.validAPIURL(saved) {
             return savedURL
         }
         let configured = Bundle.main.infoDictionary?["API_BASE_URL"] as? String
-        return Self.secureURL(configured, fallback: fallback)
+        return Self.secureURL(configured, fallback: fallback, allowLocalHTTP: true)
+    }
+
+    var shaggothAPIKey: String? {
+        return UserDefaults.standard.string(forKey: "shaggothAPIKey")
     }
 
     static func validAPIURL(_ value: String?) -> URL? {
@@ -70,12 +74,9 @@ enum AppEnvironment {
             return url
         }
 
-        #if DEBUG
-        if url.scheme?.lowercased() == "http",
-           ["localhost", "127.0.0.1"].contains(url.host?.lowercased() ?? "") {
-            return url
+        if url.scheme?.lowercased() == "http" {
+            return url // Allow HTTP for local Shaggoth development
         }
-        #endif
 
         return nil
     }

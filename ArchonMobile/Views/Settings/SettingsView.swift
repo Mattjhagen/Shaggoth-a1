@@ -229,7 +229,7 @@ struct SettingsView: View {
         .listRowBackground(DesignSystem.Colors.elevated)
     }
 
-    // MARK: - API Endpoint
+    // MARK: - API Configuration
 
     private var apiEndpointRow: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -240,6 +240,28 @@ struct SettingsView: View {
             TextField("https://api.example.com", text: Binding(
                 get: { viewModel.apiEndpoint },
                 set: { viewModel.saveAPIEndpoint($0) }
+            ))
+            .textFieldStyle(.plain)
+            .font(.system(.caption, design: .monospaced))
+            .foregroundStyle(DesignSystem.Colors.textPrimary)
+            .padding(10)
+            .background(DesignSystem.Colors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.sm, style: .continuous))
+            .archonLiquidGlass(cornerRadius: DesignSystem.Radius.sm, interactive: true)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
+            
+            Text("API Key (Optional)")
+                .font(.system(.subheadline, design: .rounded).weight(.medium))
+                .foregroundStyle(DesignSystem.Colors.textSecondary)
+                .padding(.top, Spacing.sm)
+
+            SecureField("sk-...", text: Binding(
+                get: { viewModel.shaggothAPIKey },
+                set: { 
+                    viewModel.shaggothAPIKey = $0
+                    viewModel.saveShaggothAPIKey($0)
+                }
             ))
             .textFieldStyle(.plain)
             .font(.system(.caption, design: .monospaced))

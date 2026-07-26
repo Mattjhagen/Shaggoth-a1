@@ -1,57 +1,31 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @EnvironmentObject var authManager: AuthManager
-    @ObservedObject private var quickActions = ArchonQuickActionCenter.shared
-    @State private var selectedTab: Tab = .dashboard
-    @State private var selectedProject: ArchonProject?
-    @State private var builderHomeRequest = UUID()
+    @State private var selectedTab: Tab = .chat
+    @State private var sessionId: UUID = UUID()
 
     enum Tab: String {
-        case dashboard
-        case builder
-        case code
+        case chat
+        case history
         case settings
     }
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            DashboardView(
-                onProjectSelected: { project in
-                    selectedProject = project
-                    builderHomeRequest = UUID()
-                    selectedTab = .builder
-                },
-                onProjectDeleted: { project in
-                    guard selectedProject?.id == project.id else { return }
-                    selectedProject = nil
-                    builderHomeRequest = UUID()
-                }
-            )
+            ChatView(sessionId: sessionId)
                 .tabItem {
-                    Label("Projects", systemImage: "folder.fill")
+                    Label("Chat", systemImage: "bubble.left.and.bubble.right.fill")
                 }
-                .tag(Tab.dashboard)
+                .tag(Tab.chat)
 
-            BuilderView(
-                project: selectedProject,
-                homeRequestToken: builderHomeRequest,
-                onProjectCreated: { project in
-                    selectedProject = project
-                }
-            )
+            HistoryView(onSelectSession: { newSessionId in
+                self.sessionId = newSessionId
+                self.selectedTab = .chat
+            })
                 .tabItem {
-                    Label("Builder", systemImage: "sparkles")
+                    Label("History", systemImage: "clock.fill")
                 }
-                .tag(Tab.builder)
-
-            // Code browsing is a future in-app purchase — the tab shows a
-            // locked teaser until then (CodeBrowserView stays in the app).
-            CodeAccessLockedView()
-                .tabItem {
-                    Label("Code", systemImage: "lock")
-                }
-                .tag(Tab.code)
+                .tag(Tab.history)
 
             SettingsView()
                 .tabItem {
@@ -60,21 +34,5 @@ struct MainTabView: View {
                 .tag(Tab.settings)
         }
         .tint(DesignSystem.Colors.accent)
-        .onReceive(quickActions.$event.compactMap { $0 }) { event in
-            handleQuickAction(event.action)
-        }
-    }
-
-    private func handleQuickAction(_ action: ArchonQuickAction) {
-        switch action {
-        case .newBuild, .conversations:
-            selectedProject = nil
-            builderHomeRequest = UUID()
-            selectedTab = .builder
-        case .projects:
-            selectedTab = .dashboard
-        case .code:
-            selectedTab = .code
-        }
     }
 }

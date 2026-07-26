@@ -10,6 +10,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var isSigningOut = false
     @Published var appVersion: String = "1.0.0"
     @Published var apiEndpointError: String?
+    @Published var shaggothAPIKey: String = ""
 
     enum AppearanceMode: String, CaseIterable {
         case light
@@ -42,6 +43,7 @@ final class SettingsViewModel: ObservableObject {
             self.appearance = mode
         }
         self.apiEndpoint = UserDefaults.standard.string(forKey: "apiEndpoint") ?? AppEnvironment.current.apiBaseURL.absoluteString
+        self.shaggothAPIKey = UserDefaults.standard.string(forKey: "shaggothAPIKey") ?? ""
 
         if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
             let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String
@@ -64,7 +66,16 @@ final class SettingsViewModel: ObservableObject {
             UserDefaults.standard.set(trimmed, forKey: "apiEndpoint")
             apiEndpointError = nil
         } else {
-            apiEndpointError = "Enter a complete HTTPS URL. The last valid endpoint remains active."
+            apiEndpointError = "Enter a complete HTTP/HTTPS URL."
+        }
+    }
+    
+    func saveShaggothAPIKey(_ key: String) {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            UserDefaults.standard.removeObject(forKey: "shaggothAPIKey")
+        } else {
+            UserDefaults.standard.set(trimmed, forKey: "shaggothAPIKey")
         }
     }
 
