@@ -44,6 +44,7 @@ def _safe_eval(expr: str) -> float:
 
 
 def build_registry() -> PluginRegistry:
+    """Build the default plugin registry with all built-in plugins."""
     registry = PluginRegistry()
 
     @registry.register("time")
@@ -92,6 +93,21 @@ def build_registry() -> PluginRegistry:
                 return "Nothing yet! Tell me about yourself — your name, what you like, what you're building."
             lines = "; ".join(f"{k.replace('_', ' ')}: {v}" for k, v in facts.items())
             return f"Here's what I remember — {lines}."
+        return None
+
+    @registry.register("curiosity")
+    def curiosity_plugin(text: str, **_) -> str | None:
+        """Trigger curiosity research when user explicitly asks."""
+        if re.search(r"(?i)\b(?:research|look up|learn about|go find|go search|go read about)\s+(.+)", text):
+            from ..curiosity.engine import CuriosityEngine
+            from ..knowledge.engine import KnowledgeBase
+
+            match = re.search(r"(?i)\b(?:research|look up|learn about|go find|go search|go read about)\s+(.+)", text)
+            if match:
+                topic = match.group(1).strip().rstrip(".?!")
+                engine = CuriosityEngine()
+                episode = engine.research_topic(topic, background=True)
+                return f"I'm researching \"{topic}\" now — I'll let you know when I find something. (episode {episode.episode_id})"
         return None
 
     return registry

@@ -1,0 +1,83 @@
+"""Topic detection and knowledge-gap analysis.
+
+Extracts candidate topics from user messages and checks whether the
+knowledge base already covers them.
+"""
+
+from __future__ import annotations
+
+import re
+from ..memory.store import extract_keywords, STOPWORDS
+
+
+# Patterns that indicate the user is asking about something specific
+# we might not know yet. Groups capture the topic phrase.
+TOPIC_PATTERNS: list[re.Pattern] = [
+    re.compile(r"(?i)\bwhat (?:is|are|do you know about|can you tell me about)\s+(.+?)[?.!]*$"),
+    re.compile(r"(?i)\btell me about\s+(.+?)[?.!]*$"),
+    re.compile(r"(?i)\bexplain\s+(.+?)[?.!]*$"),
+    re.compile(r"(?i)\bhow (?:does|do|did|is|are|was|were)\s+(.+?)[?.!]*$"),
+    re.compile(r"(?i)\bwhy (?:is|are|do|does|did|was|were)\s+(.+?)[?.!]*$"),
+    re.compile(r"(?i)\bwho (?:is|are|was|were)\s+(.+?)[?.!]*$"),
+    re.compile(r"(?i)\b(?:define|definition of)\s+(.+?)[?.!]*$"),
+    re.compile(r"(?i)\b(?:difference between|versus|vs\.?)\s+(.+?)[?.!]*$"),
+]
+
+
+def extract_topic_query(text: str) -> str | None:
+    """Extract a searchable topic from a user message.
+
+    Returns a clean query string suitable for web search, or None if
+    the message doesn't look like a knowledge request.
+    """
+    text = text.strip()
+    if not text:
+        return None
+
+    for pattern in TOPIC_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            topic = match.group(1).strip()
+            # Clean up the topic — remove trailing punctuation, pronouns
+            topic = re.sub(r"[?.!,;:]+$", "", topic).strip()
+            topic = re.sub(r"\b(?:please|thanks|thank you)\b", "", topic, flags=re.IGNORECASE).strip()
+            if len(topic) > 3:
+                return topic
+
+    return None
+
+
+def extract_keywords_from_topic(topic: str) -> list[str]:
+    """Extract meaningful keywords from a topic string."""
+    return extract_keywords(topic)
+
+
+def is_known_topic(topic: str, known_keywords: set[str], min_overlap: float = 0.5) -> bool:
+    """Check if a topic is already well-covered by known keywords.
+
+    Returns True if more than ``min_overlap`` of the topic's keywords
+    appear in the knowledge base.
+    """
+    keywords = extract_keywords_from_topic(topic)
+    if not keywords:
+        return False
+
+    overlap = sum(1 for kw in keywords if kw in known_keywords)
+    return (overlap / len(keywords)) >= min_overlap
+
+
+def build_search_queries(topic: str, max_queries: int = 3) -> list[str]:
+    """Generate search queries from a topic to maximize coverage.
+
+    For a topic like "machine learning neural networks", generates:
+    - "machine learning neural networks"
+    - "machine learning neural networks explained"
+    - "machine learning neural networks tutorial"
+    """
+    queries = [topic]
+    if len(queries) < max_queries:
+        queries.append(f"{topic} explained")
+    if len(queries) < max_queries:
+        queries.append(f"{topic} tutorial")
+
+    return queries[:max_queries]

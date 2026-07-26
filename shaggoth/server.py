@@ -33,6 +33,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import __version__
+from .curiosity.engine import CuriosityEngine
+from .curiosity.scheduler import CuriosityScheduler, ScheduleConfig
 from .dialogue import DialogueEngine
 from .knowledge.engine import KnowledgeBase
 from .learner.pipeline import LearnerPipeline
@@ -44,7 +46,7 @@ RATE_LIMITS: dict[str, list[float]] = {}
 PUSH_TOKENS: list[dict] = []
 
 
-def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = ""):
+def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None):
     class Handler(BaseHTTPRequestHandler):
         server_version = f"Shaggoth/{__version__}"
 
@@ -148,6 +150,21 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
 
             if path == "/scrape/stats":
                 return self._send_json(200, learner.scraper.stats())
+
+            if path == "/curiosity/status":
+                if curiosity:
+                    return self._send_json(200, curiosity.status())
+                return self._send_json(501, {"error": "curiosity engine not initialized"})
+
+            if path == "/curiosity/history":
+                if curiosity:
+                    return self._send_json(200, {"episodes": curiosity.history()})
+                return self._send_json(501, {"error": "curiosity engine not initialized"})
+
+            if path == "/curiosity/scheduler":
+                if scheduler:
+                    return self._send_json(200, scheduler.status())
+                return self._send_json(501, {"error": "scheduler not initialized"})
 
             if path == "/personality":
                 engine.personality.maybe_reload()
@@ -278,6 +295,55 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 added = learner.scraper.add_seeds(urls)
                 return self._send_json(200, {"ok": True, "added": added})
 
+            if path == "/curiosity/research":
+                if not curiosity:
+                    return self._send_json(501, {"error": "curiosity engine not initialized"})
+                body = self._read_json()
+                topic = (body.get("topic") or "").strip()
+                if not topic:
+                    return self._send_json(400, {"error": "topic is required"})
+                max_results = body.get("max_results", 5)
+                max_pages = body.get("max_pages", 3)
+                episode = curiosity.research_topic(
+                    topic, max_results=max_results, max_pages=max_pages, background=True,
+                )
+                return self._send_json(202, {"ok": True, "episode_id": episode.episode_id, "topic": topic})
+
+            if path == "/curiosity/ingest":
+                if not curiosity:
+                    return self._send_json(501, {"error": "curiosity engine not initialized"})
+                body = self._read_json()
+                topic = (body.get("topic") or "").strip()
+                content = (body.get("content") or "").strip()
+                urls = body.get("urls") or []
+                if content and topic:
+                    path_str = curiosity.ingest_text(topic, content)
+                    return self._send_json(201, {"ok": True, "topic": topic, "path": path_str})
+                elif urls:
+                    result = curiosity.ingest_urls(urls)
+                    return self._send_json(201, {"ok": True, **result})
+                return self._send_json(400, {"error": "topic+content or urls required"})
+
+            if path == "/curiosity/scheduler/trigger":
+                if not scheduler:
+                    return self._send_json(501, {"error": "scheduler not initialized"})
+                result = scheduler.trigger()
+                return self._send_json(200, result)
+
+            if path == "/curiosity/message":
+                body = self._read_json()
+                message = (body.get("message") or "").strip()
+                if not message:
+                    return self._send_json(400, {"error": "message is required"})
+                if scheduler:
+                    scheduler.record_message(message)
+                if curiosity:
+                    topic = curiosity.analyze_message(message)
+                    if topic:
+                        episode = curiosity.research_topic(topic, background=True)
+                        return self._send_json(202, {"ok": True, "topic": topic, "episode_id": episode.episode_id})
+                return self._send_json(200, {"ok": True, "topic": None})
+
             return self._send_json(404, {"error": "not found"})
 
         def _route_delete(self, path: str, url):
@@ -312,7 +378,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
 
 def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api_key: str = "") -> None:
     learner = LearnerPipeline()
-    httpd = ThreadingHTTPServer((host, port), make_handler(engine, learner, api_key))
+    curiosity = CuriosityEngine(knowledge=engine.knowledge, scraper=learner.scraper)
+    scheduler = CuriosityScheduler(curiosity)
+    scheduler.start()
+    httpd = ThreadingHTTPServer((host, port), make_handler(engine, learner, api_key, curiosity, scheduler))
     auth_status = "enabled" if api_key else "disabled"
     print(f"Shaggoth API listening on http://{host}:{port}")
     print(f"  Dashboard: http://{host}:{port}/")
@@ -320,8 +389,11 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     print(f"  POST /chat   GET /history   GET /facts   GET /guardrails")
     print(f"  POST /chat/stream (SSE)   POST /learn/start   GET /learn/status")
     print(f"  POST /scrape/url    GET /scrape/stats")
+    print(f"  POST /curiosity/research   GET /curiosity/status")
+    print(f"  POST /curiosity/ingest     GET /curiosity/history")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nShutting down.")
+        scheduler.stop()
         httpd.server_close()
