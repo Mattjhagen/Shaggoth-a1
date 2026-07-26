@@ -16,8 +16,6 @@
     "android": {
       "package": "com.mattjhagen.shaggoth"
     },
-    "plugins": [
-      "expo-router"
-    ]
+    "plugins": []
   }
 }
