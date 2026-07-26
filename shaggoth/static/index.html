@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shaggoth AI — Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo">&#x1F9DC; Shaggoth</h1>
+                <span class="version">v0.1.0</span>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-view="chat">Chat</li>
+                <li data-view="learn">Self-Learn</li>
+                <li data-view="memory">Memory</li>
+                <li data-view="guardrails">Guardrails</li>
+                <li data-view="settings">Settings</li>
+            </ul>
+            <div class="sidebar-footer">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Connecting...</span>
+            </div>
+        </nav>
+
+        <main class="content">
+            <!-- CHAT VIEW -->
+            <section class="view active" id="view-chat">
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <h2>Chat</h2>
+                        <div class="chat-meta">
+                            <span id="chatSource" class="badge">--</span>
+                            <button class="btn-sm" onclick="clearChat()">New Session</button>
+                        </div>
+                    </div>
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message assistant">
+                            <div class="message-content">
+                                Hello. I'm Shaggoth — a self-learning AI built from scratch. Ask me anything, or head to the Self-Learn tab to teach me new things.
+                            </div>
+                        </div>
+                    </div>
+                    <form class="chat-input" id="chatForm">
+                        <input type="text" id="chatInput" placeholder="Type a message..." autocomplete="off" autofocus>
+                        <button type="submit" id="sendBtn">Send</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- SELF-LEARN VIEW -->
+            <section class="view" id="view-learn">
+                <div class="panel">
+                    <h2>Self-Learning Engine</h2>
+                    <p class="subtitle">Teach Shaggoth by feeding it URLs to scrape and learn from.</p>
+
+                    <div class="stats-grid" id="learnStats">
+                        <div class="stat-card">
+                            <div class="stat-value" id="statPages">0</div>
+                            <div class="stat-label">Pages Scraped</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statWords">0</div>
+                            <div class="stat-label">Words Learned</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statModel">No</div>
+                            <div class="stat-label">Model Trained</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statSessions">0</div>
+                            <div class="stat-label">Learn Sessions</div>
+                        </div>
+                    </div>
+
+                    <div class="learn-controls">
+                        <div class="input-group">
+                            <label>Seed URLs (one per line)</label>
+                            <textarea id="seedUrls" rows="6" placeholder="https://en.wikipedia.org/wiki/Artificial_intelligence&#10;https://en.wikipedia.org/wiki/Machine_learning&#10;https://en.wikipedia.org/wiki/Neural_network_(machine_learning)"></textarea>
+                        </div>
+                        <div class="input-row">
+                            <div class="input-group">
+                                <label>Crawl Depth</label>
+                                <input type="number" id="crawlDepth" value="1" min="0" max="3">
+                            </div>
+                            <div class="input-group">
+                                <label>Max Pages</label>
+                                <input type="number" id="maxPages" value="20" min="1" max="200">
+                            </div>
+                            <div class="input-group">
+                                <label>Training Steps</label>
+                                <input type="number" id="trainSteps" value="1000" min="100" max="10000" step="100">
+                            </div>
+                        </div>
+                        <button class="btn-primary" id="learnBtn" onclick="startLearning()">Start Learning</button>
+                    </div>
+
+                    <div class="learn-log" id="learnLog">
+                        <h3>Learning Log</h3>
+                        <div id="learnLogEntries" class="log-entries">No learning sessions yet.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MEMORY VIEW -->
+            <section class="view" id="view-memory">
+                <div class="panel">
+                    <h2>Memory</h2>
+                    <p class="subtitle">What Shaggoth remembers about you.</p>
+                    <div id="factsList" class="facts-grid">Loading...</div>
+
+                    <h3 style="margin-top:2rem">Recent Conversations</h3>
+                    <div id="historyList" class="history-list">Loading...</div>
+                </div>
+            </section>
+
+            <!-- GUARDRAILS VIEW -->
+            <section class="view" id="view-guardrails">
+                <div class="panel">
+                    <h2>Guardrails</h2>
+                    <p class="subtitle">Adjustable rules that shape Shaggoth's behavior.</p>
+                    <div id="guardrailsList" class="rules-list">Loading...</div>
+                </div>
+            </section>
+
+            <!-- SETTINGS VIEW -->
+            <section class="view" id="view-settings">
+                <div class="panel">
+                    <h2>Settings</h2>
+                    <div class="input-group">
+                        <label>API Base URL</label>
+                        <input type="text" id="apiUrl" value="http://127.0.0.1:8420">
+                    </div>
+                    <button class="btn-primary" onclick="saveSettings()">Save</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

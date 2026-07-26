@@ -87,9 +87,11 @@ class ServerSmokeTest(unittest.TestCase):
         from http.server import ThreadingHTTPServer
 
         from shaggoth.server import make_handler
+        from shaggoth.learner.pipeline import LearnerPipeline
 
         engine = make_engine()
-        httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(engine))
+        learner = LearnerPipeline()
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(engine, learner))
         thread = threading.Thread(target=httpd.serve_forever, daemon=True)
         thread.start()
         try:

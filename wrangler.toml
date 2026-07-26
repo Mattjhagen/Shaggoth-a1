@@ -1,0 +1,20 @@
+name = "shaggoth-ai"
+main = "deploy/worker.js"
+compatibility_date = "2025-01-01"
+
+# Route: ai.vibecodes.space/*
+routes = [
+  { pattern = "ai.vibecodes.space/*", zone_name = "vibecodes.space" }
+]
+
+# Static assets: serve the dashboard from the static directory
+[assets]
+directory = "shaggoth/static"
+binding = "ASSETS"
+html_handling = "auto-trailing-slash"
+not_found_handling = "single-page-application"
+
+# Environment variables (set via wrangler secret put)
+# API_ORIGIN = your Python backend URL (e.g., http://YOUR_R510_IP:8420)
+# [vars]
+# API_ORIGIN = "http://127.0.0.1:8420"

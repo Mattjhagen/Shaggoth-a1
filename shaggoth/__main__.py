@@ -1,9 +1,10 @@
 """Shaggoth CLI.
 
     python3 -m shaggoth chat                 # interactive REPL
-    python3 -m shaggoth serve                # REST API server
+    python3 -m shaggoth serve                # REST API server + web dashboard
     python3 -m shaggoth train --corpus F     # train the Markov model
     python3 -m shaggoth train --model tinygpt --corpus F --steps 5000
+    python3 -m shaggoth learn --urls URL     # scrape + train (self-learning)
     python3 -m shaggoth guardrails list|test
     python3 -m shaggoth facts
 """
@@ -15,19 +16,41 @@ import sys
 import uuid
 from pathlib import Path
 
-from .config import ensure_dirs, load_settings
+from .config import ensure_dirs, load_settings, DATA_DIR
 from .dialogue import DialogueEngine
 from .guardrails import GuardrailEngine
 from .memory import MemoryStore
 from .models.markov import MarkovModel
 
 
+def _load_tinygpt(settings: dict):
+    """Try to load TinyGPT model from disk."""
+    try:
+        from .models.tinygpt import TinyGPTModel, TORCH_AVAILABLE
+        if not TORCH_AVAILABLE:
+            return None
+        model = TinyGPTModel()
+        pt_path = str(DATA_DIR / "tinygpt.pt")
+        if Path(pt_path).exists():
+            model.load(pt_path)
+            print(f"[shaggoth] Loaded TinyGPT from {pt_path}")
+            return model
+    except Exception:
+        pass
+    return None
+
+
 def build_engine(settings: dict) -> DialogueEngine:
     ensure_dirs()
-    model = MarkovModel()
-    model_path = Path(settings["markov_model_path"])
-    if model_path.exists():
-        model.load(str(model_path))
+
+    # Try TinyGPT first, fall back to Markov
+    model = _load_tinygpt(settings)
+    if model is None:
+        model = MarkovModel()
+        model_path = Path(settings["markov_model_path"])
+        if model_path.exists():
+            model.load(str(model_path))
+
     return DialogueEngine(
         guardrails=GuardrailEngine(settings["guardrails_path"]),
         memory=MemoryStore(settings["db_path"]),
@@ -40,7 +63,8 @@ def build_engine(settings: dict) -> DialogueEngine:
 def cmd_chat(settings: dict) -> int:
     engine = build_engine(settings)
     session_id = f"cli-{uuid.uuid4().hex[:8]}"
-    print(f"{settings['bot_name']} v0.1 — type 'quit' to exit. (session {session_id})")
+    model_name = type(engine.model).__name__ if engine.model else "none"
+    print(f"{settings['bot_name']} v0.1 — model: {model_name} — type 'quit' to exit. (session {session_id})")
     while True:
         try:
             text = input("you> ").strip()
@@ -79,7 +103,7 @@ def cmd_train(settings: dict, corpus: str, model_name: str, steps: int, out: str
 
         model = TinyGPTModel()
         model.train(text, steps=steps)
-        path = out or str(Path(settings["markov_model_path"]).parent / "tinygpt.pt")
+        path = out or str(DATA_DIR / "tinygpt.pt")
         model.save(path)
         print(f"Trained TinyGPT for {steps} steps → {path}")
         print("Sample:", model.generate("Hello", max_tokens=120))
@@ -87,6 +111,34 @@ def cmd_train(settings: dict, corpus: str, model_name: str, steps: int, out: str
         print(f"unknown model: {model_name}", file=sys.stderr)
         return 2
     return 0
+
+
+def cmd_learn(settings: dict, urls: list[str], depth: int, max_pages: int, steps: int) -> int:
+    from .learner.pipeline import LearnerPipeline
+
+    pipeline = LearnerPipeline()
+
+    if urls:
+        pipeline.scraper.add_seeds(urls)
+        print(f"Added {len(urls)} seed URLs")
+
+    print("Starting learning cycle...")
+    session = pipeline.learn(
+        urls=None,  # already added
+        crawl_depth=depth,
+        max_pages=max_pages,
+        training_steps=steps,
+        background=False,  # blocking for CLI
+    )
+
+    print(f"\nLearning complete ({session.session_id}):")
+    print(f"  Pages scraped:  {session.pages_scraped}")
+    print(f"  Words learned:  {session.words_learned:,}")
+    print(f"  Training steps: {session.training_steps}")
+    print(f"  Model saved to: {session.model_path}")
+    if session.error:
+        print(f"  Error: {session.error}")
+    return 0 if session.status == "completed" else 1
 
 
 def cmd_guardrails(settings: dict, action: str, text: str | None) -> int:
@@ -125,7 +177,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("chat", help="interactive chat REPL")
 
-    p_serve = sub.add_parser("serve", help="run the REST API server")
+    p_serve = sub.add_parser("serve", help="run the REST API server + web dashboard")
     p_serve.add_argument("--host", default=None)
     p_serve.add_argument("--port", type=int, default=None)
 
@@ -134,6 +186,12 @@ def main(argv: list[str] | None = None) -> int:
     p_train.add_argument("--model", default="markov", choices=["markov", "tinygpt"])
     p_train.add_argument("--steps", type=int, default=2000)
     p_train.add_argument("--out", default=None)
+
+    p_learn = sub.add_parser("learn", help="self-learn: scrape URLs and train")
+    p_learn.add_argument("--urls", nargs="*", default=[], help="seed URLs to scrape")
+    p_learn.add_argument("--depth", type=int, default=1, help="crawl depth (0-3)")
+    p_learn.add_argument("--max-pages", type=int, default=20, help="max pages to scrape")
+    p_learn.add_argument("--steps", type=int, default=1000, help="training steps")
 
     p_guard = sub.add_parser("guardrails", help="inspect and test guardrails")
     p_guard.add_argument("action", choices=["list", "test"])
@@ -150,6 +208,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_serve(settings, args.host, args.port)
     if args.command == "train":
         return cmd_train(settings, args.corpus, args.model, args.steps, args.out)
+    if args.command == "learn":
+        return cmd_learn(settings, args.urls, args.depth, args.max_pages, args.steps)
     if args.command == "guardrails":
         return cmd_guardrails(settings, args.action, args.text)
     if args.command == "facts":
