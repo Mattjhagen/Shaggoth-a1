@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Shaggoth",
+    "slug": "shaggoth-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#171717"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mattjhagen.shaggoth"
+    },
+    "android": {
+      "package": "com.mattjhagen.shaggoth"
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}
