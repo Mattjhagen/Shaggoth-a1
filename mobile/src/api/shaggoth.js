@@ -66,38 +66,17 @@ export async function chat(message, sessionId) {
 }
 
 export async function chatStream(message, sessionId, onToken, onDone, onError) {
+  // React Native fetch doesn't support ReadableStream, so use
+  // the standard JSON endpoint and deliver the full reply at once.
   try {
-    const res = await fetch(`${_apiUrl}/chat/stream`, {
-      method: 'POST',
-      headers: headers(),
-      body: JSON.stringify({ message, session_id: sessionId }),
-    })
-    if (!res.ok) {
-      const text = await res.text()
-      onError(text || `HTTP ${res.status}`)
-      return
-    }
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const data = JSON.parse(line.slice(6))
-            if (data.done) {
-              onDone(data)
-            } else if (data.token) {
-              onToken(data.token)
-            }
-          } catch {}
-        }
+    const data = await chat(message, sessionId)
+    if (data.reply) {
+      const words = data.reply.split(/(?<=\s)/)
+      for (let i = 0; i < words.length; i++) {
+        onToken(words[i])
+        await new Promise(r => setTimeout(r, 20))
       }
+      onDone(data)
     }
   } catch (err) {
     onError(err.message)
