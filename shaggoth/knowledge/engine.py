@@ -23,6 +23,10 @@ class KnowledgeEntry:
     mtime: float
 
 
+# Titles that denote an index rather than a subject.
+_DISAMBIGUATION_TOPIC = re.compile(r"\bdisambiguation\b", re.I)
+
+
 class KnowledgeBase:
     def __init__(self, directory: str | Path | None = None):
         self.directory = Path(directory) if directory else DEFAULT_KNOWLEDGE_DIR
@@ -78,6 +82,28 @@ class KnowledgeBase:
     # named after its subject, so "machine learning" should beat any article
     # that merely mentions the phrase in passing.
     _TITLE_BOOST = 8.0
+
+    # Awarded when every word of the title is accounted for by the query --
+    # i.e. the article is *about exactly what was asked*, with no extra
+    # qualifier. Title overlap alone could not separate "Evolution" from
+    # "Evolution Sabrina Carpenter Album": both contain the single query word
+    # "evolution", so both earned the same boost, and the shorter-article
+    # tie-break then handed the answer to the pop album. The same tie sent
+    # "what is quantum mechanics" to "Interpretations Of Quantum Mechanics"
+    # and "what is chemistry" to "Bioorganic Chemistry".
+    _EXACT_TITLE_BOOST = 10.0
+
+    # A disambiguation page should lose a tie against a real article on the
+    # subject: "Evolution Disambiguation" was beating "Evolution" because both
+    # matched the title equally and the shorter-article tie-break (right for
+    # real articles) handed the win to the index page.
+    #
+    # The penalty is deliberately mild rather than disqualifying. These pages
+    # open with a compact, accurate gloss ("DNA, or deoxyribonucleic acid, is a
+    # molecule that carries genetic information"), which is sometimes the best
+    # definition in the whole corpus -- particularly where the seeded article
+    # under that title turned out to be about something else entirely.
+    _DISAMBIGUATION_PENALTY = 0.75
 
     def _topic_tokens(self, entry: "KnowledgeEntry") -> set[str]:
         return {t for t in re.split(r"[^a-z0-9]+", entry.topic.lower()) if len(t) > 2}
@@ -137,6 +163,22 @@ class KnowledgeBase:
                 # Scale with how much of the query the title accounts for, so
                 # an exact title match dominates a single incidental word.
                 score += self._TITLE_BOOST * (overlap / len(query_words))
+
+                # Dilute by the qualifiers the query never mentioned, then
+                # reward a title with none left over. "Evolution" beats
+                # "Evolution Sabrina Carpenter Album" for the query
+                # "evolution"; asking about the album still surfaces it,
+                # because then those words are in the query too.
+                leftover = len(self._topic_tokens(entry) - query_words)
+                if leftover:
+                    score -= self._TITLE_BOOST * (
+                        leftover / (leftover + overlap)
+                    ) * 0.5
+                else:
+                    score += self._EXACT_TITLE_BOOST
+
+            if _DISAMBIGUATION_TOPIC.search(entry.topic):
+                score *= self._DISAMBIGUATION_PENALTY
 
             if score > 0:
                 results.append((entry, score))

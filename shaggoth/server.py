@@ -27,12 +27,14 @@ import json
 import mimetypes
 import os
 import time
+import traceback
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import __version__
+from .dialogue.engine import normalize_mode
 from .curiosity.engine import CuriosityEngine
 from .curiosity.scheduler import CuriosityScheduler, ScheduleConfig
 from .dialogue import DialogueEngine
@@ -44,6 +46,23 @@ STATIC_DIR = Path(__file__).parent / "static"
 API_KEY = os.environ.get("SHAGGOTH_API_KEY") or ""
 RATE_LIMITS: dict[str, list[float]] = {}
 PUSH_TOKENS: list[dict] = []
+
+
+def _request_mode(body: dict):
+    """Read the drift mode a chat request asked for, if any.
+
+    Accepted spellings, in priority order: ``{"mode": "drift"|"no_drift"}``
+    and ``{"drift": true|false}``. Returning ``None`` means "unspecified",
+    which lets the engine apply its own configured default rather than this
+    function inventing one.
+    """
+    if not isinstance(body, dict):
+        return None
+    if body.get("mode") is not None:
+        return normalize_mode(body.get("mode"))
+    if body.get("drift") is not None:
+        return normalize_mode(body.get("drift"))
+    return None
 
 
 def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None):
@@ -231,10 +250,11 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if not message:
                     return self._send_json(400, {"error": "message is required"})
                 session_id = body.get("session_id") or "default"
+                mode = _request_mode(body)
                 # Feed message to curiosity scheduler
                 if scheduler:
                     scheduler.record_message(message)
-                reply = engine.respond(message, session_id=session_id)
+                reply = engine.respond(message, session_id=session_id, mode=mode)
                 # Auto-research if bot didn't know the answer
                 if curiosity and reply.source in ("pattern", "fallback") and reply.source == "fallback":
                     topic = curiosity.analyze_message(message)
@@ -250,6 +270,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if not message:
                     return self._send_json(400, {"error": "message is required"})
                 session_id = body.get("session_id") or "default"
+                mode = _request_mode(body)
                 # Feed message to curiosity scheduler
                 if scheduler:
                     scheduler.record_message(message)
@@ -261,7 +282,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
 
-                reply = engine.respond(message, session_id=session_id)
+                reply = engine.respond(message, session_id=session_id, mode=mode)
                 text = reply.text
                 chunk_size = max(1, len(text) // 20)
                 for i in range(0, len(text), chunk_size):
@@ -419,9 +440,37 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 return self._send_json(404, {"error": f"no rule with id {rule_id!r}"})
             return self._send_json(404, {"error": "not found"})
 
+        def _guard(self, route, *args):
+            """Run a route, converting any unhandled exception into JSON.
+
+            Without this, an exception inside the dialogue engine propagates
+            to BaseHTTPRequestHandler, which either drops the connection or
+            replies with its default *HTML* error page. Every browser client
+            then fails on ``JSON.parse``, which is what produced the two
+            reported UI errors -- Chrome's "Unexpected token '<', "<!DOCTYPE"
+            is not valid JSON" and Safari's wording of the same failure,
+            "The string did not match the expected pattern." Neither was a
+            frontend bug; both were this.
+
+            The traceback still goes to the journal, so nothing is hidden --
+            the client just gets a shape it can actually parse.
+            """
+            try:
+                return route(*args)
+            except Exception:
+                traceback.print_exc()
+                try:
+                    return self._send_json(500, {
+                        "error": "internal error",
+                        "reply": "Something in my head just fell over. It's logged.",
+                        "source": "error",
+                    })
+                except Exception:
+                    return None
+
         def do_GET(self):
             url = urlparse(self.path)
-            self._route_get(url.path, url)
+            self._guard(self._route_get, url.path, url)
 
         def do_POST(self):
             url = urlparse(self.path)
@@ -429,13 +478,13 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 return
             if not self._rate_limit(self.client_address[0]):
                 return
-            self._route_post(url.path, url)
+            self._guard(self._route_post, url.path, url)
 
         def do_DELETE(self):
             url = urlparse(self.path)
             if not self._check_auth():
                 return
-            self._route_delete(url.path, url)
+            self._guard(self._route_delete, url.path, url)
 
     return Handler
 

@@ -124,14 +124,31 @@ class MemoryStore:
             if match:
                 value = match.group(1).strip()
                 found[key] = value
-                self.db.execute(
-                    "INSERT INTO facts (key, value, ts) VALUES (?, ?, ?) "
-                    "ON CONFLICT(key) DO UPDATE SET value = excluded.value, ts = excluded.ts",
-                    (key, value, time.time()),
-                )
+                self.set_fact(key, value, commit=False)
         if found:
             self.db.commit()
         return found
+
+    def set_fact(self, key: str, value: str, user_id: str = "default",
+                 commit: bool = True) -> None:
+        """Store or update a durable fact.
+
+        The single place that knows the `facts` schema. Two call sites
+        previously inlined this SQL with `ON CONFLICT(key)`, but the table is
+        keyed on `(key, user_id)` -- a partial conflict target matches no
+        constraint, so SQLite raised and fact storage crashed on every freshly
+        created database. Databases created before `user_id` existed have
+        `key` alone as the primary key and kept working, which is why the bug
+        stayed hidden in production while failing every test run.
+        """
+        self.db.execute(
+            "INSERT INTO facts (key, value, user_id, ts) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(key, user_id) DO UPDATE SET "
+            "value = excluded.value, ts = excluded.ts",
+            (key, value, user_id, time.time()),
+        )
+        if commit:
+            self.db.commit()
 
     # ----------------------------------------------------------- reading
     def get_fact(self, key: str) -> str | None:

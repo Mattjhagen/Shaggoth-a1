@@ -7,11 +7,78 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+# Baseline rules every install starts with.
+#
+# These were empty, which meant a fresh config -- including the one live on the
+# public endpoint -- ran with no credential blocking, no redaction, and no
+# length cap at all. Guardrails are opt-out, not opt-in: a rule can always be
+# disabled with `set_enabled(..., False)` or removed, but nothing should have
+# to be *added* before the system is safe to expose.
 DEFAULT_CONFIG: dict[str, Any] = {
     "version": 2,
     "enabled": True,
-    "input_rules": [],
-    "output_rules": [],
+    "input_rules": [
+        {
+            "id": "no-credentials",
+            "type": "regex_block",
+            "enabled": True,
+            "flag": "red",
+            # Deliberately matches the *shape* of someone volunteering a
+            # secret, not the secret itself -- the goal is to stop it being
+            # written to the message log, so it must fire before storage.
+            "pattern": (
+                r"(?i)\b(password|passwd|passphrase|api[ _-]?key|secret[ _-]?key|"
+                r"access[ _-]?token|private[ _-]?key|credentials?)\b\s*[:=]|"
+                r"\bsk-[A-Za-z0-9_-]{16,}\b|"
+                r"-----BEGIN [A-Z ]*PRIVATE KEY-----"
+            ),
+            "message": (
+                "Don't paste credentials at me. I log conversations, so that "
+                "would be a genuinely bad idea. Rotate it if you already did."
+            ),
+        },
+        {
+            "id": "no-malware",
+            "type": "topic_refuse",
+            "enabled": True,
+            "flag": "red",
+            "min_hits": 1,
+            "keywords": [
+                "write malware", "create malware", "make malware", "malware for me",
+                "ransomware", "keylogger", "botnet", "rootkit",
+                "credential stealer", "steal credentials", "ddos attack",
+            ],
+            "message": "Not doing that one. Ask me something else.",
+        },
+    ],
+    "output_rules": [
+        {
+            "id": "redact-emails",
+            "type": "redact",
+            "enabled": True,
+            "pattern": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
+            "replacement": "[redacted-email]",
+        },
+        {
+            "id": "redact-secrets",
+            "type": "redact",
+            "enabled": True,
+            # Scraped pages and the training corpus can carry live-looking
+            # tokens; this stops the model ever echoing one back.
+            "pattern": (
+                r"\bsk-[A-Za-z0-9_-]{16,}\b|"
+                r"\beyJ[A-Za-z0-9._-]{20,}\b|"
+                r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"
+            ),
+            "replacement": "[redacted-secret]",
+        },
+        {
+            "id": "reply-length-cap",
+            "type": "max_length",
+            "enabled": True,
+            "value": 2000,
+        },
+    ],
 }
 
 
@@ -151,6 +218,9 @@ class GuardrailEngine:
             elif rtype == "max_length":
                 limit = int(rule.get("value", 2000))
                 if len(text) > limit:
-                    text = text[: limit - 1].rstrip() + "..."
+                    # Reserve room for the ellipsis. Truncating to limit-1 and
+                    # then appending three characters overshot the cap by two,
+                    # so a "2000 character" cap emitted 2002.
+                    text = text[: max(0, limit - 3)].rstrip() + "..."
                     fired.append(rule["id"])
         return text, fired

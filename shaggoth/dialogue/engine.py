@@ -34,16 +34,57 @@ from ..plugins import PluginRegistry, default_registry
 from .patterns import PatternEngine
 
 
+#: Associative mode. The Markov model may speak, the knowledge teaser may
+#: fire, and past conversations may be woven back in. Answers wander.
+DRIFT = "drift"
+
+#: Grounded mode. Knowledge and patterns only -- no Markov generation, no
+#: "want me to tell you about it?" teaser, no topic callbacks. Every reply
+#: is either something Shaggoth actually knows or an honest admission that
+#: it does not. This is the mode the IDE integration uses: a tangent in the
+#: middle of a code answer is worse than no answer.
+NO_DRIFT = "no_drift"
+
+VALID_MODES = (DRIFT, NO_DRIFT)
+
+#: Default when a request does not specify. Grounded, because the expensive
+#: failure is a confident tangent, not a terse answer.
+DEFAULT_MODE = NO_DRIFT
+
+
+def normalize_mode(value, default: str = DEFAULT_MODE) -> str:
+    """Coerce a caller-supplied mode into ``DRIFT`` or ``NO_DRIFT``.
+
+    Accepts the literal mode names, and the booleans a JSON client is
+    likely to send for a field named ``drift``. Anything unrecognised falls
+    back to ``default`` rather than raising -- a malformed mode should not
+    cost the user their answer.
+    """
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return DRIFT if value else NO_DRIFT
+    text = str(value).strip().lower()
+    if text in VALID_MODES:
+        return text
+    if text in ("true", "1", "yes", "on", "wander", "free"):
+        return DRIFT
+    if text in ("false", "0", "no", "off", "strict", "grounded"):
+        return NO_DRIFT
+    return default
+
+
 @dataclass
 class Reply:
     text: str
-    source: str  # guardrail | plugin | pattern | model | fallback
+    source: str  # guardrail | plugin | knowledge | pattern | model | fallback
     blocked: bool = False
     rule_id: str | None = None
     flag: str = "green"
     output_rules_applied: list[str] = field(default_factory=list)
     memory_triggers: list[str] = field(default_factory=list)
     new_facts: dict = field(default_factory=dict)
+    mode: str = DEFAULT_MODE
 
 
 class DialogueEngine:
@@ -58,6 +99,7 @@ class DialogueEngine:
         bot_name: str = "Shaggoth",
         recall_threshold: float = 0.35,
         seed: int | None = None,
+        mode: str = DEFAULT_MODE,
     ):
         self.guardrails = guardrails or GuardrailEngine()
         self.memory = memory or MemoryStore()
@@ -68,12 +110,23 @@ class DialogueEngine:
         self.patterns = PatternEngine(seed=seed)
         self.bot_name = bot_name
         self.recall_threshold = recall_threshold
+        #: Instance-wide default, overridable per request.
+        self.mode = normalize_mode(mode)
         self._recalled: dict[str, set[int]] = {}
 
-    def respond(self, text: str, session_id: str = "default") -> Reply:
+    def respond(self, text: str, session_id: str = "default", mode=None) -> Reply:
+        """Answer ``text``.
+
+        ``mode`` selects :data:`DRIFT` or :data:`NO_DRIFT` for this request
+        only, falling back to the engine's configured default. See the
+        module constants for what each mode allows.
+        """
+        mode = normalize_mode(mode, default=self.mode)
+        drift = mode == DRIFT
+
         text = text.strip()
         if not text:
-            return Reply("Say something and I'll do my best.", source="fallback")
+            return Reply("Say something and I'll do my best.", source="fallback", mode=mode)
 
         # 1. Guardrails: input check.
         verdict = self.guardrails.check_input(text)
@@ -83,6 +136,7 @@ class DialogueEngine:
                 source="guardrail",
                 blocked=True,
                 rule_id=verdict.rule_id,
+                mode=mode,
             )
             self._persist(session_id, text, reply)
             return reply
@@ -101,15 +155,21 @@ class DialogueEngine:
         # 3. Plugins.
         plugin_response = self.plugins.dispatch(text, memory=self.memory)
         if plugin_response is not None:
-            reply = self._finish(Reply(plugin_response, source="plugin"))
+            reply = self._finish(Reply(plugin_response, source="plugin", mode=mode))
             self._persist(session_id, text, reply)
             return reply
 
-        # 4. Memory: facts + topic recall.
+        # 4. Memory: facts always; topic recall only when drifting. A
+        # callback to an unrelated past conversation is the textbook
+        # tangent NO_DRIFT exists to prevent.
         new_facts = self.memory.extract_and_store_facts(text)
-        recalls = self.memory.recall(
-            text, current_session=session_id, limit=1,
-            min_score=self.recall_threshold,
+        recalls = (
+            self.memory.recall(
+                text, current_session=session_id, limit=1,
+                min_score=self.recall_threshold,
+            )
+            if drift
+            else []
         )
 
         # 5. Generation (with personality + knowledge context).
@@ -129,19 +189,42 @@ class DialogueEngine:
             # matches the question. Rank alone is not evidence of relevance:
             # scores are normalized, so the top hit is always 1.0 even when
             # every candidate is off-topic.
+            #
+            # Two passes, and the order matters. Several articles can share a
+            # title -- "DNA" the molecule and "DNA²" the manga both match the
+            # word "dna" -- so a first pass takes only a candidate that yields
+            # an actual *definition*, and the lenient pass runs only if no
+            # candidate defines anything. Without the split, whichever
+            # off-subject article happened to rank highest answered first.
+            best_loose = None
             for candidate, _score in knowledge_hits:
                 if not knowledge_is_relevant(candidate.topic, text):
                     continue
-                summary = summarize_entry(candidate.content, candidate.topic)
-                if len(summary) >= 60:
+                summary, is_definition = summarize_entry_scored(
+                    candidate.content, candidate.topic
+                )
+                if len(summary) < 60:
+                    continue
+                if is_definition:
                     body = summary
                     source = "knowledge"
                     answered_from_knowledge = True
                     break
+                if best_loose is None:
+                    best_loose = summary
+            if body is None and best_loose is not None:
+                body = best_loose
+                source = "knowledge"
+                answered_from_knowledge = True
 
         if body is None:
             body = self.patterns.respond(text)
-        if body is None and self.model is not None and self.model.is_trained():
+        # 5b. Markov generation is DRIFT-only. The model stitches fragments
+        # from unrelated articles and cannot hold a topic, so in NO_DRIFT the
+        # turn skips straight to an honest "I don't know that yet" -- which
+        # is also what triggers curiosity research, meaning the grounded mode
+        # actively teaches itself instead of bluffing.
+        if drift and body is None and self.model is not None and self.model.is_trained():
             prompt = text
             if knowledge_context or personality_context:
                 prompt = f"{personality_context}\n{knowledge_context}User: {text}\nAssistant:"
@@ -164,8 +247,10 @@ class DialogueEngine:
             if hash(text) % 4 == 0:
                 body = f"{body[:-1]}, {name}{body[-1]}" if body[-1] in ".!?" else f"{body}, {name}"
 
-        # Inject knowledge quirk if relevant
-        if (not answered_from_knowledge and knowledge_hits
+        # Inject knowledge quirk if relevant. DRIFT-only: offering a tangent
+        # instead of answering is precisely the "never completes a thought"
+        # behaviour, and it has no place in a grounded reply.
+        if (drift and not answered_from_knowledge and knowledge_hits
                 and len(body) < 100 and hash(text) % 3 == 0):
             topic = knowledge_hits[0][0].topic
             body += f" I just read something about {topic.lower()} — want me to tell you about it?"
@@ -187,7 +272,8 @@ class DialogueEngine:
             triggers.append(topic)
 
         reply = self._finish(
-            Reply(body, source=source, memory_triggers=triggers, new_facts=new_facts)
+            Reply(body, source=source, memory_triggers=triggers,
+                  new_facts=new_facts, mode=mode)
         )
         self._persist(session_id, text, reply)
         return reply
@@ -208,14 +294,21 @@ _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
 # Wikipedia-derived articles open with navigation cruft and pipe tables; a
 # usable sentence has real prose shape and no leftover markup.
+#
+# NOTE: the escapes here are single-backslash on purpose. An earlier revision
+# had `\\s`/`\\b`/`\\(` inside these raw strings -- doubled by a heredoc during
+# editing -- which in a raw string is a *literal backslash* followed by the
+# letter. That silently killed the entire anchored lead-in group (it could only
+# match a sentence beginning with a backslash), which is why "For other uses,
+# see ..." kept leaking through into answers.
 _NOISE = re.compile(
     # Lead-in cruft: only noise when a sentence opens with it.
-    r"(^\\s*(part of a series|from left to right|outline index|this article|"
+    r"(^\s*(part of a series|from left to right|outline index|this article|"
     r"see also|redirect|for other uses|not to be confused|the term is also|"
-    r"look up|for the [a-z ]+, see|adapted from|main article|listen)\\b)"
+    r"look up|for the [a-z ]+, see|adapted from|main article|listen)\b)"
     # Structural junk and citation debris, anywhere.
-    r"|[|{}]|\\(disambiguation\\)|redirects here|wiktionary|"
-    r"displaystyle|^\\W*$"
+    r"|[|{}]|\(disambiguation\)|redirects here|wiktionary|"
+    r"displaystyle|^\W*$"
     # Editorial boilerplate aimed at Wikipedia editors -- noise ANYWHERE in the
     # sentence, which is why these must not sit inside the anchored group.
     r"|this article has|please help improve|learn how and when|"
@@ -245,6 +338,21 @@ _QUESTION_HINT = re.compile(
     re.I,
 )
 
+# Encyclopedia scaffolding that can never appear in a genuine conversational
+# reply. The Markov model is trained on the scraped corpus, so when it stitches
+# fragments together it drags this along with them -- navbox controls ("v t e"),
+# citation apparatus, and reference-list furniture. Any hit means the output is
+# corpus debris rather than a sentence, and the turn is better off degrading to
+# a fallback (which is also what lets curiosity research kick in).
+_ARTIFACTS = re.compile(
+    r"\bv\s+t\s+e\b|\[\s*edit\s*\]|\[\s*citation needed\s*\]|"
+    r"\bretrieved from\b|\barchived from the original\b|\bmain article\b|"
+    r"\bsee also\b|\bdisambiguation\b|\bISBN\b|\bdoi:|\bet al\.|"
+    r"\bpp?\.\s*\d|\bISSN\b|\bcategories?:|\bjump to\b|\bmove to sidebar\b|"
+    r"\^\s*a\s+b\b|\bhttps?://",
+    re.I,
+)
+
 
 def _looks_like_question(text: str) -> bool:
     """True when the user is asking for information rather than chatting."""
@@ -260,7 +368,11 @@ def _looks_like_question(text: str) -> bool:
 
 # Reference scaffolding that should be scrubbed from otherwise-good prose,
 # rather than used as a reason to discard it.
-_CITATION = re.compile(r"\[\s*(?:\d+|note\s*\d+|citation needed|edit|a|b|c)\s*\]", re.I)
+_CITATION = re.compile(
+    r"\[\s*(?:\d+|note\s*\d+|citation needed|edit(?:\s+on\s+wikidata)?|"
+    r"nb\s*\d+|a|b|c)\s*\]",
+    re.I,
+)
 
 
 def _scrub(sentence: str) -> str:
@@ -274,12 +386,30 @@ def _scrub(sentence: str) -> str:
 # Wikipedia navbox terminators. "v t e" is the view/talk/edit control that
 # closes a navigation template; the lead paragraph starts immediately after it
 # with no punctuation in between.
-_NAVBOX_END = re.compile(r"\b(v\s+t\s+e|Glossary\s+v\s+t\s+e|Contents\s+move to sidebar)\b")
+_NAVBOX_END = re.compile(
+    r"\b(v\s+t\s+e|Glossary\s+v\s+t\s+e|Contents\s+move to sidebar|"
+    # Infobox field labels. The infobox is inlined as running text with no
+    # punctuation, so without a break here it swallows the lead paragraph:
+    # "Brain Brain of a chimpanzee ... Identifiers Latin cerebrum ... MeSH
+    # D001921 The brain is an organ ..." becomes one unusable blob.
+    r"Anatomical terminology|Anatomical terms of\s+\w+)\b"
+)
+
+# A definition restarting mid-blob. Figure captions are inlined with no
+# terminal punctuation and get welded onto the sentence that follows:
+# "The darker green marks the Amazon's drainage basin or watershed A river is
+# a natural stream of fresh water ...". The weld is detectable because an
+# article-led definition ("A river is", "The brain is") begins immediately
+# after a lowercase word -- prose does not do that.
+_DEFINITION_RESTART = re.compile(
+    r"(?<=[a-z0-9])\s+(?=(?:A|An|The)\s+[a-z][\w-]*\s+(?:is|are|was|were)\b)"
+)
 
 
 def _break_navboxes(content: str) -> str:
     """Insert sentence boundaries where navigation furniture ends."""
-    return _NAVBOX_END.sub(". ", content)
+    content = _NAVBOX_END.sub(". ", content)
+    return _DEFINITION_RESTART.sub(". ", content)
 
 
 def _clean_sentences(content: str) -> list[str]:
@@ -305,8 +435,15 @@ def _clean_sentences(content: str) -> list[str]:
 # A defining construction: "X is ...", "X refers to ...", "X was ...".
 _DEFINING_VERB = re.compile(
     r"\b(is|are|was|were|refers? to|denotes?|describes?|means|"
-    r"is defined as|is a type of|is a form of)\b",
+    r"is defined as|is a type of|is a form of|also known as|also called)\b",
     re.I,
+)
+
+# Encyclopedia leads routinely scope the definition before naming the subject:
+# "In physics, gravity ... is ...", "In biology, evolution is ...". Stripping the
+# scoping clause lets the subject still count as leading the sentence.
+_SCOPE_PREFIX = re.compile(
+    r"^(?:in|within|according to|under)\s+[\w\s-]{2,30}?,\s+", re.I
 )
 
 
@@ -348,14 +485,55 @@ def _mentions_topic(sentence: str, topic_words: set[str]) -> bool:
 # Disambiguation debris: "(John Foxx album) (2010) DNA (Koda Kumi album) (2018)".
 _LIST_DEBRIS = re.compile(r"\((?:[^)]*\b(?:album|song|film|band|EP|single|TV series)\b[^)]*|\d{4})\)")
 
+# Catalogue entries: "Gravity, a 1952 mixed-media artwork by M. C. Escher",
+# "Gravity, a 2013 film". A work described by year-and-medium is an index row,
+# not a definition.
+_WORK_ENTRY = re.compile(
+    # Up to three genre words may sit between the year and the medium
+    # ("a 2013 science fiction film", "a 1952 mixed-media artwork").
+    r"\b(?:an?|the)\s+\d{4}\s+(?:[\w-]+\s+){0,3}"
+    r"(?:artwork|painting|sculpture|drawing|lithograph|print|film|movie|novel|"
+    r"book|album|song|single|play|opera|poem|comic|series|episode|video game)\b",
+    re.I,
+)
+
+# Wikipedia index furniture that survives sentence splitting.
+_INDEX_FURNITURE = re.compile(
+    r"\ball pages with titles\b|\btopics referred to by the same term\b|"
+    r"\bthis disambiguation page\b|\bindex of articles\b|\blist of articles\b|"
+    # The standard disambiguation footer. It reads like a sentence, mentions
+    # nothing, and was being returned verbatim as the definition of
+    # "evolution".
+    r"\bif an internal link\b|\bled you here\b|"
+    r"\bchange the link to point directly\b|\bintended article\b",
+    re.I,
+)
+
 
 def _is_list_debris(sentence: str) -> bool:
-    """True for disambiguation runs rather than prose."""
+    """True for disambiguation runs and index rows rather than prose."""
     if len(_LIST_DEBRIS.findall(sentence)) >= 2:
         return True
     # Quote-heavy fragments are track listings, not sentences.
     if sentence.count('"') >= 4:
         return True
+    if _WORK_ENTRY.search(sentence):
+        return True
+    if _INDEX_FURNITURE.search(sentence):
+        return True
+
+    # A closing bracket with no opener means the sentence splitter cut into
+    # the middle of a parenthetical -- the fragment is the tail of something
+    # else. This is what produced the trailing
+    # "Escher) or Gravity, a 1952 mixed-media artwork by M." on the gravity
+    # answer: "M. C. Escher" split on "M." and orphaned the rest.
+    if sentence.count(")") > sentence.count("("):
+        return True
+
+    # ... and a sentence that *ends* on an initial was cut mid-name.
+    if re.search(r"\b[A-Z]\.$", sentence.strip()):
+        return True
+
     return False
 
 
@@ -376,6 +554,10 @@ def _is_definitional(sentence: str, topic_words: set[str]) -> bool:
         return False
     if _is_list_debris(sentence):
         return False
+
+    # Drop a leading scope clause so "In physics, gravity ... is ..." is judged
+    # on "gravity ... is ...", which is the definition it actually contains.
+    sentence = _SCOPE_PREFIX.sub("", sentence, count=1)
 
     match = _DEFINING_VERB.search(sentence)
     if not match:
@@ -399,22 +581,41 @@ def summarize_entry(
     max_sentences: int = 4,
     max_chars: int = 700,
 ) -> str:
-    """Build a coherent answer by positively selecting definitional prose.
+    """Build a coherent answer by positively selecting definitional prose."""
+    return summarize_entry_scored(content, topic, max_sentences, max_chars)[0]
+
+
+def summarize_entry_scored(
+    content: str,
+    topic: str = "",
+    max_sentences: int = 4,
+    max_chars: int = 700,
+) -> tuple[str, bool]:
+    """As :func:`summarize_entry`, but also reports whether the opening
+    sentence was an actual definition.
+
+    Callers ranking several candidate articles need this. Title overlap alone
+    cannot tell "DNA" the molecule from "DNA²" the manga -- both articles are
+    legitimately titled "DNA" -- but only one of them contains a sentence that
+    *defines* DNA. Preferring the candidate that produced a definition is what
+    routes around a mis-seeded corpus entry.
 
     Takes whole sentences only, so the reply always ends on a complete thought
     rather than being truncated mid-clause.
     """
     sentences = _clean_sentences(content)
     if not sentences:
-        return ""
+        return "", False
 
     topic_words = _topic_tokens_for(topic)
 
     # 1. Prefer a real definition.
     start_idx = None
+    is_definition = False
     for i, s in enumerate(sentences):
         if _is_definitional(s, topic_words):
             start_idx = i
+            is_definition = True
             break
 
     # 2. Otherwise the first sentence that is at least about the subject.
@@ -445,7 +646,8 @@ def summarize_entry(
         picked.append(s)
         total += len(s) + 1
 
-    return " ".join(picked).strip()
+    return " ".join(picked).strip(), is_definition
+
 
 def _proper_nouns(text: str) -> list[str]:
     """Capitalized tokens that are not sentence-initial."""
@@ -472,6 +674,12 @@ def markov_is_usable(generated: str, prompt_text: str) -> bool:
     if _ARTIFACTS.search(text):
         return False
 
+    # A reply that opens on punctuation is a fragment sliced out of the middle
+    # of a corpus sentence, e.g. ", creoles, pidgins and sign languages are in
+    # relative motion." Nothing that starts that way is a thought.
+    if not text[0].isalpha():
+        return False
+
     words = text.split()
     if len(words) > 28 or len(words) < 5:
         return False
@@ -496,10 +704,15 @@ def markov_is_usable(generated: str, prompt_text: str) -> bool:
     # nonsense through as source="model" silently suppressed that research and
     # is why total_episodes sat at 0.
     content = {w for w in asked if len(w) > 3} - _FILLER
-    if content:
-        reply_words = {w.lower().strip(".,;:!?()") for w in words}
-        if not (content & reply_words):
-            return False
+    if not content:
+        # The prompt carried no content word at all ("you", "hi", "ofjds").
+        # There is nothing for the output to be *about*, so relevance cannot
+        # be established and the model gets no say. Chit-chat belongs to the
+        # pattern engine, which at least answers in character.
+        return False
+    reply_words = {w.lower().strip(".,;:!?()") for w in words}
+    if not (content & reply_words):
+        return False
 
     # A real sentence ends like one.
     if text[-1] not in ".!?":

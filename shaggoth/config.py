@@ -27,6 +27,10 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "guardrails_path": str(CONFIG_DIR / "guardrails.json"),
     "markov_model_path": str(DATA_DIR / "markov_model.json"),
     "memory_recall_threshold": 0.35,
+    # Default dialogue mode: "no_drift" (knowledge and patterns only) or
+    # "drift" (also allows Markov generation, topic callbacks, and tangents).
+    # Individual /chat requests may override this per message.
+    "dialogue_mode": "no_drift",
     "server_host": "127.0.0.1",
     "server_port": 8420,
 }

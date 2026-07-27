@@ -76,12 +76,10 @@ def build_registry() -> PluginRegistry:
         if match and memory is not None:
             key = match.group(1).strip().lower().replace(" ", "_")
             value = match.group(2).strip().rstrip(".")
-            memory.db.execute(
-                "INSERT INTO facts (key, value, ts) VALUES (?, ?, strftime('%s','now')) "
-                "ON CONFLICT(key) DO UPDATE SET value = excluded.value, ts = excluded.ts",
-                (key, value),
-            )
-            memory.db.commit()
+            # Delegate to MemoryStore rather than re-inlining the schema --
+            # this call site had drifted out of sync with the facts table and
+            # raised on every fresh database.
+            memory.set_fact(key, value)
             return f"Got it — I'll remember {match.group(1).strip()} is {value}."
         return None
 

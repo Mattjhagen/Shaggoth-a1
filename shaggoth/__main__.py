@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import uuid
 from pathlib import Path
@@ -71,6 +72,7 @@ def build_engine(settings: dict) -> DialogueEngine:
         knowledge=KnowledgeBase(),
         bot_name=settings["bot_name"],
         recall_threshold=settings["memory_recall_threshold"],
+        mode=settings.get("dialogue_mode", "no_drift"),
     )
 
 

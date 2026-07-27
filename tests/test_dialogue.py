@@ -1,6 +1,7 @@
 import unittest
 
 from shaggoth.dialogue import DialogueEngine
+from shaggoth.dialogue.engine import DRIFT, NO_DRIFT
 from shaggoth.guardrails import GuardrailEngine
 from shaggoth.memory import MemoryStore
 
@@ -36,20 +37,30 @@ class DialogueTests(unittest.TestCase):
         followup = engine.respond("what do you know about me?", session_id="s1")
         self.assertIn("Matt", followup.text)
 
+    # Topic callback is a DRIFT-mode feature: reaching back to an unrelated
+    # past conversation mid-answer is exactly the tangent NO_DRIFT exists to
+    # suppress, so these build engines that are allowed to wander.
     def test_memory_triggers_topic_from_past_session(self):
-        engine = make_engine()
+        engine = make_engine(mode=DRIFT)
         engine.respond("I have been rebuilding my homelab rack with a poweredge server", session_id="old")
         reply = engine.respond("I worked on the homelab poweredge again today", session_id="new")
         self.assertTrue(reply.memory_triggers, "expected a topic callback from the old session")
         self.assertIn("you mentioned", reply.text)
 
     def test_same_topic_not_recalled_twice_in_a_session(self):
-        engine = make_engine()
+        engine = make_engine(mode=DRIFT)
         engine.respond("my homelab poweredge rack is loud", session_id="old")
         first = engine.respond("thinking about the homelab poweredge rack", session_id="new")
         second = engine.respond("more homelab poweredge rack thoughts", session_id="new")
         self.assertTrue(first.memory_triggers)
         self.assertFalse(second.memory_triggers)
+
+    def test_no_drift_suppresses_the_topic_callback(self):
+        engine = make_engine(mode=NO_DRIFT)
+        engine.respond("my homelab poweredge rack is loud", session_id="old")
+        reply = engine.respond("thinking about the homelab poweredge rack", session_id="new")
+        self.assertFalse(reply.memory_triggers)
+        self.assertNotIn("you mentioned", reply.text)
 
     def test_plugin_calculator(self):
         engine = make_engine()

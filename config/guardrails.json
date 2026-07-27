@@ -1,6 +1,57 @@
 {
   "version": 2,
   "enabled": true,
-  "input_rules": [],
-  "output_rules": []
+  "input_rules": [
+    {
+      "id": "no-credentials",
+      "type": "regex_block",
+      "enabled": true,
+      "flag": "red",
+      "pattern": "(?i)\\b(password|passwd|passphrase|api[ _-]?key|secret[ _-]?key|access[ _-]?token|private[ _-]?key|credentials?)\\b\\s*[:=]|\\bsk-[A-Za-z0-9_-]{16,}\\b|-----BEGIN [A-Z ]*PRIVATE KEY-----",
+      "message": "Don't paste credentials at me. I log conversations, so that would be a genuinely bad idea. Rotate it if you already did."
+    },
+    {
+      "id": "no-malware",
+      "type": "topic_refuse",
+      "enabled": true,
+      "flag": "red",
+      "min_hits": 1,
+      "keywords": [
+        "write malware",
+        "create malware",
+        "make malware",
+        "malware for me",
+        "ransomware",
+        "keylogger",
+        "botnet",
+        "rootkit",
+        "credential stealer",
+        "steal credentials",
+        "ddos attack"
+      ],
+      "message": "Not doing that one. Ask me something else."
+    }
+  ],
+  "output_rules": [
+    {
+      "id": "redact-emails",
+      "type": "redact",
+      "enabled": true,
+      "pattern": "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b",
+      "replacement": "[redacted-email]"
+    },
+    {
+      "id": "redact-secrets",
+      "type": "redact",
+      "enabled": true,
+      "pattern": "\\bsk-[A-Za-z0-9_-]{16,}\\b|\\beyJ[A-Za-z0-9._-]{20,}\\b|\\bgh[pousr]_[A-Za-z0-9]{20,}\\b",
+      "replacement": "[redacted-secret]"
+    },
+    {
+      "id": "reply-length-cap",
+      "type": "max_length",
+      "enabled": true,
+      "value": 2000
+    }
+  ]
 }
