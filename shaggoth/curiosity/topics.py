@@ -47,6 +47,34 @@ def extract_topic_query(text: str) -> str | None:
     return None
 
 
+# A chunk suffix written by CuriosityEngine.ingest_text when an article is
+# split: "Aeroponic Farming (part 2)". add_entry strips the parentheses, so on
+# the next scan it comes back as the plain topic "Aeroponic Farming Part 2" and
+# is indistinguishable from a real article title.
+_CHUNK_SUFFIX = re.compile(r"\s*\(?\bparts?\s+\d+\)?\s*$", re.I)
+
+
+def base_topic(topic: str) -> str:
+    """Strip chunk suffixes to recover the subject an entry is really about.
+
+    "Aeroponic Farming Part 2" -> "Aeroponic Farming". Applied repeatedly,
+    because the suffixes had been stacking: researching the chunk name
+    produced "Aeroponic Farming Part 1 Part 1", then "... Part 1 Part 1
+    Part 1", once per refresh cycle, forever.
+    """
+    previous = None
+    current = (topic or "").strip()
+    while current != previous:
+        previous = current
+        current = _CHUNK_SUFFIX.sub("", current).strip()
+    return current
+
+
+def is_chunk_topic(topic: str) -> bool:
+    """True when ``topic`` names a slice of another entry, not a subject."""
+    return base_topic(topic) != (topic or "").strip()
+
+
 def extract_keywords_from_topic(topic: str) -> list[str]:
     """Extract meaningful keywords from a topic string."""
     return extract_keywords(topic)

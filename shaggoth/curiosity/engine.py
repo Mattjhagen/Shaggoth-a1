@@ -20,10 +20,12 @@ from ..memory.store import extract_keywords, STOPWORDS
 from ..scraper.engine import ScraperEngine
 from .search import search_web, SearchResult
 from .topics import (
-    extract_topic_query,
-    extract_keywords_from_topic,
-    is_known_topic,
+    base_topic,
     build_search_queries,
+    extract_keywords_from_topic,
+    extract_topic_query,
+    is_chunk_topic,
+    is_known_topic,
 )
 from .wikipedia import learn_topic_from_wikipedia, WikiArticle
 from .freshness import FreshnessTracker
@@ -112,17 +114,38 @@ class CuriosityEngine:
     def analyze_message(self, text: str) -> str | None:
         """Analyze a user message and return a topic to research, or None.
 
-        Only returns a topic if it's NOT already well-known.
+        Only returns a topic if it is NOT already well covered.
+
+        "Covered" is decided by *retrieval*, not by a bag of every word in the
+        corpus. The old check unioned the keywords of every entry -- 44,149
+        words across 368 documents -- and asked whether 60% of the topic's
+        words appeared anywhere in that bag. Any real English phrase does, so
+        it answered "already known" to everything and conversation-driven
+        curiosity silently stopped working. Worse, it got *more* wrong the more
+        Shaggoth learned.
+
+        Having an article whose title matches is the honest test.
         """
         topic = extract_topic_query(text)
         if not topic:
             return None
+        return None if self.knows_topic(topic) else topic
 
-        known = self._get_known_keywords()
-        if is_known_topic(topic, known, min_overlap=0.6):
-            return None
-
-        return topic
+    def knows_topic(self, topic: str) -> bool:
+        """True when an entry actually *about* ``topic`` already exists."""
+        wanted = {
+            w for w in extract_keywords_from_topic(topic) if len(w) > 2
+        }
+        if not wanted:
+            return False
+        for entry, _score in self.knowledge.query(topic, limit=5, min_score=0.25):
+            title_words = set(
+                extract_keywords_from_topic(base_topic(entry.topic))
+            )
+            # Every meaningful word of the request is in the article's title.
+            if wanted <= title_words:
+                return True
+        return False
 
     def research_topic(
         self,
@@ -136,6 +159,13 @@ class CuriosityEngine:
         If background=True, runs in a daemon thread.
         """
         import uuid
+
+        # Never research a chunk name. It is a slice of an existing entry, not
+        # a subject, and researching it writes a new entry whose name is one
+        # suffix longer -- the loop that filled the knowledge base with
+        # "... Part 1 Part 1 Part 1".
+        topic = base_topic(topic) or topic
+
         episode = CuriosityEpisode(
             episode_id=f"curiosity-{uuid.uuid4().hex[:8]}",
             started_at=time.time(),
@@ -289,15 +319,36 @@ class CuriosityEngine:
         return {"articles": len(articles), "words_learned": words}
 
     def refresh_stale(self, max_topics: int = 3) -> dict:
-        """Re-research stale knowledge entries."""
+        """Re-research stale knowledge entries.
+
+        Chunk names are collapsed to the subject they came from and
+        deduplicated, so refreshing "Aeroponic Farming Part 2" re-researches
+        *aeroponic farming*.
+
+        Researching the chunk name literally is what produced
+        "Aeroponic Farming Part 1 Part 1", then "... Part 1 Part 1 Part 1" --
+        each refresh chunked the previous chunk's name and wrote new entries,
+        so the knowledge base grew without bound on a 15-minute timer.
+        """
         stale = self.freshness.get_stale_topics()
+
+        subjects: list[str] = []
+        for item in stale:
+            subject = base_topic(item.get("topic", "")).strip()
+            if subject and subject not in subjects:
+                subjects.append(subject)
+
         refreshed = 0
-        for item in stale[:max_topics]:
+        for subject in subjects[:max_topics]:
             if self._running:
                 break
-            self.research_topic(item["topic"], background=False)
+            self.research_topic(subject, background=False)
             refreshed += 1
-        return {"stale_found": len(stale), "refreshed": refreshed}
+        return {
+            "stale_found": len(stale),
+            "stale_subjects": len(subjects),
+            "refreshed": refreshed,
+        }
 
     # -------------------------------------------------------- status
 
