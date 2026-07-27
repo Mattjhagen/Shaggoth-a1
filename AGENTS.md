@@ -977,3 +977,91 @@ abstraction would duplicate both. If a distinct behaviour is wanted, name it.
 3. **`gh` CLI** — interactive, user must run it.
 4. **`ide.relayapp.pro` → Shaggoth repoint** — needs confirmation; it would
    leave the Archon IDE only on `app.relayapp.pro`.
+
+---
+
+# SESSION 2026-07-27 (evening) — reasoning + the feedback loop
+
+Shaggoth `f8459e0`, **297 tests**. Command center `bb12d59`, 188 tests. All clean.
+
+## EE. Reasoning — BUILT (`shaggoth/dialogue/reasoning.py`)
+
+Retrieval could only answer "what is X". Asked *"what is the difference between
+aeroponics and hydroponics"* it returned the hydroponics article and never
+mentioned aeroponics.
+
+`Reasoner` classifies intent and gathers the several pieces needed:
+`compare` · `contrast` · `causal` · `enumerate`. Plain definitions are declined
+and left to retrieval.
+
+Every reply now carries **`reasoning`** (the trace) and **`entries_used`**,
+shown in the "how it got that" panel. That trace is what makes a wrong answer
+attributable to a specific entry — and it is what the feedback loop below
+depends on.
+
+**It is not a language model reasoning in free text.** Nothing here can do
+that. Every sentence emitted exists in the corpus; the reasoning is in *which*
+sentences are selected. When only one side of a comparison is known it says
+so rather than passing off half an answer.
+
+Three bugs found building it:
+- An unbounded `why\b` in `_FOLLOW_UP` matched *every* why-question, so
+  "why does photosynthesis need light" got "ask me something specific".
+  ⚠️ The `$`-anchored alternatives must not sit inside a group ending in `\b` —
+  a word boundary after `why?` can never match.
+- Every group of the comparison lead-in was optional → matched the empty
+  string at position 0 → the `how are …` branch was unreachable.
+- Requiring the literal topic word in every selected sentence discarded most
+  real explanations ("**It** requires light because …").
+
+Causal is still the weakest intent. Ranking by question focus fixed gravity;
+photosynthesis still returns adjacent-but-wrong sentences.
+
+## FF. Feedback → repair queue — BUILT (`shaggoth/feedback/`)
+
+**This is the answer to "does refinement come from chatting?" — now it does.**
+
+Breadth came from the curiosity loop; refinement came from whoever read the
+code. Nothing recorded that an answer was bad, so the loop would re-fetch the
+same bad entry a month later for being stale.
+
+`POST /feedback` records question, verdict, note, source, `entries_used`,
+reasoning. Because a reply names its entries, a thumbs-down implicates a
+**specific knowledge entry**. Those form a **repair queue the scheduler drains
+before any age-based refresh**.
+
+- Praise offsets complaints; only net-negative entries queue.
+- Repair sets a 6h cooldown, **marked before researching** — if research
+  throws, the cooldown still applies and one broken topic cannot capture every
+  cycle.
+- A fresh complaint **reopens** a repaired entry: the repair didn't work.
+- 👍/👎 on every reply; a 👎 prompts for an optional note.
+- `GET /feedback` returns the queue and recent judgements.
+
+⚠️ Bug worth remembering: `repair_queue` defaulted a never-repaired entry's
+repair time to `0.0` and subtracted, so it looked repaired-at-the-epoch and
+**every first-time complaint was filtered out**. The queue would have been
+permanently empty. Never-repaired must mean *always eligible*.
+
+## GG. Answers to two questions asked this session
+
+- **Does refinement come from chatting?** It didn't; it does now, via FF.
+  The loop supplies breadth, your judgement supplies quality.
+- **Can it scrape Quora?** **No.** `robots.txt` explicitly prohibits using
+  Quora content to train AI systems absent a contract, and it returns **403**
+  regardless. Same shape as Reddit. Crawl-permissive alternatives with real
+  Q&A depth: **Stack Exchange data dumps (CC-BY-SA)**, Wikipedia,
+  open-access science.
+
+## HH. TinyGPT — trained, rejected, parked
+
+3000 steps, **loss 4.15**, emits non-words (`symotential`,
+`authibiiktiological`) — worse than Markov, which at least emits real words.
+
+⚠️ `build_engine` loaded TinyGPT first whenever the file existed, so simply
+*finishing a training run* would have silently downgraded every drift reply on
+the next restart. **`auto` now means Markov**; TinyGPT requires
+`model = "tinygpt"` explicitly. Checkpoint parked at
+`data/parked/tinygpt-3000steps-loss4.15.pt`.
+
+Recommendation: **do not spend more CPU on it.** Retrieval is the strong path.
