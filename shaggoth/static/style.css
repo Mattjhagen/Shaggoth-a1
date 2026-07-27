@@ -694,3 +694,21 @@ code { font-family: var(--mono); font-size: .8rem; background: var(--surface2); 
             font-size: .95rem; padding: .1rem .25rem; line-height: 1;
             transition: opacity .15s; }
 .rate-btn:hover { opacity: 1; }
+
+
+/* Inline feedback note. Appears only after a rating is chosen, so the chat
+   is not cluttered with a form on every reply. */
+.rate-note { width: 100%; margin-top: .4rem; }
+.rate-note textarea {
+  width: 100%;
+  padding: .5rem .65rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 16px;          /* 16px or iOS Safari zooms on focus */
+  resize: vertical;
+}
+.rate-note-actions { display: flex; gap: .4rem; margin-top: .35rem; }
+.rate-note-actions .btn { padding: .35rem .7rem; font-size: .78rem; }

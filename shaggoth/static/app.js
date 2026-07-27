@@ -275,7 +275,7 @@ function appendMsg(role, text, source, flag, meta) {
   }
   div.innerHTML = html;
   div.querySelectorAll('.rate-btn').forEach((b) => {
-    b.addEventListener('click', () => sendFeedback(div, b.dataset.v, meta, text));
+    b.addEventListener('click', () => openNote(div, b.dataset.v, meta, text));
   });
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -620,12 +620,44 @@ setInterval(checkDeferred, 120000);
 /* Send a judgement about an answer. A thumbs-down names the knowledge entries
  * the reply was built from, which is what turns it into a repair job rather
  * than an opinion. */
-async function sendFeedback(el, verdict, meta, answer) {
+/* Open an inline note field. A browser prompt() blocks the page, is trivially
+ * dismissed, and was only offered on a thumbs-down -- so "this was good
+ * BECAUSE it cited the right entry" had nowhere to go. Remarks are the part
+ * of the signal that says *why*, and why is what makes a repair targeted
+ * rather than a blind re-fetch. */
+function openNote(el, verdict, meta, answer) {
+  const bar = el.querySelector('.msg-rate');
+  if (!bar || bar.querySelector('.rate-note')) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'rate-note';
+  wrap.innerHTML =
+    '<textarea rows="2" placeholder="' +
+    (verdict === 'bad'
+      ? 'What was wrong? Which part, and what did you expect?'
+      : 'What made this a good answer? (optional)') +
+    '"></textarea>' +
+    '<div class="rate-note-actions">' +
+    '<button class="btn rate-send">Send</button>' +
+    '<button class="btn rate-skip">Just the rating</button>' +
+    '</div>';
+  bar.appendChild(wrap);
+
+  const box = wrap.querySelector('textarea');
+  box.focus();
+  const submit = (note) => sendFeedback(el, verdict, meta, answer, note);
+  wrap.querySelector('.rate-send').addEventListener('click', () => submit(box.value));
+  wrap.querySelector('.rate-skip').addEventListener('click', () => submit(''));
+  box.addEventListener('keydown', (e) => {
+    // Enter sends, Shift+Enter for a second line.
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(box.value); }
+    if (e.key === 'Escape') wrap.remove();
+  });
+}
+
+async function sendFeedback(el, verdict, meta, answer, note) {
   const asked = [...messagesEl.querySelectorAll('.msg.user .msg-content')].pop();
-  let note = '';
-  if (verdict === 'bad') {
-    note = prompt("What was wrong with it? (optional)") || '';
-  }
+  note = note || '';
   try {
     await fetch(API + '/feedback', {
       method: 'POST', headers: h(),
@@ -638,8 +670,13 @@ async function sendFeedback(el, verdict, meta, answer) {
         session_id: sessionId,
       }),
     });
+    const entries = (meta && meta.entries_used) || [];
     el.querySelector('.msg-rate').textContent =
-      verdict === 'good' ? 'noted' : "noted — it'll go re-read that";
+      verdict === 'good'
+        ? (note ? 'noted, with your remark' : 'noted')
+        : entries.length
+          ? `noted — queued to re-read ${entries.join(', ')}`
+          : 'noted';
   } catch (err) {
     toast('Could not send feedback: ' + err.message);
   }
