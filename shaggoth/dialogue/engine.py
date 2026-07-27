@@ -32,6 +32,7 @@ from ..models.base import LanguageModel
 from ..personality.engine import PersonalityEngine
 from ..plugins import PluginRegistry, default_registry
 from .patterns import PatternEngine
+from .reasoning import Reasoner
 
 
 #: Associative mode. The Markov model may speak, the knowledge teaser may
@@ -85,6 +86,10 @@ class Reply:
     memory_triggers: list[str] = field(default_factory=list)
     new_facts: dict = field(default_factory=dict)
     mode: str = DEFAULT_MODE
+    #: The steps taken when the answer required more than one lookup.
+    reasoning: list = field(default_factory=list)
+    #: Knowledge entries the answer was built from.
+    entries_used: list = field(default_factory=list)
 
 
 class DialogueEngine:
@@ -108,6 +113,11 @@ class DialogueEngine:
         self.personality = personality or PersonalityEngine()
         self.knowledge = knowledge or KnowledgeBase()
         self.patterns = PatternEngine(seed=seed)
+        self.reasoner = Reasoner(
+            self.knowledge,
+            summarize=summarize_entry_scored,
+            sentences=_clean_sentences,
+        )
         self.bot_name = bot_name
         self.recall_threshold = recall_threshold
         #: Instance-wide default, overridable per request.
@@ -210,7 +220,26 @@ class DialogueEngine:
         # Markov model cannot follow a prompt, so routing facts through it
         # produces word salad -- return the real prose instead.
         answered_from_knowledge = False
-        if knowledge_hits and _looks_like_question(text) and not is_follow_up(text):
+        reasoning_steps: list = []
+        entries_used: list = []
+
+        # 5a. Reasoning first, for questions a single entry cannot answer.
+        # "what is the difference between aeroponics and hydroponics" used to
+        # return the hydroponics article and never mention aeroponics.
+        if _looks_like_question(text) and not is_follow_up(text):
+            try:
+                reasoned = self.reasoner.reason(text)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[reasoning] failed on {text!r}: {exc}")
+                reasoned = None
+            if reasoned and len(reasoned.answer) >= 40:
+                body = reasoned.answer
+                source = "reasoning"
+                answered_from_knowledge = True
+                reasoning_steps = reasoned.trace
+                entries_used = reasoned.entries_used
+
+        if body is None and knowledge_hits and _looks_like_question(text) and not is_follow_up(text):
             # Walk the ranked hits and take the first whose *title* actually
             # matches the question. Rank alone is not evidence of relevance:
             # scores are normalized, so the top hit is always 1.0 even when
@@ -235,6 +264,12 @@ class DialogueEngine:
                     body = summary
                     source = "knowledge"
                     answered_from_knowledge = True
+                    entries_used = [candidate.topic]
+                    reasoning_steps = [
+                        f"intent: define -- one entry answers this",
+                        f"lookup: {candidate.topic}",
+                        "select: definitional lead sentence",
+                    ]
                     break
                 if best_loose is None:
                     best_loose = summary
@@ -305,7 +340,8 @@ class DialogueEngine:
 
         reply = self._finish(
             Reply(body, source=source, memory_triggers=triggers,
-                  new_facts=new_facts, mode=mode)
+                  new_facts=new_facts, mode=mode,
+                  reasoning=reasoning_steps, entries_used=entries_used)
         )
         self._persist(session_id, text, reply)
         return reply
@@ -789,11 +825,22 @@ _NO_SUBJECT = _FILLER | {
 }
 
 # Turns that only make sense against what was just said.
+# NOTE: bare "why" only. "why does photosynthesis need light" names its own
+# subject and must reach the reasoner -- an unbounded `why\b` prefix matched
+# every why-question and answered them all with "ask me something specific".
 _FOLLOW_UP = re.compile(
-    r"^(?:and |but |so |ok(?:ay)?[,. ]*)?(?:why|how come|really|go on|more|"
-    r"and\?|then what|what about (?:it|that|this)|says who|since when|has it|"
-    r"have you|did you|do you|are you sure|prove it|explain that|"
-    r"tell me more|keep going|continue)\b",
+    # Bare "why" only. An unbounded `why\b` prefix matched every why-question,
+    # so "why does photosynthesis need light" was answered with "ask me
+    # something specific" instead of reaching the reasoner.
+    #
+    # The $-anchored alternatives are in their own group with no trailing \b:
+    # a word boundary after "why?" can never match, which silently broke the
+    # plainest follow-up there is.
+    r"^(?:and |but |so |ok(?:ay)?[,. ]*)?"
+    r"(?:(?:why|how come|really|and|go on|more|then what|prove it|"
+    r"keep going|continue|say more|tell me more)[?.!]*$"
+    r"|(?:why not|what about (?:it|that|this)|says who|since when|has it|"
+    r"have you|did you|do you|are you sure|explain that)\b)",
     re.I,
 )
 
