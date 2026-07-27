@@ -210,7 +210,7 @@ class DialogueEngine:
         # Markov model cannot follow a prompt, so routing facts through it
         # produces word salad -- return the real prose instead.
         answered_from_knowledge = False
-        if knowledge_hits and _looks_like_question(text):
+        if knowledge_hits and _looks_like_question(text) and not is_follow_up(text):
             # Walk the ranked hits and take the first whose *title* actually
             # matches the question. Rank alone is not evidence of relevance:
             # scores are normalized, so the top hit is always 1.0 even when
@@ -780,6 +780,9 @@ _NO_SUBJECT = _FILLER | {
     "hello", "hiya", "sup", "morning", "evening", "night", "bye", "later",
     "keep", "keeping", "kept", "going", "goes", "went", "start", "started",
     "stop", "stopped", "carry", "continue", "more", "less", "some", "any",
+    # "why does that matter" retrieved an article about *matter*; "my name is
+    # Matt" made "name matt" the conversation's subject.
+    "matter", "matters", "name", "named", "called", "point", "sense", "idea",
     "it", "its", "them", "they", "him", "her", "his", "hers", "we", "us",
     "our", "ours", "i", "me", "my", "mine", "you", "your", "yours", "he",
     "she", "is", "are", "am", "be",
@@ -788,9 +791,32 @@ _NO_SUBJECT = _FILLER | {
 # Turns that only make sense against what was just said.
 _FOLLOW_UP = re.compile(
     r"^(?:and |but |so |ok(?:ay)?[,. ]*)?(?:why|how come|really|go on|more|"
-    r"and\?|then what|what about (?:it|that)|says who|since when|has it|"
+    r"and\?|then what|what about (?:it|that|this)|says who|since when|has it|"
     r"have you|did you|do you|are you sure|prove it|explain that|"
     r"tell me more|keep going|continue)\b",
+    re.I,
+)
+
+# A question whose subject is a pronoun pointing at the previous turn:
+# "why does that matter", "what does this mean", "how does it work".
+# Anchored at the start and requiring the pronoun to be the grammatical
+# subject of the question verb. An unanchored version also swallowed
+# "what is the thing THAT plants use to make sugar", where "that" opens a
+# relative clause and the question names its own subject perfectly well.
+_ANAPHORIC = re.compile(
+    r"^(?:and |but |so |ok(?:ay)?[,. ]*)?"
+    r"(?:why|what|how|when|who)\s+"
+    r"(?:does|do|did|is|are|was|were|would|should|could)\s+"
+    r"(?:that|this|it|those|they)\b",
+    re.I,
+)
+
+# "my name is Matt", "i'm a plumber" -- the user telling Shaggoth about
+# themselves. Recorded as a fact, but not what the conversation is *about*,
+# so it must not become the subject a follow-up resolves against.
+_FACT_STATEMENT = re.compile(
+    r"^(?:my name is|i(?:'m| am)\b|call me|you can call me|i live|i work|"
+    r"remember (?:that )?my)\b",
     re.I,
 )
 
@@ -810,8 +836,15 @@ def has_subject(text: str) -> bool:
 
 
 def is_follow_up(text: str) -> bool:
-    """Whether the turn refers back rather than introducing a subject."""
-    return bool(_FOLLOW_UP.search((text or "").strip()))
+    """Whether the turn refers back rather than introducing a subject.
+
+    Covers both the bare forms ("why?", "go on") and the anaphoric ones
+    ("why does that matter"), which read like questions but whose subject is
+    a pronoun pointing at the previous turn. Treating those as lookups sent
+    "why does that matter" to an article about *matter*.
+    """
+    text = (text or "").strip()
+    return bool(_FOLLOW_UP.search(text) or _ANAPHORIC.search(text))
 
 
 _CHITCHAT_REPLIES = (
@@ -854,7 +887,7 @@ def last_subject(context: dict | None = None) -> str:
         if message.get("role") != "user":
             continue
         text = message.get("content", "")
-        if not has_subject(text):
+        if not has_subject(text) or _FACT_STATEMENT.match(text.strip()):
             continue
         words = [
             w.strip(".,;:!?'\"").lower()

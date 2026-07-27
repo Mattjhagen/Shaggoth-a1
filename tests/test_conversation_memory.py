@@ -264,3 +264,40 @@ def test_last_subject_with_nothing_to_go_on():
 ])
 def test_more_conversational_phrasings_are_not_lookups(text):
     assert not has_subject(text)
+
+
+@pytest.mark.parametrize("text", [
+    "why does that matter",
+    "what does this mean",
+    "how does it work",
+    "what about that",
+    "why is that",
+])
+def test_anaphoric_questions_are_follow_ups(text):
+    """Subject is a pronoun pointing at the previous turn, not a topic.
+
+    "why does that matter" was being answered from an article about *matter*.
+    """
+    assert is_follow_up(text), text
+
+
+def test_a_follow_up_is_never_answered_from_the_knowledge_base(engine):
+    engine.respond("tell me about aeroponics", session_id="s1")
+    reply = engine.respond("why does that matter", session_id="s1")
+    assert reply.source != "knowledge", reply.text
+    assert "aeroponics" in reply.text.lower()
+
+
+def test_a_real_question_containing_that_is_still_a_lookup():
+    """Do not over-fire: this names its own subject."""
+    assert not is_follow_up("what is the thing that plants use to make sugar")
+
+
+def test_fact_statements_do_not_become_the_conversation_subject():
+    from shaggoth.dialogue.engine import last_subject
+
+    context = {"recent": [
+        {"role": "user", "content": "tell me about aeroponics"},
+        {"role": "user", "content": "my name is Matt"},
+    ]}
+    assert "aeroponics" in last_subject(context)

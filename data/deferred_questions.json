@@ -61,5 +61,14 @@
     "answered_at": null,
     "answer": "",
     "delivered": false
+  },
+  {
+    "question": "explain encompasses",
+    "topic": "encompasses",
+    "session_id": "command-center-core",
+    "asked_at": 1785169445.746187,
+    "answered_at": null,
+    "answer": "",
+    "delivered": false
   }
 ]
