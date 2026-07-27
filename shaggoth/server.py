@@ -151,6 +151,23 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             if path == "/scrape/stats":
                 return self._send_json(200, learner.scraper.stats())
 
+            if path == "/greeting":
+                # Composed per request so the opening line is never the same
+                # twice, and can cite whatever was learned most recently.
+                from .dialogue.engine import compose_greeting
+                count = 0
+                recent = ""
+                try:
+                    engine.knowledge.maybe_reload()
+                    entries = engine.knowledge._entries
+                    count = len(entries)
+                    if entries:
+                        newest = max(entries, key=lambda e: e.mtime)
+                        recent = newest.topic.lower()
+                except Exception:
+                    pass
+                return self._send_json(200, {"greeting": compose_greeting(count, recent)})
+
             if path == "/curiosity/status":
                 if curiosity:
                     return self._send_json(200, curiosity.status())
@@ -165,6 +182,23 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if scheduler:
                     return self._send_json(200, scheduler.status())
                 return self._send_json(501, {"error": "scheduler not initialized"})
+
+            if path == "/curiosity/freshness":
+                if curiosity:
+                    return self._send_json(200, curiosity.freshness.status())
+                return self._send_json(501, {"error": "curiosity engine not initialized"})
+
+            if path == "/wiki":
+                params = parse_qs(url.query)
+                q = (params.get("q") or [""])[0]
+                if not q:
+                    return self._send_json(400, {"error": "q parameter required"})
+                from .curiosity.wikipedia import fetch_summary, search_wikipedia
+                summary = fetch_summary(q)
+                if summary:
+                    return self._send_json(200, {"title": q, "summary": summary, "source": "wikipedia"})
+                results = search_wikipedia(q, max_results=5)
+                return self._send_json(200, {"title": q, "summary": None, "suggestions": [r["title"] for r in results]})
 
             if path == "/personality":
                 engine.personality.maybe_reload()
@@ -197,7 +231,15 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if not message:
                     return self._send_json(400, {"error": "message is required"})
                 session_id = body.get("session_id") or "default"
+                # Feed message to curiosity scheduler
+                if scheduler:
+                    scheduler.record_message(message)
                 reply = engine.respond(message, session_id=session_id)
+                # Auto-research if bot didn't know the answer
+                if curiosity and reply.source in ("pattern", "fallback") and reply.source == "fallback":
+                    topic = curiosity.analyze_message(message)
+                    if topic:
+                        curiosity.research_topic(topic, background=True)
                 payload = asdict(reply)
                 payload["reply"] = payload.pop("text")
                 return self._send_json(200, payload)
@@ -208,6 +250,9 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if not message:
                     return self._send_json(400, {"error": "message is required"})
                 session_id = body.get("session_id") or "default"
+                # Feed message to curiosity scheduler
+                if scheduler:
+                    scheduler.record_message(message)
 
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream; charset=utf-8")
@@ -344,6 +389,25 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                         return self._send_json(202, {"ok": True, "topic": topic, "episode_id": episode.episode_id})
                 return self._send_json(200, {"ok": True, "topic": None})
 
+            if path == "/curiosity/ingest-wiki":
+                if not curiosity:
+                    return self._send_json(501, {"error": "curiosity engine not initialized"})
+                body = self._read_json()
+                topic = (body.get("topic") or "").strip()
+                if not topic:
+                    return self._send_json(400, {"error": "topic is required"})
+                max_articles = body.get("max_articles", 3)
+                result = curiosity.ingest_wikipedia(topic, max_articles=max_articles)
+                return self._send_json(201, {"ok": True, "topic": topic, **result})
+
+            if path == "/curiosity/refresh-stale":
+                if not curiosity:
+                    return self._send_json(501, {"error": "curiosity engine not initialized"})
+                body = self._read_json()
+                max_topics = body.get("max_topics", 3)
+                result = curiosity.refresh_stale(max_topics=max_topics)
+                return self._send_json(200, result)
+
             return self._send_json(404, {"error": "not found"})
 
         def _route_delete(self, path: str, url):
@@ -391,6 +455,8 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     print(f"  POST /scrape/url    GET /scrape/stats")
     print(f"  POST /curiosity/research   GET /curiosity/status")
     print(f"  POST /curiosity/ingest     GET /curiosity/history")
+    print(f"  POST /curiosity/ingest-wiki GET /curiosity/freshness")
+    print(f"  POST /curiosity/refresh-stale GET /wiki?q=topic")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

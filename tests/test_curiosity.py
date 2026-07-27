@@ -15,6 +15,8 @@ from shaggoth.curiosity.topics import (
     build_search_queries,
 )
 from shaggoth.curiosity.scheduler import CuriosityScheduler, ScheduleConfig
+from shaggoth.curiosity.freshness import FreshnessTracker
+from shaggoth.curiosity.wikipedia import _strip_html, _html_to_text
 
 
 class TopicExtractionTests(unittest.TestCase):
@@ -162,6 +164,101 @@ class CuriositySchedulerTests(unittest.TestCase):
         result = self.scheduler.trigger()
         # May or may not trigger depending on topic detection
         self.assertIn("triggered", result)
+
+
+class FreshnessTrackerTests(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.knowledge = KnowledgeBase(directory=Path(self.tmpdir) / "knowledge")
+        self.tracker = FreshnessTracker(
+            knowledge=self.knowledge,
+            freshness_path=Path(self.tmpdir) / "freshness.json",
+            stale_days=30,
+        )
+
+    def test_record_update(self):
+        self.tracker.record_update("test topic")
+        age = self.tracker.get_age_days("test topic")
+        self.assertIsNotNone(age)
+        self.assertLess(age, 0.001)  # basically 0 days
+
+    def test_is_stale_never_researched(self):
+        self.assertTrue(self.tracker.is_stale("never researched"))
+
+    def test_is_stale_fresh_topic(self):
+        self.tracker.record_update("fresh topic")
+        self.assertFalse(self.tracker.is_stale("fresh topic"))
+
+    def test_get_stale_topics(self):
+        self.tracker.record_update("old topic")
+        stale = self.tracker.get_stale_topics()
+        # "old topic" was just recorded so it shouldn't be stale
+        stale_names = [t["topic"] for t in stale]
+        self.assertNotIn("old topic", stale_names)
+
+    def test_status(self):
+        status = self.tracker.status()
+        self.assertIn("total_entries", status)
+        self.assertIn("stale_count", status)
+        self.assertIn("fresh_count", status)
+
+
+class WikipediaTests(unittest.TestCase):
+    def test_strip_html(self):
+        result = _strip_html("<p>Hello <b>world</b></p>")
+        self.assertEqual(result, "Hello world")
+
+    def test_html_to_text(self):
+        html = "<html><body><h1>Title</h1><p>Content here</p></body></html>"
+        result = _html_to_text(html)
+        self.assertIn("Title", result)
+        self.assertIn("Content here", result)
+
+    def test_html_to_text_strips_scripts(self):
+        html = "<p>visible</p><script>invisible</script><p>also visible</p>"
+        result = _html_to_text(html)
+        self.assertIn("visible", result)
+        self.assertNotIn("invisible", result)
+
+
+class PluginTests(unittest.TestCase):
+    def test_teach_plugin_parses_topic_and_content(self):
+        from shaggoth.plugins.builtin import build_registry
+        registry = build_registry()
+        # Test teach with content
+        result = registry.dispatch("teach python - Python is a programming language")
+        self.assertIsNotNone(result)
+        self.assertIn("python", result.lower())
+
+    def test_teach_plugin_no_content(self):
+        from shaggoth.plugins.builtin import build_registry
+        registry = build_registry()
+        result = registry.dispatch("teach quantum physics")
+        self.assertIsNotNone(result)
+        self.assertIn("quantum physics", result)
+
+    def test_wiki_plugin(self):
+        from shaggoth.plugins.builtin import build_registry
+        registry = build_registry()
+        result = registry.dispatch("wiki python programming")
+        # May return article or error — just check it doesn't crash
+        self.assertIsInstance(result, (str, type(None)))
+
+    def test_learned_plugin_empty(self):
+        from shaggoth.plugins.builtin import build_registry
+        registry = build_registry()
+        result = registry.dispatch("what did you learn")
+        self.assertIsNotNone(result)
+        # Should mention learning or knowledge
+        self.assertTrue(any(w in result.lower() for w in ["learn", "knowledge", "topic"]))
+
+    def test_know_about_plugin(self):
+        from shaggoth.plugins.builtin import build_registry
+        registry = build_registry()
+        result = registry.dispatch("what do you know about quantum computing")
+        self.assertIsNotNone(result)
+        # Should say it doesn't know or provide info
+        self.assertIsInstance(result, str)
 
 
 if __name__ == "__main__":

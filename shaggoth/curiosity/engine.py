@@ -25,6 +25,8 @@ from .topics import (
     is_known_topic,
     build_search_queries,
 )
+from .wikipedia import learn_topic_from_wikipedia, WikiArticle
+from .freshness import FreshnessTracker
 
 HISTORY_PATH = DATA_DIR / "curiosity_history.json"
 
@@ -61,11 +63,14 @@ class CuriosityEngine:
         knowledge: KnowledgeBase | None = None,
         scraper: ScraperEngine | None = None,
         history_path: str | Path | None = None,
+        use_wikipedia: bool = True,
     ):
         self.knowledge = knowledge or KnowledgeBase()
         self.scraper = scraper or ScraperEngine()
         self.history_path = Path(history_path) if history_path else HISTORY_PATH
         self.history_path.parent.mkdir(parents=True, exist_ok=True)
+        self.use_wikipedia = use_wikipedia
+        self.freshness = FreshnessTracker(knowledge=self.knowledge)
         self._running = False
         self._current_episode: CuriosityEpisode | None = None
         self._lock = threading.Lock()
@@ -165,6 +170,20 @@ class CuriosityEngine:
             self._current_episode = episode
 
         try:
+            scraped_text_parts: list[str] = []
+
+            # 0. Try Wikipedia first (more reliable, structured content)
+            if self.use_wikipedia:
+                try:
+                    wiki_articles = learn_topic_from_wikipedia(episode.topic, max_articles=2)
+                    for article in wiki_articles:
+                        if article.word_count >= 50:
+                            scraped_text_parts.append(article.extract)
+                            episode.pages_scraped += 1
+                            episode.urls_found += 1
+                except Exception:
+                    pass  # Wikipedia is optional, fall through to web search
+
             # 1. Search the web for each query
             all_results: list[SearchResult] = []
             for query in episode.queries:
@@ -181,7 +200,6 @@ class CuriosityEngine:
                     unique_results.append(r)
 
             # 2. Scrape top pages
-            scraped_text_parts: list[str] = []
             for result in unique_results[:max_pages]:
                 page = self.scraper.fetch_page(result.url)
                 if page and page.word_count >= 50:
@@ -200,6 +218,9 @@ class CuriosityEngine:
             # Chunk into knowledge entries if very long
             entries = self._chunk_and_store(episode.topic, combined)
             episode.knowledge_entries = len(entries)
+
+            # 4. Record freshness
+            self.freshness.record_update(episode.topic)
 
             episode.status = "completed"
 
@@ -257,6 +278,27 @@ class CuriosityEngine:
                 words += page.word_count
         return {"pages_scraped": scraped, "words_learned": words}
 
+    def ingest_wikipedia(self, topic: str, max_articles: int = 3) -> dict:
+        """Fetch and ingest Wikipedia articles about a topic."""
+        articles = learn_topic_from_wikipedia(topic, max_articles=max_articles)
+        words = 0
+        for article in articles:
+            self.knowledge.add_entry(article.title, article.extract)
+            self.freshness.record_update(article.title)
+            words += article.word_count
+        return {"articles": len(articles), "words_learned": words}
+
+    def refresh_stale(self, max_topics: int = 3) -> dict:
+        """Re-research stale knowledge entries."""
+        stale = self.freshness.get_stale_topics()
+        refreshed = 0
+        for item in stale[:max_topics]:
+            if self._running:
+                break
+            self.research_topic(item["topic"], background=False)
+            refreshed += 1
+        return {"stale_found": len(stale), "refreshed": refreshed}
+
     # -------------------------------------------------------- status
 
     def status(self) -> dict:
@@ -267,6 +309,7 @@ class CuriosityEngine:
             "last_episode": self._history[-1] if self._history else None,
             "knowledge_entries": len(self.knowledge.list_entries()),
             "scraper_stats": self.scraper.stats(),
+            "freshness": self.freshness.status(),
         }
 
     def history(self, limit: int = 10) -> list[dict]:

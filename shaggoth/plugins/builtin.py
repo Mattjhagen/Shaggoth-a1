@@ -110,4 +110,73 @@ def build_registry() -> PluginRegistry:
                 return f"I'm researching \"{topic}\" now — I'll let you know when I find something. (episode {episode.episode_id})"
         return None
 
+    @registry.register("what_i_learned")
+    def learned_plugin(text: str, **_) -> str | None:
+        """Show what Shaggoth has learned recently."""
+        if re.search(r"(?i)\bwhat (?:did you|have you) learn(?:ed)?\b|\bwhat(?:'s| is) in (?:your )?knowledge\b|\bwhat do you know\b", text):
+            from ..knowledge.engine import KnowledgeBase
+            kb = KnowledgeBase()
+            entries = kb.list_entries()
+            if not entries:
+                return "I haven't learned anything yet — tell me about something or ask me to research a topic!"
+            recent = sorted(entries, key=lambda e: e.get("word_count", 0), reverse=True)[:5]
+            lines = []
+            for e in recent:
+                lines.append(f"  {e['topic']} ({e['word_count']} words)")
+            summary = "\n".join(lines)
+            return f"I know about {len(entries)} topics so far:\n{summary}\n\nAsk me to research something new, or say 'teach me' to add knowledge directly."
+        return None
+
+    @registry.register("teach")
+    def teach_plugin(text: str, **_) -> str | None:
+        """User teaches Shaggoth directly — adds to knowledge base."""
+        match = re.match(r"(?i)^/?teach (?:me |you )?(?:about )?(.+?)(?:\s*[-–—:]\s*(.+))?$", text.strip())
+        if match:
+            topic = match.group(1).strip().rstrip(".?!")
+            content = match.group(2).strip() if match.group(2) else ""
+            if not content:
+                return f"What would you like me to know about {topic}? Say something like:\n  teach {topic} - <your explanation>"
+            from ..knowledge.engine import KnowledgeBase
+            kb = KnowledgeBase()
+            path = kb.add_entry(topic, content)
+            return f"Got it — I now know about {topic}. (saved to {path.name})"
+        return None
+
+    @registry.register("know_about")
+    def know_about_plugin(text: str, **_) -> str | None:
+        """Look up a specific topic in the knowledge base."""
+        match = re.match(r"(?i)^what do you know about (.+?)\??$", text.strip())
+        if match:
+            topic_query = match.group(1).strip()
+            from ..knowledge.engine import KnowledgeBase
+            kb = KnowledgeBase()
+            results = kb.query(topic_query, limit=3, min_score=0.1)
+            if not results:
+                return f"I don't know much about \"{topic_query}\" yet. Want me to research it?"
+            lines = []
+            for entry, score in results:
+                snippet = entry.content[:200].strip()
+                if len(entry.content) > 200:
+                    snippet += "..."
+                lines.append(f"**{entry.topic}** (relevance: {score:.2f}):\n{snippet}")
+            return "\n\n".join(lines)
+        return None
+
+    @registry.register("wiki")
+    def wiki_plugin(text: str, **_) -> str | None:
+        """Fetch a Wikipedia article."""
+        match = re.match(r"(?i)^/?wiki(?:pedia)?\s+(.+)$", text.strip())
+        if match:
+            query = match.group(1).strip()
+            from ..curiosity.wikipedia import fetch_summary, search_wikipedia
+            summary = fetch_summary(query)
+            if summary:
+                return f"**{query}** (Wikipedia):\n{summary}\n\nWant me to dig deeper into this?"
+            results = search_wikipedia(query, max_results=3)
+            if results:
+                titles = ", ".join(r["title"] for r in results)
+                return f"I couldn't find an exact article for \"{query}\", but did you mean: {titles}?"
+            return f"I couldn't find anything on Wikipedia for \"{query}\"."
+        return None
+
     return registry

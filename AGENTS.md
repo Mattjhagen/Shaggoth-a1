@@ -33,11 +33,14 @@ New package that adds autonomous knowledge acquisition:
 - `shaggoth/curiosity/topics.py` — topic detection from user messages, gap analysis
 - `shaggoth/curiosity/engine.py` — core CuriosityEngine: detect gaps → search → scrape → store
 - `shaggoth/curiosity/scheduler.py` — background thread that periodically scans messages for gaps
-- `tests/test_curiosity.py` — 24 tests, all passing
+- `shaggoth/curiosity/wikipedia.py` — Wikipedia REST API: search, fetch article, fetch summary
+- `shaggoth/curiosity/freshness.py` — tracks entry age, identifies stale knowledge for re-research
+- `tests/test_curiosity.py` — 37 tests, all passing
 
 ### Files Modified
-- `shaggoth/plugins/builtin.py` — added `curiosity` plugin (responds to "research X", "look up X", "learn about X")
-- `shaggoth/server.py` — added 7 new API endpoints for curiosity control
+- `shaggoth/plugins/builtin.py` — added plugins: curiosity, what_i_learned, teach, know_about, wiki
+- `shaggoth/server.py` — added 12 API endpoints for curiosity control
+- `shaggoth/__main__.py` — added CLI: research, wiki, freshness commands
 
 ### How It Works
 1. User says "what is X?" → `analyze_message()` extracts topic
@@ -48,16 +51,29 @@ New package that adds autonomous knowledge acquisition:
 6. Stores in KnowledgeBase via `add_entry()`
 
 ### New API Endpoints
-- `GET /curiosity/status` — engine status, episode count
+- `GET /curiosity/status` — engine status, episode count, freshness
 - `GET /curiosity/history` — past research episodes
 - `GET /curiosity/scheduler` — scheduler status
+- `GET /curiosity/freshness` — knowledge freshness (stale vs fresh entries)
+- `GET /wiki?q=topic` — fetch Wikipedia summary
 - `POST /curiosity/research` — manually trigger research on a topic
 - `POST /curiosity/ingest` — directly ingest text or URLs
+- `POST /curiosity/ingest-wiki` — ingest Wikipedia articles for a topic
+- `POST /curiosity/refresh-stale` — re-research stale knowledge entries
 - `POST /curiosity/scheduler/trigger` — trigger a scheduler cycle
 - `POST /curiosity/message` — feed a message for gap detection
 
-### Plugin Usage
-User says: "research quantum computing" → plugin triggers background research, replies "I'm researching..."
+### Plugin Commands
+- "research X" / "look up X" / "learn about X" → background research
+- "what did you learn" → show recent knowledge entries
+- "teach X - explanation" → user teaches Shaggoth directly
+- "what do you know about X" → query knowledge base
+- "wiki X" → fetch Wikipedia article
+
+### CLI Commands
+- `python3 -m shaggoth research TOPIC` — research via curiosity engine
+- `python3 -m shaggoth wiki TOPIC` — fetch Wikipedia article
+- `python3 -m shaggoth freshness` — show knowledge freshness status
 
 ## Key Extension Points
 - **Plugins**: `shaggoth/plugins/__init__.py` → `PluginRegistry.register(name)`
@@ -90,12 +106,9 @@ Set env vars `CF_TOKEN` and `ACCT_ID` (Account ID: `b36aaecab5f5f0c07ef80a83a1e6
 `CLOUDFLARE_API_TOKEN=$CF_TOKEN CLOUDFLARE_ACCOUNT_ID=$ACCT_ID npx wrangler pages deploy . --project-name=archon-docs --commit-dirty=true`
 
 ## What's Next for Curiosity
-- [ ] Feed conversation history into scheduler for continuous learning
-- [ ] Add "curiosity level" setting (how aggressive to research)
-- [ ] Add deduplication: don't re-research recently covered topics
-- [ ] Add topic scoring: prioritize topics with more mentions
-- [ ] Add knowledge freshness: re-research stale entries periodically
-- [ ] Add "what did you learn recently?" command to surface recent knowledge
-- [ ] Integrate with TinyGPT training: auto-train after curiosity episodes
-- [ ] Add Wikipedia/Wikimedia API as additional source
 - [ ] Add RSS feed monitoring for ongoing topic tracking
+- [ ] Add "curiosity level" setting (how aggressive to research)
+- [ ] Add topic scoring: prioritize topics with more mentions
+- [ ] Auto-train Markov model after curiosity episodes
+- [ ] Add embedding-based recall (Phase 1+ upgrade)
+- [ ] Add conversation topic clustering for batch research

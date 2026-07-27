@@ -5,6 +5,8 @@
     python3 -m shaggoth train --corpus F     # train the Markov model
     python3 -m shaggoth train --model tinygpt --corpus F --steps 5000
     python3 -m shaggoth learn --urls URL     # scrape + train (self-learning)
+    python3 -m shaggoth research TOPIC       # research a topic via curiosity engine
+    python3 -m shaggoth wiki TOPIC           # fetch Wikipedia article
     python3 -m shaggoth guardrails list|test
     python3 -m shaggoth facts
 """
@@ -258,6 +260,64 @@ def cmd_facts(settings: dict) -> int:
     return 0
 
 
+def cmd_research(settings: dict, topic: str, max_results: int, max_pages: int) -> int:
+    from .curiosity.engine import CuriosityEngine
+
+    ensure_dirs()
+    engine = CuriosityEngine()
+    print(f"Researching \"{topic}\"...")
+    episode = engine.research_topic(topic, max_results=max_results, max_pages=max_pages, background=False)
+    print(f"\nResearch complete ({episode.episode_id}):")
+    print(f"  URLs found:     {episode.urls_found}")
+    print(f"  Pages scraped:  {episode.pages_scraped}")
+    print(f"  Words learned:  {episode.words_learned:,}")
+    print(f"  Knowledge entries: {episode.knowledge_entries}")
+    if episode.error:
+        print(f"  Error: {episode.error}")
+    return 0 if episode.status == "completed" else 1
+
+
+def cmd_wiki(settings: dict, query: str) -> int:
+    from .curiosity.wikipedia import fetch_article, fetch_summary, search_wikipedia
+
+    print(f"Fetching Wikipedia article for \"{query}\"...")
+    summary = fetch_summary(query)
+    if summary:
+        print(f"\n{summary}")
+        return 0
+
+    results = search_wikipedia(query, max_results=5)
+    if not results:
+        print(f"No Wikipedia results for \"{query}\".")
+        return 1
+
+    print(f"\nNo exact match. Did you mean:")
+    for r in results:
+        print(f"  {r['title']}: {r['snippet'][:100]}...")
+    return 0
+
+
+def cmd_knowledge_freshness(settings: dict) -> int:
+    from .curiosity.freshness import FreshnessTracker
+    from .knowledge.engine import KnowledgeBase
+
+    tracker = FreshnessTracker(knowledge=KnowledgeBase())
+    status = tracker.status()
+    print(f"Knowledge freshness ({status['total_entries']} entries):")
+    print(f"  Fresh: {status['fresh_count']} (updated within {status['stale_days_threshold']} days)")
+    print(f"  Stale: {status['stale_count']} (older than {status['stale_days_threshold']} days)")
+    if status["stale_topics"]:
+        print("\n  Stale topics:")
+        for t in status["stale_topics"]:
+            age = f"{t['age_days']:.0f} days" if t['age_days'] is not None else "never researched"
+            print(f"    {t['topic']} ({age}, {t['word_count']} words)")
+    if status["fresh_topics"]:
+        print("\n  Fresh topics:")
+        for t in status["fresh_topics"]:
+            print(f"    {t['topic']} ({t['age_days']:.0f} days old, {t['word_count']} words)")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="shaggoth", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -279,6 +339,14 @@ def main(argv: list[str] | None = None) -> int:
     p_learn.add_argument("--depth", type=int, default=1, help="crawl depth (0-3)")
     p_learn.add_argument("--max-pages", type=int, default=20, help="max pages to scrape")
     p_learn.add_argument("--steps", type=int, default=1000, help="training steps")
+
+    p_research = sub.add_parser("research", help="research a topic via curiosity engine")
+    p_research.add_argument("topic", help="topic to research")
+    p_research.add_argument("--max-results", type=int, default=5, help="max search results")
+    p_research.add_argument("--max-pages", type=int, default=3, help="max pages to scrape")
+
+    p_wiki = sub.add_parser("wiki", help="fetch a Wikipedia article")
+    p_wiki.add_argument("query", help="topic to look up on Wikipedia")
 
     p_guard = sub.add_parser("guardrails", help="inspect and test guardrails")
     p_guard.add_argument("action", choices=["list", "test"])
@@ -305,6 +373,8 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("facts", help="show remembered facts")
 
+    sub.add_parser("freshness", help="show knowledge freshness status")
+
     args = parser.parse_args(argv)
     settings = load_settings()
 
@@ -316,6 +386,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_train(settings, args.corpus, args.model, args.steps, args.out)
     if args.command == "learn":
         return cmd_learn(settings, args.urls, args.depth, args.max_pages, args.steps)
+    if args.command == "research":
+        return cmd_research(settings, args.topic, args.max_results, args.max_pages)
+    if args.command == "wiki":
+        return cmd_wiki(settings, args.query)
     if args.command == "eval":
         return cmd_eval(settings, args.corpus, args.model_path)
     if args.command == "personality":
@@ -327,6 +401,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_guardrails(settings, args.action, args.text)
     if args.command == "facts":
         return cmd_facts(settings)
+    if args.command == "freshness":
+        return cmd_knowledge_freshness(settings)
     return 2
 
 
