@@ -141,7 +141,17 @@ class DialogueEngine:
             self._persist(session_id, text, reply)
             return reply
 
-        # 2. Knowledge: find relevant entries.
+        # 2. Conversation context: what has already been said here.
+        #
+        # Every reply used to be computed from the current message alone, so
+        # "has it been a bit" had nothing to refer back to and fell through to
+        # "Never heard of it".
+        try:
+            context = self.memory.conversation_context(session_id)
+        except Exception:  # noqa: BLE001
+            context = {}
+
+        # 3. Knowledge: find relevant entries.
         knowledge_hits = self.knowledge.query(text, limit=6, min_score=0.25)
         knowledge_context = ""
         if knowledge_hits and self.model and self.model.is_trained():
@@ -156,6 +166,22 @@ class DialogueEngine:
         plugin_response = self.plugins.dispatch(text, memory=self.memory)
         if plugin_response is not None:
             reply = self._finish(Reply(plugin_response, source="plugin", mode=mode))
+            self._persist(session_id, text, reply)
+            return reply
+
+        # A turn with no subject is conversation, not a lookup. Answering it
+        # from the knowledge base produced "Never heard of wanted chat" and,
+        # because that came back as a fallback, kicked off curiosity research
+        # on a phrase nobody meant as a topic.
+        #
+        # This runs *after* plugins: "what is 6 * 7?" and "what do you know
+        # about me?" are made entirely of filler words but are real commands.
+        if not has_subject(text):
+            body = (
+                follow_up_reply(context) if is_follow_up(text)
+                else chitchat_reply(text, context)
+            )
+            reply = self._finish(Reply(body, source="pattern", mode=mode))
             self._persist(session_id, text, reply)
             return reply
 
@@ -236,10 +262,16 @@ class DialogueEngine:
             if generated and markov_is_usable(generated, text):
                 body, source = generated, "model"
         if body is None:
-            # Prefer a relevant "I don't know that yet" over a random canned
-            # line, so the answer is at least about what was asked.
-            body = describe_unknown(text)
-            source = "fallback"
+            if is_follow_up(text):
+                # "why?" is not a research topic. Keep it in the conversation
+                # rather than admitting ignorance of the word "why".
+                body = follow_up_reply(context)
+                source = "pattern"
+            else:
+                # Prefer a relevant "I don't know that yet" over a random
+                # canned line, so the answer is at least about what was asked.
+                body = describe_unknown(text)
+                source = "fallback"
 
         # Personalize with remembered name and knowledge.
         name = self.memory.get_fact("name")
@@ -286,6 +318,12 @@ class DialogueEngine:
     def _persist(self, session_id: str, user_text: str, reply: Reply) -> None:
         self.memory.add_message(session_id, "user", user_text)
         self.memory.add_message(session_id, "assistant", reply.text)
+        # Fold older turns into a summary once the session is long enough.
+        # Best-effort: losing a compaction is not worth failing the reply.
+        try:
+            self.memory.maybe_compact(session_id)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[memory] compaction failed: {exc}")
 
 
 _rng = random.Random()
@@ -723,6 +761,123 @@ def markov_is_usable(generated: str, prompt_text: str) -> bool:
     if text[-1] not in ".!?":
         return False
     return True
+
+
+# Words that never constitute a subject. A turn made only of these is
+# conversation, not a lookup.
+_NO_SUBJECT = _FILLER | {
+    "a", "an", "the", "and", "but", "or", "so", "then", "just", "really",
+    "very", "chat", "talk", "talking", "hello", "hey", "hi", "yes", "no",
+    "yeah", "nah", "ok", "okay", "sure", "thanks", "please", "was", "were",
+    "been", "being", "have", "has", "had", "will", "would", "could", "should",
+    "can", "did", "does", "doing", "with", "from", "that", "this", "these",
+    "those", "there", "here", "what", "when", "where", "why", "how", "who",
+    "bit", "while", "again", "still", "back", "now", "today", "tonight",
+    "wanted", "want", "wants", "think", "thought", "feel", "guess", "mean",
+    "chatting", "chats", "chatted", "talks", "talked", "speak", "speaking",
+    "lets", "let", "gonna", "wanna", "gotta", "maybe", "perhaps", "anyway",
+    "actually", "basically", "literally", "kinda", "sorta", "alright",
+    "hello", "hiya", "sup", "morning", "evening", "night", "bye", "later",
+    "keep", "keeping", "kept", "going", "goes", "went", "start", "started",
+    "stop", "stopped", "carry", "continue", "more", "less", "some", "any",
+    "it", "its", "them", "they", "him", "her", "his", "hers", "we", "us",
+    "our", "ours", "i", "me", "my", "mine", "you", "your", "yours", "he",
+    "she", "is", "are", "am", "be",
+}
+
+# Turns that only make sense against what was just said.
+_FOLLOW_UP = re.compile(
+    r"^(?:and |but |so |ok(?:ay)?[,. ]*)?(?:why|how come|really|go on|more|"
+    r"and\?|then what|what about (?:it|that)|says who|since when|has it|"
+    r"have you|did you|do you|are you sure|prove it|explain that|"
+    r"tell me more|keep going|continue)\b",
+    re.I,
+)
+
+
+def has_subject(text: str) -> bool:
+    """Whether a message is *about* anything Shaggoth could look up.
+
+    "i wanted to chat" and "has it been a bit" are conversation. Routing them
+    through knowledge retrieval produced the reply "Never heard of wanted
+    chat", which is both wrong and rude about a perfectly normal thing to say.
+    """
+    words = {
+        w.strip(".,;:!?'\"") .lower()
+        for w in (text or "").split()
+    }
+    return bool({w for w in words if len(w) > 2} - _NO_SUBJECT)
+
+
+def is_follow_up(text: str) -> bool:
+    """Whether the turn refers back rather than introducing a subject."""
+    return bool(_FOLLOW_UP.search((text or "").strip()))
+
+
+_CHITCHAT_REPLIES = (
+    "Then talk. I'm not going to start it for you.",
+    "Go on then. Pick something.",
+    "I'm here. That's about as warm as it gets.",
+    "Sure. What about?",
+    "Fine by me. Say something worth answering.",
+)
+
+
+def chitchat_reply(text: str, context: dict | None = None) -> str:
+    """A conversational reply for a turn with no subject in it.
+
+    Uses what the session has actually been about when there is something,
+    so it reads as continuing a conversation rather than resetting one.
+    """
+    subject = last_subject(context)
+    if not subject:
+        topics = [t for t in (context or {}).get("topics", []) if len(t) > 3][:1]
+        subject = topics[0] if topics else ""
+    if subject and _rng.random() < 0.6:
+        return _rng.choice((
+            f"We were on {subject}. Still are, unless you've got something better.",
+            f"You brought up {subject} earlier. Want to keep pulling on that?",
+            f"Last thing you cared about was {subject}. Pick that back up or pick something new.",
+        ))
+    return _rng.choice(_CHITCHAT_REPLIES)
+
+
+def last_subject(context: dict | None = None) -> str:
+    """The most recent thing the user actually raised.
+
+    Deliberately *recency*, not frequency. Ranking the session's keywords by
+    count answered "why?" with "On chat?" after a conversation that had said
+    "chat" three times in passing and "photosynthesis" once on purpose --
+    the follow-up belongs to the last real subject, not the most repeated word.
+    """
+    for message in reversed((context or {}).get("recent", [])):
+        if message.get("role") != "user":
+            continue
+        text = message.get("content", "")
+        if not has_subject(text):
+            continue
+        words = [
+            w.strip(".,;:!?'\"").lower()
+            for w in text.split()
+        ]
+        subject = [w for w in words if len(w) > 3 and w not in _NO_SUBJECT]
+        if subject:
+            return " ".join(subject[:3])
+    return ""
+
+
+def follow_up_reply(context: dict | None = None) -> str:
+    """A reply to 'why?' / 'go on' that names what is being followed up."""
+    subject = last_subject(context)
+    if subject:
+        return (
+            f"On {subject}? Ask me something specific and I'll give you a "
+            "specific answer."
+        )
+    recent = (context or {}).get("recent", [])
+    if any(m.get("role") == "assistant" for m in recent):
+        return "That's as far as I got. Ask me something narrower."
+    return "Follow up on what? You haven't given me anything yet."
 
 
 def describe_unknown(text: str) -> str:

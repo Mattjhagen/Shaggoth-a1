@@ -23,3 +23,7 @@ data/corpus/knowledge_corpus.txt
 data/curiosity_history.json
 data/knowledge_freshness.json
 data/learning_history.json
+
+# VAPID private key: push signing credential, never committed.
+config/vapid.json
+data/push_subscriptions.json

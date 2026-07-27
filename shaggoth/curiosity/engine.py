@@ -77,6 +77,7 @@ class CuriosityEngine:
         self._current_episode: CuriosityEpisode | None = None
         self._lock = threading.Lock()
         self._history: list[dict] = self._load_history()
+        self._completion_hooks: list = []
 
     def _load_history(self) -> list[dict]:
         if self.history_path.exists():
@@ -264,6 +265,24 @@ class CuriosityEngine:
             self._save_history()
             self._running = False
             self._current_episode = None
+            self._fire_completion(episode)
+
+    def on_episode_complete(self, callback) -> None:
+        """Register a callback fired after each research episode ends.
+
+        Used to deliver deferred answers the moment the knowledge to answer
+        them exists, rather than having anything poll for it.
+        """
+        self._completion_hooks.append(callback)
+
+    def _fire_completion(self, episode) -> None:
+        # Runs on the research thread. A misbehaving hook must not corrupt the
+        # episode record or stop the next cycle, so each is isolated.
+        for hook in getattr(self, "_completion_hooks", []):
+            try:
+                hook(episode)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[curiosity] completion hook failed: {exc}")
 
     def _chunk_and_store(self, topic: str, text: str) -> list[str]:
         """Split text into knowledge-sized chunks and store each.

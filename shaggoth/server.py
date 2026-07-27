@@ -41,6 +41,7 @@ from .curiosity.scheduler import CuriosityScheduler, ScheduleConfig
 from .dialogue import DialogueEngine
 from .knowledge.engine import KnowledgeBase
 from .learner.pipeline import LearnerPipeline
+from .notify import DeferredQuestions, PushSender
 from .personality.engine import PersonalityEngine
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -161,7 +162,7 @@ def _request_mode(body: dict):
     return None
 
 
-def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None):
+def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None):
     class Handler(BaseHTTPRequestHandler):
         server_version = f"Shaggoth/{__version__}"
 
@@ -334,6 +335,24 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     "results": [{"topic": e.topic, "content": e.content[:500], "score": round(s, 3)} for e, s in results]
                 })
 
+            if path == "/push/status":
+                return self._send_json(200, push.status() if push else {"available": False})
+
+            if path == "/deferred":
+                if not deferred:
+                    return self._send_json(501, {"error": "deferred answers not initialized"})
+                params = parse_qs(url.query)
+                session_id = (params.get("session_id") or [None])[0]
+                only_new = (params.get("undelivered") or ["0"])[0] not in ("0", "false", "")
+                answered = deferred.answered(session_id, undelivered_only=only_new)
+                if only_new and answered:
+                    deferred.mark_delivered(answered)
+                return self._send_json(200, {
+                    "answered": [asdict(i) for i in answered],
+                    "pending": [asdict(i) for i in deferred.pending(session_id)],
+                    **deferred.status(),
+                })
+
             if path in ("/", ""):
                 return self._send_static(STATIC_DIR / "index.html")
 
@@ -392,6 +411,11 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if may_research and curiosity and reply.source == "fallback":
                     topic = curiosity.analyze_message(message)
                     if topic:
+                        # Remember that someone is waiting on this. When the
+                        # episode finishes, the answer is delivered instead of
+                        # quietly landing in the knowledge base for nobody.
+                        if deferred:
+                            deferred.record(message, topic, session_id=session_id)
                         curiosity.research_topic(topic, background=True)
                 payload = asdict(reply)
                 payload["reply"] = payload.pop("text")
@@ -447,6 +471,34 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     background=True,
                 )
                 return self._send_json(202, {"ok": True, "session_id": session.session_id})
+
+            if path == "/push/subscribe":
+                if not push:
+                    return self._send_json(501, {"error": "push not initialized"})
+                body = self._read_json()
+                subscription = body.get("subscription") or body
+                if not push.store.add(subscription):
+                    return self._send_json(400, {"error": "invalid subscription"})
+                return self._send_json(201, {"ok": True, "subscriptions": len(push.store)})
+
+            if path == "/push/unsubscribe":
+                if not push:
+                    return self._send_json(501, {"error": "push not initialized"})
+                body = self._read_json()
+                endpoint = (body.get("endpoint") or "").strip()
+                removed = push.store.remove(endpoint) if endpoint else False
+                return self._send_json(200, {"ok": True, "removed": removed})
+
+            if path == "/push/test":
+                if not push:
+                    return self._send_json(501, {"error": "push not initialized"})
+                body = self._read_json()
+                result = push.send_now(
+                    body.get("title") or "Shaggoth",
+                    body.get("body") or "Testing. You'll regret enabling this.",
+                    url=body.get("url") or "/",
+                )
+                return self._send_json(200, result)
 
             if path == "/knowledge/add":
                 body = self._read_json()
@@ -641,8 +693,58 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     learner = LearnerPipeline()
     curiosity = CuriosityEngine(knowledge=engine.knowledge, scraper=learner.scraper)
     scheduler = CuriosityScheduler(curiosity)
+    push = PushSender()
+    deferred = DeferredQuestions()
+
+    def _deliver_deferred(episode) -> None:
+        """Answer whatever was waiting on the topic this episode covered.
+
+        Runs on the research thread, so it re-answers through the engine and
+        then pushes. Anything that fails here is logged by the caller's hook
+        guard; a delivery problem must not affect the episode record.
+        """
+        if getattr(episode, "status", "") != "completed":
+            return
+        engine.knowledge.maybe_reload()
+        resolved = deferred.resolve(
+            episode.topic,
+            lambda question: engine.respond(
+                question, session_id="deferred", mode="no_drift"
+            ).text,
+        )
+        if not resolved:
+            return
+        first = resolved[0]
+        more = f" (+{len(resolved) - 1} more)" if len(resolved) > 1 else ""
+        push.notify(
+            f"I looked up {episode.topic}",
+            f"You asked: {first.question}{more}. Tap for the answer.",
+            url="/#chat",
+            tag="deferred",
+        )
+        print(f"[deferred] answered {len(resolved)} question(s) about {episode.topic!r}")
+
+    def _announce_learning(episode) -> None:
+        """An unprompted 'I just read about X'. Rate-limited per subscriber."""
+        if getattr(episode, "status", "") != "completed":
+            return
+        if getattr(episode, "words_learned", 0) < 500:
+            return  # not worth interrupting anyone for
+        push.notify(
+            "I just read about " + str(episode.topic),
+            f"{episode.words_learned:,} words of it. Ask me something.",
+            url="/#chat",
+            tag="curiosity",
+        )
+
+    curiosity.on_episode_complete(_deliver_deferred)
+    curiosity.on_episode_complete(_announce_learning)
+
     scheduler.start()
-    httpd = ThreadingHTTPServer((host, port), make_handler(engine, learner, api_key, curiosity, scheduler))
+    httpd = ThreadingHTTPServer(
+        (host, port),
+        make_handler(engine, learner, api_key, curiosity, scheduler, push, deferred),
+    )
     auth_status = "enabled" if api_key else "disabled"
     print(f"Shaggoth API listening on http://{host}:{port}")
     print(f"  Dashboard: http://{host}:{port}/")
@@ -654,6 +756,8 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     print(f"  POST /curiosity/ingest     GET /curiosity/history")
     print(f"  POST /curiosity/ingest-wiki GET /curiosity/freshness")
     print(f"  POST /curiosity/refresh-stale GET /wiki?q=topic")
+    print(f"  POST /push/subscribe  GET /push/status  GET /deferred")
+    print(f"  Push: {'ready' if push.available else 'not configured'}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

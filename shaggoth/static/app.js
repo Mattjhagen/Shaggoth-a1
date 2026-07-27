@@ -110,6 +110,7 @@ function toggleDrawer() { document.getElementById('drawer').classList.toggle('op
  * link only changes the hash. */
 const VIEWS = ['chat', 'personality', 'knowledge', 'learn', 'memory', 'guardrails', 'settings'];
 const VIEW_LOADERS = {
+  settings: () => refreshNotifyUi(),
   memory: () => loadMemory(),
   guardrails: () => loadGuardrails(),
   learn: () => loadLearnStatus(),
@@ -451,3 +452,136 @@ async function loadGuardrails() {
       : '<p style="color:var(--text-dim)">No guardrail rules.</p>';
   } catch {}
 }
+
+
+/* ================================================================ push
+ *
+ * Opt-in only, and only on a click: browsers reject a permission prompt that
+ * was not triggered by a user gesture, and silently deny it forever if you
+ * ask at load time.
+ */
+
+function urlBase64ToUint8Array(base64) {
+  // VAPID keys are base64url without padding; the Push API wants raw bytes.
+  const padding = '='.repeat((4 - (base64.length % 4)) % 4);
+  const raw = atob((base64 + padding).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+
+async function pushStatus() {
+  try {
+    return await readJson(await fetch(API + '/push/status', { headers: h() }));
+  } catch {
+    return { available: false };
+  }
+}
+
+async function enableNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    toast('This browser cannot do web push.');
+    return;
+  }
+  const status = await pushStatus();
+  if (!status.available || !status.public_key) {
+    toast('Push is not configured on the server.');
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    toast('Notifications denied. Nothing will be sent.');
+    return;
+  }
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    const sub = existing || (await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(status.public_key),
+    }));
+    const r = await fetch(API + '/push/subscribe', {
+      method: 'POST', headers: h(),
+      body: JSON.stringify({ subscription: sub.toJSON() }),
+    });
+    await readJson(r);
+    toast("Subscribed. It'll tell you when it learns something.");
+    refreshNotifyUi();
+  } catch (err) {
+    toast('Could not subscribe: ' + err.message);
+  }
+}
+
+async function disableNotifications() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await fetch(API + '/push/unsubscribe', {
+        method: 'POST', headers: h(),
+        body: JSON.stringify({ endpoint: sub.endpoint }),
+      });
+      await sub.unsubscribe();
+    }
+    toast('Unsubscribed.');
+    refreshNotifyUi();
+  } catch (err) {
+    toast('Could not unsubscribe: ' + err.message);
+  }
+}
+
+async function testNotification() {
+  try {
+    const r = await fetch(API + '/push/test', {
+      method: 'POST', headers: h(),
+      body: JSON.stringify({ body: 'This is what it will look like.' }),
+    });
+    const d = await readJson(r);
+    toast(d.sent ? `Sent to ${d.sent} device(s).` : 'Nothing subscribed yet.');
+  } catch (err) {
+    toast('Test failed: ' + err.message);
+  }
+}
+
+async function refreshNotifyUi() {
+  const el = document.getElementById('notifyState');
+  if (!el) return;
+  const status = await pushStatus();
+  if (!status.available) {
+    el.textContent = 'Push is not configured on the server.';
+    return;
+  }
+  let subscribed = false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    subscribed = !!(await reg.pushManager.getSubscription());
+  } catch {}
+  el.textContent = subscribed
+    ? `Subscribed. ${status.subscriptions} device(s) registered; at most one notification an hour.`
+    : `Not subscribed. ${status.subscriptions} other device(s) registered.`;
+}
+
+/* ------------------------------------------------------- deferred answers
+ *
+ * Questions it could not answer at the time. Once curiosity has researched
+ * the topic the answer is waiting here, so it turns up even if the push was
+ * missed or never enabled.
+ */
+async function checkDeferred() {
+  try {
+    const r = await fetch(
+      API + '/deferred?undelivered=1&session_id=' + encodeURIComponent(sessionId),
+      { headers: h() }
+    );
+    const d = await readJson(r);
+    for (const item of d.answered || []) {
+      appendMsg('assistant',
+        `You asked me "${item.question}" earlier and I didn't know. I do now:\n\n${item.answer}`,
+        'deferred');
+    }
+  } catch {
+    // Silent: this is a background nicety, not part of any request.
+  }
+}
+setTimeout(checkDeferred, 2500);
+setInterval(checkDeferred, 120000);

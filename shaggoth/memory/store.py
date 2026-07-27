@@ -63,6 +63,13 @@ CREATE TABLE IF NOT EXISTS facts (
     PRIMARY KEY (key, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_facts_user ON facts(user_id);
+CREATE TABLE IF NOT EXISTS session_summaries (
+    session_id TEXT PRIMARY KEY,
+    summary TEXT NOT NULL,
+    through_message_id INTEGER NOT NULL,
+    message_count INTEGER NOT NULL DEFAULT 0,
+    ts REAL NOT NULL
+);
 """
 
 # Pattern → fact key. First capture group becomes the value.
@@ -221,6 +228,163 @@ class MemoryStore:
         ]
         results.sort(key=lambda r: (-r.score, -r.ts))
         return results[:limit]
+
+    # ------------------------------------------- conversation context
+
+    #: Turns kept verbatim. Older ones are folded into the summary.
+    RECENT_TURNS = 8
+
+    #: Compaction runs once a session passes this many messages.
+    COMPACT_AFTER = 40
+
+    def conversation_context(
+        self, session_id: str, recent_turns: int | None = None
+    ) -> dict:
+        """What Shaggoth should have in mind for this conversation.
+
+        Returns the last few turns verbatim, a compacted summary of everything
+        before them, and the subjects that have come up. Every reply used to
+        be computed from the current message alone, so "has it been a bit"
+        or "why?" had nothing to refer back to.
+        """
+        recent_turns = self.RECENT_TURNS if recent_turns is None else recent_turns
+        rows = self.db.execute(
+            "SELECT id, role, content, ts FROM messages WHERE session_id = ? "
+            "ORDER BY id DESC LIMIT ?",
+            (session_id, max(0, recent_turns) * 2),
+        ).fetchall()
+        recent = [
+            {"id": r[0], "role": r[1], "content": r[2], "ts": r[3]}
+            for r in reversed(rows)
+        ]
+
+        total = self.db.execute(
+            "SELECT COUNT(*) FROM messages WHERE session_id = ?", (session_id,)
+        ).fetchone()[0]
+
+        summary_row = self.db.execute(
+            "SELECT summary, message_count FROM session_summaries WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+
+        last_user = next(
+            (m["content"] for m in reversed(recent) if m["role"] == "user"), ""
+        )
+        return {
+            "session_id": session_id,
+            "message_count": total,
+            "recent": recent,
+            "summary": summary_row[0] if summary_row else "",
+            "summarized_messages": summary_row[1] if summary_row else 0,
+            "topics": self.session_topics(session_id),
+            "last_user_message": last_user,
+        }
+
+    def session_topics(self, session_id: str, limit: int = 8) -> list[str]:
+        """The subjects this conversation keeps coming back to.
+
+        Ranked by how often a keyword appears across the session's messages,
+        which is a decent proxy for what it has been about.
+        """
+        rows = self.db.execute(
+            "SELECT k.word, COUNT(*) AS n FROM keywords k "
+            "JOIN messages m ON m.id = k.message_id "
+            "WHERE m.session_id = ? AND m.role = 'user' "
+            "GROUP BY k.word ORDER BY n DESC, k.word ASC LIMIT ?",
+            (session_id, limit),
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    def compact_session(self, session_id: str, keep_recent: int | None = None) -> str:
+        """Fold older turns into a stored summary, so long chats stay usable.
+
+        The summary is *extractive*: the subjects raised, the facts learned,
+        and a couple of representative questions. There is no model here that
+        could paraphrase honestly, and an invented paraphrase in long-term
+        memory is worse than a plain list of what was discussed.
+
+        Idempotent -- re-running only extends the summary if new messages have
+        accumulated past the last compaction point.
+        """
+        keep_recent = self.RECENT_TURNS * 2 if keep_recent is None else keep_recent
+
+        total = self.db.execute(
+            "SELECT COUNT(*) FROM messages WHERE session_id = ?", (session_id,)
+        ).fetchone()[0]
+        if total <= keep_recent:
+            return ""
+
+        cutoff_row = self.db.execute(
+            "SELECT id FROM messages WHERE session_id = ? ORDER BY id DESC "
+            "LIMIT 1 OFFSET ?",
+            (session_id, keep_recent - 1),
+        ).fetchone()
+        if not cutoff_row:
+            return ""
+        cutoff = cutoff_row[0]
+
+        existing = self.db.execute(
+            "SELECT summary, through_message_id FROM session_summaries "
+            "WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        if existing and existing[1] >= cutoff:
+            return existing[0]  # nothing new to fold in
+
+        older = self.db.execute(
+            "SELECT role, content FROM messages WHERE session_id = ? AND id < ? "
+            "ORDER BY id ASC",
+            (session_id, cutoff),
+        ).fetchall()
+        if not older:
+            return existing[0] if existing else ""
+
+        questions = [c for role, c in older if role == "user"]
+        counts: dict[str, int] = {}
+        for question in questions:
+            for word in set(extract_keywords(question)):
+                counts[word] = counts.get(word, 0) + 1
+        subjects = [
+            w for w, _ in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+        ][:10]
+
+        parts = [f"Earlier in this conversation ({len(older)} messages)."]
+        if subjects:
+            parts.append("Subjects raised: " + ", ".join(subjects) + ".")
+        if questions:
+            sample = [q.strip() for q in questions if len(q.strip()) > 8][:3]
+            if sample:
+                parts.append("They asked about: " + "; ".join(sample) + ".")
+        facts = self.all_facts()
+        if facts:
+            parts.append(
+                "Known about them: "
+                + "; ".join(f"{k.replace('_', ' ')} = {v}" for k, v in facts.items())
+                + "."
+            )
+        summary = " ".join(parts)
+
+        self.db.execute(
+            "INSERT INTO session_summaries "
+            "(session_id, summary, through_message_id, message_count, ts) "
+            "VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(session_id) DO UPDATE SET "
+            "summary = excluded.summary, "
+            "through_message_id = excluded.through_message_id, "
+            "message_count = excluded.message_count, ts = excluded.ts",
+            (session_id, summary, cutoff, len(older), time.time()),
+        )
+        self.db.commit()
+        return summary
+
+    def maybe_compact(self, session_id: str) -> str:
+        """Compact only once a session is long enough to need it."""
+        total = self.db.execute(
+            "SELECT COUNT(*) FROM messages WHERE session_id = ?", (session_id,)
+        ).fetchone()[0]
+        if total < self.COMPACT_AFTER:
+            return ""
+        return self.compact_session(session_id)
 
     def close(self) -> None:
         self.db.close()

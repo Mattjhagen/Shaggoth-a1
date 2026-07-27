@@ -23,7 +23,7 @@
  * Bump CACHE_VERSION when this file's logic changes.
  */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE = `shaggoth-${CACHE_VERSION}`;
 
 // Only the entry points. Hashed assets arrive on demand and are cached by URL.
@@ -112,5 +112,55 @@ self.addEventListener('fetch', (event) => {
       // Stale-while-revalidate: answer now, refresh for next time.
       return cached || network;
     })
+  );
+});
+
+
+/* ---------------------------------------------------------------- push
+ *
+ * Shaggoth researches on a timer whether anyone is watching, and answers
+ * questions long after they were asked. These handlers are how it says so.
+ */
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    // A push with a non-JSON body is still worth showing.
+    payload = { body: event.data ? event.data.text() : '' };
+  }
+
+  const title = payload.title || 'Shaggoth';
+  const options = {
+    body: payload.body || '',
+    icon: '/pwa-192.png',
+    badge: '/pwa-192.png',
+    // Same tag replaces rather than stacks, so a quiet night does not leave
+    // a wall of identical notifications.
+    tag: payload.tag || 'shaggoth',
+    renotify: false,
+    data: { url: payload.url || '/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/';
+
+  // Focus an existing tab rather than piling up new ones.
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((windows) => {
+        for (const client of windows) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            client.navigate(target).catch(() => {});
+            return client.focus();
+          }
+        }
+        return self.clients.openWindow(target);
+      })
   );
 });

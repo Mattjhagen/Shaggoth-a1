@@ -1,0 +1,266 @@
+"""Conversation memory: context, compaction, and not mistaking chat for a query.
+
+The reported failure, verbatim from the UI:
+
+    you  > i wanted to chat
+    shag > Never heard of wanted chat. Annoying. I'm reading up on it right now
+           [source: fallback -- curiosity research has been triggered]
+
+Three things wrong at once: the reply is nonsense, the turn is recorded as a
+knowledge gap, and curiosity then went and researched "wanted chat".
+"""
+from __future__ import annotations
+
+import pytest
+
+from shaggoth.dialogue.engine import (
+    DialogueEngine,
+    chitchat_reply,
+    follow_up_reply,
+    has_subject,
+    is_follow_up,
+)
+from shaggoth.memory import MemoryStore
+
+
+@pytest.fixture
+def engine(tmp_path):
+    return DialogueEngine(memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
+
+
+# --------------------------------------------------------------------------
+# Subject detection
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("text", [
+    "i wanted to chat",
+    "you wanted to chat",
+    "has it been a bit",
+    "hey",
+    "so what",
+    "i think so",
+    "yeah ok",
+    "just talking",
+])
+def test_conversational_turns_have_no_subject(text):
+    assert not has_subject(text)
+
+
+@pytest.mark.parametrize("text", [
+    "what is photosynthesis",
+    "tell me about aeroponics",
+    "who is Ellie Finch",
+    "explain quantum mechanics",
+    "gravity",
+])
+def test_real_questions_have_a_subject(text):
+    assert has_subject(text)
+
+
+def test_follow_ups_are_recognised():
+    for text in ("why", "why?", "go on", "tell me more", "has it been a bit",
+                 "and why?", "keep going", "are you sure"):
+        assert is_follow_up(text), text
+
+
+def test_a_new_question_is_not_a_follow_up():
+    assert not is_follow_up("what is photosynthesis")
+
+
+# --------------------------------------------------------------------------
+# The reported bug
+# --------------------------------------------------------------------------
+
+
+def test_chitchat_does_not_come_back_as_a_knowledge_gap(engine):
+    """source must not be 'fallback' -- that is what triggers research."""
+    for text in ("i wanted to chat", "you wanted to chat", "has it been a bit"):
+        reply = engine.respond(text, session_id="s1")
+        assert reply.source != "fallback", (text, reply.text)
+
+
+def test_chitchat_never_claims_ignorance_of_the_phrase(engine):
+    for text in ("i wanted to chat", "you wanted to chat"):
+        reply = engine.respond(text, session_id="s1")
+        lowered = reply.text.lower()
+        assert "never heard of" not in lowered, reply.text
+        assert "blank on" not in lowered, reply.text
+        assert "wanted chat" not in lowered, reply.text
+
+
+def test_a_real_unknown_still_admits_ignorance(engine):
+    """The honest fallback must survive -- it is how curiosity gets told."""
+    reply = engine.respond("what is zorbulon dynamics", session_id="s1")
+    assert reply.source == "fallback"
+
+
+# --------------------------------------------------------------------------
+# Context
+# --------------------------------------------------------------------------
+
+
+def test_context_carries_recent_turns(engine):
+    engine.respond("what is photosynthesis", session_id="s1")
+    engine.respond("what is gravity", session_id="s1")
+    ctx = engine.memory.conversation_context("s1")
+    assert ctx["message_count"] == 4
+    assert any("photosynthesis" in m["content"] for m in ctx["recent"])
+    assert ctx["last_user_message"] == "what is gravity"
+
+
+def test_context_is_per_session(engine):
+    engine.respond("what is photosynthesis", session_id="a")
+    engine.respond("what is gravity", session_id="b")
+    assert engine.memory.conversation_context("a")["message_count"] == 2
+    assert "gravity" not in str(engine.memory.conversation_context("a")["recent"])
+
+
+def test_session_topics_surface_what_was_discussed(engine):
+    for _ in range(3):
+        engine.respond("tell me about aeroponics", session_id="s1")
+    engine.respond("what is photosynthesis", session_id="s1")
+    topics = engine.memory.session_topics("s1")
+    assert "aeroponics" in topics
+
+
+def test_chitchat_refers_to_what_was_discussed():
+    context = {"topics": ["aeroponics", "photosynthesis"], "recent": []}
+    seen = {chitchat_reply("hey", context) for _ in range(40)}
+    assert any("aeroponics" in reply for reply in seen)
+
+
+def test_chitchat_copes_with_no_context():
+    assert chitchat_reply("hey", {})
+    assert chitchat_reply("hey", None)
+
+
+def test_follow_up_reply_names_the_subject():
+    context = {"recent": [{"role": "user", "content": "tell me about aeroponics"}]}
+    assert "aeroponics" in follow_up_reply(context)
+
+
+def test_follow_up_reply_without_context_says_so():
+    assert follow_up_reply({}) 
+
+
+# --------------------------------------------------------------------------
+# Compaction
+# --------------------------------------------------------------------------
+
+
+def test_short_sessions_are_not_compacted(engine):
+    engine.respond("what is gravity", session_id="s1")
+    assert engine.memory.compact_session("s1") == ""
+
+
+def test_long_sessions_are_compacted(engine):
+    for i in range(30):
+        engine.respond(f"tell me about aeroponics number {i}", session_id="s1")
+    summary = engine.memory.compact_session("s1")
+    assert summary
+    assert "aeroponics" in summary
+    assert "Earlier in this conversation" in summary
+
+
+def test_compaction_is_idempotent(engine):
+    for i in range(30):
+        engine.respond(f"tell me about aeroponics {i}", session_id="s1")
+    first = engine.memory.compact_session("s1")
+    assert engine.memory.compact_session("s1") == first
+
+
+def test_compaction_extends_as_the_conversation_grows(engine):
+    for i in range(30):
+        engine.respond(f"tell me about aeroponics {i}", session_id="s1")
+    first = engine.memory.compact_session("s1")
+    for i in range(30):
+        engine.respond(f"tell me about photosynthesis {i}", session_id="s1")
+    second = engine.memory.compact_session("s1")
+    assert second != first
+    assert "photosynthesis" in second
+
+
+def test_context_exposes_the_summary(engine):
+    for i in range(30):
+        engine.respond(f"tell me about aeroponics {i}", session_id="s1")
+    engine.memory.compact_session("s1")
+    assert "aeroponics" in engine.memory.conversation_context("s1")["summary"]
+
+
+def test_compaction_keeps_recent_turns_verbatim(engine):
+    for i in range(30):
+        engine.respond(f"tell me about aeroponics {i}", session_id="s1")
+    engine.memory.compact_session("s1")
+    ctx = engine.memory.conversation_context("s1")
+    assert ctx["recent"], "recent turns must survive compaction"
+    assert "aeroponics 29" in ctx["recent"][-2]["content"]
+
+
+def test_summary_includes_remembered_facts(engine):
+    engine.respond("my name is Matt", session_id="s1")
+    for i in range(30):
+        engine.respond(f"tell me about aeroponics {i}", session_id="s1")
+    assert "Matt" in engine.memory.compact_session("s1")
+
+
+def test_maybe_compact_waits_for_a_long_enough_session(engine):
+    engine.respond("what is gravity", session_id="s1")
+    assert engine.memory.maybe_compact("s1") == ""
+
+
+def test_plugin_commands_are_not_swallowed_by_the_chitchat_gate(engine):
+    """"what is 6 * 7?" is all filler words but is a real command."""
+    assert engine.respond("what is 6 * 7?", session_id="s1").source == "plugin"
+
+
+def test_fact_recall_is_not_swallowed_either(engine):
+    engine.respond("my name is Matt", session_id="s1")
+    reply = engine.respond("what do you know about me?", session_id="s1")
+    assert "Matt" in reply.text
+
+
+def test_follow_up_uses_the_most_recent_subject_not_the_most_frequent():
+    """"why?" answered "On chat?" after a chat that mentioned photosynthesis
+    once on purpose and "chat" three times in passing."""
+    from shaggoth.dialogue.engine import last_subject
+
+    context = {
+        "recent": [
+            {"role": "user", "content": "i wanted to chat"},
+            {"role": "assistant", "content": "Sure. What about?"},
+            {"role": "user", "content": "you wanted to chat"},
+            {"role": "assistant", "content": "Then talk."},
+            {"role": "user", "content": "what is photosynthesis"},
+            {"role": "assistant", "content": "Photosynthesis is..."},
+        ],
+        "topics": ["chat", "photosynthesis"],
+    }
+    assert last_subject(context) == "photosynthesis"
+    assert "photosynthesis" in follow_up_reply(context)
+
+
+def test_last_subject_skips_turns_with_nothing_in_them():
+    from shaggoth.dialogue.engine import last_subject
+
+    context = {"recent": [
+        {"role": "user", "content": "tell me about aeroponics"},
+        {"role": "assistant", "content": "..."},
+        {"role": "user", "content": "ok"},
+        {"role": "user", "content": "hey"},
+    ]}
+    assert "aeroponics" in last_subject(context)
+
+
+def test_last_subject_with_nothing_to_go_on():
+    from shaggoth.dialogue.engine import last_subject
+
+    assert last_subject({}) == ""
+    assert last_subject({"recent": [{"role": "user", "content": "hey"}]}) == ""
+
+
+@pytest.mark.parametrize("text", [
+    "lets keep chatting", "just chatting", "wanna talk", "lets talk",
+])
+def test_more_conversational_phrasings_are_not_lookups(text):
+    assert not has_subject(text)
