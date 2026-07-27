@@ -27,3 +27,8 @@ data/learning_history.json
 # VAPID private key: push signing credential, never committed.
 config/vapid.json
 data/push_subscriptions.json
+
+# Runtime state, rewritten by the server on every change. Tracking it means a
+# permanently dirty tree and a merge conflict on every pull.
+data/deferred_questions.json
+data/learning_history.json
