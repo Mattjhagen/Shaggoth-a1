@@ -351,8 +351,15 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     return self._send_json(400, {"error": "message is required"})
                 session_id = body.get("session_id") or "default"
                 mode = _request_mode(body)
-                # Feed message to curiosity scheduler
-                if scheduler:
+                # Machine-driven callers opt out of steering what Shaggoth
+                # learns. The command center's ambient dialogue talks to /chat
+                # continuously; without this every word it happened to pick
+                # out of a reply became a research topic, and the knowledge
+                # base filled with entries like "understanding",
+                # "continental", and "geophysicists". A spectator should not
+                # decide the syllabus.
+                may_research = body.get("research", True) is not False
+                if scheduler and may_research:
                     scheduler.record_message(message)
 
                 # A pasted link is a request to read it. Scrape and ingest it
@@ -382,7 +389,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if link_note:
                     reply.text = link_note + reply.text
                 # Auto-research if bot didn't know the answer
-                if curiosity and reply.source in ("pattern", "fallback") and reply.source == "fallback":
+                if may_research and curiosity and reply.source == "fallback":
                     topic = curiosity.analyze_message(message)
                     if topic:
                         curiosity.research_topic(topic, background=True)

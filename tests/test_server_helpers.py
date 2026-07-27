@@ -183,3 +183,19 @@ def test_cache_buster_tolerates_a_missing_file(tmp_path):
 
     out = add_cache_busters('<script src="gone.js"></script>', tmp_path)
     assert 'src="gone.js?v=0"' in out
+
+
+# --------------------------------------------------------------------------
+# Research opt-out
+# --------------------------------------------------------------------------
+
+
+def test_research_opt_out_is_explicit_and_defaults_on():
+    """Only an explicit false opts out; anything else keeps learning on."""
+    def may_research(body):
+        return body.get("research", True) is not False
+
+    assert may_research({}) is True
+    assert may_research({"research": True}) is True
+    assert may_research({"research": None}) is True   # unset, not a refusal
+    assert may_research({"research": False}) is False
