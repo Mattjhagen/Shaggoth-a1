@@ -59,7 +59,18 @@ def build_engine(settings: dict) -> DialogueEngine:
     model_choice = settings.get("model", "auto")
     model = None
 
-    if model_choice in ("auto", "tinygpt"):
+    # "auto" no longer prefers TinyGPT just because a checkpoint exists.
+    #
+    # A 3000-step run on this corpus reached loss 4.15 and generated non-words
+    # ("symotential", "authibiiktiological") -- materially worse than the
+    # Markov model, which at least emits real words. Because `auto` loaded
+    # TinyGPT first, simply finishing a training run would have silently
+    # downgraded every drift-mode reply on the next restart, with nothing in
+    # the logs to say why.
+    #
+    # An unvalidated checkpoint appearing on disk is not evidence that it is
+    # any good. Using it is now an explicit choice: set model = "tinygpt".
+    if model_choice == "tinygpt":
         model = _load_tinygpt(settings)
     if model is None and model_choice in ("auto", "markov"):
         model = _load_markov(settings)

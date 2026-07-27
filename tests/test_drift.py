@@ -295,3 +295,53 @@ def test_a_caption_still_does_not_count_as_a_definition():
     assert not _is_definitional(
         "The black bar is one angstrom ( 10 -10 m or 100 pm ).", tokens
     )
+
+
+# --------------------------------------------------------------------------
+# Model selection
+# --------------------------------------------------------------------------
+
+
+def test_auto_does_not_silently_prefer_an_untrained_tinygpt(tmp_path, monkeypatch):
+    """A checkpoint appearing on disk is not evidence that it is any good.
+
+    A finished-but-undertrained TinyGPT run would otherwise downgrade every
+    drift reply on the next restart, with nothing in the logs to say why.
+    """
+    from shaggoth import __main__ as cli
+
+    calls = []
+    monkeypatch.setattr(cli, "_load_tinygpt", lambda s: calls.append("tinygpt"))
+    monkeypatch.setattr(cli, "_load_markov", lambda s: calls.append("markov"))
+    monkeypatch.setattr(cli, "ensure_dirs", lambda: None)
+    monkeypatch.setattr(cli, "DialogueEngine", lambda **kw: kw)
+
+    settings = {
+        "model": "auto",
+        "guardrails_path": str(tmp_path / "g.json"),
+        "db_path": ":memory:",
+        "bot_name": "Shaggoth",
+        "memory_recall_threshold": 0.35,
+    }
+    cli.build_engine(settings)
+    assert "tinygpt" not in calls
+    assert "markov" in calls
+
+
+def test_tinygpt_is_still_available_when_asked_for_explicitly(tmp_path, monkeypatch):
+    from shaggoth import __main__ as cli
+
+    calls = []
+    monkeypatch.setattr(cli, "_load_tinygpt", lambda s: calls.append("tinygpt"))
+    monkeypatch.setattr(cli, "_load_markov", lambda s: calls.append("markov"))
+    monkeypatch.setattr(cli, "ensure_dirs", lambda: None)
+    monkeypatch.setattr(cli, "DialogueEngine", lambda **kw: kw)
+
+    cli.build_engine({
+        "model": "tinygpt",
+        "guardrails_path": str(tmp_path / "g.json"),
+        "db_path": ":memory:",
+        "bot_name": "Shaggoth",
+        "memory_recall_threshold": 0.35,
+    })
+    assert "tinygpt" in calls
