@@ -120,3 +120,66 @@ def test_question_for_page_without_a_title_returns_the_input():
     from shaggoth.server import question_for_page
 
     assert question_for_page("thoughts?", "") == "thoughts?"
+
+
+# --------------------------------------------------------------------------
+# Cache busting
+# --------------------------------------------------------------------------
+
+
+def test_cache_buster_versions_local_assets(tmp_path):
+    """Cloudflare serves /app.js with max-age=14400 whatever the origin says,
+    so after a deploy visitors keep running the previous JavaScript."""
+    from shaggoth.server import add_cache_busters
+
+    (tmp_path / "app.js").write_text("x")
+    (tmp_path / "style.css").write_text("y")
+    html = '<link rel="stylesheet" href="style.css"><script src="app.js"></script>'
+    out = add_cache_busters(html, tmp_path)
+
+    assert 'href="style.css?v=' in out
+    assert 'src="app.js?v=' in out
+
+
+def test_cache_buster_token_changes_when_the_file_does(tmp_path):
+    import os
+
+    from shaggoth.server import add_cache_busters
+
+    asset = tmp_path / "app.js"
+    asset.write_text("one")
+    os.utime(asset, (1_000_000, 1_000_000))
+    first = add_cache_busters('<script src="app.js"></script>', tmp_path)
+
+    os.utime(asset, (2_000_000, 2_000_000))
+    second = add_cache_busters('<script src="app.js"></script>', tmp_path)
+
+    assert first != second
+
+
+def test_cache_buster_is_stable_for_an_unchanged_file(tmp_path):
+    """Unchanged assets keep their token and stay cached -- that is the point."""
+    from shaggoth.server import add_cache_busters
+
+    (tmp_path / "app.js").write_text("x")
+    html = '<script src="app.js"></script>'
+    assert add_cache_busters(html, tmp_path) == add_cache_busters(html, tmp_path)
+
+
+def test_cache_buster_leaves_remote_and_non_asset_urls_alone(tmp_path):
+    from shaggoth.server import add_cache_busters
+
+    html = (
+        '<script src="https://cdn.example/x.js"></script>'
+        '<link href="//other.example/y.css">'
+        '<link rel="manifest" href="manifest.json">'
+        '<a href="#chat">Chat</a>'
+    )
+    assert add_cache_busters(html, tmp_path) == html
+
+
+def test_cache_buster_tolerates_a_missing_file(tmp_path):
+    from shaggoth.server import add_cache_busters
+
+    out = add_cache_busters('<script src="gone.js"></script>', tmp_path)
+    assert 'src="gone.js?v=0"' in out

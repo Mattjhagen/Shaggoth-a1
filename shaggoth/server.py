@@ -113,6 +113,37 @@ def question_for_page(question: str, title: str) -> str:
     return f"what is {title}" if title else question
 
 
+# Local asset references in index.html that must be re-fetched after a deploy.
+_ASSET_REF = re.compile(r'\b(src|href)="(?!https?:|//|#)([^"?]+\.(?:js|css))"')
+
+
+def asset_version(name: str, directory: Path = STATIC_DIR) -> str:
+    """A token that changes whenever ``name`` changes on disk."""
+    try:
+        return str(int((directory / name).stat().st_mtime))
+    except OSError:
+        return "0"
+
+
+def add_cache_busters(html: str, directory: Path = STATIC_DIR) -> str:
+    """Append ``?v=<mtime>`` to local .js/.css references in ``html``.
+
+    Cloudflare sits in front of this origin and serves ``/app.js`` with
+    ``max-age=14400`` regardless of the ``no-cache`` sent here, so for four
+    hours after every deploy visitors keep running the previous JavaScript --
+    including anyone reporting a bug that was already fixed. Versioning the
+    URL is the only cache-bust that does not depend on Cloudflare's settings.
+
+    Derived from mtime rather than a hardcoded version so it can never be
+    forgotten on a deploy, and unchanged files keep their token (and stay
+    cached, which is the point of the cache).
+    """
+    return _ASSET_REF.sub(
+        lambda m: f'{m.group(1)}="{m.group(2)}?v={asset_version(m.group(2), directory)}"',
+        html,
+    )
+
+
 def _request_mode(body: dict):
     """Read the drift mode a chat request asked for, if any.
 
@@ -172,6 +203,8 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             ct, _ = mimetypes.guess_type(str(path))
             ct = ct or "application/octet-stream"
             body = path.read_bytes()
+            if path.name == "index.html":
+                body = add_cache_busters(body.decode("utf-8")).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", ct)
             self.send_header("Content-Length", str(len(body)))

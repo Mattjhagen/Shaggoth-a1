@@ -1,6 +1,20 @@
-// Register service worker for PWA
+// Register the service worker, and check for a new one on every load.
+//
+// Without the explicit update() an updated worker can sit "waiting" until
+// every tab is closed, which on a PWA can be days. The worker calls
+// skipWaiting(), so a reload after it activates picks up the new build.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {})
+  navigator.serviceWorker.register('/sw.js').then((reg) => {
+    reg.update().catch(() => {});
+    // A controller change means a new worker took over mid-session; reload
+    // once so the page and its assets come from the same build.
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloading) return;
+      reloading = true;
+      location.reload();
+    });
+  }).catch(() => {});
 }
 
 function detectApi() {
@@ -98,7 +112,19 @@ function applyRoute(view) {
   if (load) load();
 }
 
-function currentRoute() { return (location.hash || '').replace(/^#/, '') || 'chat'; }
+/* Read the view out of the URL hash.
+ *
+ * Accepts #learn, #/learn, and #/learn/ alike. People type and share the
+ * router-style "#/learn" form by habit, and only "#learn" used to resolve --
+ * everything else silently fell back to the chat view. */
+function currentRoute() {
+  return (location.hash || '')
+    .replace(/^#/, '')
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '')
+    .split(/[/?]/)[0]
+    .toLowerCase() || 'chat';
+}
 
 window.addEventListener('hashchange', () => applyRoute(currentRoute()));
 applyRoute(currentRoute());
