@@ -49,9 +49,13 @@ class CuriosityScheduler:
         self,
         curiosity: CuriosityEngine,
         config: ScheduleConfig | None = None,
+        feedback=None,
     ):
         self.curiosity = curiosity
         self.config = config or ScheduleConfig()
+        #: Optional FeedbackStore. When present, entries someone marked wrong
+        #: are repaired before anything is refreshed for being merely old.
+        self.feedback = feedback
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._message_buffer: list[str] = []
@@ -139,10 +143,39 @@ class CuriosityScheduler:
                 )
             return
 
-        # Nothing to be curious about from conversation. Refresh the stalest
-        # thing it knows instead, so a quiet night still teaches it something.
+        # Nothing from conversation. Fix what is known to be *wrong* before
+        # refreshing what is merely *old*: someone judging an answer bad is a
+        # far better reason to spend a research cycle than an entry's age.
+        if self._repair_one():
+            return
+
+        # Otherwise refresh the stalest thing it knows, so a quiet night still
+        # teaches it something.
         if self.config.refresh_stale_when_idle and not self.curiosity.is_running:
             self.curiosity.refresh_stale(max_topics=self.config.max_stale_per_cycle)
+
+    def _repair_one(self) -> bool:
+        """Re-research the worst-performing entry. True if one was attempted."""
+        if not self.feedback or self.curiosity.is_running:
+            return False
+        target = self.feedback.next_repair()
+        if target is None:
+            return False
+        print(
+            f"[curiosity] repairing {target.topic!r} "
+            f"({target.bad} complaint(s)): {target.last_question!r}"
+        )
+        # Marked before researching, not after: if the research throws, the
+        # cooldown still applies and one broken topic cannot capture every
+        # future cycle.
+        self.feedback.mark_repaired(target.topic)
+        self.curiosity.research_topic(
+            target.topic,
+            max_results=self.config.max_results_per_topic,
+            max_pages=self.config.max_pages_per_topic,
+            background=False,
+        )
+        return True
 
     def trigger(self) -> dict:
         """Manually trigger an immediate curiosity cycle.

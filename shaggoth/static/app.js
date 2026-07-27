@@ -264,7 +264,19 @@ function appendMsg(role, text, source, flag, meta) {
     html += '<details class="msg-detail"><summary>how it got that</summary>' +
             '<div class="msg-detail-body">' + esc(detail) + '</div></details>';
   }
+  // Judgement on an answer is the most valuable signal this system gets, and
+  // until now it was thrown away. entries_used makes it actionable: marking a
+  // reply bad implicates the specific knowledge entry behind it.
+  if (role === 'assistant' && source && source !== 'error') {
+    html += '<div class="msg-rate">' +
+      '<button class="rate-btn" data-v="good" title="Good answer">&#128077;</button>' +
+      '<button class="rate-btn" data-v="bad" title="Wrong or unhelpful">&#128078;</button>' +
+      '</div>';
+  }
   div.innerHTML = html;
+  div.querySelectorAll('.rate-btn').forEach((b) => {
+    b.addEventListener('click', () => sendFeedback(div, b.dataset.v, meta, text));
+  });
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return div;
@@ -603,3 +615,32 @@ async function checkDeferred() {
 }
 setTimeout(checkDeferred, 2500);
 setInterval(checkDeferred, 120000);
+
+
+/* Send a judgement about an answer. A thumbs-down names the knowledge entries
+ * the reply was built from, which is what turns it into a repair job rather
+ * than an opinion. */
+async function sendFeedback(el, verdict, meta, answer) {
+  const asked = [...messagesEl.querySelectorAll('.msg.user .msg-content')].pop();
+  let note = '';
+  if (verdict === 'bad') {
+    note = prompt("What was wrong with it? (optional)") || '';
+  }
+  try {
+    await fetch(API + '/feedback', {
+      method: 'POST', headers: h(),
+      body: JSON.stringify({
+        question: asked ? asked.textContent : '',
+        verdict, note, answer,
+        source: (meta && meta.source) || '',
+        entries_used: (meta && meta.entries_used) || [],
+        reasoning: (meta && meta.reasoning) || [],
+        session_id: sessionId,
+      }),
+    });
+    el.querySelector('.msg-rate').textContent =
+      verdict === 'good' ? 'noted' : "noted — it'll go re-read that";
+  } catch (err) {
+    toast('Could not send feedback: ' + err.message);
+  }
+}

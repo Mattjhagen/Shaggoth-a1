@@ -684,3 +684,13 @@ code { font-family: var(--mono); font-size: .8rem; background: var(--surface2); 
   .input-bar input { font-size: 16px; }
   .input-bar button { min-width: 64px; min-height: 44px; }
 }
+
+
+/* Answer rating. Deliberately low-contrast: available on every reply,
+   demanding attention on none. */
+.msg-rate { display: flex; gap: .4rem; margin-top: .3rem; font-size: .75rem;
+            color: var(--text-dim); font-family: var(--mono); }
+.rate-btn { background: none; border: none; cursor: pointer; opacity: .35;
+            font-size: .95rem; padding: .1rem .25rem; line-height: 1;
+            transition: opacity .15s; }
+.rate-btn:hover { opacity: 1; }

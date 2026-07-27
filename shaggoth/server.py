@@ -41,6 +41,7 @@ from .curiosity.scheduler import CuriosityScheduler, ScheduleConfig
 from .dialogue import DialogueEngine
 from .knowledge.engine import KnowledgeBase
 from .learner.pipeline import LearnerPipeline
+from .feedback import FeedbackStore
 from .notify import DeferredQuestions, PushSender
 from .personality.engine import PersonalityEngine
 
@@ -162,7 +163,7 @@ def _request_mode(body: dict):
     return None
 
 
-def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None):
+def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None, feedback: FeedbackStore | None = None):
     class Handler(BaseHTTPRequestHandler):
         server_version = f"Shaggoth/{__version__}"
 
@@ -352,6 +353,15 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     "results": [{"topic": e.topic, "content": e.content[:500], "score": round(s, 3)} for e, s in results]
                 })
 
+            if path == "/feedback":
+                if not feedback:
+                    return self._send_json(501, {"error": "feedback not initialized"})
+                return self._send_json(200, {
+                    **feedback.status(),
+                    "repairs": [asdict(t) for t in feedback.repair_queue()[:20]],
+                    "recent": feedback.recent(10),
+                })
+
             if path == "/push/status":
                 return self._send_json(200, push.status() if push else {"available": False})
 
@@ -488,6 +498,26 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     background=True,
                 )
                 return self._send_json(202, {"ok": True, "session_id": session.session_id})
+
+            if path == "/feedback":
+                if not feedback:
+                    return self._send_json(501, {"error": "feedback not initialized"})
+                body = self._read_json()
+                item = feedback.record(
+                    question=body.get("question") or "",
+                    verdict=body.get("verdict"),
+                    answer=body.get("answer") or "",
+                    source=body.get("source") or "",
+                    entries_used=body.get("entries_used") or [],
+                    reasoning=body.get("reasoning") or [],
+                    note=body.get("note") or "",
+                    session_id=body.get("session_id") or "default",
+                )
+                if item is None:
+                    return self._send_json(
+                        400, {"error": "question and a good/bad verdict are required"}
+                    )
+                return self._send_json(201, {"ok": True, **feedback.status()})
 
             if path == "/push/subscribe":
                 if not push:
@@ -712,6 +742,7 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     scheduler = CuriosityScheduler(curiosity)
     push = PushSender()
     deferred = DeferredQuestions()
+    feedback = FeedbackStore()
 
     def _deliver_deferred(episode) -> None:
         """Answer whatever was waiting on the topic this episode covered.
@@ -754,13 +785,18 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
             tag="curiosity",
         )
 
+    # Feedback-driven repair takes priority over age-driven refresh.
+    scheduler.feedback = feedback
+
     curiosity.on_episode_complete(_deliver_deferred)
     curiosity.on_episode_complete(_announce_learning)
 
     scheduler.start()
     httpd = ThreadingHTTPServer(
         (host, port),
-        make_handler(engine, learner, api_key, curiosity, scheduler, push, deferred),
+        make_handler(
+            engine, learner, api_key, curiosity, scheduler, push, deferred, feedback
+        ),
     )
     auth_status = "enabled" if api_key else "disabled"
     print(f"Shaggoth API listening on http://{host}:{port}")
@@ -774,6 +810,7 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     print(f"  POST /curiosity/ingest-wiki GET /curiosity/freshness")
     print(f"  POST /curiosity/refresh-stale GET /wiki?q=topic")
     print(f"  POST /push/subscribe  GET /push/status  GET /deferred")
+    print(f"  POST /feedback        GET /feedback")
     print(f"  Push: {'ready' if push.available else 'not configured'}")
     try:
         httpd.serve_forever()

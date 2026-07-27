@@ -199,16 +199,23 @@ _ENUM_MARKER = re.compile(
 _REFERRING = re.compile(r"^\s*(?:it|its|they|their|these|those|this|such)\b", re.I)
 
 
-def _pick(sentences, marker, topic_words, limit, min_len=40):
-    """Sentences matching ``marker`` that are still about the topic.
+def _pick(sentences, marker, topic_words, limit, min_len=40, focus=None):
+    """Sentences matching ``marker``, best first.
 
     The entry has already been selected as being about the subject, so a
     sentence that refers back with a pronoun counts. Requiring the literal
-    topic word in every sentence threw away most real explanations, which
-    are written exactly that way.
+    topic word in every sentence threw away most real explanations, which are
+    written exactly that way.
+
+    ``focus`` is what the question asked *about* the subject -- the "light" in
+    "why does photosynthesis need light". Ranking by it is what separates the
+    sentence that answers the question from the merely-causal ones elsewhere
+    in the article: without it, that question came back with bacterial
+    membranes and leaf epidermis, both genuinely causal and neither an answer.
     """
-    chosen = []
-    for sentence in sentences:
+    focus = focus or set()
+    scored = []
+    for position, sentence in enumerate(sentences):
         if len(sentence) < min_len:
             continue
         if not marker.search(sentence):
@@ -221,10 +228,25 @@ def _pick(sentences, marker, topic_words, limit, min_len=40):
         )
         if not on_topic:
             continue
-        chosen.append(sentence)
-        if len(chosen) >= limit:
-            break
-    return chosen
+        hits = sum(1 for word in focus if word in lowered)
+        # Earlier sentences win ties: encyclopedia articles put the
+        # load-bearing explanation near the top.
+        scored.append((-hits, position, sentence))
+
+    scored.sort()
+    # If anything actually addressed the question, do not dilute it with
+    # sentences that merely contain a causal marker.
+    if focus and scored and scored[0][0] < 0:
+        scored = [row for row in scored if row[0] < 0]
+    return [sentence for _hits, _pos, sentence in scored[:limit]]
+
+
+#: Interrogative scaffolding: present in the question, never the answer.
+_QUESTION_WORDS = {
+    "what", "when", "where", "which", "does", "did", "do", "is", "are",
+    "was", "were", "the", "types", "kinds", "sorts", "forms", "examples",
+    "categories", "list", "there", "many", "much", "need", "needs",
+}
 
 
 def _topic_words(text: str) -> set:
@@ -354,8 +376,12 @@ class Reasoner:
             return None
         steps.append(Step("lookup", f"{subject} -> {entry.topic}"))
 
+        focus = _topic_words(question) - _topic_words(subject) - _QUESTION_WORDS
+        if focus:
+            steps.append(Step("focus", ", ".join(sorted(focus))))
         picked = _pick(
-            self.sentences(entry.content), _CAUSAL_MARKER, _topic_words(subject), limit=3
+            self.sentences(entry.content), _CAUSAL_MARKER,
+            _topic_words(subject), limit=3, focus=focus,
         )
         if not picked:
             steps.append(Step("result", "no explanatory sentences in that entry"))
@@ -382,8 +408,10 @@ class Reasoner:
             return None
         steps.append(Step("lookup", f"{subject} -> {entry.topic}"))
 
+        focus = _topic_words(question) - _topic_words(subject) - _QUESTION_WORDS
         picked = _pick(
-            self.sentences(entry.content), _ENUM_MARKER, _topic_words(subject), limit=3
+            self.sentences(entry.content), _ENUM_MARKER,
+            _topic_words(subject), limit=3, focus=focus,
         )
         if not picked:
             steps.append(Step("result", "nothing enumerating in that entry"))
