@@ -144,8 +144,15 @@ class LearnerPipeline:
                     session.training_steps = training_steps
                 else:
                     raise RuntimeError("torch not available")
-            except RuntimeError:
-                # Fallback to Markov if torch not available
+            except Exception as exc:
+                # Fall back to Markov for ANY TinyGPT failure, not just
+                # RuntimeError. A corpus too small for the configured
+                # block_size raises ValueError, which slipped past the old
+                # `except RuntimeError` and failed the whole session -- after
+                # the scrape had already succeeded. Losing 161k freshly
+                # scraped words because the optional model is unavailable is
+                # the wrong trade.
+                print(f"[learner] TinyGPT unavailable ({exc}); training Markov instead")
                 from ..models.markov import MarkovModel
                 model = MarkovModel()
                 model.train(corpus)
@@ -167,16 +174,36 @@ class LearnerPipeline:
             self._learning = False
             self._current_session = None
 
+    def active_model(self) -> tuple[str, str]:
+        """The model actually on disk, as ``(kind, path)``.
+
+        TinyGPT wins when present because the engine prefers it; otherwise
+        the Markov model. ``("none", "")`` when neither exists.
+
+        Reporting only ``self.model_path`` (always the TinyGPT path) made the
+        dashboard show "TRAINED: No" while a 12 MB trained Markov model sat
+        right next to it -- the model every reply was actually coming from.
+        """
+        tinygpt = Path(self.model_path)
+        if tinygpt.exists():
+            return "tinygpt", str(tinygpt)
+        markov = DATA_DIR / "markov_model.json"
+        if markov.exists():
+            return "markov", str(markov)
+        return "none", ""
+
     def status(self) -> dict:
         """Return current learning status."""
-        model_exists = Path(self.model_path).exists()
-        model_size = Path(self.model_path).stat().st_size if model_exists else 0
+        model_kind, active_path = self.active_model()
+        model_exists = bool(active_path)
+        model_size = Path(active_path).stat().st_size if model_exists else 0
         return {
             "is_learning": self._learning,
             "current_session": asdict(self._current_session) if self._current_session else None,
             "model_exists": model_exists,
+            "model_kind": model_kind,
             "model_size_bytes": model_size,
-            "model_path": self.model_path,
+            "model_path": active_path or self.model_path,
             "total_sessions": len(self._history),
             "last_session": self._history[-1] if self._history else None,
             "scraper_stats": self.scraper.stats(),

@@ -330,7 +330,10 @@ async function loadLearnStatus() {
     const d = await r.json();
     document.getElementById('statPages').textContent = d.scraper_stats?.pages_stored || 0;
     document.getElementById('statWords').textContent = fmt(d.scraper_stats?.total_words || 0);
-    document.getElementById('statModel').textContent = d.model_exists ? 'Yes' : 'No';
+    // Name the model rather than just Yes/No: "markov" vs "tinygpt" is the
+    // difference between canned-ish output and a real generative model.
+    document.getElementById('statModel').textContent =
+      d.model_exists ? (d.model_kind || 'yes') : 'none';
     document.getElementById('statSessions').textContent = d.total_sessions || 0;
     const btn = document.getElementById('learnBtn');
     btn.disabled = !!d.current_session;
