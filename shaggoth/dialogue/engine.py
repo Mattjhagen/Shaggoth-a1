@@ -198,7 +198,7 @@ class DialogueEngine:
             # off-subject article happened to rank highest answered first.
             best_loose = None
             for candidate, _score in knowledge_hits:
-                if not knowledge_is_relevant(candidate.topic, text):
+                if not knowledge_is_relevant(candidate.topic, text, candidate.content):
                     continue
                 summary, is_definition = summarize_entry_scored(
                     candidate.content, candidate.topic
@@ -803,19 +803,35 @@ def _topic_words(topic: str) -> set[str]:
     return {t for t in re.split(r"[^a-z0-9]+", topic.lower()) if len(t) > 2}
 
 
-def knowledge_is_relevant(topic: str, text: str) -> bool:
-    """True when an article's title genuinely matches what was asked.
+def knowledge_is_relevant(topic: str, text: str, content: str = "") -> bool:
+    """True when an article genuinely matches what was asked.
 
     Normalized BM25 always ranks *something* first, so rank alone cannot tell
-    "this is the answer" from "this is the least-bad of 305 irrelevant
+    "this is the answer" from "this is the least-bad of 350 irrelevant
     articles". Title overlap can: articles are named after their subject, so a
     question whose content words appear in the title is on-topic, and one whose
     words do not is a miss worth admitting to.
+
+    Title overlap alone is too strict for anything *inside* a long document,
+    though. A character in a novel is discussed at length in a chapter whose
+    title never mentions them, so "who is Ellie Finch" found nothing at all
+    while the answer sat in the body of six chapters.
+
+    So there is a second, deliberately narrow route: every content word of the
+    question appears in the body, and there are at least two of them. Requiring
+    two keeps a single common word from matching half the corpus, while a
+    multi-word name -- which is exactly the case title matching cannot serve --
+    still gets through.
     """
     asked = _content_words(text)
     if not asked:
         return False
-    return bool(asked & _topic_words(topic))
+    if asked & _topic_words(topic):
+        return True
+    if len(asked) < 2 or not content:
+        return False
+    body = content.lower()
+    return all(word in body for word in asked)
 
 
 def _snippet(text: str, limit: int = 80) -> str:

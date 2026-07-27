@@ -80,3 +80,49 @@ def test_min_score_filters_weak_hits(kb):
     strict = kb.query("what is evolution", limit=5, min_score=0.9)
     assert len(strict) <= len(loose)
     assert all(s >= 0.9 for _, s in strict)
+
+
+# --------------------------------------------------------------------------
+# Relevance: title match, plus a narrow body route for long documents
+# --------------------------------------------------------------------------
+
+
+def test_title_overlap_is_relevant():
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    assert knowledge_is_relevant("Photosynthesis", "what is photosynthesis")
+
+
+def test_unrelated_title_is_not_relevant():
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    assert not knowledge_is_relevant("Brokeback Mountain", "what is photosynthesis")
+
+
+def test_a_name_buried_in_the_body_is_reachable():
+    """A character is discussed in chapters whose titles never name them."""
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    body = "The hearing began. Ellie Finch took the stand and did not blink."
+    assert knowledge_is_relevant("Chapter 23: The Hearing", "who is Ellie Finch", body)
+
+
+def test_a_single_common_word_cannot_match_on_the_body_alone():
+    """Two content words minimum, or half the corpus would qualify."""
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    body = "the system optimised everything it touched"
+    assert not knowledge_is_relevant("Chapter 4", "what is system", body)
+
+
+def test_body_route_requires_every_content_word():
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    body = "Ellie Finch took the stand."
+    assert not knowledge_is_relevant("Chapter 23", "who is Marcus Okonkwo", body)
+
+
+def test_body_route_is_off_without_content():
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    assert not knowledge_is_relevant("Chapter 23", "who is Ellie Finch")
