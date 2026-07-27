@@ -76,8 +76,80 @@
     "topic": "palliation",
     "session_id": "command-center-earth",
     "asked_at": 1785169511.093376,
+    "answered_at": 1785169586.3728814,
+    "answer": "Palliative care (from Latin root palliare \"to cloak\") is an interdisciplinary medical care-giving approach aimed at optimizing quality of life and mitigating or reducing suffering among people with serious, complex, and often terminal illnesses. Many definitions of palliative care exist. The World Health Organization (WHO) describes palliative care as: n approach that improves the quality of life of patients and their families facing the problem associated with life-threatening illness, through the prevention and relief of suffering by means of early identification and impeccable assessment and treatment of pain and other problems, physical, psychosocial, and spiritual.",
+    "delivered": false
+  },
+  {
+    "question": "tell me about atmospheric",
+    "topic": "atmospheric",
+    "session_id": "command-center-core",
+    "asked_at": 1785169546.4896305,
     "answered_at": null,
     "answer": "",
+    "delivered": false
+  },
+  {
+    "question": "explain pollutants",
+    "topic": "pollutants",
+    "session_id": "command-center-earth",
+    "asked_at": 1785169620.8219247,
+    "answered_at": null,
+    "answer": "",
+    "delivered": false
+  },
+  {
+    "question": "what is switching",
+    "topic": "switching",
+    "session_id": "command-center-earth",
+    "asked_at": 1785169738.3260784,
+    "answered_at": 1785169812.0073297,
+    "answer": "This form of switching is practiced, for example, by speakers of African American Vernacular English as they move from less formal to more formal settings. As switching between languages is exceedingly common and takes many forms, code-switching can also be recognized as sentence alternation. Such behavior can be explained only by postulating a range of linguistic or social factors such as the following: Speakers cannot express themselves adequately in one language, so they switch to another to work around the deficiency. Switching to a minority language is very common as a means of expressing solidarity with a social group.",
+    "delivered": false
+  },
+  {
+    "question": "what is problem-solving",
+    "topic": "problem-solving",
+    "session_id": "command-center-core",
+    "asked_at": 1785169942.581216,
+    "answered_at": 1785170017.59662,
+    "answer": "problem-solving? Total blank. I'm scraping it as we speak. Come back shortly and I'll be insufferable about it.",
+    "delivered": false
+  },
+  {
+    "question": "tell me about decision-making",
+    "topic": "decision-making",
+    "session_id": "command-center-earth",
+    "asked_at": 1785169962.6972525,
+    "answered_at": null,
+    "answer": "",
+    "delivered": false
+  },
+  {
+    "question": "explain machines",
+    "topic": "machines",
+    "session_id": "command-center-core",
+    "asked_at": 1785170046.4212198,
+    "answered_at": 1785170131.2507653,
+    "answer": "A machine is a thermodynamic system that uses power to apply forces and control movement to perform an action. The term is commonly applied to artificial devices, such as those employing engines or motors, but also to natural biological macromolecules, such as molecular machines. Machines can be driven by animals and human power, by natural forces such as wind and water, and by chemical, thermal, or electrical power, and include a system of mechanisms that shape the actuator input to achieve a specific application of output forces and movement.",
+    "delivered": false
+  },
+  {
+    "question": "what is ordinary",
+    "topic": "ordinary",
+    "session_id": "command-center-core",
+    "asked_at": 1785170092.5443215,
+    "answered_at": null,
+    "answer": "",
+    "delivered": false
+  },
+  {
+    "question": "explain mechanization",
+    "topic": "mechanization",
+    "session_id": "command-center-core",
+    "asked_at": 1785170200.0586767,
+    "answered_at": 1785170282.053624,
+    "answer": "Mechanization (or mechanisation ) is the process of changing from working largely or exclusively by hand or with animals to doing that work with machinery. In an early engineering text, a machine is defined as follows: Every machine is constructed for the purpose of performing certain mechanical operations, each of which supposes the existence of two other things besides the machine in question, namely, a moving power, and an object subject to the operation, which may be termed the work to be done. In every fields, mechanization includes the use of hand tools.",
     "delivered": false
   }
 ]

@@ -443,13 +443,24 @@ async function loadGuardrails() {
   try {
     const r = await fetch(API + '/guardrails', { headers: h() });
     const d = await r.json();
-    const rules = d.rules || [];
+    // /guardrails returns the whole config -- {version, enabled, input_rules,
+    // output_rules} -- and never a flat "rules" key, so this tab reported
+    // "No guardrail rules" while five rules were active and blocking
+    // credentials on the live endpoint. A guardrails page that under-reports
+    // is worse than no page at all.
+    const rules = [...(d.input_rules || []), ...(d.output_rules || [])];
     document.getElementById('guardrailsList').innerHTML = rules.length
       ? rules.map(r => {
           const en = r.enabled !== false;
           return `<div class="rule-card"><div class="rule-info"><h4>${esc(r.id)}</h4><p>${esc(r.message || r.type)}</p></div><span class="rule-type ${en ? 'rule-enabled' : 'rule-disabled'}">${r.type} ${en ? '✓' : '✗'}</span></div>`;
         }).join('')
       : '<p style="color:var(--text-dim)">No guardrail rules.</p>';
+    const master = document.getElementById('guardrailsState');
+    if (master) {
+      master.textContent = d.enabled === false
+        ? 'Guardrails are switched OFF entirely — no rule below is being applied.'
+        : `Guardrails active: ${(d.input_rules || []).length} input, ${(d.output_rules || []).length} output.`;
+    }
   } catch {}
 }
 
