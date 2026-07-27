@@ -182,7 +182,8 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
             self.end_headers()
-            self.wfile.write(body)
+            if not getattr(self, "_suppress_body", False):
+                self.wfile.write(body)
 
         def _send_json(self, status: int, payload: dict) -> None:
             self._send(status, payload)
@@ -210,7 +211,8 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-cache")
             self.end_headers()
-            self.wfile.write(body)
+            if not getattr(self, "_suppress_body", False):
+                self.wfile.write(body)
 
         def _check_auth(self) -> bool:
             if not api_key:
@@ -595,6 +597,21 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
         def do_GET(self):
             url = urlparse(self.path)
             self._guard(self._route_get, url.path, url)
+
+        def do_HEAD(self):
+            """Serve HEAD as GET with the body suppressed.
+
+            BaseHTTPRequestHandler answers an unimplemented method with a 501
+            *HTML* page, so `curl -I /app.js` reported Content-Type
+            text/html -- which is actively misleading when you are debugging
+            cache headers, and wrong for any client that HEADs before GET.
+            """
+            self._suppress_body = True
+            try:
+                url = urlparse(self.path)
+                self._guard(self._route_get, url.path, url)
+            finally:
+                self._suppress_body = False
 
         def do_POST(self):
             url = urlparse(self.path)

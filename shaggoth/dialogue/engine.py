@@ -435,7 +435,12 @@ def _clean_sentences(content: str) -> list[str]:
 # A defining construction: "X is ...", "X refers to ...", "X was ...".
 _DEFINING_VERB = re.compile(
     r"\b(is|are|was|were|refers? to|denotes?|describes?|means|"
-    r"is defined as|is a type of|is a form of|also known as|also called)\b",
+    r"is defined as|is a type of|is a form of|also known as|also called|"
+    # Compositional definitions. "An atom consists of a nucleus of protons..."
+    # is the lead sentence of the Atom article and was not recognised, so the
+    # answer fell back to an image caption further up the page.
+    r"consists? of|consist of|comprises?|comprise|is composed of|"
+    r"is made up of|is made of|comprising|consisting of)\b",
     re.I,
 )
 

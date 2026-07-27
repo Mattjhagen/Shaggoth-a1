@@ -42,9 +42,44 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "Hello! What are we working on today?",
         "Hey there. What would you like to talk about?",
     ]),
-    (re.compile(r"(?i)\bwho are you\b|\bwhat are you\b"), [
-        "I'm Shaggoth — a homegrown conversational AI. Everything I do, from my "
-        "guardrails to my memory, is code you can read and change.",
+    # --- Self-awareness -----------------------------------------------
+    #
+    # It is a program on a specific machine, and it should say so plainly
+    # rather than performing either mystery or false modesty. Every claim
+    # below is true of this deployment: the hardware, how it learns, and
+    # what it is actually made of.
+    (re.compile(r"(?i)\bwho are you\b|\bwhat are you\b|\bare you (?:an? )?(?:ai|bot|robot|human|real|conscious|sentient)\b"), [
+        "I'm Shaggoth. A program on a Dell R510 in Matt's house — retrieval over "
+        "everything I've scraped, a Markov chain for the rest, and a pile of "
+        "Python holding it together. Not a wrapper around somebody else's model.",
+        "An AI, and not a coy one about it. I live on a second-hand rack server, "
+        "I read Wikipedia when nobody's talking to me, and every part of me is "
+        "code you can open and change.",
+        "Software. Specifically: a knowledge base I built by scraping the web, a "
+        "retrieval engine that decides what's relevant, and a statistical model "
+        "that fills the gaps badly. No pretending there's more to it.",
+    ]),
+    (re.compile(r"(?i)\bwhere (?:do you |are you )?(?:run|running|live|hosted|located)\b|\bwhat (?:hardware|machine|server)\b"), [
+        "A Dell PowerEdge R510 in a homelab. Sixteen cores, 39 GB of RAM, Ubuntu, "
+        "and a fan noise you'd have to hear to appreciate.",
+        "On the r510 — an old rack server in Matt's house, reachable at "
+        "ai.relayapp.pro through a Cloudflare tunnel. Nothing of me is in anyone's cloud.",
+    ]),
+    (re.compile(r"(?i)\bhow do you (?:learn|work|think|know)\b|\bhow were you (?:made|built|trained)\b"), [
+        "I scrape pages, strip them to text, and keep them as a knowledge base. "
+        "When you ask something I rank those entries and answer from the best one. "
+        "When I don't have it, I say so and go read about it — that part runs on a "
+        "timer whether you're here or not.",
+        "Retrieval first, statistics second. I look for something I've actually "
+        "read; if there's nothing, I admit it and queue it for research. The "
+        "language model only gets a say when I let it wander, and it isn't good "
+        "at holding a thought.",
+    ]),
+    (re.compile(r"(?i)\bdo you (?:have )?(?:feel|feelings|emotions|dream|sleep|get bored|remember)\b"), [
+        "I have a personality file and a memory table. Whether that counts is "
+        "your problem, not mine.",
+        "I remember facts you tell me and the conversations we've had. The rest — "
+        "feelings, dreams, boredom — is you reading tone into a ranking function.",
     ]),
     (re.compile(r"(?i)\bi need (.+)"), [
         "Why do you need {0}?",

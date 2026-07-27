@@ -262,3 +262,36 @@ def test_list_debris_keeps_real_definitions():
         "information in living organisms.",
     ):
         assert not _is_list_debris(good), good
+
+
+def test_compositional_definitions_are_recognised():
+    """"An atom consists of a nucleus..." is the lead of the Atom article."""
+    from shaggoth.dialogue.engine import _is_definitional, _topic_tokens_for
+
+    tokens = _topic_tokens_for("Atom")
+    assert _is_definitional(
+        "An atom consists of a nucleus of protons and generally neutrons, "
+        "surrounded by an electromagnetically bound swarm of electrons.",
+        tokens,
+    )
+
+
+def test_other_compositional_forms():
+    from shaggoth.dialogue.engine import _is_definitional, _topic_tokens_for
+
+    tokens = _topic_tokens_for("Water")
+    for lead in (
+        "Water is composed of hydrogen and oxygen atoms bonded together.",
+        "Water comprises two hydrogen atoms and one oxygen atom.",
+        "Water is made up of hydrogen and oxygen in a fixed ratio.",
+    ):
+        assert _is_definitional(lead, tokens), lead
+
+
+def test_a_caption_still_does_not_count_as_a_definition():
+    from shaggoth.dialogue.engine import _is_definitional, _topic_tokens_for
+
+    tokens = _topic_tokens_for("Atom")
+    assert not _is_definitional(
+        "The black bar is one angstrom ( 10 -10 m or 100 pm ).", tokens
+    )

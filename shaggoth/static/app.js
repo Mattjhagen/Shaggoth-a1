@@ -28,7 +28,23 @@ function detectApi() {
 function getApiKey() { return localStorage.getItem('shaggoth_key') || ''; }
 
 const API = detectApi();
-let sessionId = 'web-' + Math.random().toString(36).slice(2, 10);
+/* One conversation per browser, not per page load.
+ *
+ * This was regenerated on every load, so /history?session_id= always returned
+ * only what had been said since the last refresh -- the Memory tab looked
+ * empty and Shaggoth could never recall an earlier conversation with you.
+ * Persisted now, with a "new chat" escape hatch. */
+const SESSION_KEY = 'shaggoth_session';
+let sessionId = localStorage.getItem(SESSION_KEY);
+if (!sessionId) {
+  sessionId = 'web-' + Math.random().toString(36).slice(2, 10);
+  localStorage.setItem(SESSION_KEY, sessionId);
+}
+
+function newSession() {
+  localStorage.removeItem(SESSION_KEY);
+  location.reload();
+}
 
 function h() { return { 'Content-Type': 'application/json', ...(getApiKey() ? { 'Authorization': 'Bearer ' + getApiKey() } : {}) }; }
 
