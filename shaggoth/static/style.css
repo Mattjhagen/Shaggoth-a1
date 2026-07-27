@@ -19,11 +19,27 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* App height.
+ *
+ * 100vh is wrong on mobile: it is the height of the viewport with the browser
+ * chrome *hidden*, so the layout is always taller than what is on screen and
+ * the bottom of the page -- the message input -- sits under the URL bar. When
+ * the on-screen keyboard opens, 100vh does not change at all, so the input
+ * ends up behind the keyboard.
+ *
+ * --app-h is set from visualViewport.height by app.js on every viewport
+ * change, which is the only value that tracks the keyboard. 100dvh is the
+ * static fallback for browsers without the visualViewport API, and 100vh
+ * backs that up for browsers without dvh. */
+:root { --app-h: 100dvh; }
+
 body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
   height: 100vh;
+  height: 100dvh;
+  height: var(--app-h);
   overflow: hidden;
 }
 
@@ -98,6 +114,8 @@ body {
 .chat-app {
   display: flex;
   height: 100vh;
+  height: 100dvh;
+  height: var(--app-h);
 }
 
 /* DRAWER */
@@ -301,8 +319,11 @@ body {
   display: flex;
   gap: .5rem;
   padding: 1rem max(calc((100% - 720px) / 2), 1.5rem) 1.25rem;
+  /* Clear the iPhone home indicator when no keyboard is up. */
+  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
   background: var(--bg);
   border-top: 1px solid var(--border);
+  flex: 0 0 auto;
 }
 
 .input-bar input {
@@ -568,4 +589,98 @@ code { font-family: var(--mono); font-size: .8rem; background: var(--surface2); 
   .msg { padding: 0 1rem; }
   .input-bar { padding: .75rem 1rem; }
   .view-body { padding: 1rem; }
+}
+
+
+/* THINKING INDICATOR
+ *
+ * Shown between sending a message and the reply arriving. Retrieval over a
+ * 350-entry knowledge base is not instant, and with no feedback at all the
+ * app reads as broken. */
+.msg.thinking .msg-content {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  color: var(--text-dim);
+}
+.thinking-dots { display: inline-flex; gap: .25rem; }
+.thinking-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: thinking-pulse 1.2s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay: .18s; }
+.thinking-dots span:nth-child(3) { animation-delay: .36s; }
+
+@keyframes thinking-pulse {
+  0%, 60%, 100% { opacity: .25; transform: translateY(0); }
+  30%           { opacity: 1;   transform: translateY(-3px); }
+}
+
+/* Respect the OS reduced-motion setting rather than animating regardless. */
+@media (prefers-reduced-motion: reduce) {
+  .thinking-dots span { animation: none; opacity: .6; }
+}
+
+/* Collapsible reply detail ("how did it get that?"). */
+.msg-detail { margin-top: .35rem; }
+.msg-detail > summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: .75rem;
+  font-family: var(--mono);
+  list-style: none;
+  user-select: none;
+}
+.msg-detail > summary::-webkit-details-marker { display: none; }
+.msg-detail > summary::before { content: "▸ "; }
+.msg-detail[open] > summary::before { content: "▾ "; }
+.msg-detail-body {
+  margin-top: .35rem;
+  padding: .5rem .65rem;
+  border-left: 2px solid var(--border);
+  color: var(--text-dim);
+  font-size: .78rem;
+  font-family: var(--mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.field-hint {
+  margin-top: .4rem;
+  color: var(--text-dim);
+  font-size: .78rem;
+  line-height: 1.5;
+}
+
+.field select {
+  width: 100%;
+  padding: .75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft, var(--bg));
+  color: var(--text);
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+/* MOBILE
+ *
+ * Tap targets get a real minimum size, and the drawer scrolls: with seven
+ * entries plus a header and footer the nav could not be reached on a short
+ * landscape viewport. */
+@media (max-width: 768px) {
+  .drawer { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .drawer-nav a {
+    display: block;
+    min-height: 44px;
+    line-height: 44px;
+  }
+  .chat-topbar { padding-top: max(.5rem, env(safe-area-inset-top, 0px)); }
+  /* 16px minimum, or iOS Safari zooms the page on focus and the layout
+     jumps sideways. */
+  .input-bar input { font-size: 16px; }
+  .input-bar button { min-width: 64px; min-height: 44px; }
 }

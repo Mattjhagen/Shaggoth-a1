@@ -1,10 +1,74 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Shaggoth</title>
   <defs>
-    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#a78bfa"/>
-      <stop offset="100%" stop-color="#ec4899"/>
+    <linearGradient id="plate" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#16121f"/>
+      <stop offset="55%" stop-color="#0d0d12"/>
+      <stop offset="100%" stop-color="#120f1a"/>
     </linearGradient>
+
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"  stop-color="#a78bfa" stop-opacity="0.55"/>
+      <stop offset="45%" stop-color="#7c3aed" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#0d0d12" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="iris" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#22d3ee"/>
+      <stop offset="55%"  stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#6d28d9"/>
+    </linearGradient>
+
+    <linearGradient id="tendril" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#22d3ee" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.15"/>
+    </linearGradient>
+
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="softglow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
   </defs>
-  <rect width="100" height="100" rx="20" fill="url(#g)"/>
-  <text x="50" y="68" font-family="system-ui, sans-serif" font-size="52" font-weight="800" fill="#171717" text-anchor="middle">S</text>
+
+  <!-- Archon house style: dark rounded plate, glowing centred emblem. -->
+  <rect width="512" height="512" rx="112" fill="url(#plate)"/>
+  <rect width="512" height="512" rx="112" fill="url(#halo)"/>
+
+  <!-- Tendrils, drawn behind the eye so they read as something the eye is
+       attached to rather than decoration around it. -->
+  <g stroke="url(#tendril)" fill="none" stroke-linecap="round" filter="url(#softglow)" opacity="0.85">
+    <path d="M256 330 C 236 380, 196 396, 150 404" stroke-width="13"/>
+    <path d="M256 330 C 276 380, 316 396, 362 404" stroke-width="13"/>
+    <path d="M256 336 C 250 392, 244 420, 256 452" stroke-width="11"/>
+    <path d="M212 316 C 176 352, 140 358, 104 350" stroke-width="9"/>
+    <path d="M300 316 C 336 352, 372 358, 408 350" stroke-width="9"/>
+  </g>
+  <g stroke="#22d3ee" fill="none" stroke-linecap="round" opacity="0.9">
+    <path d="M256 330 C 236 380, 196 396, 150 404" stroke-width="6"/>
+    <path d="M256 330 C 276 380, 316 396, 362 404" stroke-width="6"/>
+    <path d="M256 336 C 250 392, 244 420, 256 452" stroke-width="5"/>
+    <path d="M212 316 C 176 352, 140 358, 104 350" stroke-width="4"/>
+    <path d="M300 316 C 336 352, 372 358, 408 350" stroke-width="4"/>
+  </g>
+
+  <!-- The eye. -->
+  <g filter="url(#glow)">
+    <path d="M96 236 C 160 148, 352 148, 416 236 C 352 324, 160 324, 96 236 Z"
+          fill="#07070b" stroke="#a78bfa" stroke-width="9"/>
+    <ellipse cx="256" cy="236" rx="74" ry="74" fill="url(#iris)"/>
+    <!-- Vertical slit pupil: the detail that makes it read as wrong. -->
+    <ellipse cx="256" cy="236" rx="17" ry="60" fill="#05050a"/>
+    <ellipse cx="234" cy="210" rx="15" ry="11" fill="#e9d5ff" opacity="0.75"/>
+  </g>
+
+  <!-- Heavy lid line, so the eye reads half-open rather than alert. -->
+  <path d="M96 236 C 160 148, 352 148, 416 236"
+        fill="none" stroke="#c4b5fd" stroke-width="11" stroke-linecap="round" opacity="0.95"/>
 </svg>

@@ -18,6 +18,47 @@ let sessionId = 'web-' + Math.random().toString(36).slice(2, 10);
 
 function h() { return { 'Content-Type': 'application/json', ...(getApiKey() ? { 'Authorization': 'Bearer ' + getApiKey() } : {}) }; }
 
+// Answer mode: "no_drift" (grounded) or "drift" (free-associating).
+function getMode() { return localStorage.getItem('shaggoth_mode') || 'no_drift'; }
+
+/* Parse a response body as JSON, or throw something a human can act on.
+ *
+ * Calling r.json() directly surfaces the raw parser error, which is how the
+ * chat window ended up showing `Unexpected token '<', "<!DOCTYPE"... is not
+ * valid JSON` (and, on iOS Safari, the same failure worded as `The string did
+ * not match the expected pattern.`). Both meant the server had returned an
+ * HTML error page. Neither told anyone that. */
+async function readJson(r) {
+  const body = await r.text();
+  try {
+    return JSON.parse(body);
+  } catch {
+    const looksLikeHtml = /^\s*<(?:!doctype|html)/i.test(body);
+    if (looksLikeHtml) {
+      throw new Error(
+        `the server returned an error page instead of an answer (HTTP ${r.status}). ` +
+        `Check the Shaggoth logs: journalctl -u shaggoth -n 50`
+      );
+    }
+    if (!r.ok) throw new Error(`server error (HTTP ${r.status})`);
+    throw new Error('the server sent a reply I could not read');
+  }
+}
+
+/* Track the *visual* viewport so the on-screen keyboard cannot cover the
+ * input. vh units do not change when the keyboard opens; visualViewport is
+ * the only thing that reports it. */
+(function trackViewport() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const sync = () => {
+    document.documentElement.style.setProperty('--app-h', vv.height + 'px');
+  };
+  vv.addEventListener('resize', sync);
+  vv.addEventListener('scroll', sync);
+  sync();
+})();
+
 // Auth check
 (async () => {
   try {
@@ -31,32 +72,51 @@ function h() { return { 'Content-Type': 'application/json', ...(getApiKey() ? { 
 // Drawer
 function toggleDrawer() { document.getElementById('drawer').classList.toggle('open'); }
 
-// Navigation
-document.querySelectorAll('.drawer-nav a').forEach(a => {
-  a.addEventListener('click', () => {
-    document.querySelectorAll('.drawer-nav a').forEach(x => x.classList.remove('active'));
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    a.classList.add('active');
-    document.getElementById('view-' + a.dataset.view).classList.add('active');
-    if (window.innerWidth <= 768) document.getElementById('drawer').classList.remove('open');
-    const v = a.dataset.view;
-    if (v === 'memory') loadMemory();
-    if (v === 'guardrails') loadGuardrails();
-    if (v === 'learn') loadLearnStatus();
-    if (v === 'personality') loadPersonality();
-    if (v === 'knowledge') loadKnowledgeList();
-  });
-});
-window.switchView = (v) => document.querySelector(`.drawer-nav a[data-view="${v}"]`).click();
+/* Navigation, driven by the URL hash.
+ *
+ * The nav entries are real anchors with href="#view", so the tab survives a
+ * reload, works with the back button, and can be linked to directly. The
+ * hashchange handler is the single place a view is activated -- clicking a
+ * link only changes the hash. */
+const VIEWS = ['chat', 'personality', 'knowledge', 'learn', 'memory', 'guardrails', 'settings'];
+const VIEW_LOADERS = {
+  memory: () => loadMemory(),
+  guardrails: () => loadGuardrails(),
+  learn: () => loadLearnStatus(),
+  personality: () => loadPersonality(),
+  knowledge: () => loadKnowledgeList(),
+};
+
+function applyRoute(view) {
+  if (!VIEWS.includes(view)) view = 'chat';
+  document.querySelectorAll('.drawer-nav a').forEach(x =>
+    x.classList.toggle('active', x.dataset.view === view));
+  document.querySelectorAll('.view').forEach(v =>
+    v.classList.toggle('active', v.id === 'view-' + view));
+  if (window.innerWidth <= 768) document.getElementById('drawer').classList.remove('open');
+  const load = VIEW_LOADERS[view];
+  if (load) load();
+}
+
+function currentRoute() { return (location.hash || '').replace(/^#/, '') || 'chat'; }
+
+window.addEventListener('hashchange', () => applyRoute(currentRoute()));
+applyRoute(currentRoute());
+
+window.switchView = (v) => { location.hash = v; applyRoute(v); };
 
 // Settings
 document.getElementById('apiUrl').value = API;
 const savedKey = localStorage.getItem('shaggoth_key');
 if (savedKey) document.getElementById('apiKey').value = savedKey;
 
+const modeSelect = document.getElementById('driftMode');
+if (modeSelect) modeSelect.value = getMode();
+
 function saveSettings() {
   localStorage.setItem('shaggoth_api', document.getElementById('apiUrl').value.replace(/\/+$/, ''));
   localStorage.setItem('shaggoth_key', document.getElementById('apiKey').value);
+  if (modeSelect) localStorage.setItem('shaggoth_mode', modeSelect.value);
   toast('Settings saved. Reloading...');
   setTimeout(() => location.reload(), 600);
 }
@@ -90,6 +150,26 @@ const chatInput = document.getElementById('chatInput');
 const sendBtn = document.getElementById('sendBtn');
 const flagBadge = document.getElementById('flagBadge');
 
+/* Replace the fallback opening line with a fresh one from the server.
+ *
+ * GET /greeting composes a line that cites the current knowledge count and
+ * the most recent thing it read, so the first message is different every
+ * load and is actually about what it has been doing. */
+async function loadGreeting() {
+  const el = document.getElementById('greetingMsg');
+  if (!el) return;
+  try {
+    const r = await fetch(API + '/greeting', { headers: h() });
+    if (!r.ok) return;
+    const d = await readJson(r);
+    const line = (d.greeting || d.text || d.reply || '').trim();
+    if (line) el.querySelector('.msg-content').textContent = line;
+  } catch {
+    // Keep the markup's fallback line. A missing greeting is cosmetic.
+  }
+}
+loadGreeting();
+
 inputBar.addEventListener('submit', async (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
@@ -97,34 +177,88 @@ inputBar.addEventListener('submit', async (e) => {
   appendMsg('user', text);
   chatInput.value = '';
   sendBtn.disabled = true;
+  const thinking = appendThinking();
   try {
     const r = await fetch(API + '/chat', {
       method: 'POST', headers: h(),
-      body: JSON.stringify({ message: text, session_id: sessionId }),
+      body: JSON.stringify({ message: text, session_id: sessionId, mode: getMode() }),
     });
-    const d = await r.json();
-    appendMsg('assistant', d.reply, d.source, d.flag);
-    if (d.flag && d.flag !== 'green') flagBadge.textContent = d.flag.toUpperCase();
-    else flagBadge.textContent = '';
+    const d = await readJson(r);
+    thinking.remove();
+    appendMsg('assistant', d.reply, d.source, d.flag, d);
+    flagBadge.textContent = (d.flag && d.flag !== 'green') ? d.flag.toUpperCase() : '';
   } catch (err) {
+    thinking.remove();
     appendMsg('assistant', 'Error: ' + err.message, 'error');
   }
   sendBtn.disabled = false;
   chatInput.focus();
 });
 
-function appendMsg(role, text, source, flag) {
+function appendThinking() {
+  const div = document.createElement('div');
+  div.className = 'msg assistant thinking';
+  div.innerHTML =
+    '<div class="msg-content"><span class="thinking-dots">' +
+    '<span></span><span></span><span></span></span>' +
+    '<span>thinking</span></div>';
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
+
+function appendMsg(role, text, source, flag, meta) {
   const div = document.createElement('div');
   div.className = 'msg ' + role;
-  let html = '<div class="msg-content">' + esc(text) + '</div>';
+  let html = '<div class="msg-content">' + esc(text || '') + '</div>';
   const tags = [];
   if (source && source !== 'pattern') tags.push(source);
   if (flag && flag !== 'green') tags.push(flag.toUpperCase());
   if (tags.length) html += '<div class="msg-source">' + tags.join(' · ') + '</div>';
+
+  const detail = replyDetail(meta);
+  if (detail) {
+    html += '<details class="msg-detail"><summary>how it got that</summary>' +
+            '<div class="msg-detail-body">' + esc(detail) + '</div></details>';
+  }
   div.innerHTML = html;
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return div;
+}
+
+/* Explain where a reply came from, using only what the API already returns.
+ * Collapsed by default -- available when an answer looks wrong, invisible
+ * when it does not. */
+const SOURCE_EXPLANATION = {
+  knowledge: 'Answered from a stored knowledge entry.',
+  pattern:   'Canned conversational reply, no retrieval involved.',
+  model:     'Generated by the language model. Least reliable path.',
+  fallback:  "Didn't know this one. Curiosity research has been triggered.",
+  plugin:    'Handled by a built-in command rather than the dialogue engine.',
+  guardrail: 'Blocked by a guardrail rule before generation.',
+  error:     'The request failed before an answer was produced.',
+};
+
+function replyDetail(meta) {
+  if (!meta) return '';
+  const lines = [];
+  if (meta.source) {
+    lines.push('source: ' + meta.source);
+    if (SOURCE_EXPLANATION[meta.source]) lines.push('  ' + SOURCE_EXPLANATION[meta.source]);
+  }
+  if (meta.mode) {
+    lines.push('mode: ' + meta.mode +
+      (meta.mode === 'no_drift' ? '  (grounded — no improvising)' : '  (drift — allowed to wander)'));
+  }
+  if (meta.rule_id) lines.push('rule: ' + meta.rule_id);
+  if (meta.output_rules_applied && meta.output_rules_applied.length)
+    lines.push('output filters: ' + meta.output_rules_applied.join(', '));
+  if (meta.memory_triggers && meta.memory_triggers.length)
+    lines.push('recalled: ' + meta.memory_triggers.join(', '));
+  if (meta.new_facts && Object.keys(meta.new_facts).length)
+    lines.push('learned: ' + Object.entries(meta.new_facts).map(([k, v]) => k + '=' + v).join(', '));
+  return lines.join('\n');
 }
 
 function esc(t) {

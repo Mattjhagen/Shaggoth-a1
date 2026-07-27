@@ -11,9 +11,26 @@ import re
 import sqlite3
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
+import urllib.robotparser
 from dataclasses import dataclass, asdict
 from pathlib import Path
+
+#: Sent on every request the scraper makes.
+#:
+#: A descriptive, contactable agent string is the minimum courtesy for a bot
+#: that crawls other people's servers, and several hosts enforce it. Reddit in
+#: particular returns "429/403 Blocked" to generic or absent agents no matter
+#: what the endpoint is -- which is what the scraper's `HTTP Error 403:
+#: Blocked` failures were.
+USER_AGENT = (
+    "ShaggothBot/0.1 (+https://ai.relayapp.pro; self-hosted research bot; "
+    "contact: https://github.com/Mattjhagen/Shaggoth-a1/issues)"
+)
+
+#: How long a parsed robots.txt is trusted before being re-fetched.
+ROBOTS_TTL_SECONDS = 3600
 
 
 def _clean_text(text: str) -> str:
@@ -74,9 +91,13 @@ class ScrapedPage:
 class ScraperEngine:
     """Fetches web pages, extracts clean text, stores in SQLite for training."""
 
-    def __init__(self, db_path: str | None = None):
+    def __init__(self, db_path: str | None = None, respect_robots: bool = True):
         self.db_path = db_path or str(Path.home() / ".shaggoth" / "scraper.db")
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+        #: Honour robots.txt. Settable for tests; leave it on in production.
+        self.respect_robots = respect_robots
+        #: origin -> (RobotFileParser | None, fetched_at)
+        self._robots_cache: dict[str, tuple] = {}
         self._init_db()
 
     def _init_db(self) -> None:
@@ -136,14 +157,69 @@ class ScraperEngine:
             ).fetchall()
         return [r[0] for r in rows]
 
+    def robots_allows(self, url: str, timeout: int = 10) -> bool:
+        """Whether ``robots.txt`` permits :data:`USER_AGENT` to fetch ``url``.
+
+        Parsed files are cached per-origin for :data:`ROBOTS_TTL_SECONDS` so a
+        crawl does not re-request robots.txt once per page.
+
+        Fails **open**: a site with no robots.txt, or one that cannot be
+        reached, is treated as allowed -- that is what the standard specifies,
+        and refusing to crawl on a transient network error would silently stall
+        learning. A robots.txt that is fetched and *does* disallow the path is
+        always honoured.
+        """
+        try:
+            parts = urllib.parse.urlsplit(url)
+        except ValueError:
+            return True
+        if parts.scheme not in ("http", "https") or not parts.netloc:
+            return True
+
+        origin = f"{parts.scheme}://{parts.netloc}"
+        now = time.time()
+        cached = self._robots_cache.get(origin)
+        if cached is None or now - cached[1] > ROBOTS_TTL_SECONDS:
+            parser = urllib.robotparser.RobotFileParser()
+            parser.set_url(origin + "/robots.txt")
+            try:
+                request = urllib.request.Request(
+                    origin + "/robots.txt", headers={"User-Agent": USER_AGENT}
+                )
+                with urllib.request.urlopen(request, timeout=timeout) as response:
+                    parser.parse(
+                        response.read().decode("utf-8", errors="replace").splitlines()
+                    )
+            except Exception:
+                # No robots.txt, or unreachable. Allowed by default.
+                parser = None
+            self._robots_cache[origin] = (parser, now)
+            cached = self._robots_cache[origin]
+
+        parser = cached[0]
+        if parser is None:
+            return True
+        try:
+            return parser.can_fetch(USER_AGENT, url)
+        except Exception:
+            return True
+
     def fetch_page(self, url: str, timeout: int = 15) -> ScrapedPage | None:
-        """Fetch a single URL, extract clean text, store in DB."""
+        """Fetch a single URL, extract clean text, store in DB.
+
+        Refuses anything ``robots.txt`` disallows. The refusal is logged like
+        any other failure so a blocked seed is visible in the scraper stats
+        rather than silently absent.
+        """
+        if self.respect_robots and not self.robots_allows(url):
+            self._log(url, "error", "blocked by robots.txt")
+            return None
         try:
             req = urllib.request.Request(
                 url,
                 headers={
-                    "User-Agent": "Shaggoth/0.1 (self-learning bot; +https://github.com/Mattjhagen/Shaggoth-a1)",
-                    "Accept": "text/html,application/xhtml+xml,text/plain",
+                    "User-Agent": USER_AGENT,
+                    "Accept": "text/html,application/xhtml+xml,text/plain,application/json",
                 },
             )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -216,7 +292,7 @@ class ScraperEngine:
                     try:
                         req = urllib.request.Request(
                             url,
-                            headers={"User-Agent": "Shaggoth/0.1"},
+                            headers={"User-Agent": USER_AGENT},
                         )
                         with urllib.request.urlopen(req, timeout=10) as resp:
                             html = resp.read().decode("utf-8", errors="replace")

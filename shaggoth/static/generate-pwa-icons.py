@@ -1,34 +1,139 @@
-"""Generate PWA icons."""
-import struct, zlib, math, sys
+#!/usr/bin/env python3
+"""Rasterise favicon.svg into every icon the web and PWA installers want.
 
-def make_png(w, h, r, g, b):
-    cx, cy = w // 2, h // 2
-    R = w // 2 - 4
-    raw = b''
-    for y in range(h):
-        raw += b'\x00'
-        for x in range(w):
-            dx, dy = x - cx, y - cy
-            dist = math.sqrt(dx*dx + dy*dy)
-            if dist <= R:
-                t = y / h
-                pr = int(r[0] + (r[1] - r[0]) * t)
-                pg = int(g[0] + (g[1] - g[0]) * t)
-                pb = int(b[0] + (b[1] - b[0]) * t)
-                alpha = 255
-                if dist > R - 4:
-                    alpha = int(255 * (R - dist) / 4)
-                raw += struct.pack('BBBB', pr, pg, pb, alpha)
-            else:
-                raw += struct.pack('BBBB', 0, 0, 0, 0)
-    def chunk(ctype, cdata):
-        c = ctype + cdata
-        return struct.pack('>I', len(cdata)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
-    ihdr = struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)
-    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+``favicon.svg`` is the single source of truth for the mark; everything else
+here is derived from it, so the icon set can never drift apart. Re-run after
+editing the SVG:
 
-for size, name in [(192, 'pwa-192.png'), (512, 'pwa-512.png')]:
-    data = make_png(size, size, (167, 236), (139, 114), (250, 153))
-    with open(name, 'wb') as f:
-        f.write(data)
-    print(f"Generated {name} ({size}x{size})")
+    python3 generate-pwa-icons.py
+
+Outputs, all beside this script:
+
+    favicon.ico         16/32/48, for the browser tab and legacy /favicon.ico
+    apple-touch-icon.png  180, for "Add to Home Screen" on iOS
+    pwa-192.png           192, Android launcher / manifest
+    pwa-512.png           512, splash screen and store listing
+    pwa-512-maskable.png  512, safe-zone padded for Android adaptive icons
+
+Requires cairosvg. The previous version drew a plain gradient circle with a
+hand-rolled PNG encoder, which could not render the actual mark.
+"""
+from __future__ import annotations
+
+import struct
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+SOURCE = HERE / "favicon.svg"
+
+# Android adaptive icons crop to a circle inscribed in the middle ~80%, so a
+# maskable variant is rendered smaller and centred on the plate colour. Without
+# it the launcher shears the tendrils off.
+MASKABLE_SCALE = 0.78
+PLATE = "#0d0d12"
+
+PNG_TARGETS = [
+    ("apple-touch-icon.png", 180, False),
+    ("pwa-192.png", 192, False),
+    ("pwa-512.png", 512, False),
+    ("pwa-512-maskable.png", 512, True),
+]
+ICO_SIZES = (16, 32, 48)
+
+
+def _svg_body(markup: str) -> str:
+    """Return everything inside the outermost ``<svg>`` element."""
+    start = markup.index(">", markup.index("<svg")) + 1
+    end = markup.rindex("</svg>")
+    return markup[start:end]
+
+
+def render(size: int, maskable: bool = False) -> bytes:
+    """Rasterise the source SVG to a square PNG of ``size`` pixels."""
+    import cairosvg
+
+    if not maskable:
+        return cairosvg.svg2png(
+            url=str(SOURCE), output_width=size, output_height=size
+        )
+
+    # Wrap the source in a plate-filled canvas so the mark sits inside the
+    # launcher's safe zone instead of being cropped by it.
+    #
+    # The source is inlined into a <g transform>, not referenced with
+    # <image xlink:href>: cairosvg does not resolve external image refs here,
+    # and silently produced an empty 1.8 KB plate instead of failing.
+    inner = _svg_body(SOURCE.read_text(encoding="utf-8"))
+    scale = MASKABLE_SCALE
+    offset = (1 - scale) / 2 * 512
+    wrapper = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'width="{size}" height="{size}" viewBox="0 0 512 512">'
+        f'<rect width="512" height="512" fill="{PLATE}"/>'
+        f'<g transform="translate({offset:.2f},{offset:.2f}) scale({scale})">'
+        f"{inner}</g></svg>"
+    )
+    return cairosvg.svg2png(
+        bytestring=wrapper.encode("utf-8"),
+        output_width=size,
+        output_height=size,
+    )
+
+
+def build_ico(pngs: dict[int, bytes]) -> bytes:
+    """Pack PNGs into a multi-resolution .ico.
+
+    ICO has embedded-PNG support, so the frames go in verbatim rather than
+    being re-encoded as BMP.
+    """
+    sizes = sorted(pngs)
+    header = struct.pack("<HHH", 0, 1, len(sizes))  # reserved, type=icon, count
+    offset = len(header) + 16 * len(sizes)
+
+    entries = b""
+    body = b""
+    for size in sizes:
+        data = pngs[size]
+        entries += struct.pack(
+            "<BBBBHHII",
+            size if size < 256 else 0,  # width  (0 means 256)
+            size if size < 256 else 0,  # height
+            0,  # palette size
+            0,  # reserved
+            1,  # color planes
+            32,  # bits per pixel
+            len(data),
+            offset,
+        )
+        body += data
+        offset += len(data)
+    return header + entries + body
+
+
+def main() -> int:
+    if not SOURCE.exists():
+        print(f"missing source: {SOURCE}", file=sys.stderr)
+        return 1
+    try:
+        import cairosvg  # noqa: F401
+    except ImportError:
+        print(
+            "cairosvg is required: pip install --user cairosvg",
+            file=sys.stderr,
+        )
+        return 1
+
+    for name, size, maskable in PNG_TARGETS:
+        data = render(size, maskable)
+        (HERE / name).write_bytes(data)
+        print(f"wrote {name} ({size}x{size}{', maskable' if maskable else ''})")
+
+    ico = build_ico({size: render(size) for size in ICO_SIZES})
+    (HERE / "favicon.ico").write_bytes(ico)
+    print(f"wrote favicon.ico ({'/'.join(str(s) for s in ICO_SIZES)})")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

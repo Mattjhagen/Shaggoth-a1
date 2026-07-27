@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import re
 import time
 import traceback
 from dataclasses import asdict
@@ -46,6 +47,70 @@ STATIC_DIR = Path(__file__).parent / "static"
 API_KEY = os.environ.get("SHAGGOTH_API_KEY") or ""
 RATE_LIMITS: dict[str, list[float]] = {}
 PUSH_TOKENS: list[dict] = []
+
+
+# A URL pasted into a chat message. Deliberately conservative: requires an
+# explicit scheme, so ordinary prose mentioning "example.com" is not treated
+# as a fetch instruction.
+_URL_IN_MESSAGE = re.compile(r"https?://[^\s<>\"\')\]]+", re.I)
+
+
+def extract_url(message: str) -> str:
+    """Return the first http(s) URL in ``message``, or ``""``.
+
+    Trailing sentence punctuation is stripped -- people paste links mid
+    sentence ("what do you make of https://example.com/page?") and the
+    trailing "?" is not part of the URL.
+    """
+    match = _URL_IN_MESSAGE.search(message or "")
+    if not match:
+        return ""
+    return match.group(0).rstrip(".,;:!?")
+
+
+def strip_url(message: str, url: str) -> str:
+    """The message with ``url`` removed, for use as the actual question."""
+    return " ".join(message.replace(url, " ").split())
+
+
+# Site suffixes publishers append to every <title>. Left in place they become
+# part of the knowledge entry's topic and pollute title matching.
+_TITLE_SUFFIX = re.compile(
+    r"\s*[|\u2013\u2014-]\s*(wikipedia|github|youtube|reddit|medium|"
+    r"stack overflow|the guardian|bbc|cnn|nytimes|the new york times)\s*$",
+    re.I,
+)
+
+# Words that carry no subject on their own. A turn made only of these is a
+# gesture at the link, not a question about anything in particular.
+_EMPTY_ASK = {
+    "a", "about", "and", "any", "anything", "at", "check", "do", "for", "from",
+    "give", "have", "here", "hey", "how", "is", "it", "look", "make", "me",
+    "of", "on", "opinion", "out", "read", "see", "so", "some", "something",
+    "take", "tell", "the", "there", "these", "think", "this", "thoughts",
+    "to", "up", "what", "whats", "you", "your",
+}
+
+
+def clean_page_title(title: str) -> str:
+    """Strip the site-name suffix publishers append to every page title."""
+    return _TITLE_SUFFIX.sub("", (title or "").strip()).strip()
+
+
+def question_for_page(question: str, title: str) -> str:
+    """Decide what to actually ask once a pasted link has been read.
+
+    "what do you make of <link>?" leaves "what do you make of ?" behind --
+    a turn with no subject in it, which retrieves nothing and falls through
+    to a canned pattern reply. When the residual carries no subject of its
+    own, ask about the page instead. A real question ("does this contradict
+    photosynthesis?") is left alone.
+    """
+    title = clean_page_title(title)
+    words = [w.strip("?!.,;:\"'()") for w in (question or "").lower().split()]
+    if any(w and w not in _EMPTY_ASK for w in words):
+        return question
+    return f"what is {title}" if title else question
 
 
 def _request_mode(body: dict):
@@ -254,7 +319,33 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 # Feed message to curiosity scheduler
                 if scheduler:
                     scheduler.record_message(message)
+
+                # A pasted link is a request to read it. Scrape and ingest it
+                # first, then answer in the same turn -- previously /chat
+                # ignored URLs entirely and the user had to call /scrape/url
+                # by hand before asking anything about the page.
+                link_note = ""
+                url_in_message = extract_url(message)
+                if url_in_message:
+                    page = learner.scraper.fetch_page(url_in_message)
+                    if page and page.word_count:
+                        title = clean_page_title(page.title) or url_in_message
+                        engine.knowledge.add_entry(title, page.text)
+                        engine.knowledge.maybe_reload()
+                        message = question_for_page(
+                            strip_url(message, url_in_message), title
+                        )
+                        link_note = f"Read \"{title}\" ({page.word_count:,} words). "
+                    else:
+                        # Strip the link even on failure. Left in, the raw URL
+                        # becomes the "question" and the reply comes back as
+                        # "Nothing on read https this-host-does-not-exist yet".
+                        message = strip_url(message, url_in_message) or message
+                        link_note = f"Couldn't read {url_in_message}. "
+
                 reply = engine.respond(message, session_id=session_id, mode=mode)
+                if link_note:
+                    reply.text = link_note + reply.text
                 # Auto-research if bot didn't know the answer
                 if curiosity and reply.source in ("pattern", "fallback") and reply.source == "fallback":
                     topic = curiosity.analyze_message(message)

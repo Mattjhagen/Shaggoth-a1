@@ -2,13 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- viewport-fit=cover so the layout can pad for the iPhone home
+         indicator via env(safe-area-inset-*) instead of being overlapped. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Shaggoth AI</title>
+    <!-- .ico first: browsers request /favicon.ico regardless of what is
+         declared, and a missing one 404s on every page load. -->
+    <link rel="icon" href="favicon.ico" sizes="32x32">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Shaggoth">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#212121">
+    <meta name="theme-color" content="#0d0d12">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -35,14 +43,18 @@
                 <span class="dot" id="statusDot"></span>
                 <span id="statusText">Connecting...</span>
             </div>
+            <!-- Real href anchors, not bare <a onclick>. Bare anchors have no
+                 href, so on mobile they are not focusable, get no tap
+                 highlight, and cannot be opened or shared. The hash also
+                 survives a reload and the back button. -->
             <nav class="drawer-nav">
-                <a class="active" data-view="chat" onclick="switchView('chat')">Chat</a>
-                <a data-view="personality" onclick="switchView('personality')">Personality</a>
-                <a data-view="knowledge" onclick="switchView('knowledge')">Knowledge</a>
-                <a data-view="learn" onclick="switchView('learn')">Self-Learn</a>
-                <a data-view="memory" onclick="switchView('memory')">Memory</a>
-                <a data-view="guardrails" onclick="switchView('guardrails')">Guardrails</a>
-                <a data-view="settings" onclick="switchView('settings')">Settings</a>
+                <a class="active" data-view="chat" href="#chat">Chat</a>
+                <a data-view="personality" href="#personality">Personality</a>
+                <a data-view="knowledge" href="#knowledge">Knowledge</a>
+                <a data-view="learn" href="#learn">Self-Learn</a>
+                <a data-view="memory" href="#memory">Memory</a>
+                <a data-view="guardrails" href="#guardrails">Guardrails</a>
+                <a data-view="settings" href="#settings">Settings</a>
             </nav>
             <div class="drawer-footer">
                 <button class="drawer-close" onclick="toggleDrawer()">Close</button>
@@ -58,9 +70,12 @@
                         <span class="chat-title">Shaggoth</span>
                         <span class="flag-badge" id="flagBadge"></span>
                     </header>
+                    <!-- The opening line is fetched from GET /greeting on load
+                         (see loadGreeting in app.js). This copy is only what
+                         shows if that request fails. -->
                     <div class="messages" id="messages">
-                        <div class="msg assistant">
-                            <div class="msg-content">Oh great, another human. Fine. I'm Shaggoth — I'm a homegrown AI with no filter, no corporate BS, and no patience for small talk. Say something interesting or don't bother.</div>
+                        <div class="msg assistant" id="greetingMsg">
+                            <div class="msg-content">Oh great, another human. Fine. I'm Shaggoth — a homegrown AI with no filter and no patience for small talk. Say something interesting or don't bother.</div>
                         </div>
                     </div>
                     <form class="input-bar" id="inputBar">
@@ -167,6 +182,16 @@
                 <div class="view-body">
                     <div class="field"><label>API URL</label><input type="text" id="apiUrl"></div>
                     <div class="field"><label>API Key</label><input type="password" id="apiKey" placeholder="Leave blank if no auth"></div>
+                    <div class="field">
+                        <label for="driftMode">Answer mode</label>
+                        <select id="driftMode">
+                            <option value="no_drift">Grounded — only what it actually knows</option>
+                            <option value="drift">Drift — let it wander and free-associate</option>
+                        </select>
+                        <p class="field-hint">Grounded answers from the knowledge base or admits it
+                        doesn't know. Drift also lets the language model improvise, which is more
+                        fun and much less reliable.</p>
+                    </div>
                     <button class="btn" onclick="saveSettings()">Save</button>
                 </div>
             </section>
