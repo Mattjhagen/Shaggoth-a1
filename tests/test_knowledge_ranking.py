@@ -126,3 +126,45 @@ def test_body_route_is_off_without_content():
     from shaggoth.dialogue.engine import knowledge_is_relevant
 
     assert not knowledge_is_relevant("Chapter 23", "who is Ellie Finch")
+
+
+# --------------------------------------------------------------------------
+# Slugs: the filename stem IS the topic, so a bad slug is a permanent bad topic
+# --------------------------------------------------------------------------
+
+
+def test_slug_strips_leading_and_trailing_separators():
+    """A leading hyphen survived .strip() and produced the topic " Algebra"."""
+    assert KnowledgeBase.slug_for("- Algebra") == "algebra"
+    assert KnowledgeBase.slug_for("Algebra -") == "algebra"
+
+
+def test_slug_collapses_separator_runs():
+    """"Aeroponics - Wikipedia" came back as "Aeroponics   Wikipedia"."""
+    assert KnowledgeBase.slug_for("Aeroponics - Wikipedia") == "aeroponics-wikipedia"
+    assert KnowledgeBase.slug_for("A   B") == "a-b"
+
+
+def test_slug_drops_punctuation_without_welding_words_together():
+    assert KnowledgeBase.slug_for("Rock & Roll") == "rock-roll"
+    assert KnowledgeBase.slug_for("C++") == "c"
+
+
+def test_slug_never_returns_empty():
+    assert KnowledgeBase.slug_for("!!!") == "untitled"
+    assert KnowledgeBase.slug_for("") == "untitled"
+
+
+def test_added_topic_round_trips_cleanly(tmp_path):
+    base = KnowledgeBase(tmp_path)
+    base.add_entry("Aeroponics - Wikipedia", "Aeroponics is soil-free cultivation. " * 30)
+    topics = [e["topic"] for e in base.list_entries()]
+    assert "Aeroponics Wikipedia" in topics
+    assert all(t == t.strip() and "  " not in t for t in topics)
+
+
+def test_remove_entry_finds_what_add_entry_wrote(tmp_path):
+    base = KnowledgeBase(tmp_path)
+    base.add_entry("- Algebra", "Algebra is a branch of mathematics. " * 30)
+    assert base.remove_entry("- Algebra")
+    assert base.list_entries() == []

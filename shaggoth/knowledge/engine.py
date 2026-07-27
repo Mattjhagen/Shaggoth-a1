@@ -44,7 +44,12 @@ class KnowledgeBase:
             content = fpath.read_text(encoding="utf-8", errors="replace").strip()
             if not content:
                 continue
-            topic = fpath.stem.replace("-", " ").replace("_", " ").title()
+            # Collapse runs of separators: "aeroponics---wikipedia" would
+            # otherwise become the topic "Aeroponics   Wikipedia", whose
+            # extra blanks break title matching.
+            topic = " ".join(
+                fpath.stem.replace("-", " ").replace("_", " ").split()
+            ).title()
             keywords = extract_keywords(content)
             entries.append(KnowledgeEntry(
                 topic=topic,
@@ -196,17 +201,28 @@ class KnowledgeBase:
         return normalized[:limit]
 
     def add_entry(self, topic: str, content: str) -> Path:
-        safe_name = re.sub(r"[^a-zA-Z0-9\s-]", "", topic).strip().lower()
-        safe_name = re.sub(r"\s+", "-", safe_name)
-        fpath = self.directory / f"{safe_name}.md"
+        fpath = self.directory / f"{self.slug_for(topic)}.md"
         fpath.write_text(content, encoding="utf-8")
         self._scan()
         return fpath
 
+    @staticmethod
+    def slug_for(topic: str) -> str:
+        """Filename stem for a topic.
+
+        The stem is the only record of the topic -- :meth:`_scan` reads it
+        back and title-cases it -- so a malformed slug becomes a malformed
+        topic permanently. A leading hyphen survived ``.strip()`` and produced
+        the entry " Algebra"; the title "Aeroponics - Wikipedia" collapsed to
+        "aeroponics---wikipedia" and came back as "Aeroponics   Wikipedia".
+        Both broke title matching in retrieval.
+        """
+        slug = re.sub(r"[^a-zA-Z0-9\s-]", " ", topic).lower()
+        slug = re.sub(r"[\s-]+", "-", slug).strip("-")
+        return slug or "untitled"
+
     def remove_entry(self, topic: str) -> bool:
-        safe_name = re.sub(r"[^a-zA-Z0-9\s-]", "", topic).strip().lower()
-        safe_name = re.sub(r"\s+", "-", safe_name)
-        fpath = self.directory / f"{safe_name}.md"
+        fpath = self.directory / f"{self.slug_for(topic)}.md"
         if fpath.exists():
             fpath.unlink()
             self._scan()

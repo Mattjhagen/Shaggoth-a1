@@ -17,13 +17,25 @@ from .engine import CuriosityEngine
 
 @dataclass
 class ScheduleConfig:
-    """Configuration for the curiosity scheduler."""
+    """Configuration for the curiosity scheduler.
+
+    The interval and threshold are deliberately low. The goal is continuous
+    learning, and the previous defaults (60 minutes / 5 messages) meant a
+    quiet hour produced nothing at all -- see :meth:`CuriosityScheduler._cycle`
+    for why that was worse than it sounds.
+    """
     enabled: bool = True
-    interval_minutes: int = 60
+    interval_minutes: int = 15
     max_topics_per_cycle: int = 3
     max_results_per_topic: int = 5
     max_pages_per_topic: int = 3
-    min_message_count: int = 5  # need this many messages before auto-research
+    min_message_count: int = 2  # need this many messages before auto-research
+
+    #: When conversation yields no topic, re-research the stalest knowledge
+    #: entry instead of idling. Without this the loop only ever learns while
+    #: someone is talking to it, which is not "always learning".
+    refresh_stale_when_idle: bool = True
+    max_stale_per_cycle: int = 1
 
 
 class CuriosityScheduler:
@@ -68,44 +80,69 @@ class CuriosityScheduler:
             self._thread.join(timeout=5)
 
     def _run_loop(self) -> None:
-        interval = self.config.interval_minutes * 60
+        interval = max(60, self.config.interval_minutes * 60)
         while not self._stop_event.is_set():
             self._stop_event.wait(interval)
             if self._stop_event.is_set():
                 break
-            self._cycle()
+            # Checked every pass, not once at startup, so toggling `enabled`
+            # on a live scheduler actually takes effect.
+            if not self.config.enabled:
+                continue
+            try:
+                self._cycle()
+            except Exception as exc:  # noqa: BLE001
+                # A failed cycle must never kill the thread. A dead thread
+                # looks identical to an idle one from outside, and the daemon
+                # would go on answering requests while silently never
+                # learning again.
+                print(f"[curiosity] cycle failed: {exc}")
 
     def _cycle(self) -> None:
         """Run one curiosity cycle: analyze buffered messages, research gaps."""
         if self.curiosity.is_running:
             return
 
+        # Peek, do not drain.
+        #
+        # This used to clear the buffer before testing it against
+        # min_message_count, so every cycle threw away whatever had
+        # accumulated. Unless five messages happened to land inside one
+        # 60-minute window, the count restarted at zero forever and the
+        # scheduler never researched anything -- which is exactly what the
+        # dashboard was reporting as STALLED: thread alive, 7 clues buffered,
+        # nothing researched in 12 hours.
         with self._lock:
             messages = list(self._message_buffer)
-            self._message_buffer.clear()
 
-        if len(messages) < self.config.min_message_count:
+        topics: list[str] = []
+        if len(messages) >= self.config.min_message_count:
+            for msg in messages:
+                topic = self.curiosity.analyze_message(msg)
+                if topic and topic not in topics:
+                    topics.append(topic)
+                if len(topics) >= self.config.max_topics_per_cycle:
+                    break
+            # Only now is the buffer spent: the messages have been analysed.
+            with self._lock:
+                del self._message_buffer[: len(messages)]
+
+        if topics:
+            for topic in topics:
+                if self.curiosity.is_running:
+                    break
+                self.curiosity.research_topic(
+                    topic,
+                    max_results=self.config.max_results_per_topic,
+                    max_pages=self.config.max_pages_per_topic,
+                    background=False,
+                )
             return
 
-        # Find topics from recent messages
-        topics: list[str] = []
-        for msg in messages:
-            topic = self.curiosity.analyze_message(msg)
-            if topic and topic not in topics:
-                topics.append(topic)
-            if len(topics) >= self.config.max_topics_per_cycle:
-                break
-
-        # Research each topic
-        for topic in topics:
-            if self.curiosity.is_running:
-                break
-            self.curiosity.research_topic(
-                topic,
-                max_results=self.config.max_results_per_topic,
-                max_pages=self.config.max_pages_per_topic,
-                background=False,
-            )
+        # Nothing to be curious about from conversation. Refresh the stalest
+        # thing it knows instead, so a quiet night still teaches it something.
+        if self.config.refresh_stale_when_idle and not self.curiosity.is_running:
+            self.curiosity.refresh_stale(max_topics=self.config.max_stale_per_cycle)
 
     def trigger(self) -> dict:
         """Manually trigger an immediate curiosity cycle.
