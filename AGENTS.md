@@ -864,3 +864,116 @@ Also killed a dead condition in the same branch:
    OAuth API with a registered app.
 5. **`gh` CLI unauthenticated** — interactive, user must run it. Git over SSH
    works and is what all pushes use.
+
+---
+
+# SESSION 2026-07-27 (~16:00–17:00 UTC) — memory, push, deferred answers
+
+Shaggoth `4252c2c`, **242 tests**. Command center `bb12d59`, 188 tests.
+
+## X. It could not hold a conversation — FIXED
+
+Reported verbatim from the UI:
+
+```
+you  > i wanted to chat
+shag > Never heard of wanted chat. Annoying. I'm reading up on it right now
+       [source: fallback -- curiosity research has been triggered]
+```
+
+Three faults at once: nonsense reply, the turn recorded as a knowledge gap,
+and curiosity then **researched "wanted chat"**. Every reply was computed from
+the current message alone, so `has it been a bit` had nothing to refer to.
+
+- **`has_subject()`** — a turn made only of filler and pronouns is
+  conversation, not a lookup. Returns `source="pattern"`, which also stops it
+  being treated as a knowledge gap.
+  ⚠️ **Runs *after* plugin dispatch.** `what is 6 * 7?` and
+  `what do you know about me?` are made entirely of filler words but are real
+  commands — the existing tests caught this immediately.
+- **`is_follow_up()`** — bare (`why?`, `go on`) *and* anaphoric
+  (`why does that matter`). Anaphoric questions never reach retrieval;
+  `why does that matter` was being answered from an article about **matter**.
+  The pattern is **anchored** and requires the pronoun to be the grammatical
+  subject: an unanchored version swallowed
+  `what is the thing THAT plants use to make sugar`.
+- **`last_subject()`** resolves by **recency, not frequency**. Ranking session
+  keywords by count answered `why?` with *"On chat?"* after a conversation
+  that said "chat" three times in passing and "photosynthesis" once on
+  purpose. Fact statements (`my name is Matt`) are skipped — they are facts,
+  not what the conversation is about.
+
+## Y. Memory compaction — BUILT
+
+`MemoryStore.conversation_context(session_id)` → recent turns verbatim, a
+compacted summary of everything older, session topics, last user message.
+`compact_session()` folds older turns into `session_summaries` once a session
+passes 40 messages, keeping the last 8 turns intact. Idempotent; extends as
+the conversation grows.
+
+**The summary is extractive on purpose** — subjects raised, questions asked,
+facts learned. There is no model here that could paraphrase honestly, and an
+invented paraphrase in long-term memory is worse than a plain list.
+
+## Z. Push notifications + deferred answers — BUILT
+
+`shaggoth/notify/`: `push.py`, `deferred.py`.
+
+- **VAPID keys at `config/vapid.json`** — gitignored, mode 0600. Public key is
+  served from `GET /push/status`. **Regenerating them invalidates every
+  existing subscription.**
+- `pip install --user --break-system-packages pywebpush` (PEP 668 blocks a
+  plain `--user` install on this box; it lands in `~/.local`, which the system
+  python3 running the service picks up).
+- **Rate-limited to one notification an hour per subscriber** — research runs
+  every 15 minutes and would otherwise buzz a phone all night.
+- A subscription returning **404/410 is dead and is dropped**; anything else is
+  transient and kept.
+- **Nothing in `notify/` may raise into a caller.** Sends fire from the request
+  handler *and* the scheduler thread; a dead phone must not take down a chat
+  reply or the learning loop.
+- `CuriosityEngine.on_episode_complete(cb)` is the hook. `serve()` registers
+  two: deliver deferred answers, and announce anything over 500 words.
+- **`GET /deferred` works without push**, and the frontend polls it — so
+  notifications are an accelerant, not a requirement.
+- Endpoints: `POST /push/subscribe|unsubscribe|test`, `GET /push/status`,
+  `GET /deferred`. Settings has enable/disable/test.
+
+## AA. Rate limiter was off exactly when it mattered — FIXED
+
+`_rate_limit` returned `True` immediately when no API key was set. The endpoint
+is public and every chat message feeds the curiosity loop, so an open endpoint
+with no limiter let anyone decide what Shaggoth reads overnight. Now 60/IP/min
+regardless of auth, with idle buckets pruned (the map was an unbounded leak on
+a public endpoint). Verified: 60 through, then 429, recovering after the window.
+
+**Auth is still unset and still the user's decision.** This is the floor, not
+a substitute.
+
+## BB. TinyGPT
+
+`torch 2.13.0+cpu` installed (`--user --break-system-packages`). Training on a
+1,033,094-word corpus rebuilt from `data/knowledge/`. numpy is absent — torch
+warns but works.
+
+```bash
+cd ~/Shaggoth-a1 && PYTHONPATH=. python3 -m shaggoth train \
+  --corpus data/corpus/knowledge_corpus.txt --model tinygpt --steps 3000
+```
+
+Writes `data/tinygpt.pt`; `build_engine()` prefers it over Markov
+automatically. **Only affects DRIFT mode** — NO_DRIFT never calls a model.
+
+## CC. Thought queue — deliberately not a third queue
+
+Two queues already exist and are wired: `DeferredQuestions` (things someone
+asked) and `CuriosityScheduler`'s topic queue (things to go read). A third
+abstraction would duplicate both. If a distinct behaviour is wanted, name it.
+
+## DD. Still open
+
+1. **Auth on the public endpoint** — user's call. Rate limiting is now on.
+2. **Reddit** — robots.txt `Disallow: /`; needs their OAuth app.
+3. **`gh` CLI** — interactive, user must run it.
+4. **`ide.relayapp.pro` → Shaggoth repoint** — needs confirmation; it would
+   leave the Archon IDE only on `app.relayapp.pro`.

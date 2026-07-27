@@ -70,5 +70,14 @@
     "answered_at": null,
     "answer": "",
     "delivered": false
+  },
+  {
+    "question": "what is palliation",
+    "topic": "palliation",
+    "session_id": "command-center-earth",
+    "asked_at": 1785169511.093376,
+    "answered_at": null,
+    "answer": "",
+    "delivered": false
   }
 ]
