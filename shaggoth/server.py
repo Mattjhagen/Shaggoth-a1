@@ -225,9 +225,26 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             return False
 
         def _rate_limit(self, key: str = "", limit: int = 60, window: float = 60.0) -> bool:
-            if not api_key:
-                return True
+            """Cap requests per client IP per minute.
+
+            This used to return True immediately when no API key was set --
+            i.e. the rate limiter was disabled exactly when it was most
+            needed. This endpoint is public and unauthenticated, and every
+            chat message feeds the curiosity loop, so an open endpoint with no
+            limiter lets anyone decide what Shaggoth spends its night reading.
+
+            Auth is still a separate question, and still the operator's call.
+            This is the floor.
+            """
             now = time.time()
+            if len(RATE_LIMITS) > 4096:
+                # An open endpoint sees a lot of distinct IPs; without this the
+                # bucket map is an unbounded memory leak.
+                for stale_key in [
+                    k for k, v in RATE_LIMITS.items() if not v or v[-1] < now - window
+                ]:
+                    RATE_LIMITS.pop(stale_key, None)
+
             bucket = RATE_LIMITS.setdefault(key, [])
             bucket[:] = [t for t in bucket if t > now - window]
             if len(bucket) >= limit:

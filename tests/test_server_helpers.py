@@ -199,3 +199,25 @@ def test_research_opt_out_is_explicit_and_defaults_on():
     assert may_research({"research": True}) is True
     assert may_research({"research": None}) is True   # unset, not a refusal
     assert may_research({"research": False}) is False
+
+
+# --------------------------------------------------------------------------
+# Rate limiting
+# --------------------------------------------------------------------------
+
+
+def test_rate_limiter_is_active_without_an_api_key():
+    """It used to switch off exactly when it was most needed.
+
+    The endpoint is public and unauthenticated, and every chat message feeds
+    the curiosity loop, so no limiter means anyone can decide what Shaggoth
+    spends its night reading.
+    """
+    import inspect
+
+    from shaggoth import server
+
+    source = inspect.getsource(server.make_handler)
+    limiter = source[source.index("def _rate_limit"):]
+    limiter = limiter[: limiter.index("def log_message")]
+    assert "if not api_key:\n                return True" not in limiter
