@@ -266,16 +266,136 @@ Only worth it once §1–§5 hold. The generator is not the bottleneck.
   *finishing a run* silently downgraded every drift reply. `auto` now means
   Markov; TinyGPT requires `model = "tinygpt"` explicitly. **Do not undo that.**
 
+
 ---
 
-## 7. What this does not solve
+## PHASE 7 — One model training another (local teacher)
+
+Proposed by the user, and the strongest idea in this document. There is
+already a teacher on the box:
+
+```
+ollama (active on r510)
+  gemma4:12b        7.6 GB
+  qwen2.5-coder:7b  4.7 GB
+39 GB RAM, 35 GB free, 16 cores, no GPU
+```
+
+**Local matters here, and not only for cost.** Shaggoth exists to be
+self-hosted with no corporate handlers — that is in its persona and it is the
+point of the project. Calling out to Anthropic or OpenAI to make it smarter
+would quietly turn it into a wrapper around someone else's model. Ollama on
+the same machine keeps that promise intact.
+
+### The rule that keeps this honest
+
+> **The teacher runs offline. It never sits in the request path.**
+
+A user question is answered by Shaggoth's own retrieval, always. The teacher
+works on the corpus and the labels *between* conversations. Break this rule and
+Shaggoth becomes a thin shell in front of gemma — which is precisely what it
+exists not to be.
+
+There is also a hard practical reason: `gemma4:12b` on 16 CPU cores with no GPU
+will manage single-digit tokens/sec. That is unusable per-request and perfectly
+fine for an overnight batch.
+
+### 7.1 Teacher as critic (replaces / augments Phase 2)
+
+Ask the teacher to judge an answer instead of regex-matching its shape.
+
+```
+prompt: Here is a question and an answer drawn from an encyclopedia.
+        Does the answer actually answer the question?
+        Reply with a verdict (good/weak/bad) and one sentence of reason.
+```
+
+Feed the verdict into `FeedbackStore` as `source="critic-llm"`, kept
+distinguishable from both regex-critic and human verdicts. **A human
+thumbs-down must always outrank both.**
+
+This is the single highest-value use: it manufactures the judgement signal
+that §1 identified as the bottleneck, at a rate no human can match, on a
+machine that is idle most of the night.
+
+### 7.2 Teacher as curator (attacks the real quality ceiling)
+
+The deepest limitation is that **every answer is a sentence lifted verbatim
+from a scraped page** — hence image captions, infobox debris, and orphaned
+parentheticals. A curator pass fixes that at the source:
+
+- Take a knowledge entry, have the teacher rewrite the lead into two or three
+  clean prose sentences.
+- Store the result as a `summary:` field **alongside** the raw content, never
+  replacing it. Retrieval prefers the clean summary; the original stays for
+  audit and re-derivation.
+- Prioritise entries in the repair queue and those the critic scores badly.
+
+This is the honest route to fluency without a model in the request path: the
+prose is generated once, offline, and served from disk thereafter.
+
+⚠️ **A curated summary is model output, not source text.** Record which model
+and when. If gemma hallucinates into a summary, that hallucination is now in
+the knowledge base wearing a citation's clothes. Keep the raw text so any
+summary can be checked and regenerated.
+
+### 7.3 Teacher as labeller
+
+- Generate the Phase 3 probe expectations from the corpus (question + which
+  entry *should* answer it), instead of hand-writing them.
+- Produce gold question→entry pairs, then tune retrieval against them:
+  `_TITLE_BOOST`, `_EXACT_TITLE_BOOST`, `_DISAMBIGUATION_PENALTY` are currently
+  hand-picked numbers. With a labelled set they can be fitted instead of
+  guessed.
+
+### 7.4 What will NOT work — do not spend time on it
+
+**Distilling into TinyGPT.** Tempting and wrong. That model could not learn the
+corpus itself (3000 steps, loss 4.15, non-words like `authibiiktiological`).
+A student that cannot fit the data will not fit a teacher's outputs either;
+distillation needs a student with the capacity to hold the mapping. Training a
+student large enough to be worth it on CPU is a multi-day job whose ceiling is
+still below the 12B teacher already installed.
+
+If a local generative model is genuinely wanted, **serve gemma directly as an
+explicit opt-in mode** and be honest that it is not homegrown — rather than
+spending a week distilling something worse.
+
+### 7.5 Build order for this phase
+
+1. `shaggoth/quality/teacher.py` — thin Ollama client. Timeouts, retries,
+   `available()` check, never raises into a caller. Model configurable;
+   default `gemma4:12b`.
+2. Critic mode first (7.1) — cheapest, and it feeds everything else.
+3. Batch runner: nightly, bounded (N entries per run), resumable, logs every
+   verdict. **Never let it run unbounded** — it will happily chew the whole
+   corpus and peg the box the tty dashboard runs on.
+4. Curator (7.2) only after critic verdicts show *which* entries are worth
+   rewriting. Rewriting all 480 blind is wasted compute.
+5. Labeller (7.3) last.
+
+### 7.6 Verify
+```bash
+curl -s localhost:11434/api/tags                    # teacher present
+curl -s localhost:8420/quality/critic-status        # verdicts produced
+uptime                                              # load while batching
+ls ~/Shaggoth-a1/data/knowledge | wc -l             # corpus not mutated
+```
+
+Run a probe suite (Phase 3) **before and after** any curator batch. If pass
+rate drops, the curator is hallucinating and must be rolled back — which is
+possible only because 7.2 keeps the raw text.
+
+---
+
+## 8. What this does not solve
 
 Say this to the user rather than letting them discover it:
 
-1. **Fluency.** Every answer is a sentence lifted from a scraped page. It will
-   never *phrase* things well, only *select* well. Fixing that means a real
-   language model behind the same interface (`DialogueEngine.respond`), which is
-   a cost and privacy decision, not an engineering one.
+1. **Fluency** — unless Phase 7.2 is built. Every answer is currently a
+   sentence lifted verbatim from a scraped page, so it can only ever *select*
+   well, never *phrase* well. The offline curator is the way out that does not
+   put a model in the request path.
 2. **Synthesis across many entries.** Reasoning compares two things. "Summarise
    what you know about X across everything you've read" is out of reach without
    a generator.
@@ -295,5 +415,11 @@ Say this to the user rather than letting them discover it:
 | 4 — escalation | large | needs 1 + 2 |
 | 5 — audit | medium | independent, safe anytime |
 | 6 — retraining | small | last |
+| 7 — local teacher | large | best long-term value; needs 1 first |
 
 **Start with phase 1 and report the result before building anything else.**
+
+If time is short, the highest-value pair is **phase 1 (prove repair) followed by
+phase 7.1 (teacher as critic)**. Together they turn "someone has to notice the
+answer was bad" into something the machine does by itself overnight — which is
+what "automate training" actually means for this system.
