@@ -1065,3 +1065,126 @@ the next restart. **`auto` now means Markov**; TinyGPT requires
 `data/parked/tinygpt-3000steps-loss4.15.pt`.
 
 Recommendation: **do not spend more CPU on it.** Retrieval is the strong path.
+
+---
+
+# SESSION 2026-07-28 (~00:30–01:30 UTC) — health check, feedback probes, races
+
+Shaggoth HEAD `b17e4c4`. Tests **310** (count grows with the corpus — the suite
+parameterizes over `data/knowledge`). Entries 782 → 802 during the session.
+
+## II. Health check — one regression the checks did not cover
+
+The three prescribed checks passed: **0** malformed slugs, curiosity growing
+(episodes 3 → **196**, entries → 782), feedback queue present. But probing
+found **HTTP 500s on causal questions**, which no counter surfaced.
+
+## JJ. Two concurrency races — latent until the scheduler was fixed
+
+Both were reachable only *because* last session repaired the scheduler. A
+background thread now rebuilds the knowledge base and writes memory constantly,
+concurrently with handler threads. This is the pattern to expect again:
+**fixing a dormant subsystem turns its latent races live.**
+
+**`knowledge/engine.py` — `IndexError: list index out of range`**
+`_scan()` did `self._entries = entries`, then `self._index = {}`, then refilled
+the index in place. `query()` reads both as separate attribute lookups, so a
+`_scan()` landing between them left the query holding old indices against the
+new, shorter list.
+⚠️ The silent half is worse than the crash: a reader landing in the window
+where `_index` was empty got **no candidates** and answered "I don't know"
+about a topic it knew. Fixed by building both locally and publishing them
+together under `_swap_lock`, with `query()` taking one snapshot.
+
+**`memory/store.py` — `sqlite3.InterfaceError`, "cannot start a transaction
+within a transaction"**
+`check_same_thread=False` only silences Python's assertion; it does **not**
+make a connection thread-safe. Wrapped in `_GuardedConnection` (RLock, rows
+fetched eagerly so no cursor outlives the lock).
+⚠️ Thread-local connections are the usual fix and are **wrong here** —
+`":memory:"` is per-connection, and both the tests and the default use it.
+
+## KK. `knowledge_is_relevant` — substring matching let anything through
+
+The body-match escape hatch was `all(word in body for word in asked)`.
+`in` is a **substring** test, so `"ice"` matched **dev·ice**, **serv·ice**,
+**pract·ice**. "why does ice float" was answered from *Data Structure
+Alignment* — which contains the C `float` type.
+Now matches on word boundaries via the existing stem rule, and requires the
+question's words to **co-occur in one sentence**. Scattered across 8,000 words
+they are evidence of nothing.
+
+## LL. Causal ranking collapsed to document order — FIXED
+
+`_pick` scored `(-focus_hits, position)`. For "why is the sky blue" every word
+is either the subject or interrogative scaffolding, so **focus was empty**,
+every sentence scored `(-0, position)`, and the sort became document order.
+Whichever candidate ranked first answered. Hence Argentina's football strip.
+
+Two changes:
+1. `_causal`/`_enumerate` **pool sentences across the top 8 title-matching
+   entries** (`_candidate_entries` + `_pick_across`) instead of committing to
+   the first. The Rayleigh entry ranked **6th** — a `limit=4` window excluded it.
+2. An **explanatory-quality tie-break** demoting naming trivia (proper-noun
+   density, naming vocabulary, four-digit years). Only bites when focus cannot
+   discriminate — exactly the broken case.
+
+Now: *"Because its wavelengths are shorter, blue light is more strongly
+scattered than the longer wavelengths"* from `Why Is The Sky Blue Part 1`.
+
+**This settled the open causal question: it is a SELECTION problem, not
+acquisition.** The answer was already in the corpus. Feedback repair
+re-researches an *entry*; it cannot make the reasoner open a different one.
+
+## MM. Feedback loop — exercised on real judgements, with a caveat
+
+15 probes across define/compare/causal/enumerate, judged by hand, 6 weak ones
+POSTed to `/feedback` with `entries_used` and notes. Queue went 0 → 6.
+
+**Verified the loop closes**: "what are the stages of mitosis" was wrong on the
+first pass, curiosity researched it, and a later ask answered correctly from
+`Mitosis Differ From Meiosis Part 1`.
+
+⚠️ **But repair is structurally unable to fix a retrieval miss.** `_repair_one`
+researches `target.topic` — the entry that was *used*. When the answer was
+wrong because the *wrong entry* was retrieved, re-researching it cannot help.
+Measured directly: researching `'Scientifically Part 3'` (the entry used for
+"why is the sky blue") added **0 entries and changed nothing**; researching the
+question added 3.
+→ **Recommendation:** on a bad judgement, also enqueue the *question's* subject.
+`target.last_question` is already stored.
+
+⚠️ **Repairs can starve.** `_cycle()` returns after conversation-driven
+research, before `_repair_one()`. With a busy chat buffer, complaints wait.
+
+## NN. Corpus quality is degrading as it grows
+
+**395 of 802 entries (49%) are `-part-N` fragments.** The acquisition path names
+entries after the *query string*, so asking a question creates entries titled
+after that question (`why-is-the-sky-blue-part-1..3`) alongside topic entries
+(`the-sky-blue-part-1..3`).
+⚠️ These score **1.0** on title match while being semantically wrong, so they
+**outrank fallback** — replacing an honest "I don't know" with confident
+nonsense. The health-check grep (`part-[0-9]+-part`) does **not** catch this
+shape; use `-part-[0-9]+\.md$`.
+
+## OO. Still open
+
+1. **Intermittent HTTP 500 under concurrent load.** Only `BrokenPipeError` in
+   the log, no root exception; the same query succeeds 3/3 in isolation. Not
+   diagnosed. Reproduce by running `/tmp/probe.py` while research is active.
+2. **"why does photosynthesis need light"** still returns bacterial membranes.
+   Its focus term (`light`) is non-empty, so the explanatory tie-break does not
+   dominate — and the membrane sentences genuinely contain "light".
+3. **Stack Exchange ingestion — not started.** Still the right next source:
+   Q&A dumps map directly onto causal questions where Wikipedia does not.
+4. **Merge to `main` — not done.**
+5. Corpus hygiene: dedupe `X-part-N` against `why-is-X-part-N`.
+
+## PP. Gotchas confirmed this session
+
+- Heredocs over `ssh` mangle quotes — `python3 - <<EOF` silently stripped
+  string literals twice. **Write the script to a file and `scp` it.**
+- `uvx pytest` exit 255 with truncated output was an SSH hiccup, not a failure;
+  the rerun passed 310.
+- Test count is **not** a fixed number — it grows with `data/knowledge`.
