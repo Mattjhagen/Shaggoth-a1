@@ -40,6 +40,7 @@ from .curiosity.engine import CuriosityEngine
 from .curiosity.scheduler import CuriosityScheduler, ScheduleConfig
 from .curiosity.topics import extract_topic_query
 from .dialogue import DialogueEngine
+from .dialogue.proactive import ProactiveChatter, ProactiveConfig
 from .knowledge.engine import KnowledgeBase
 from .learner.pipeline import LearnerPipeline
 from .feedback import FeedbackStore
@@ -165,7 +166,7 @@ def _request_mode(body: dict):
     return None
 
 
-def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None, feedback: FeedbackStore | None = None, critic: CriticLoop | None = None):
+def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None, feedback: FeedbackStore | None = None, critic: CriticLoop | None = None, proactive=None):
     class Handler(BaseHTTPRequestHandler):
         server_version = f"Shaggoth/{__version__}"
 
@@ -372,6 +373,28 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             if path == "/push/status":
                 return self._send_json(200, push.status() if push else {"available": False})
 
+            if path == "/proactive/status":
+                return self._send_json(200, proactive.status() if proactive else {"enabled": False})
+
+            if path == "/proactive/messages":
+                # Messages Shaggoth sent unprompted for a session, after a given
+                # message ID. The client polls this to surface proactive messages
+                # it hasn't displayed yet.
+                params = parse_qs(url.query)
+                session_id = (params.get("session_id") or ["default"])[0]
+                since_id = int((params.get("since_id") or ["0"])[0] or 0)
+                try:
+                    rows = engine.memory.db.execute(
+                        "SELECT id, content, ts FROM messages "
+                        "WHERE session_id = ? AND role = 'assistant' AND id > ? "
+                        "ORDER BY id ASC LIMIT 20",
+                        (session_id, since_id),
+                    ).fetchall()
+                    messages = [{"id": r[0], "text": r[1], "ts": r[2]} for r in rows]
+                except Exception:
+                    messages = []
+                return self._send_json(200, {"messages": messages})
+
             if path == "/deferred":
                 if not deferred:
                     return self._send_json(501, {"error": "deferred answers not initialized"})
@@ -533,6 +556,14 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                         400, {"error": "question and a good/bad verdict are required"}
                     )
                 return self._send_json(201, {"ok": True, **feedback.status()})
+
+            if path == "/proactive/trigger":
+                if not proactive:
+                    return self._send_json(501, {"error": "proactive chatter not initialized"})
+                body = self._read_json()
+                session_id = body.get("session_id") or "default"
+                msg = proactive.send_now(session_id)
+                return self._send_json(200, {"ok": True, "message": msg})
 
             if path == "/push/subscribe":
                 if not push:
@@ -831,14 +862,18 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     curiosity.on_episode_complete(_deliver_deferred)
     curiosity.on_episode_complete(_announce_learning)
 
+    # Proactive chatter — Shaggoth messages first, in character.
+    proactive = ProactiveChatter(engine, push)
+
     scheduler.start()
+    proactive.start()
     if critic.teacher.available():
         critic.start()
     httpd = ThreadingHTTPServer(
         (host, port),
         make_handler(
             engine, learner, api_key, curiosity, scheduler, push, deferred,
-            feedback, critic,
+            feedback, critic, proactive,
         ),
     )
     auth_status = "enabled" if api_key else "disabled"

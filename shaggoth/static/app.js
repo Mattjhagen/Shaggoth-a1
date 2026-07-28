@@ -776,6 +776,43 @@ async function checkDeferred() {
 setTimeout(checkDeferred, 2500);
 setInterval(checkDeferred, 120000);
 
+/* ---------------------------------------------------- proactive messages
+ *
+ * Shaggoth may send unprompted messages while you're away. They're stored
+ * as assistant turns in memory. We poll for new ones since the last ID we
+ * saw and inject them into the chat so they feel like live messages.
+ */
+let _lastProactiveId = 0;
+
+async function checkProactive() {
+  try {
+    const r = await fetch(
+      API + '/proactive/messages?session_id=' + encodeURIComponent(sessionId) +
+        '&since_id=' + _lastProactiveId,
+      { headers: h() }
+    );
+    const d = await readJson(r);
+    for (const msg of d.messages || []) {
+      // Skip messages from before the page loaded (they're already in history).
+      if (_lastProactiveId === 0) {
+        _lastProactiveId = msg.id;
+        continue;
+      }
+      appendMsg('assistant', msg.text, 'proactive');
+      _lastProactiveId = msg.id;
+    }
+    // After first pass just advance the watermark without showing old messages.
+    if (_lastProactiveId === 0 && (d.messages || []).length) {
+      _lastProactiveId = d.messages[d.messages.length - 1].id;
+    }
+  } catch {
+    // Background nicety — never block anything.
+  }
+}
+// First call initialises the watermark; subsequent calls surface new messages.
+setTimeout(checkProactive, 1500);
+setInterval(checkProactive, 30000);
+
 
 /* Send a judgement about an answer. A thumbs-down names the knowledge entries
  * the reply was built from, which is what turns it into a repair job rather
