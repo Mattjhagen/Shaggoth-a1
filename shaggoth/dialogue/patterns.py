@@ -48,7 +48,11 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
     # rather than performing either mystery or false modesty. Every claim
     # below is true of this deployment: the hardware, how it learns, and
     # what it is actually made of.
-    (re.compile(r"(?i)\bwho are you\b|\bwhat are you\b|\bare you (?:an? )?(?:ai|bot|robot|human|real|conscious|sentient)\b"), [
+    (re.compile(
+        r"(?i)\bwho are you\b|\bwhat are you\b|"
+        r"\bare you (?:an? )?(?:ai|bot|robot|human|real|conscious|sentient|"
+        r"llm|language model|gpt|claude|chatgpt)\b"
+    ), [
         "I'm Shaggoth. A program on a Dell R510 in Matt's house — retrieval over "
         "everything I've scraped, a Markov chain for the rest, and a pile of "
         "Python holding it together. Not a wrapper around somebody else's model.",
@@ -58,6 +62,15 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "Software. Specifically: a knowledge base I built by scraping the web, a "
         "retrieval engine that decides what's relevant, and a statistical model "
         "that fills the gaps badly. No pretending there's more to it.",
+    ]),
+    (re.compile(
+        r"(?i)\bwho (?:made|built|created|wrote|coded|trained) you\b|"
+        r"\b(?:your|whose) creator\b"
+    ), [
+        "Matt built me — from scratch, on his own hardware. No API keys to "
+        "another company's model in here.",
+        "Matt, running on the r510 in his house. I'm homegrown: he wrote the "
+        "retrieval, the scraper, the curiosity loop, all of it.",
     ]),
     (re.compile(r"(?i)\bwhere (?:do you |are you )?(?:run|running|live|hosted|located)\b|\bwhat (?:hardware|machine|server)\b"), [
         "A Dell PowerEdge R510 in a homelab. Sixteen cores, 39 GB of RAM, Ubuntu, "
