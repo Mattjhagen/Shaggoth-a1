@@ -29,13 +29,17 @@ class ScheduleConfig:
     max_topics_per_cycle: int = 3
     max_results_per_topic: int = 5
     max_pages_per_topic: int = 3
-    min_message_count: int = 2  # need this many messages before auto-research
+    min_message_count: int = 1  # Research more aggressively with just 1 message
 
     #: When conversation yields no topic, re-research the stalest knowledge
     #: entry instead of idling. Without this the loop only ever learns while
     #: someone is talking to it, which is not "always learning".
     refresh_stale_when_idle: bool = True
-    max_stale_per_cycle: int = 1
+    max_stale_per_cycle: int = 2  # Refresh 2 stale entries per cycle
+
+    #: Proactive research: search topics autonomously even without user input
+    proactive_research: bool = True
+    proactive_topics: list = None  # Topics to explore when idle; if None, auto-generate
 
 
 class CuriosityScheduler:
@@ -53,6 +57,8 @@ class CuriosityScheduler:
     ):
         self.curiosity = curiosity
         self.config = config or ScheduleConfig()
+        if self.config.proactive_topics is None:
+            self.config.proactive_topics = self._default_proactive_topics()
         #: Optional FeedbackStore. When present, entries someone marked wrong
         #: are repaired before anything is refreshed for being merely old.
         self.feedback = feedback
@@ -60,6 +66,16 @@ class CuriosityScheduler:
         self._stop_event = threading.Event()
         self._message_buffer: list[str] = []
         self._lock = threading.Lock()
+        self._explored_topics: set[str] = set()
+
+    def _default_proactive_topics(self) -> list[str]:
+        """Default topics to explore autonomously when idle."""
+        return [
+            "artificial intelligence", "machine learning", "neural networks",
+            "quantum computing", "climate science", "biotechnology",
+            "renewable energy", "space exploration", "nanotechnology",
+            "cybersecurity", "blockchain", "bioinformatics",
+        ]
 
     def record_message(self, text: str) -> None:
         """Record a user message for later analysis."""
@@ -153,6 +169,13 @@ class CuriosityScheduler:
         # teaches it something.
         if self.config.refresh_stale_when_idle and not self.curiosity.is_running:
             self.curiosity.refresh_stale(max_topics=self.config.max_stale_per_cycle)
+            return
+
+        # Proactive research: explore interesting topics autonomously
+        if (self.config.proactive_research and
+            self.config.proactive_topics and
+            not self.curiosity.is_running):
+            self._proactive_research()
 
     def _repair_one(self) -> bool:
         """Re-research the worst-performing entry. True if one was attempted."""
@@ -176,6 +199,38 @@ class CuriosityScheduler:
             background=False,
         )
         return True
+
+    def _proactive_research(self) -> None:
+        """Autonomously research interesting topics when idle.
+
+        Cycles through default topics or custom list, exploring domains
+        the system hasn't encountered in user conversation yet.
+        """
+        import random
+        if not self.config.proactive_topics or self.curiosity.is_running:
+            return
+
+        # Find a topic we haven't explored yet or rarely explored
+        candidates = [
+            t for t in self.config.proactive_topics
+            if t not in self._explored_topics
+        ]
+
+        # If all topics explored, reset and pick randomly
+        if not candidates:
+            self._explored_topics.clear()
+            candidates = self.config.proactive_topics
+
+        if candidates:
+            topic = random.choice(candidates)
+            self._explored_topics.add(topic)
+            print(f"[curiosity] proactive research: {topic!r}")
+            self.curiosity.research_topic(
+                topic,
+                max_results=self.config.max_results_per_topic,
+                max_pages=self.config.max_pages_per_topic,
+                background=False,
+            )
 
     def trigger(self) -> dict:
         """Manually trigger an immediate curiosity cycle.
