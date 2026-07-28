@@ -1070,8 +1070,32 @@ def knowledge_is_relevant(topic: str, text: str, content: str = "") -> bool:
         return True
     if len(asked) < 2 or not content:
         return False
-    body = content.lower()
-    return all(word in body for word in asked)
+    return _body_discusses(content, asked)
+
+
+def _body_discusses(content: str, asked: set[str]) -> bool:
+    """True when every question word appears together in one sentence.
+
+    Deliberately stricter than "appears somewhere in the document" on two axes.
+
+    Word boundaries: the previous substring test let "ice" match "device" and
+    "service", so a three-letter word matched most of the corpus.
+
+    Co-occurrence: words scattered across a long article are evidence of
+    nothing -- an encyclopedia entry contains most common words eventually.
+    Appearing in the same sentence is what distinguishes "this document
+    discusses the subject" from "these words happen to be in here".
+    """
+    for sentence in _SENTENCE_SPLIT.split(content):
+        tokens = set(re.findall(r"[a-z0-9]+", sentence.lower()))
+        if not tokens:
+            continue
+        if all(
+            any(_stem_match(word, token) for token in tokens)
+            for word in asked
+        ):
+            return True
+    return False
 
 
 def _snippet(text: str, limit: int = 80) -> str:

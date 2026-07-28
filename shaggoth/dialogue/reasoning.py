@@ -199,6 +199,41 @@ _ENUM_MARKER = re.compile(
 _REFERRING = re.compile(r"^\s*(?:it|its|they|their|these|those|this|such)\b", re.I)
 
 
+#: Vocabulary of naming and branding: a sentence about what something is
+#: *called*, not about why it behaves as it does.
+_NAMING = re.compile(
+    r"\b(known as|named after|nicknamed?|nickname|adopted|jersey|kit|strip|"
+    r"logo|branding|abbreviated|refers to the name|so-called|dubbed)\b",
+    re.I,
+)
+
+
+def _explanatory_score(sentence: str) -> int:
+    """How much a sentence reads like an explanation rather than trivia.
+
+    Used only as a tie-break, and only matters when the question offers no
+    focus term to rank by -- at which point the previous scoring collapsed to
+    document order and the first candidate entry always won.
+    """
+    score = 0
+
+    # Proper nouns after the first word: the signature of naming trivia.
+    propers = [
+        word
+        for index, word in enumerate(sentence.split())
+        if index > 0 and word[:1].isupper() and not word.isupper()
+    ]
+    score -= min(len(propers), 6)
+
+    if _NAMING.search(sentence):
+        score -= 4
+
+    # Four-digit years are almost always historical or sporting detail.
+    score -= min(len(re.findall(r"\b(1[89]|20)\d{2}\b", sentence)), 3)
+
+    return score
+
+
 def _pick(sentences, marker, topic_words, limit, min_len=40, focus=None):
     """Sentences matching ``marker``, best first.
 
@@ -229,16 +264,19 @@ def _pick(sentences, marker, topic_words, limit, min_len=40, focus=None):
         if not on_topic:
             continue
         hits = sum(1 for word in focus if word in lowered)
-        # Earlier sentences win ties: encyclopedia articles put the
+        # Focus hits dominate. Explanatory quality only breaks ties -- but it
+        # is the whole ranking when the question has no focus term, which is
+        # when this previously degenerated to document order.
+        # Earlier sentences win remaining ties: encyclopedia articles put the
         # load-bearing explanation near the top.
-        scored.append((-hits, position, sentence))
+        scored.append((-hits, -_explanatory_score(sentence), position, sentence))
 
     scored.sort()
     # If anything actually addressed the question, do not dilute it with
     # sentences that merely contain a causal marker.
     if focus and scored and scored[0][0] < 0:
         scored = [row for row in scored if row[0] < 0]
-    return [sentence for _hits, _pos, sentence in scored[:limit]]
+    return [sentence for _hits, _quality, _pos, sentence in scored[:limit]]
 
 
 #: Interrogative scaffolding: present in the question, never the answer.
@@ -276,6 +314,48 @@ class Reasoner:
         self.relevant = relevant
 
     # -- entry lookup ------------------------------------------------------
+
+    def _candidate_entries(self, subject: str, limit: int = 4) -> list:
+        """Entries plausibly about ``subject``, best first.
+
+        `_best_entry` returns only the top match, which is right for a
+        comparison (one entry per side) but wrong for an explanation: several
+        articles can match a subject's title equally well and only one of them
+        actually explains anything. Pooling lets ranking decide, rather than
+        letting retrieval order decide for it.
+        """
+        wanted = _topic_words(subject)
+        if not wanted:
+            return []
+        out = []
+        for entry, _score in self.knowledge.query(subject, limit=8, min_score=0.2):
+            if wanted & _topic_words(entry.topic):
+                out.append(entry)
+                if len(out) >= limit:
+                    break
+        return out
+
+    def _pick_across(self, entries: list, marker, subject: str, focus: set,
+                     limit: int = 3):
+        """Rank sentences from every candidate entry together.
+
+        Returns (sentences, entry_topics_that_contributed).
+        """
+        pool: list = []
+        owner: dict = {}
+        for entry in entries:
+            for sentence in self.sentences(entry.content):
+                if sentence not in owner:
+                    owner[sentence] = entry.topic
+                    pool.append(sentence)
+        picked = _pick(pool, marker, _topic_words(subject), limit=limit,
+                       focus=focus)
+        used = []
+        for sentence in picked:
+            topic = owner.get(sentence)
+            if topic and topic not in used:
+                used.append(topic)
+        return picked, used
 
     def _best_entry(self, subject: str):
         """The entry actually about ``subject``, or None."""
@@ -371,27 +451,32 @@ class Reasoner:
         steps = [Step("intent", "causal -- looking for explanation, not definition")]
         steps.append(Step("subject", subject))
 
-        entry = self._best_entry(subject)
-        if entry is None:
+        entries = self._candidate_entries(subject, limit=8)
+        if not entries:
             return None
-        steps.append(Step("lookup", f"{subject} -> {entry.topic}"))
+        steps.append(Step(
+            "lookup",
+            f"{subject} -> {', '.join(e.topic for e in entries)}",
+        ))
 
         focus = _topic_words(question) - _topic_words(subject) - _QUESTION_WORDS
         if focus:
             steps.append(Step("focus", ", ".join(sorted(focus))))
-        picked = _pick(
-            self.sentences(entry.content), _CAUSAL_MARKER,
-            _topic_words(subject), limit=3, focus=focus,
+        picked, used = self._pick_across(
+            entries, _CAUSAL_MARKER, subject, focus, limit=3,
         )
         if not picked:
-            steps.append(Step("result", "no explanatory sentences in that entry"))
+            steps.append(Step("result", "no explanatory sentences in any candidate"))
             return None
-        steps.append(Step("select", f"{len(picked)} explanatory sentence(s)"))
+        steps.append(Step(
+            "select",
+            f"{len(picked)} explanatory sentence(s) from {', '.join(used)}",
+        ))
         return Reasoned(
             answer=" ".join(picked),
             intent=Intent.CAUSAL,
             steps=steps,
-            entries_used=[entry.topic],
+            entries_used=used,
         )
 
     # -- enumeration -------------------------------------------------------
@@ -403,23 +488,28 @@ class Reasoner:
         steps = [Step("intent", "enumerate -- looking for a list, not a definition")]
         steps.append(Step("subject", subject))
 
-        entry = self._best_entry(subject)
-        if entry is None:
+        entries = self._candidate_entries(subject, limit=8)
+        if not entries:
             return None
-        steps.append(Step("lookup", f"{subject} -> {entry.topic}"))
+        steps.append(Step(
+            "lookup",
+            f"{subject} -> {', '.join(e.topic for e in entries)}",
+        ))
 
         focus = _topic_words(question) - _topic_words(subject) - _QUESTION_WORDS
-        picked = _pick(
-            self.sentences(entry.content), _ENUM_MARKER,
-            _topic_words(subject), limit=3, focus=focus,
+        picked, used = self._pick_across(
+            entries, _ENUM_MARKER, subject, focus, limit=3,
         )
         if not picked:
-            steps.append(Step("result", "nothing enumerating in that entry"))
+            steps.append(Step("result", "nothing enumerating in any candidate"))
             return None
-        steps.append(Step("select", f"{len(picked)} enumerating sentence(s)"))
+        steps.append(Step(
+            "select",
+            f"{len(picked)} enumerating sentence(s) from {', '.join(used)}",
+        ))
         return Reasoned(
             answer=" ".join(picked),
             intent=Intent.ENUMERATE,
             steps=steps,
-            entries_used=[entry.topic],
+            entries_used=used,
         )
