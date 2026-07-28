@@ -1,7 +1,7 @@
 import unittest
 
 from shaggoth.dialogue import DialogueEngine
-from shaggoth.dialogue.engine import DRIFT, NO_DRIFT
+from shaggoth.dialogue.engine import DRIFT, NO_DRIFT, compose_greeting
 from shaggoth.guardrails import GuardrailEngine
 from shaggoth.memory import MemoryStore
 
@@ -21,6 +21,38 @@ class DialogueTests(unittest.TestCase):
         reply = engine.respond("hello!", session_id="s1")
         self.assertEqual(reply.source, "pattern")
         self.assertTrue(reply.text)
+
+    def test_greeting_cold_start_never_cites_zero_topics(self):
+        for _ in range(20):
+            line = compose_greeting(0, "")
+            self.assertNotIn("0 topic", line)
+
+    def test_greeting_zero_knowledge_researching_no_crash(self):
+        # knowledge_count == 0 with is_researching=True must not divide by
+        # zero computing the stale-ratio situational clause.
+        for _ in range(20):
+            line = compose_greeting(0, "", is_researching=True, research_topic="x")
+            self.assertTrue(line)
+
+    def test_greeting_cites_live_state(self):
+        seen = {"stale": False, "repair": False, "researching": False}
+        for _ in range(200):
+            line = compose_greeting(
+                100, "gravity",
+                stale_count=90, episodes=5, repair_queue=3,
+                is_researching=True, research_topic="quantum entanglement",
+            )
+            if "stale" in line:
+                seen["stale"] = True
+            if "flagged wrong" in line:
+                seen["repair"] = True
+            if "quantum entanglement" in line:
+                seen["researching"] = True
+        self.assertTrue(all(seen.values()), seen)
+
+    def test_greeting_is_varied(self):
+        lines = {compose_greeting(50, "algebra") for _ in range(50)}
+        self.assertGreater(len(lines), 10)
 
     def test_guardrail_blocks_before_generation(self):
         engine = make_engine()

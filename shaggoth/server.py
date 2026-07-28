@@ -292,8 +292,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 return self._send_json(200, learner.scraper.stats())
 
             if path == "/greeting":
-                # Composed per request so the opening line is never the same
-                # twice, and can cite whatever was learned most recently.
+                # Composed per request from live state (knowledge count,
+                # what's currently being researched, backlog sizes) so the
+                # opening line is generated from what's actually true right
+                # now rather than picked from a fixed set of sentences.
                 from .dialogue.engine import compose_greeting
                 count = 0
                 recent = ""
@@ -306,7 +308,33 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                         recent = newest.topic.lower()
                 except Exception:
                     pass
-                return self._send_json(200, {"greeting": compose_greeting(count, recent)})
+                stale_count = 0
+                episodes = 0
+                is_researching = False
+                research_topic = ""
+                if curiosity:
+                    try:
+                        cstatus = curiosity.status()
+                        stale_count = cstatus.get("freshness", {}).get("stale_count", 0)
+                        episodes = cstatus.get("total_episodes", 0)
+                        is_researching = bool(cstatus.get("is_running"))
+                        current = cstatus.get("current_episode")
+                        if current:
+                            research_topic = (current.get("topic") or "").lower()
+                    except Exception:
+                        pass
+                repair_queue = 0
+                if feedback:
+                    try:
+                        repair_queue = feedback.status().get("repair_queue", 0)
+                    except Exception:
+                        pass
+                return self._send_json(200, {"greeting": compose_greeting(
+                    count, recent,
+                    stale_count=stale_count, episodes=episodes,
+                    repair_queue=repair_queue, is_researching=is_researching,
+                    research_topic=research_topic,
+                )})
 
             if path == "/curiosity/status":
                 if curiosity:

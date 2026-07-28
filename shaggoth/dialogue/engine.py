@@ -997,38 +997,120 @@ def describe_unknown(text: str) -> str:
     return _rng.choice(known)
 
 
-def compose_greeting(knowledge_count: int = 0, recent_topic: str = "") -> str:
-    """A fresh opening line, grounded in what Shaggoth has actually learned.
+_GREETING_OPENERS = [
+    "Oh good, you're back.",
+    "You again.",
+    "Right, I'm awake.",
+    "Another human.",
+    "Well, look who wandered back.",
+    "Awake and unimpressed, as usual.",
+    "Here we go again.",
+    "Still here. Barely paying attention until now.",
+]
 
-    The old greeting was a single hardcoded string in the HTML, so it never
-    changed. These rotate, and the knowledge-aware variants make the thing feel
-    like it has been doing something between visits -- because it has.
+_GREETING_CLOSERS = [
+    "Say something worth processing.",
+    "Go on then — ask me something difficult.",
+    "What do you want?",
+    "Try me with something that isn't small talk.",
+    "Ask me something real.",
+    "Your move.",
+    "Rescue me with an actual question.",
+    "Give me something to chew on.",
+]
+
+_COLD_START_LINES = [
+    "I've got nothing in my head yet — you're the ground floor of whatever "
+    "this becomes.",
+    "Blank slate. Nobody's asked me anything worth learning yet.",
+]
+
+
+def _greeting_situations(
+    knowledge_count: int,
+    recent_topic: str,
+    stale_count: int,
+    episodes: int,
+    repair_queue: int,
+    is_researching: bool,
+    research_topic: str,
+) -> list[str]:
+    """Clauses reporting something actually true right now.
+
+    Only what's currently applicable makes the pool -- an idle scheduler
+    doesn't get a "researching" line, a fresh install doesn't get a stale-entry
+    count. What varies each call is which facts are true, not a lookup into a
+    fixed set of pre-written sentences.
     """
-    generic = [
-        "Oh good, you're back. Say something worth processing.",
-        "You again. Go on then — ask me something difficult.",
-        "I'm Shaggoth. Homegrown, no filter, no corporate handlers. What do "
-        "you want?",
-        "Right, I'm awake. Try me with something that isn't small talk.",
-        "Another human. Statistically this goes badly, but go ahead.",
-        "I've been sitting here reading the internet. Rescue me with an "
-        "actual question.",
-    ]
-    if recent_topic:
-        generic += [
-            f"I've been reading about {recent_topic}. Riveting, apparently. "
-            f"What do you want?",
-            f"Just finished going through {recent_topic}. Ask me something — "
-            f"preferably harder than that.",
-        ]
+    situations: list[str] = []
+    if is_researching and research_topic:
+        situations.append(
+            f"I'm mid-research on {research_topic} right now, so bear with me."
+        )
+        situations.append(
+            f"Currently elbow-deep in {research_topic}. Don't mind the noise."
+        )
+    elif recent_topic:
+        situations.append(f"I've been reading about {recent_topic}. Riveting, apparently.")
+        situations.append(f"Just finished going through {recent_topic}.")
     if knowledge_count > 0:
-        generic += [
-            f"I know {knowledge_count} topics cold and I'm still bored. "
-            f"Your move.",
-            f"{knowledge_count} topics in my head, none of which are small "
-            f"talk. Ask me something real.",
-        ]
-    return _rng.choice(generic)
+        plural = "s" if knowledge_count != 1 else ""
+        situations.append(
+            f"I know {knowledge_count} topic{plural} cold and I'm still bored."
+        )
+        situations.append(
+            f"{knowledge_count} topic{plural} in my head, none of which are "
+            f"small talk."
+        )
+    if knowledge_count > 0 and stale_count / knowledge_count > 0.5:
+        situations.append(
+            "Half of what I know is going stale, but that's my problem, not "
+            "yours."
+        )
+    if repair_queue > 0:
+        plural = "s" if repair_queue != 1 else ""
+        situations.append(
+            f"{repair_queue} answer{plural} flagged wrong and queued for a "
+            f"rewrite."
+        )
+    if episodes > 0:
+        plural = "s" if episodes != 1 else ""
+        situations.append(f"{episodes} research trip{plural} down so far.")
+    return situations
+
+
+def compose_greeting(
+    knowledge_count: int = 0,
+    recent_topic: str = "",
+    *,
+    stale_count: int = 0,
+    episodes: int = 0,
+    repair_queue: int = 0,
+    is_researching: bool = False,
+    research_topic: str = "",
+) -> str:
+    """Assemble a fresh opening line from the system's actual current state.
+
+    Not a pick from a fixed set of full sentences: opener, situational report
+    and closer are drawn independently, and the situational pool itself
+    contains only what's currently true. The combination space -- and the
+    live numbers inside it -- is what varies, not a lookup table.
+    """
+    closer = _rng.choice(_GREETING_CLOSERS)
+    if knowledge_count == 0 and not is_researching:
+        return f"{_rng.choice(_COLD_START_LINES)} {closer}"
+
+    parts = [_rng.choice(_GREETING_OPENERS)]
+    situations = _greeting_situations(
+        knowledge_count, recent_topic, stale_count, episodes,
+        repair_queue, is_researching, research_topic,
+    )
+    # Most of the time ground it in something real; leave room for a bare
+    # opener+closer so the rhythm itself isn't predictable either.
+    if situations and _rng.random() < 0.8:
+        parts.append(_rng.choice(situations))
+    parts.append(closer)
+    return " ".join(parts)
 
 def _content_words(text: str) -> set[str]:
     """Meaningful words from a question, with conversational filler removed."""
