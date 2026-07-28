@@ -33,6 +33,7 @@ from ..personality.engine import PersonalityEngine
 from ..plugins import PluginRegistry, default_registry
 from .patterns import PatternEngine
 from .reasoning import Reasoner
+from ..curiosity.search import search_web
 
 
 #: Associative mode. The Markov model may speak, the knowledge teaser may
@@ -117,6 +118,7 @@ class DialogueEngine:
             self.knowledge,
             summarize=summarize_entry_scored,
             sentences=_clean_sentences,
+            search=search_web,
         )
         self.bot_name = bot_name
         self.recall_threshold = recall_threshold
