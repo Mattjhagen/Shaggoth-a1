@@ -317,8 +317,47 @@ class Reasoner:
         self.sentences = sentences
         self.relevant = relevant
         self.search = search
+        self._search_cache: set[str] = set()
 
     # -- web search --------------------------------------------------------
+
+    def _add_search_to_knowledge(self, query: str, results: list) -> None:
+        """Add web search results to the knowledge base.
+
+        Formats search results as a new knowledge entry to improve future answers.
+        Avoids duplicates via query deduplication.
+        """
+        if not self.knowledge or not results:
+            return
+
+        # Skip if we've already added this query
+        if query in self._search_cache:
+            return
+        self._search_cache.add(query)
+
+        # Format results as a knowledge entry
+        formatted_results = []
+        for result in results:
+            if hasattr(result, 'title') and hasattr(result, 'snippet'):
+                title = result.title
+                snippet = result.snippet
+                url = getattr(result, 'url', '')
+            elif isinstance(result, dict):
+                title = result.get('title', 'Result')
+                snippet = result.get('snippet', '')
+                url = result.get('url', '')
+            else:
+                continue
+
+            if snippet:
+                formatted_results.append(f"{title}: {snippet} (source: {url})")
+
+        if formatted_results:
+            content = "\n".join(formatted_results)
+            try:
+                self.knowledge.add_entry(f"Web Search: {query}", content)
+            except Exception:
+                pass
 
     def _search_web(self, query: str, limit: int = 3) -> tuple[list[str], list]:
         """Perform web search and return formatted snippets with sources.
@@ -334,6 +373,9 @@ class Reasoner:
             results = self.search(query, limit)
         except Exception:
             return [], []
+
+        # Add search results to knowledge base for future use
+        self._add_search_to_knowledge(query, results)
 
         snippets = []
         for result in results:
