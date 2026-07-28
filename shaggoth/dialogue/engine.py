@@ -24,6 +24,7 @@ import re
 import time
 from dataclasses import dataclass, field
 
+from ..curiosity.topics import base_topic
 from ..guardrails import GuardrailEngine
 from ..knowledge.engine import KnowledgeBase
 from ..memory.store import extract_keywords
@@ -270,6 +271,17 @@ class DialogueEngine:
                         f"lookup: {candidate.topic}",
                         "select: definitional lead sentence",
                     ]
+                    extra = pull_cross_entry_fact(
+                        candidate.topic, _topic_tokens_for(candidate.topic),
+                        knowledge_hits, body,
+                    )
+                    if extra:
+                        extra_sentence, extra_topic = extra
+                        body = _synthesize([body, extra_sentence])
+                        entries_used.append(extra_topic)
+                        reasoning_steps.append(
+                            f"synthesize: supporting fact from {extra_topic}"
+                        )
                     break
                 if best_loose is None:
                     best_loose = summary
@@ -588,6 +600,17 @@ _INDEX_FURNITURE = re.compile(
     re.I,
 )
 
+# Image/figure captions: "Composite image showing the global distribution of
+# photosynthesis...", "Schematic of a gravitational field". These are full,
+# well-formed sentences that pass every other filter, but describe a picture
+# rather than the subject -- harmless as filler deep in an article, but
+# jarring once stitched into a synthesized answer as if it were a fact.
+_CAPTION_OPENER = re.compile(
+    r"^(?:image|photo|photograph|diagram|illustration|composite image|"
+    r"schematic|map|chart|graph|figure|infographic)\b",
+    re.I,
+)
+
 
 def _is_list_debris(sentence: str) -> bool:
     """True for disambiguation runs and index rows rather than prose."""
@@ -599,6 +622,8 @@ def _is_list_debris(sentence: str) -> bool:
     if _WORK_ENTRY.search(sentence):
         return True
     if _INDEX_FURNITURE.search(sentence):
+        return True
+    if _CAPTION_OPENER.match(sentence.strip()):
         return True
 
     # A closing bracket with no opener means the sentence splitter cut into
@@ -652,6 +677,40 @@ def _is_definitional(sentence: str, topic_words: set[str]) -> bool:
     if topic_words & head_set:
         return True
     return any(_stem_match(t, w) for t in topic_words for w in head_set)
+
+
+def _lower_first(s: str) -> str:
+    return s[:1].lower() + s[1:] if s else s
+
+
+# Transitions used to stitch supporting sentences onto the lead definition.
+# Plain concatenation read as pasted-together encyclopedia lines; varying the
+# join -- chosen per call, so the same entry doesn't always read identically
+# -- is what makes a multi-sentence answer feel assembled rather than copied.
+_SYNTHESIS_JOINERS = [
+    lambda s: s,
+    lambda s: f"Also, {_lower_first(s)}",
+    lambda s: f"On top of that, {_lower_first(s)}",
+    lambda s: f"It's also worth knowing that {_lower_first(s)}",
+    lambda s: f"Worth noting: {_lower_first(s)}",
+    lambda s: f"And {_lower_first(s)}",
+]
+
+
+def _synthesize(sentences: list[str]) -> str:
+    """Join a lead sentence and its supporting facts as composed prose.
+
+    The lead sentence is left untouched -- it is the actual definition and
+    should read as one. Only sentences appended *after* it get a transition,
+    since those are the ones that used to read as a second lifted line bolted
+    on with a bare space.
+    """
+    if not sentences:
+        return ""
+    parts = [sentences[0]]
+    for s in sentences[1:]:
+        parts.append(_rng.choice(_SYNTHESIS_JOINERS)(s))
+    return " ".join(parts).strip()
 
 
 def summarize_entry(
@@ -725,7 +784,54 @@ def summarize_entry_scored(
         picked.append(s)
         total += len(s) + 1
 
-    return " ".join(picked).strip(), is_definition
+    return _synthesize(picked), is_definition
+
+
+def pull_cross_entry_fact(
+    primary_topic: str,
+    topic_words: set[str],
+    candidates: list[tuple],
+    already: str,
+) -> tuple[str, str] | None:
+    """One more on-topic sentence from a same-subject continuation entry.
+
+    A definitional answer used to stop at the first matching article, even
+    though long sources are split across several entries ("Gravity", "Gravity
+    Part 2", ...). Pulling one extra fact from a later chunk of the *same*
+    source turns a single-source answer into one actually assembled from more
+    than one thing Shaggoth has read -- real synthesis, not a longer lift
+    from the same place.
+
+    Deliberately restricted to entries sharing the primary's ``base_topic``
+    (a true continuation chunk), not "any entry whose title mentions the
+    topic word" -- that looser check pulled TV-show trivia into a physics
+    answer ("Gravity" vs "Gravity Falls") and manga plot into a molecular
+    biology answer ("Dna" vs the DNA disambiguation gloss), the exact
+    same-title-different-subject trap `knowledge_is_relevant` exists to
+    avoid elsewhere. A short candidate is also rejected -- image captions
+    ("schematic of photosynthesis in plants") pass every other filter but
+    read as debris once stitched into prose.
+
+    Returns ``(sentence, source_topic)`` so the caller can attribute it --
+    the feedback loop keys repairs off which entries a reply actually used.
+    """
+    primary_base = base_topic(primary_topic).lower()
+    for entry, _score in candidates:
+        if entry.topic == primary_topic:
+            continue
+        if base_topic(entry.topic).lower() != primary_base:
+            continue
+        for sentence in _clean_sentences(entry.content):
+            if sentence in already:
+                continue
+            if len(sentence.split()) < 8:
+                continue
+            if not _mentions_topic(sentence, topic_words):
+                continue
+            if _is_list_debris(sentence):
+                continue
+            return sentence, entry.topic
+    return None
 
 
 def _proper_nouns(text: str) -> list[str]:
