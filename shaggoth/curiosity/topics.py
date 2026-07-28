@@ -21,6 +21,8 @@ TOPIC_PATTERNS: list[re.Pattern] = [
     re.compile(r"(?i)\bwho (?:is|are|was|were)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\b(?:define|definition of)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\b(?:difference between|versus|vs\.?)\s+(.+?)[?.!]*$"),
+    re.compile(r"(?i)\b(?:movies|films|shows?|books?|articles?|news|updates?|information) (?:with|on|about|for|by)\s+(.+?)[?.!]*$"),
+    re.compile(r"(?i)\bany (?:news|updates?|information) (?:on|about)\s+(.+?)[?.!]*$"),
 ]
 
 

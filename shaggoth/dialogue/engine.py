@@ -353,8 +353,11 @@ class DialogueEngine:
 
         # Record deferred questions and notify when research starts
         if source == "fallback" and self.deferred_questions:
-            topic = (text or "").strip()
-            deferred = self.deferred_questions.record(text, topic, session_id=session_id)
+            from ..curiosity.topics import extract_topic_query
+            topic = extract_topic_query(text)
+            deferred = None
+            if topic:
+                deferred = self.deferred_questions.record(text, topic, session_id=session_id)
             if deferred and self.push_sender:
                 # Notify user that we're researching their question
                 try:
