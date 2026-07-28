@@ -1503,3 +1503,49 @@ Full command-center suite **205 passed**.
 3. Feedback repair backlog (7-8) and 65% stale -- the scheduler is draining
    slowly; section MM's note (also enqueue the question's subject on a bad
    judgement) still stands.
+
+## WW. Made TinyGPT trainable on r510 in ~12 min (user chose this over parking it)
+
+Follow-up to SS. The generative path is now *runnable* on this box; the model
+is still incoherent, and the gate now proves it on a REAL checkpoint.
+
+**Two fixes:**
+
+1. **Fast BPE tokenizer** (`shaggoth/models/tokenizer.py`). Rewrote
+   `BPETokenizer.train()` from an O(merges x corpus) full rescan to incremental
+   pair counting (build the pair table + a pair->words index once, update only
+   the words each merge touches). On the 9.7 MB corpus: **vocab 2048 went from
+   ~16 min to 23 s; small vocab ~3 s.** Roundtrip/determinism locked in by
+   `tests/test_tokenizer.py`. This also removed the ~16-min single-core CPU
+   soak that immediately preceded both SIGILL crashes -- **the crash did not
+   recur** once the tokenizer was fast (supports the thermal-fault theory).
+
+2. **Small model config** (retrain script defaults). `vocab 1024, block 96,
+   n_layer 2, n_head 3, n_embd 96` (~0.44 M params, char-level since the corpus
+   has ~1030 unique chars). **2000 steps in 12.4 min, no crash**, threads
+   capped at 4. Override with `--vocab/--block/--layers/--heads/--embd` for a
+   bigger box. Perplexity eval is capped to a 400 KB slice (the full-corpus
+   stride was slower than training itself); candidate and live are scored on
+   the same slice.
+
+**Real end-to-end result (this is the gate proving itself on a real run):**
+- perplexity **12.09** (looks fine!) · loss 2.49
+- coherence ratio **0.51** -> **REJECTED** ("text reads as non-words")
+- samples, verbatim: `'the sky is' -> 'tion. [ : 3 1 ] Mert the tite the
+  splall'`, `'water is' -> 't ad oort thappe the medrit ors. The fac'`
+  -- real words welded to non-words (`Mert`, `splall`, `fomateten`).
+
+So: **low perplexity, garbage text, gate says no** -- exactly the trap the
+coherence check exists for, demonstrated on a checkpoint that was actually
+trained on this box (not simulated). Decision + samples are appended to
+`data/retrain_log.jsonl`; the candidate is parked at `data/tinygpt.pt.rejected`;
+live is untouched; serve stays on Markov.
+
+**The daily timer is now safe to enable on r510** (finishes in minutes; the gate
+refuses to promote garbage; `model=auto` means serve ignores the file anyway).
+`systemctl --user enable --now shaggoth-retrain.timer`. It will REJECT nightly
+until the model can actually form words -- which this size won't; it is a live
+loop that will promote automatically if the corpus/model ever gets there, with
+every attempt logged. To make it *coherent* you need a bigger model (back to
+hours on this CPU) or a better box -- unchanged from SS's recommendation that
+retrieval remains the strong path.

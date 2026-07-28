@@ -79,10 +79,19 @@ def rebuild_corpus(knowledge_dir: Path, corpus_path: Path) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Retrain + gate + promote TinyGPT")
-    ap.add_argument("--steps", type=int, default=5000)
+    ap.add_argument("--steps", type=int, default=2000)
     ap.add_argument("--data-dir", default="data")
     ap.add_argument("--dry-run", action="store_true",
                     help="run gate but never promote (still logs)")
+    # Small-by-default config so a full run finishes in minutes on r510-1's
+    # pre-AVX Xeon (see AGENTS.md section SS). The full default config
+    # (vocab 2048, block 256, 4 layer) is ~4.3 s/step -> ~6h and has SIGILL'd
+    # on this box; these dims train in ~10-15 min. Override for a beefier box.
+    ap.add_argument("--vocab", type=int, default=1024)
+    ap.add_argument("--block", type=int, default=96)
+    ap.add_argument("--layers", type=int, default=2)
+    ap.add_argument("--heads", type=int, default=3)
+    ap.add_argument("--embd", type=int, default=96)
     args = ap.parse_args()
 
     data = Path(args.data_dir)
@@ -99,7 +108,7 @@ def main() -> int:
     # torch import is deferred so a torch-less environment fails loudly here
     # rather than half way through.
     try:
-        from shaggoth.models.tinygpt import TinyGPTModel, TORCH_AVAILABLE
+        from shaggoth.models.tinygpt import TinyGPTModel, GPTConfig, TORCH_AVAILABLE
         from shaggoth.models.eval import perplexity
         from shaggoth.models import promote as gate
     except Exception as exc:
@@ -132,7 +141,10 @@ def main() -> int:
         if os.path.exists(s):
             os.remove(s)
     t0 = _ts()
-    model = TinyGPTModel()
+    cfg = GPTConfig(vocab_size=args.vocab, block_size=args.block,
+                    n_layer=args.layers, n_head=args.heads, n_embd=args.embd)
+    print(f"[retrain] config: {cfg}")
+    model = TinyGPTModel(cfg)
     model.train(text, steps=args.steps, log_every=max(args.steps // 10, 1))
     model.save(staging_pt)
     train_secs = _ts() - t0
@@ -140,8 +152,15 @@ def main() -> int:
     print(f"[retrain] trained {args.steps} steps in {train_secs/60:.1f} min "
           f"-> {staging_pt}")
 
-    # 3. eval staging
-    cand = perplexity(model.model, text, model.tokenizer, model.cfg.block_size)
+    # 3. eval staging. Perplexity strides over the corpus one window at a
+    # time, so scoring the full ~10 MB would take longer than training. A
+    # representative slice is enough for a promote/reject comparison; both the
+    # candidate and the live checkpoint are scored on the SAME slice so the
+    # comparison is fair. Coherence vocab still uses the FULL corpus (it must
+    # know every real word).
+    EVAL_CHARS = 400_000
+    eval_text = text[:EVAL_CHARS]
+    cand = perplexity(model.model, eval_text, model.tokenizer, model.cfg.block_size)
     cand_ppl = float(cand["perplexity"])
     vocab = gate.corpus_vocabulary(text)
     coh = gate.coherence_report(model, vocab)
@@ -158,8 +177,8 @@ def main() -> int:
         try:
             live_model = TinyGPTModel()
             live_model.load(live_pt)
-            live_eval = perplexity(live_model.model, text, live_model.tokenizer,
-                                   live_model.cfg.block_size)
+            live_eval = perplexity(live_model.model, eval_text,
+                                   live_model.tokenizer, live_model.cfg.block_size)
             live_ppl = float(live_eval["perplexity"])
         except Exception as exc:
             print(f"[retrain] warning: could not eval live checkpoint: {exc}")

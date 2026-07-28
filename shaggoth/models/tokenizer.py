@@ -23,33 +23,58 @@ class BPETokenizer:
         return tok
 
     def train(self, text: str) -> None:
+        """Learn BPE merges from ``text``.
+
+        Incremental pair counting: the pair-frequency table and a pair->words
+        index are built once, then only the words touched by each merge are
+        updated. The old implementation rebuilt the whole pair table on every
+        merge -- O(merges x corpus), ~16 min on a 10 MB corpus, which is what
+        made retraining impractical. This is roughly O(corpus + merges x
+        affected), seconds on the same input.
+        """
         words = _PATTERN.findall(text)
+        freqs = Counter(words)
+
         vocab = set()
-        for word in words:
-            for ch in word:
-                vocab.add(ch)
+        for word in freqs:
+            vocab.update(word)
         self.vocab = sorted(vocab)
 
-        splits = {word: list(word) for word in set(words)}
-        freqs = Counter(words)
-        merges: list[tuple[tuple[str, str], str]] = []
+        splits: dict[str, list[str]] = {word: list(word) for word in freqs}
 
+        def pairs_of(split: list[str]) -> list[tuple[str, str]]:
+            return [(split[i], split[i + 1]) for i in range(len(split) - 1)]
+
+        # Global pair frequency + which words currently contain each pair.
+        pair_freq: Counter = Counter()
+        pair_words: dict[tuple[str, str], set] = defaultdict(set)
+        for word, split in splits.items():
+            f = freqs[word]
+            for p in pairs_of(split):
+                pair_freq[p] += f
+            for p in set(pairs_of(split)):
+                pair_words[p].add(word)
+
+        merges: list[tuple[tuple[str, str], str]] = []
         target = self.vocab_size - len(self.vocab)
         for _ in range(target):
-            pairs = Counter()
-            for word in set(splits.keys()):
-                split = splits[word]
-                for i in range(len(split) - 1):
-                    pairs[(split[i], split[i + 1])] += freqs[word]
-            if not pairs:
+            if not pair_freq:
                 break
-            best_pair = pairs.most_common(1)[0][0]
+            # Highest frequency; ties broken by the pair itself so the result
+            # is deterministic run to run.
+            best_pair = max(pair_freq, key=lambda p: (pair_freq[p], p))
+            if pair_freq[best_pair] <= 0:
+                break
             merged = "".join(best_pair)
             merges.append((best_pair, merged))
             self.vocab.append(merged)
-            new_splits: dict[str, list[str]] = {}
-            for word, split in splits.items():
-                new_split = []
+
+            for word in list(pair_words.get(best_pair, ())):
+                split = splits[word]
+                f = freqs[word]
+                old_pairs = pairs_of(split)
+
+                new_split: list[str] = []
                 i = 0
                 while i < len(split):
                     if i < len(split) - 1 and (split[i], split[i + 1]) == best_pair:
@@ -58,8 +83,23 @@ class BPETokenizer:
                     else:
                         new_split.append(split[i])
                         i += 1
-                new_splits[word] = new_split
-            splits = new_splits
+                splits[word] = new_split
+                new_pairs = pairs_of(new_split)
+
+                for p in old_pairs:
+                    pair_freq[p] -= f
+                    if pair_freq[p] <= 0:
+                        pair_freq.pop(p, None)
+                for p in new_pairs:
+                    pair_freq[p] += f
+
+                old_set, new_set = set(old_pairs), set(new_pairs)
+                for p in old_set - new_set:
+                    holders = pair_words.get(p)
+                    if holders is not None:
+                        holders.discard(word)
+                for p in new_set - old_set:
+                    pair_words[p].add(word)
 
         self.merges = dict(merges)
         self.merge_priority = {pair: i for i, (pair, _) in enumerate(merges)}
