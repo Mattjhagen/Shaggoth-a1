@@ -692,7 +692,7 @@ async function enableNotifications() {
     }));
     const r = await fetch(API + '/push/subscribe', {
       method: 'POST', headers: h(),
-      body: JSON.stringify({ subscription: sub.toJSON() }),
+      body: JSON.stringify({ subscription: sub.toJSON(), session_id: sessionId }),
     });
     await readJson(r);
     toast("Subscribed. It'll tell you when it learns something.");

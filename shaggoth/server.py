@@ -539,6 +539,8 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     return self._send_json(501, {"error": "push not initialized"})
                 body = self._read_json()
                 subscription = body.get("subscription") or body
+                session_id = body.get("session_id") or "default"
+                subscription["session_id"] = session_id
                 if not push.store.add(subscription):
                     return self._send_json(400, {"error": "invalid subscription"})
                 return self._send_json(201, {"ok": True, "subscriptions": len(push.store)})
@@ -772,6 +774,10 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     # depending on a human noticing something was wrong.
     critic = CriticLoop(engine, feedback)
 
+    # Link deferred questions and push notifications to the engine
+    engine.deferred_questions = deferred
+    engine.push_sender = push
+
     def _deliver_deferred(episode) -> None:
         """Answer whatever was waiting on the topic this episode covered.
 
@@ -792,12 +798,18 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
             return
         first = resolved[0]
         more = f" (+{len(resolved) - 1} more)" if len(resolved) > 1 else ""
-        push.notify(
-            f"I looked up {episode.topic}",
-            f"You asked: {first.question}{more}. Tap for the answer.",
-            url="/#chat",
-            tag="deferred",
-        )
+        # Send notifications to each session that asked a question
+        sessions_notified = set()
+        for item in resolved:
+            if item.session_id not in sessions_notified:
+                push.notify_session(
+                    item.session_id,
+                    title=f"I looked up {episode.topic}",
+                    body=f"You asked: {item.question}{more}. Tap for the answer.",
+                    url="/#chat",
+                    tag="deferred",
+                )
+                sessions_notified.add(item.session_id)
         print(f"[deferred] answered {len(resolved)} question(s) about {episode.topic!r}")
 
     def _announce_learning(episode) -> None:

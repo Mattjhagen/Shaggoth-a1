@@ -106,6 +106,8 @@ class DialogueEngine:
         recall_threshold: float = 0.35,
         seed: int | None = None,
         mode: str = DEFAULT_MODE,
+        deferred_questions: Optional[Any] = None,
+        push_sender: Optional[Any] = None,
     ):
         self.guardrails = guardrails or GuardrailEngine()
         self.memory = memory or MemoryStore()
@@ -125,6 +127,8 @@ class DialogueEngine:
         #: Instance-wide default, overridable per request.
         self.mode = normalize_mode(mode)
         self._recalled: dict[str, set[int]] = {}
+        self.deferred_questions = deferred_questions
+        self.push_sender = push_sender
 
     def respond(self, text: str, session_id: str = "default", mode=None) -> Reply:
         """Answer ``text``.
@@ -346,6 +350,23 @@ class DialogueEngine:
                   reasoning=reasoning_steps, entries_used=entries_used)
         )
         self._persist(session_id, text, reply)
+
+        # Record deferred questions and notify when research starts
+        if source == "fallback" and self.deferred_questions:
+            topic = (text or "").strip()
+            deferred = self.deferred_questions.record(text, topic, session_id=session_id)
+            if deferred and self.push_sender:
+                # Notify user that we're researching their question
+                try:
+                    self.push_sender.notify_session(
+                        session_id,
+                        title="Researching Your Question",
+                        body=f"Looking into: {text[:60]}{'...' if len(text) > 60 else ''}",
+                        tag="research_started",
+                    )
+                except Exception:
+                    pass  # Push notification is optional
+
         return reply
 
     # ------------------------------------------------------------------
