@@ -38,6 +38,7 @@ from . import __version__
 from .dialogue.engine import normalize_mode
 from .curiosity.engine import CuriosityEngine
 from .curiosity.scheduler import CuriosityScheduler, ScheduleConfig
+from .curiosity.topics import extract_topic_query
 from .dialogue import DialogueEngine
 from .knowledge.engine import KnowledgeBase
 from .learner.pipeline import LearnerPipeline
@@ -614,6 +615,16 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 topic = (body.get("topic") or "").strip()
                 if not topic:
                     return self._send_json(400, {"error": "topic is required"})
+                # Every other research trigger (analyze_message, on a
+                # fallback reply) normalizes a question into its subject
+                # first. This endpoint did not, so a caller passing a raw
+                # question ("why is the sky blue") created a *duplicate*
+                # knowledge entry alongside the properly-named one from the
+                # normalized path ("the-sky-blue-part-N" and
+                # "why-is-the-sky-blue-part-N" both existed for the same
+                # subject). Falls back to the raw topic when it is not
+                # question-shaped, so a plain "aeroponics" is untouched.
+                topic = extract_topic_query(topic) or topic
                 max_results = body.get("max_results", 5)
                 max_pages = body.get("max_pages", 3)
                 episode = curiosity.research_topic(

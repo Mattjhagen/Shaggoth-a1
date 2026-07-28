@@ -44,6 +44,15 @@ class TopicExtractionTests(unittest.TestCase):
         topic = extract_topic_query("what is rust programming?")
         self.assertEqual(topic, "rust programming")
 
+    def test_extracts_why_is_question(self):
+        """POST /curiosity/research passed a raw question straight through
+        without this normalization, so "why is the sky blue" created a
+        knowledge entry titled after the whole question, duplicating the
+        properly-named "the sky blue" entry from every other research path
+        (which all go through this function first)."""
+        topic = extract_topic_query("why is the sky blue")
+        self.assertEqual(topic, "the sky blue")
+
 
 class KeywordTests(unittest.TestCase):
     def test_extracts_keywords_from_topic(self):
