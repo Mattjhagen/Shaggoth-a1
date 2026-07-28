@@ -376,6 +376,17 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             if path == "/proactive/status":
                 return self._send_json(200, proactive.status() if proactive else {"enabled": False})
 
+            if path == "/model/status":
+                from .models.openai_model import OpenAIModel
+                m = engine.model
+                return self._send_json(200, {
+                    "name": getattr(m, "name", "none") if m else "none",
+                    "openai": isinstance(m, OpenAIModel),
+                    "openai_model": getattr(m, "_model", None) if isinstance(m, OpenAIModel) else None,
+                    "configured": getattr(m, "configured", False) if m else False,
+                    "trained": m.is_trained() if m else False,
+                })
+
             if path == "/proactive/messages":
                 # Messages Shaggoth sent unprompted for a session, after a given
                 # message ID. The client polls this to surface proactive messages
@@ -804,6 +815,15 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     # Grades Shaggoth's own answers on idle capacity, so quality stops
     # depending on a human noticing something was wrong.
     critic = CriticLoop(engine, feedback)
+
+    # Upgrade engine to GPT if OPENAI_API_KEY is set. GPT replaces the Markov
+    # model and handles all generation that knowledge retrieval doesn't cover —
+    # in-character, context-aware, and grounded in the knowledge base.
+    from .models.openai_model import OpenAIModel
+    _openai_key = os.environ.get("OPENAI_API_KEY") or ""
+    if _openai_key and not isinstance(engine.model, OpenAIModel):
+        engine.model = OpenAIModel(api_key=_openai_key)
+        print(f"[openai] using {engine.model._model} as language model")
 
     # Link deferred questions and push notifications to the engine
     engine.deferred_questions = deferred

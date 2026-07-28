@@ -286,22 +286,42 @@ class DialogueEngine:
 
         if body is None:
             body = self.patterns.respond(text)
-        # 5b. Markov generation is DRIFT-only. The model stitches fragments
-        # from unrelated articles and cannot hold a topic, so in NO_DRIFT the
-        # turn skips straight to an honest "I don't know that yet" -- which
-        # is also what triggers curiosity research, meaning the grounded mode
-        # actively teaches itself instead of bluffing.
-        if drift and body is None and self.model is not None and self.model.is_trained():
+
+        # 5b. GPT generation — preferred over Markov when available.
+        # GPT can follow the prompt and stay in character, so it works in both
+        # drift and no_drift modes. It's tried whenever the pattern engine and
+        # knowledge base haven't produced an answer yet.
+        from ..models.openai_model import OpenAIModel
+        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
+        if body is None and _gpt is not None and _gpt.configured:
+            # Build recent conversation history for GPT context.
+            history = [
+                {"role": m["role"], "content": m["content"]}
+                for m in context.get("recent", [])
+            ]
+            generated = _gpt.generate_chat(
+                user_message=text,
+                knowledge_context=knowledge_context,
+                conversation_history=history,
+                personality_context=personality_context,
+            ).strip()
+            if generated:
+                body, source = generated, "model"
+
+        # 5c. Markov generation is DRIFT-only and runs only when GPT is absent.
+        # The model stitches fragments from unrelated articles and cannot hold a
+        # topic, so in NO_DRIFT it is skipped entirely — the turn falls through
+        # to "fallback", which is the signal server.py uses to kick off curiosity
+        # research on the topic.
+        if drift and body is None and self.model is not None and self.model.is_trained() and _gpt is None:
             prompt = text
             if knowledge_context or personality_context:
                 prompt = f"{personality_context}\n{knowledge_context}User: {text}\nAssistant:"
             generated = self.model.generate(prompt=prompt, max_tokens=40).strip()
             # Only accept generation that reads as a single coherent thought.
-            # Rejecting it here is deliberate: the turn falls through to
-            # "fallback", which is the signal server.py uses to kick off
-            # curiosity research on the topic.
             if generated and markov_is_usable(generated, text):
                 body, source = generated, "model"
+
         if body is None:
             if is_follow_up(text):
                 # "why?" is not a research topic. Keep it in the conversation

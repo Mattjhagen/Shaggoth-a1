@@ -10,6 +10,8 @@ dependencies = []
 [project.optional-dependencies]
 # Only needed to train/run the TinyGPT transformer (Phase 1, on the R510)
 gpt = ["torch>=2.0"]
+# OpenAI GPT backend — set OPENAI_API_KEY env var after installing
+openai = ["openai>=1.0"]
 
 [project.scripts]
 shaggoth = "shaggoth.__main__:main"
