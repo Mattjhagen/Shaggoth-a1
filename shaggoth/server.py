@@ -43,6 +43,7 @@ from .knowledge.engine import KnowledgeBase
 from .learner.pipeline import LearnerPipeline
 from .feedback import FeedbackStore
 from .notify import DeferredQuestions, PushSender
+from .quality import CriticLoop
 from .personality.engine import PersonalityEngine
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -163,7 +164,7 @@ def _request_mode(body: dict):
     return None
 
 
-def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None, feedback: FeedbackStore | None = None):
+def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None, feedback: FeedbackStore | None = None, critic: CriticLoop | None = None):
     class Handler(BaseHTTPRequestHandler):
         server_version = f"Shaggoth/{__version__}"
 
@@ -362,6 +363,11 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     "recent": feedback.recent(10),
                 })
 
+            if path == "/critic":
+                if not critic:
+                    return self._send_json(501, {"error": "critic not initialized"})
+                return self._send_json(200, critic.status())
+
             if path == "/push/status":
                 return self._send_json(200, push.status() if push else {"available": False})
 
@@ -498,6 +504,14 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     background=True,
                 )
                 return self._send_json(202, {"ok": True, "session_id": session.session_id})
+
+            if path == "/critic/run":
+                # Manual kick, for verifying without waiting for the cadence.
+                if not critic:
+                    return self._send_json(501, {"error": "critic not initialized"})
+                body = self._read_json()
+                limit = max(1, min(int(body.get("limit") or 3), 50))
+                return self._send_json(200, critic.run_batch(limit))
 
             if path == "/feedback":
                 if not feedback:
@@ -743,6 +757,9 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     push = PushSender()
     deferred = DeferredQuestions()
     feedback = FeedbackStore()
+    # Grades Shaggoth's own answers on idle capacity, so quality stops
+    # depending on a human noticing something was wrong.
+    critic = CriticLoop(engine, feedback)
 
     def _deliver_deferred(episode) -> None:
         """Answer whatever was waiting on the topic this episode covered.
@@ -792,10 +809,13 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     curiosity.on_episode_complete(_announce_learning)
 
     scheduler.start()
+    if critic.teacher.available():
+        critic.start()
     httpd = ThreadingHTTPServer(
         (host, port),
         make_handler(
-            engine, learner, api_key, curiosity, scheduler, push, deferred, feedback
+            engine, learner, api_key, curiosity, scheduler, push, deferred,
+            feedback, critic,
         ),
     )
     auth_status = "enabled" if api_key else "disabled"
@@ -811,6 +831,9 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     print(f"  POST /curiosity/refresh-stale GET /wiki?q=topic")
     print(f"  POST /push/subscribe  GET /push/status  GET /deferred")
     print(f"  POST /feedback        GET /feedback")
+    print(f"  POST /critic/run      GET /critic")
+    print(f"  Critic: {critic.teacher.model} "
+          f"{'ready' if critic.teacher.available() else 'unavailable'}")
     print(f"  Push: {'ready' if push.available else 'not configured'}")
     try:
         httpd.serve_forever()
