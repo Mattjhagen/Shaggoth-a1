@@ -1541,11 +1541,15 @@ trained on this box (not simulated). Decision + samples are appended to
 `data/retrain_log.jsonl`; the candidate is parked at `data/tinygpt.pt.rejected`;
 live is untouched; serve stays on Markov.
 
-**The daily timer is now safe to enable on r510** (finishes in minutes; the gate
-refuses to promote garbage; `model=auto` means serve ignores the file anyway).
-`systemctl --user enable --now shaggoth-retrain.timer`. It will REJECT nightly
-until the model can actually form words -- which this size won't; it is a live
-loop that will promote automatically if the corpus/model ever gets there, with
-every attempt logged. To make it *coherent* you need a bigger model (back to
-hours on this CPU) or a better box -- unchanged from SS's recommendation that
-retrieval remains the strong path.
+**The daily timer is now ENABLED on r510** (supersedes the "NOT enabled" note in
+TT). `systemctl --user list-timers shaggoth-retrain.timer` -- next run 04:30
+daily; `journalctl --user -u shaggoth-retrain.service` for a run's log;
+`data/retrain_log.jsonl` for the decision history. It is safe because it
+finishes in minutes, the gate refuses to promote garbage, and `model=auto`
+means serve ignores the checkpoint anyway. **It will REJECT nightly** until the
+model can actually form words -- which this size won't; it is a live loop that
+promotes automatically if the corpus/model ever gets there, every attempt
+logged. Disable with `systemctl --user disable --now shaggoth-retrain.timer`.
+To make it *coherent* you need a bigger model (back to hours on this CPU) or a
+better box -- unchanged from SS's recommendation that retrieval remains the
+strong path. First real run logged: perplexity 12.16, coherence 0.54, REJECTED.
