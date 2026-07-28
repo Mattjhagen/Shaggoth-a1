@@ -1,7 +1,7 @@
 # AGENTS.md — Shaggoth / Relay / Archon Handoff
 
 **Purpose:** resume work after a context reset. Everything here was *verified by command*, not assumed.
-**Last verified:** 2026-07-27 ~02:05 UTC
+**Last verified:** 2026-07-28 ~03:55 UTC
 
 ---
 
@@ -1188,3 +1188,368 @@ shape; use `-part-[0-9]+\.md$`.
 - `uvx pytest` exit 255 with truncated output was an SSH hiccup, not a failure;
   the rerun passed 310.
 - Test count is **not** a fixed number — it grows with `data/knowledge`.
+
+---
+
+# SESSION 2026-07-28 (~03:20–04:00 UTC) — the aliens repeat themselves, training health, load
+
+`r510-command-center` HEAD `d211fcb`, **205 tests**. Ran as two concurrent
+Claude sessions on the box at once (job `57280925` and job `09f4a14e`) —
+unplanned but not destructive; see §QQ.
+
+## QQ. Two sessions worked the same task at once — coordinated, not merged blind
+
+Both were given the identical two-task brief. Discovered via `ps aux` (a
+second `claude.exe --agent claude` process) and `git status` (uncommitted
+edits to the same five files, mtimes seconds old). Rather than race or
+silently overwrite:
+1. Read the other session's uncommitted diff before touching anything.
+2. Its `conversation.py` fix (`SEED_POOL`, rotating dry-patch reseeds) and
+   its `shaggoth.py`/`screens.py`/`app.py` work (`training_issues()`,
+   `training_health()`, the `[!N]` flag) were both real, tested, and
+   complete for their slice of the bug — kept as-is.
+3. Polled (`ps -p <retrain-pid>` + file mtimes idle ≥120s) until it finished
+   and stopped writing before adding anything.
+4. Committed everything together in `085168c` once both slices were
+   verified by the full test suite.
+
+Its TinyGPT retrain (`retrain_tinygpt.py --steps 100`, started to
+re-evaluate the parked checkpoint per §HH) crashed after 17 minutes:
+`Illegal instruction (core dumped)`. Reinforces §HH's verdict — do not
+spend more CPU on TinyGPT.
+
+## RR. The alien repetition — root cause was NOT what §J's fix already covered
+
+§J's `SEED_POOL` fix (already in the other session's diff) solves repeats
+caused by reseeding to one fixed question when the conversation runs dry.
+Real, but not the dominant cause. Verified live with direct `/chat` calls:
+
+```
+"what is Meridian" / "tell me about Meridian" / "explain Meridian"
+```
+
+Three distinct question forms, **byte-identical reply every time** — BM25
+retrieval is keyed to the matched entry, not the phrasing. Deriving a fresh
+*subject* each turn (§J, already in place) does not prevent this: different
+subjects can still resolve to the same entry. A 12-turn live simulation
+before the fix showed the same paragraph rendered on screen 3 times, twice
+back-to-back (CORE then EARTH, verbatim).
+
+Fixed in `command_center/conversation.py`:
+- `ConversationEngine` now keeps `_recent_texts` (a `deque(maxlen=MAX_LINES)`
+  of normalized shown-line text). A reply matching one is treated like a
+  non-answer — not rendered, nothing harvested from it — same window as
+  what's still visible on screen.
+- `pick_subjects()`: a proper-phrase is rejected if **any** word is
+  bibliographic furniture (`_TITLE_FURNITURE`), not only when *every* word
+  is. "Matt Jhagen Overview" was slipping through the old `all()` check
+  (only "Overview" was furniture) and looping back to the book's own
+  title-page entry.
+
+Verified live: 30-turn run, 23 lines rendered, **0 duplicates**.
+
+The book (`~/the-gentle-conquest`) did not need re-ingesting — confirmed
+38 entries already in `data/knowledge` per §G before touching anything.
+
+## SS. Training-health dashboard — the other session's build, verified live
+
+`training_health()` in `screens.py` (theirs, kept as-is) renders a
+Working/Issues split and is wired into the `[G]` detail screen; `app.py`
+adds an `[!N]` flag to the main-screen activity line so a repair backlog or
+scrape errors don't hide behind a green `ONLINE` state. Actual rendered
+output, captured live against the running daemon:
+
+```
+TRAINING HEALTH
+  + healthy · 809 topics known, idle between cycles
+  Issues:
+  ! feedback repair backlog: 6 answer(s) flagged wrong and awaiting re-research
+  ! 12 scrape error(s) (last: <urlopen error [Errno -2] Name or service not kn)
+  ! 523/809 entries stale (65%) — refresh backlog
+```
+
+Both sides present, from real counters, not a guess.
+
+## TT. Dashboard was falsely reporting a wiped knowledge base under load
+
+Found *while* verifying SS above: `get_status()` briefly reported
+`state=IDLE, knowledge_entries=0` against a daemon that actually had 809
+entries / 275,035 words. Traced to `/curiosity/status` dropping the
+connection mid-response under heavy concurrent CPU load (`BrokenPipeError`
+in `journalctl -u shaggoth`) — the exact intermittent-500 issue §OO.1 flagged
+as seen-but-undiagnosed. Retrying the identical request immediately
+succeeded (3/3), confirming it's transient, not a real state change.
+
+**Why this mattered more than a UI glitch:** `LearningCounter.update()`
+processes any sample where `status.is_up` is true, and `IDLE` counts as
+"up." A single dropped connection made it read "the knowledge base shrank
+to zero" and silently **re-baseline all session growth tracking to
+nothing** — a real data-loss-looking event with no actual data lost.
+
+Fixed in `shaggoth.py`:
+- `_http_get_json()` now retries once before giving up.
+- `get_status()`: if `/health` answers but `/curiosity/status` still comes
+  back `None` after retry, the result is `ShaggothState.ERROR` with an
+  explicit detail — not a silent fall-through to IDLE/zero. `ERROR` is not
+  `is_up`, so `LearningCounter` correctly ignores the sample instead of
+  acting on it.
+
+## UU. Found the likely reason load spikes were hitting the API at all
+
+`ps aux` turned up a **second, orphaned `command_center.app` process**
+(PPID `1`, reparented to init, no controlling terminal, but stdin/stdout/
+stderr still pointed at `/dev/tty1` alongside the legitimate session) —
+**12h15m runtime, 82% CPU continuously**. Almost certainly a leftover from
+an earlier restart that didn't clean up (§T fixed the *tty1 dropping to a
+shell* failure mode; this looks like the same era, a different failure
+mode of the same underlying issue).
+
+Killed by exact PID (never by pattern — §T gotcha). `uptime` load average
+dropped **13.98 → 7.15** immediately after. This is a more direct
+explanation for §OO.1's "intermittent 500 under concurrent load" than
+anything CPU-bound-but-occasional like a training run: it was **always**
+running, 24/7, on a box that's supposed to be running one dashboard.
+
+**Worth checking on the next session:** whether this recurs after a future
+restart, which would mean the tty1 relaunch loop (§T) isn't always
+terminating the old process before starting the new one.
+
+`pts/0` and `pts/5` are still running the pre-fix build — they're
+SSH-launched (`SSH_CONNECTION` set), so the tty1-only autostart guard in
+`~/.bashrc` does not wrap them in a relaunch loop. Deliberately left
+alone rather than killed: no auto-restart means killing them would drop
+those sessions to a bare shell with nothing bringing them back.
+
+## VV. Still open
+
+1. **Auth on the public endpoint** — still the user's call, unchanged.
+2. **Corpus hygiene**: dedupe `X-part-N` against `why-is-X-part-N` (§NN,
+   §OO.5) — not started this session.
+3. **Causal reasoning**: `"why does photosynthesis need light"` still wrong
+   (§OO.2) — not started this session.
+4. **Stack Exchange ingestion** — still the right next knowledge source for
+   causal questions; not started.
+5. **Re-verify §UU doesn't recur** after the next tty1 restart.
+
+---
+
+# SESSION 2026-07-28 (later) — TinyGPT: trained, crashed, gated OFF. Retrain infra built.
+
+Shaggoth work on branch `claude/ai-model-guardrails-platform-o6b50g`.
+Everything below verified by command. **Bottom line: TinyGPT still is not wired
+into serve, and should not be — it cannot be trained on r510-1 at all.**
+
+## QQ. Baseline health (before touching anything)
+
+- `part-[0-9]+-part` grep = **0** (the check in the task prompt). But that grep
+  is the WRONG shape (AGENTS §NN): the real fragment grep
+  `ls data/knowledge | grep -cE -- '-part-[0-9]+\.md$'` = **398 / 805 (49%)**.
+  The corpus is half query-named `-part-N` fragments. Persisting/worsening (was
+  395/802). This is the thing degrading answer quality, not the model.
+- `/curiosity/status`: **212 episodes, 805 entries**, scheduler healthy,
+  **519/805 (65%) stale**, scraper 12 errors (DNS `Name or service not known`).
+- `/feedback`: total 12, **11 bad / 1 good, repair_queue 7-8**. Real backlog.
+- `/chat` drift repro still returns `source: fallback` -- correct, Markov is
+  gated by `markov_is_usable()`. Untouched, as instructed.
+
+## RR. The parked checkpoint is ORPHANED -- its samples cannot be reproduced
+
+`data/parked/tinygpt-3000steps-loss4.15.pt` has **no `.tok.json` sidecar** (only
+the `.pt`). `TinyGPTModel.load()` reads the tokenizer from `<path>.tok.json`;
+missing, it falls back to an empty tokenizer (`vocab size 0`), so every prompt
+encodes to `[0,0,...]` and `generate()` returns `''`. The section-HH samples
+(`symotential`, `authibiiktiological`) were captured with the tokenizer still in
+memory at train time; they **cannot be regenerated** from what's on disk. The
+weights are unusable without their tokenizer. (Lesson: a checkpoint is the
+`.pt` **plus** `.tok.json` **plus** `.json` -- the retrain script treats all
+three as a set.)
+
+## SS. TinyGPT CANNOT be trained on r510-1 -- SIGILL + ~6h/run
+
+Two real training runs, both from the actual CLI/pipeline, both on this box:
+
+| corpus | wall clock | outcome |
+|---|---|---|
+| full 9.7 MB (100 steps requested) | **16m55s** | **Illegal instruction (core dumped)** during train() |
+| 1.5 MB slice, 300 steps | **7m42s** | **Illegal instruction (core dumped)** during train() |
+
+Neither produced a checkpoint (crash was *after* the BPE build, *during* the
+training steps -- no `.pt` written). Diagnosis, verified step by step:
+
+- CPU is `Intel Xeon E5620` (Westmere, 2010): `sse4_1 sse4_2`, **no AVX/AVX2**.
+- Trivial torch ops work: `4x4 ... 512x512` matmul OK; an isolated 5-step
+  full-config (`vocab 2048, block 256, 4 layer`) train with random data OK.
+- But sustained real training is **~4.3 s/step** (`step 100 @ 429 s`, threads=4).
+  -> 5000 steps ~= **6 hours** of compute, on top of a ~16-min BPE tokenizer build.
+- The SIGILL reproduces only after minutes of sustained 100% CPU (the tokenizer
+  build then training). Most likely an unsupported/edge kernel path on a
+  pre-AVX CPU, possibly aggravated by sustained thermal load on 15-year-old
+  server silicon. Either way the practical result is identical: **you cannot
+  produce a TinyGPT checkpoint on r510-1.** Section-HH's "loss 4.15" run must
+  have happened on other hardware (the MacBook is AVX-capable).
+
+**The BPE tokenizer build is the other blocker.** `BPETokenizer.train()` is pure
+Python, O(merges x unique_words) rebuilding the pair table every merge: **~16 min
+on 9.7 MB, ~4-6 min on 1.5 MB.** Same cost for 100 or 5000 steps.
+
+**Conclusion: TinyGPT was NOT wired into serve. `config/settings.json` stays
+`"model": "auto"` -> Markov.** Retrieval is the strong path; the generative model
+remains drift-only and, on this box, unavailable.
+
+## TT. What WAS built -- retrain + promotion gate (ready, but OFF on r510)
+
+The point of the gate: a scheduled retrain that writes a checkpoint re-creates
+the section-HH footgun (a finished run silently downgrading serve). So nothing
+is promoted onto the live path without passing an explicit quality gate, and
+serve ignores the file anyway unless `model=tinygpt`.
+
+**`shaggoth/models/promote.py`** -- the gate, no torch dependency, unit-tested.
+- `coherence_report(model, corpus_vocab)` -- generates from fixed probes and
+  measures the **fraction of emitted words that actually occur in the corpus**.
+  This is the check perplexity can't do: section-HH's non-words score ~0.
+  Threshold `MIN_KNOWN_WORD_RATIO = 0.85`, min 20 words emitted.
+- `decide(candidate_ppl, coherence, live_ppl)` -- promote ONLY if coherent AND
+  perplexity didn't regress vs the live checkpoint (abs ceiling `exp(6)~=400`
+  when there is no live baseline). Coherence is checked first so a
+  low-perplexity garbage model can never win.
+- **Proven it can REJECT**, not just pass: `tests/test_promote.py` (7 tests)
+  feeds it the section-HH non-word salad and confirms rejection + logged reason;
+  also rejects perplexity regressions and empty output; promotes only coherent
+  improvement. `PYTHONPATH=. ~/.local/bin/uvx pytest tests/test_promote.py`.
+
+**`scripts/retrain_tinygpt.py`** -- orchestrator: rebuild corpus from
+`data/knowledge/` -> train to **staging** `data/tinygpt.pt.new` (never touches
+live) -> eval (perplexity + coherence) -> `decide()` -> promote (keeping the old
+live at `data/tinygpt.pt.prev` for rollback) or park rejected at
+`data/tinygpt.pt.rejected`. **Every decision is appended to
+`data/retrain_log.jsonl`.** Caps torch threads (`OMP_NUM_THREADS`, default 4).
+- **NOT fine-tuning.** `TinyGPTModel.train()` re-derives the BPE tokenizer and
+  re-initialises all weights from scratch each run -> this is a **full
+  from-scratch retrain on the current corpus**, not warm-start and not
+  LoRA/PEFT. It can't be cheaply warm-started because a growing corpus changes
+  the BPE vocab and thus the embedding shapes. Do not assume a fine-tuning loop
+  exists; there isn't one.
+
+**`scripts/rollback_tinygpt.sh [data_dir]`** -- restores `tinygpt.pt.prev` ->
+live (+ sidecars). **Verified**: with dummy files it restores prev over live and
+exits 1 cleanly when there is no prev. Serve is unaffected unless
+`model=tinygpt` (then: `kill $(systemctl show shaggoth -p MainPID --value)`).
+
+**systemd USER units** at `~/.config/systemd/user/` (Shaggoth itself is a
+*system* unit; no sudo, but user units run 24/7 via `Linger=yes`):
+- `shaggoth-retrain.service` (oneshot) -- runs the orchestrator, `Nice=19`,
+  `CPUWeight=20`, `IOSchedulingClass=idle`, `OMP_NUM_THREADS=4`,
+  `TimeoutStartSec=3600`, logs to `data/retrain.out.log` + journal.
+- `shaggoth-retrain.timer` -- `OnCalendar=*-*-* 04:30`, `Persistent=true`,
+  `RandomizedDelaySec=600` (daily cadence, per the task).
+
+**WARNING: the timer is installed but deliberately NOT enabled/started.** On
+r510-1 a run would burn ~16 min on the tokenizer and then SIGILL -- a nightly
+crash that learns nothing. Enabling it only makes sense on an **AVX-capable
+box** (the MacBook `100.67.199.109`, or a cloud CPU). See the open question.
+
+Safety verified: with `model="auto"`, planting a garbage `data/tinygpt.pt` and
+calling `build_engine()` still loads **MarkovModel** -- a stray/stale checkpoint
+is never picked up implicitly. `markov_is_usable()` thresholds untouched.
+
+### To actually use this (on an AVX box), operator steps
+```bash
+cd ~/Shaggoth-a1
+PYTHONPATH=. python3 scripts/retrain_tinygpt.py --steps 5000   # writes staging, gates, promotes-or-parks
+cat data/retrain_log.jsonl | tail -1                            # the decision + why
+systemctl --user enable --now shaggoth-retrain.timer           # ONLY where torch can train
+systemctl --user list-timers | grep retrain                    # last/next run
+journalctl --user -u shaggoth-retrain.service -n 50            # last run's log
+bash scripts/rollback_tinygpt.sh                                # revert to previous checkpoint
+```
+If a checkpoint ever passes the gate and you want serve to use it, set
+`config/settings.json` `"model": "tinygpt"` and restart. Until then it's inert.
+
+## UU. Command-center tasks A & B (repo `~/r510-command-center`, committed 085168c)
+
+**A -- the two aliens repeated themselves.** Diagnosed by curl, not assumed: the
+dialogue DID condition each turn on the other's line (subject harvested from the
+reply), but on a dry patch (`source` not substantive) it **reseeded to a single
+fixed `SEED_QUESTION`**, and Shaggoth is deterministic -> the same
+gentle-conquest paragraph forever. NO_DRIFT means any subject not in the KB
+returns one of ~6 canned fallbacks, so dry patches are common. Fix
+(`command_center/conversation.py`): reseed rotates through **`SEED_POOL`** -- book
+chapter subjects verified live to return `source="knowledge"` (the shepherd,
+the turning point, the disappeared, ...). A down/unreachable Shaggoth still holds
+the base seed. The user also added a render-side dedup (`_recent_texts` deque)
+that skips byte-identical replies -- complementary. No generative-model fix was
+possible (see SS).
+
+**B -- dashboard now reports problems, not just green.** `command_center/
+shaggoth.py` now fetches `/feedback` and exposes `feedback_repair_queue`;
+`ShaggothStatus.training_issues()` enumerates STALLED / dead-thread /
+repair-backlog / scrape-errors / high-stale-ratio. `screens.training_health()`
+renders a **TRAINING HEALTH** block with a Working side (episodes/entries/words
+gained, current topic) and an Issues side (or "No problems detected."). Main
+screen shows a compact `[!N]` flag so a green ONLINE never hides a backlog.
+Rendered live against r510: surfaced *"repair backlog: 7"*, *"12 scrape
+errors"*, *"521/807 entries stale (65%)"*. Tests: `tests/test_training_health.py`.
+Full command-center suite **205 passed**.
+
+## VV. Still open / decisions for the user
+
+1. **Where should the retrain loop run?** It cannot on r510-1 (SIGILL, ~6h).
+   Options: point it at the MacBook (AVX), a cloud CPU, or leave TinyGPT parked
+   and stay retrieval-only. Timer is installed-but-disabled pending this call.
+2. **Corpus is 49% `-part-N` fragments** (RR / section NN). This hurts BOTH
+   retrieval and any future generative model. Dedupe `X-part-N` vs
+   `why-is-X-part-N` and stop naming entries after query strings -- higher
+   leverage than the model.
+3. Feedback repair backlog (7-8) and 65% stale -- the scheduler is draining
+   slowly; section MM's note (also enqueue the question's subject on a bad
+   judgement) still stands.
+
+## WW. Made TinyGPT trainable on r510 in ~12 min (user chose this over parking it)
+
+Follow-up to SS. The generative path is now *runnable* on this box; the model
+is still incoherent, and the gate now proves it on a REAL checkpoint.
+
+**Two fixes:**
+
+1. **Fast BPE tokenizer** (`shaggoth/models/tokenizer.py`). Rewrote
+   `BPETokenizer.train()` from an O(merges x corpus) full rescan to incremental
+   pair counting (build the pair table + a pair->words index once, update only
+   the words each merge touches). On the 9.7 MB corpus: **vocab 2048 went from
+   ~16 min to 23 s; small vocab ~3 s.** Roundtrip/determinism locked in by
+   `tests/test_tokenizer.py`. This also removed the ~16-min single-core CPU
+   soak that immediately preceded both SIGILL crashes -- **the crash did not
+   recur** once the tokenizer was fast (supports the thermal-fault theory).
+
+2. **Small model config** (retrain script defaults). `vocab 1024, block 96,
+   n_layer 2, n_head 3, n_embd 96` (~0.44 M params, char-level since the corpus
+   has ~1030 unique chars). **2000 steps in 12.4 min, no crash**, threads
+   capped at 4. Override with `--vocab/--block/--layers/--heads/--embd` for a
+   bigger box. Perplexity eval is capped to a 400 KB slice (the full-corpus
+   stride was slower than training itself); candidate and live are scored on
+   the same slice.
+
+**Real end-to-end result (this is the gate proving itself on a real run):**
+- perplexity **12.09** (looks fine!) · loss 2.49
+- coherence ratio **0.51** -> **REJECTED** ("text reads as non-words")
+- samples, verbatim: `'the sky is' -> 'tion. [ : 3 1 ] Mert the tite the
+  splall'`, `'water is' -> 't ad oort thappe the medrit ors. The fac'`
+  -- real words welded to non-words (`Mert`, `splall`, `fomateten`).
+
+So: **low perplexity, garbage text, gate says no** -- exactly the trap the
+coherence check exists for, demonstrated on a checkpoint that was actually
+trained on this box (not simulated). Decision + samples are appended to
+`data/retrain_log.jsonl`; the candidate is parked at `data/tinygpt.pt.rejected`;
+live is untouched; serve stays on Markov.
+
+**The daily timer is now ENABLED on r510** (supersedes the "NOT enabled" note in
+TT). `systemctl --user list-timers shaggoth-retrain.timer` -- next run 04:30
+daily; `journalctl --user -u shaggoth-retrain.service` for a run's log;
+`data/retrain_log.jsonl` for the decision history. It is safe because it
+finishes in minutes, the gate refuses to promote garbage, and `model=auto`
+means serve ignores the checkpoint anyway. **It will REJECT nightly** until the
+model can actually form words -- which this size won't; it is a live loop that
+promotes automatically if the corpus/model ever gets there, every attempt
+logged. Disable with `systemctl --user disable --now shaggoth-retrain.timer`.
+To make it *coherent* you need a bigger model (back to hours on this CPU) or a
+better box -- unchanged from SS's recommendation that retrieval remains the
+strong path. First real run logged: perplexity 12.16, coherence 0.54, REJECTED.

@@ -33,6 +33,32 @@
         </div>
     </div>
 
+    <!-- PWA Install Prompt -->
+    <div id="installPrompt" class="modal-overlay" style="display:none">
+        <div class="modal-box">
+            <div class="install-content">
+                <div class="install-header">Add Shaggoth to Your Device</div>
+                <p>Install Shaggoth as an app for quick access and offline support.</p>
+                <div class="modal-actions">
+                    <button class="btn primary" id="installBtn">Install</button>
+                    <button class="btn ghost" id="dismissInstallBtn">Not Now</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- First Time Tutorial -->
+    <div id="firstTimeTutorial" class="modal-overlay" style="display:none">
+        <div class="modal-box">
+            <div class="tutorial-content">
+                <div class="tutorial-header">Welcome to Shaggoth</div>
+                <p>Let's set up your experience...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
     <div class="chat-app" id="chatApp">
         <aside class="drawer" id="drawer">
             <div class="drawer-header">
