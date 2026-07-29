@@ -46,7 +46,7 @@ from .knowledge.engine import KnowledgeBase
 from .learner.pipeline import LearnerPipeline
 from .feedback import FeedbackStore
 from .notify import DeferredQuestions, PushSender
-from .quality import CriticLoop
+from .quality import CriticLoop, build_teacher
 from .personality.engine import PersonalityEngine
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -854,8 +854,9 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     deferred = DeferredQuestions()
     feedback = FeedbackStore()
     # Grades Shaggoth's own answers on idle capacity, so quality stops
-    # depending on a human noticing something was wrong.
-    critic = CriticLoop(engine, feedback)
+    # depending on a human noticing something was wrong. Local Ollama unless
+    # SHAGGOTH_TEACHER_PROVIDER opts into a cloud judge -- see quality/teacher.py.
+    critic = CriticLoop(engine, feedback, teacher=build_teacher())
 
     # Upgrade engine to GPT if OPENAI_API_KEY is set. GPT replaces the Markov
     # model and handles all generation that knowledge retrieval doesn't cover —
