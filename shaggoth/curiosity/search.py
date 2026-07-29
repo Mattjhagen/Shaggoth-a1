@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 

@@ -102,16 +102,6 @@ class CuriosityEngine:
 
     # --------------------------------------------------------- core logic
 
-    def _get_known_keywords(self) -> set[str]:
-        """Build a set of all keywords currently in the knowledge base."""
-        all_kw: set[str] = set()
-        for entry in self.knowledge.list_entries():
-            all_kw.update(entry.get("keywords", []))
-        # Also pull from raw knowledge content
-        for entry in self.knowledge._entries:
-            all_kw.update(entry.keywords)
-        return all_kw
-
     def analyze_message(self, text: str) -> str | None:
         """Analyze a user message and return a topic to research, or None.
 
