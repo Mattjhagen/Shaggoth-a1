@@ -1,6 +1,7 @@
 """Tests for the deferred question queue (notify/deferred.py)."""
 from __future__ import annotations
 
+import threading
 import time
 import tempfile
 from pathlib import Path
@@ -334,3 +335,47 @@ class TestPendingQuestion:
     def test_age_uses_time_time_when_now_not_given(self):
         q = PendingQuestion(question="Q?", topic="t", asked_at=time.time() - 5)
         assert q.age() >= 4
+
+
+# ---------------------------------------------------------------------------
+# Thread safety
+# ---------------------------------------------------------------------------
+
+class TestThreadSafety:
+    def test_concurrent_resolve_does_not_double_answer(self):
+        """Two concurrent resolve() calls must not write an answer twice.
+
+        The race: both callers call matching() without the lock and both get
+        the same item. They then race to write inside the lock. The fix adds
+        ``if item.answered: continue`` inside the lock so only the first
+        writer wins.
+        """
+        path = Path(tempfile.mktemp(suffix=".json"))
+        store = DeferredQuestions(path=path)
+        store.record("What is RNA?", "rna")
+
+        barrier = threading.Barrier(2)
+        answers_written = []
+
+        def slow_answer(q):
+            # Both threads sync here so they both hold the item from
+            # matching() before either acquires the lock to write.
+            barrier.wait(timeout=5)
+            return "Ribonucleic acid."
+
+        results: list = [None, None]
+
+        def resolve_thread(idx):
+            results[idx] = store.resolve("rna", slow_answer)
+
+        t1 = threading.Thread(target=resolve_thread, args=(0,))
+        t2 = threading.Thread(target=resolve_thread, args=(1,))
+        t1.start()
+        t2.start()
+        t1.join(timeout=10)
+        t2.join(timeout=10)
+
+        total_resolved = len(results[0] or []) + len(results[1] or [])
+        assert total_resolved == 1, (
+            f"Expected exactly one thread to resolve the item, got {total_resolved}"
+        )

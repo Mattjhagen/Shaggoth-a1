@@ -139,3 +139,23 @@ def test_teacher_never_raises_on_a_dead_ollama():
 
 def test_teacher_refuses_empty_input():
     assert Teacher().judge("", "answer").verdict == ""
+
+
+def test_start_after_stop_restarts_the_thread(tmp_path):
+    """start() → stop() → start() must produce a live thread, not silently no-op.
+
+    The old guard was ``if self._thread is not None``, which permanently
+    blocked restart once stop() had been called (thread was not None but dead).
+    """
+    loop = _loop(["good"] * 100, tmp_path)
+    loop.start()
+    assert loop._thread is not None and loop._thread.is_alive()
+
+    loop.stop()
+    loop._thread.join(timeout=2.0)
+    assert not loop._thread.is_alive()
+
+    # Must be able to start again after a stop.
+    loop.start()
+    assert loop._thread is not None and loop._thread.is_alive()
+    loop.stop()
