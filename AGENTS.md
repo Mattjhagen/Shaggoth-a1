@@ -1742,3 +1742,96 @@ session, just not conflated with a claim that it explains OO.2.
 6. **Stack Exchange ingestion** -- still the right next source for causal
    questions; not started.
 7. Re-verify §UU (orphaned `command_center.app` process) doesn't recur.
+
+---
+
+## Cloud teacher options added (Anthropic, OpenRouter) -- explicit opt-in, now live
+
+The user asked to add Anthropic and OpenRouter keys "to train the model."
+Before building anything: `docs/TRAINING_AUTOMATION.md` Phase 7 (written
+against an earlier request from the user) argues explicitly against exactly
+this for the teacher/critic role --
+
+> Calling out to Anthropic or OpenAI to make it smarter would quietly turn
+> it into a wrapper around someone else's model... The teacher runs
+> offline. It never sits in the request path.
+
+Flagged that tension and asked what the keys were actually for. Answer:
+teacher/critic self-grading specifically -- a deliberate override of the
+documented default, not a misunderstanding of it. Built as an **opt-in**,
+not a replacement of the default, so an unconfigured install still behaves
+exactly as before.
+
+**`shaggoth/quality/teacher.py`:**
+- `Teacher` (Ollama)'s `judge()`/prompt/verdict-parsing logic extracted into
+  a `_JudgeMixin` so it's shared, not reimplemented three times. `Teacher`'s
+  own public behavior is byte-for-byte unchanged -- all 26 pre-existing
+  tests pass with zero modification.
+- `AnthropicTeacher`, `OpenRouterTeacher` -- same `judge()` contract, stdlib
+  `urllib` only (no new pip dependency), each with its own API key
+  (`ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY`) and model override
+  (`ANTHROPIC_MODEL` / `OPENROUTER_MODEL`).
+- `FallbackTeacher` -- cascades through a priority-ordered teacher list. On
+  a quota/rate-limit/billing-shaped error (`_looks_exhausted`: matches
+  `429|insufficient_quota|rate.?limit|quota|billing`) it advances past that
+  provider for the rest of the **process's** life -- a restart resets the
+  cascade, which is the intended way to retry a provider after topping up
+  credits. Any other failure (timeout, malformed response) is retried on
+  the same provider next call -- not evidence the provider is actually out.
+- `build_teacher()` -- `SHAGGOTH_TEACHER_PROVIDER` env var: `ollama`
+  (default, unchanged) | `anthropic` | `openrouter` | `auto` (the cascade:
+  Anthropic -> OpenRouter -> Ollama, skipping cloud providers with no key
+  set; Ollama is always included as the free, always-on final rung).
+- `server.py`: `critic = CriticLoop(engine, feedback, teacher=build_teacher())`.
+
+**Verified live**, not just by test:
+- Real request to the Anthropic API with the user's key: `HTTP 400`,
+  *"Your credit balance is too low to access the Anthropic API"* -- key is
+  valid, account has $0. `_looks_exhausted` catches this via the word
+  "billing" in the error body even though the status code is 400, not 429
+  -- confirmed by running the actual `build_teacher("auto")` chain against
+  the live keys before deploying, not assumed from the regex alone.
+- Real request to OpenRouter with the user's key: succeeded.
+- `SHAGGOTH_TEACHER_PROVIDER=auto` set in `.env`, service restarted
+  (user-run). `GET /critic` -> `model: "openai/gpt-4o-mini"`, confirming
+  the live process actually skipped Anthropic and landed on OpenRouter.
+  `POST /critic/run` batches: 20 judged, ~1.2 s/judgement (vs. ~20-60 s on
+  local Ollama), verdicts (1 good / 3 weak / 16 bad) flowing into
+  `/feedback`'s repair queue (1 -> 12 items in the same session).
+
+**A pre-existing concurrency bug surfaced while verifying this**, not
+introduced by any of the above: `CriticLoop.questions()` (merged-in code,
+not written this session) calls `self.memory.db.execute(...)` directly on
+`MemoryStore`'s shared `sqlite3.Connection` from the critic's own background
+thread, while request-handling threads use the same connection object
+concurrently. `sqlite3.connect(..., check_same_thread=False)` (already set
+in `MemoryStore.__init__`) only disables the *same-thread* check -- it does
+**not** make the connection safe for genuinely concurrent use from multiple
+threads, which Python's own sqlite3 docs are explicit about. Observed once,
+immediately after this restart (concurrent with my own curl traffic):
+`GET /critic` -> `"last_error": "bad parameter or other API misuse"`
+(the classic `SQLITE_MISUSE` message), with that batch's `judged: 0` --
+`questions()`'s own try/except caught it and returned `[]`, so the cycle
+was silently skipped, not crashed. Every batch since has succeeded (20
+judged, 0 further errors). **Not fixed this session** -- the real fix
+(a lock around `MemoryStore`'s shared connection, or one connection per
+thread) touches shared threading behavior well beyond the teacher work this
+session was scoped to, and deserves its own pass rather than a rushed
+partial fix. Added to "still open" below.
+
+## Still open (added this session)
+
+8. **`CriticLoop.questions()`'s raw `self.memory.db.execute()`** races
+   against request-handling threads on the same `sqlite3.Connection` --
+   self-heals (one skipped batch, not a crash) but is a real bug. Fix:
+   either a `threading.Lock` serializing all access to `MemoryStore`'s
+   connection (note `critic.py` bypasses `MemoryStore`'s own methods
+   entirely, reaching into `.db` directly -- a lock inside `MemoryStore`'s
+   methods alone would not cover this call site), or give each thread its
+   own connection to the same DB file (SQLite's actually-supported pattern).
+9. **Anthropic account has a $0 credit balance.** The cascade correctly
+   skips it and lands on OpenRouter, so nothing is broken, but "add an
+   Anthropic key" only does something once that account has credits.
+10. **Re-measure the OpenRouter judge's actual verdict quality** over more
+    volume -- 20 judgements in is too few to know if `openai/gpt-4o-mini`
+    judges as reliably as the local qwen2.5-coder:7b did.
