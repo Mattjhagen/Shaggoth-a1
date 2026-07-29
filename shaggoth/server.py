@@ -27,6 +27,7 @@ import json
 import mimetypes
 import os
 import re
+import threading
 import time
 import traceback
 from dataclasses import asdict
@@ -51,6 +52,7 @@ from .personality.engine import PersonalityEngine
 STATIC_DIR = Path(__file__).parent / "static"
 API_KEY = os.environ.get("SHAGGOTH_API_KEY") or ""
 RATE_LIMITS: dict[str, list[float]] = {}
+_RATE_LIMIT_LOCK = threading.Lock()
 PUSH_TOKENS: list[dict] = []
 
 
@@ -241,20 +243,24 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             This is the floor.
             """
             now = time.time()
-            if len(RATE_LIMITS) > 4096:
-                # An open endpoint sees a lot of distinct IPs; without this the
-                # bucket map is an unbounded memory leak.
-                for stale_key in [
-                    k for k, v in RATE_LIMITS.items() if not v or v[-1] < now - window
-                ]:
-                    RATE_LIMITS.pop(stale_key, None)
-
-            bucket = RATE_LIMITS.setdefault(key, [])
-            bucket[:] = [t for t in bucket if t > now - window]
-            if len(bucket) >= limit:
+            with _RATE_LIMIT_LOCK:
+                if len(RATE_LIMITS) > 4096:
+                    # An open endpoint sees a lot of distinct IPs; without this the
+                    # bucket map is an unbounded memory leak.
+                    for stale_key in [
+                        k for k, v in RATE_LIMITS.items() if not v or v[-1] < now - window
+                    ]:
+                        RATE_LIMITS.pop(stale_key, None)
+                bucket = RATE_LIMITS.setdefault(key, [])
+                bucket[:] = [t for t in bucket if t > now - window]
+                if len(bucket) >= limit:
+                    allowed = False
+                else:
+                    bucket.append(now)
+                    allowed = True
+            if not allowed:
                 self._send_json(429, {"error": "rate limit exceeded"})
                 return False
-            bucket.append(now)
             return True
 
         def log_message(self, fmt, *args):
@@ -267,6 +273,19 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
         def _route_get(self, path: str, url):
             if path == "/health":
                 return self._send_json(200, {"ok": True, "version": __version__})
+
+            # Dashboard and its assets are public — auth gates API calls only.
+            if path in ("/", ""):
+                return self._send_static(STATIC_DIR / "index.html")
+
+            _candidate = STATIC_DIR / path.lstrip("/")
+            try:
+                _candidate.resolve().relative_to(STATIC_DIR.resolve())
+            except ValueError:
+                pass  # path escapes STATIC_DIR — fall through to auth + API routes
+            else:
+                if _candidate.exists() and _candidate.is_file():
+                    return self._send_static(_candidate)
 
             if not self._check_auth():
                 return
@@ -417,13 +436,6 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     **deferred.status(),
                 })
 
-            if path in ("/", ""):
-                return self._send_static(STATIC_DIR / "index.html")
-
-            file_path = STATIC_DIR / path.lstrip("/")
-            if file_path.exists() and file_path.is_file():
-                return self._send_static(file_path)
-
             return self._send_json(404, {"error": "not found"})
 
         def _route_post(self, path: str, url):
@@ -496,15 +508,17 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if scheduler:
                     scheduler.record_message(message)
 
+                # Respond before committing headers so any engine error returns
+                # a clean HTTP 500 rather than corrupt bytes in the SSE body.
+                reply = engine.respond(message, session_id=session_id, mode=mode)
+                text = reply.text
+
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream; charset=utf-8")
                 self.send_header("Cache-Control", "no-cache")
                 self.send_header("Connection", "keep-alive")
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
-
-                reply = engine.respond(message, session_id=session_id, mode=mode)
-                text = reply.text
                 chunk_size = max(1, len(text) // 20)
                 for i in range(0, len(text), chunk_size):
                     chunk = text[i : i + chunk_size]
@@ -523,7 +537,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     engine.guardrails.add_rule(rule)
                 except ValueError as exc:
                     return self._send_json(400, {"error": str(exc)})
-                return self._send_json(201, {"ok": True, "rule_id": rule["id"]})
+                return self._send_json(201, {"ok": True, "rule_id": rule.get("id")})
 
             if path == "/learn/start":
                 body = self._read_json()
@@ -804,6 +818,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
 def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api_key: str = "") -> None:
     learner = LearnerPipeline()
     curiosity = CuriosityEngine(knowledge=engine.knowledge, scraper=learner.scraper)
+    # Share with builtin plugins so research triggered by the curiosity plugin
+    # fires the same deferred-answer and Slack callbacks as server-side research.
+    from .plugins import builtin as _plugins_builtin
+    _plugins_builtin._curiosity_engine = curiosity
     scheduler = CuriosityScheduler(curiosity)
     deferred = DeferredQuestions()
     feedback = FeedbackStore()

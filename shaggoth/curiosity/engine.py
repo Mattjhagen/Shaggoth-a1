@@ -362,9 +362,10 @@ class CuriosityEngine:
     # -------------------------------------------------------- status
 
     def status(self) -> dict:
+        ep = self._current_episode  # capture once; avoids TOCTOU with finishing threads
         return {
             "is_running": self._running,
-            "current_episode": asdict(self._current_episode) if self._current_episode else None,
+            "current_episode": asdict(ep) if ep else None,
             "total_episodes": len(self._history),
             "last_episode": self._history[-1] if self._history else None,
             "knowledge_entries": len(self.knowledge.list_entries()),
