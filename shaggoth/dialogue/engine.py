@@ -173,6 +173,12 @@ class DialogueEngine:
         if knowledge_hits and self.model and self.model.is_trained():
             snippets = []
             for entry, score in knowledge_hits:
+                # Only inject knowledge that actually matches the question.
+                # Without this check, a Cold War article matched "Are there
+                # Russians in Moscow?" by co-occurrence and GPT reported Cold War
+                # history as the answer to a basic geography question.
+                if not knowledge_is_relevant(entry.topic, text, entry.content):
+                    continue
                 snippet = entry.content[:300].strip()
                 snippets.append(f"[Knowledge: {entry.topic}] {snippet}")
             if snippets:
