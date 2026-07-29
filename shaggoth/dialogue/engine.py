@@ -203,9 +203,12 @@ class DialogueEngine:
             if is_follow_up(text):
                 body = follow_up_reply(context)
             else:
-                # Try pattern engine first so greetings get a genuine greeting
-                # back rather than stale-context injection from chitchat_reply.
-                body = self.patterns.respond(text) or chitchat_reply(text, context)
+                # Try specific patterns first (greetings, opinion requests, etc.),
+                # then a question-shaped catch-all, then generic chitchat.
+                body = self.patterns.respond(text)
+                if body is None:
+                    body = (self.patterns.respond_no_subject_question(text)
+                            or chitchat_reply(text, context))
             reply = self._finish(Reply(body, source="pattern", mode=mode))
             self._persist(session_id, text, reply)
             return reply
@@ -883,6 +886,8 @@ _NO_SUBJECT = _FILLER | {
     "ikr", "afk", "imo", "ngl", "fyi", "omfg", "lmk",
     # Delegation and imperative verbs — "okay pick something" is chitchat.
     "pick", "choose", "decide", "select",
+    # Meta-question fillers — "what do you think/mean/feel?" is not a lookup.
+    "do", "think", "mean", "feel", "work",
 }
 
 # Turns that only make sense against what was just said.
@@ -978,8 +983,8 @@ _CHITCHAT_REPLIES = (
 )
 
 _DELEGATION_RE = re.compile(
-    r"(?i)\b(pick one|you pick|you choose|you decide|your choice|up to you|"
-    r"surprise me|pick for me|choose for me)\b"
+    r"(?i)\b(pick one|pick something|pick anything|you pick|you choose|"
+    r"you decide|your choice|up to you|surprise me|pick for me|choose for me)\b"
 )
 
 _DELEGATION_REPLIES = (
