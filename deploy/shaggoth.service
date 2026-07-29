@@ -1,0 +1,22 @@
+[Unit]
+Description=Shaggoth AI server
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=matt
+WorkingDirectory=/home/matt/Shaggoth-a1
+EnvironmentFile=-/home/matt/Shaggoth-a1/.env
+ExecStart=/usr/bin/python3 -m shaggoth serve --host 0.0.0.0 --port 8420
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=shaggoth
+
+# Let the service settle before systemd considers it started
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target
