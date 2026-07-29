@@ -156,6 +156,7 @@ class ProactiveChatter:
         push: Any,  # PushSender
         config: Optional[ProactiveConfig] = None,
         rng_seed: Optional[int] = None,
+        slack: Any = None,  # SlackSender, optional
     ):
         self.engine = engine
         self.push = push
@@ -163,6 +164,7 @@ class ProactiveChatter:
         self._rng = random.Random(rng_seed)
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
+        self._slack = slack
         # Tracks (session_id, message_id) of messages we've sent, to avoid
         # delivering the same proactive message twice over SSE.
         self._sent: set[int] = set()
@@ -252,6 +254,8 @@ class ProactiveChatter:
                 pass
 
         print(f"[proactive] sent to {sent} session(s): {msg_text[:60]}…")
+        if self._slack and getattr(self._slack, "configured", False):
+            self._slack.send_async(msg_text)
 
     def send_now(self, session_id: str = "default") -> str:
         """Manually trigger one proactive message for testing."""

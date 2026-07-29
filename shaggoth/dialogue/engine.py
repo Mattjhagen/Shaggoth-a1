@@ -23,6 +23,7 @@ import random
 import re
 import time
 from dataclasses import dataclass, field
+from typing import Any, Optional
 
 from ..guardrails import GuardrailEngine
 from ..knowledge.engine import KnowledgeBase
@@ -173,6 +174,12 @@ class DialogueEngine:
         if knowledge_hits and self.model and self.model.is_trained():
             snippets = []
             for entry, score in knowledge_hits:
+                # Only inject knowledge that actually matches the question.
+                # Without this check, a Cold War article matched "Are there
+                # Russians in Moscow?" by co-occurrence and GPT reported Cold War
+                # history as the answer to a basic geography question.
+                if not knowledge_is_relevant(entry.topic, text, entry.content):
+                    continue
                 snippet = entry.content[:300].strip()
                 snippets.append(f"[Knowledge: {entry.topic}] {snippet}")
             if snippets:
@@ -193,10 +200,15 @@ class DialogueEngine:
         # This runs *after* plugins: "what is 6 * 7?" and "what do you know
         # about me?" are made entirely of filler words but are real commands.
         if not has_subject(text):
-            body = (
-                follow_up_reply(context) if is_follow_up(text)
-                else chitchat_reply(text, context)
-            )
+            if is_follow_up(text):
+                body = follow_up_reply(context)
+            else:
+                # Try specific patterns first (greetings, opinion requests, etc.),
+                # then a question-shaped catch-all, then generic chitchat.
+                body = self.patterns.respond(text)
+                if body is None:
+                    body = (self.patterns.respond_no_subject_question(text)
+                            or chitchat_reply(text, context))
             reply = self._finish(Reply(body, source="pattern", mode=mode))
             self._persist(session_id, text, reply)
             return reply
@@ -868,6 +880,14 @@ _NO_SUBJECT = _FILLER | {
     "it", "its", "them", "they", "him", "her", "his", "hers", "we", "us",
     "our", "ours", "i", "me", "my", "mine", "you", "your", "yours", "he",
     "she", "is", "are", "am", "be",
+    # Social reaction words and internet slang — never a research topic.
+    "lol", "lmao", "lmfao", "omg", "wtf", "haha", "hehe", "hmm", "wow",
+    "huh", "oof", "yikes", "oops", "brb", "gtg", "smh", "idk", "rofl",
+    "ikr", "afk", "imo", "ngl", "fyi", "omfg", "lmk",
+    # Delegation and imperative verbs — "okay pick something" is chitchat.
+    "pick", "choose", "decide", "select",
+    # Meta-question fillers — "what do you think/mean/feel?" is not a lookup.
+    "do", "think", "mean", "feel", "work",
 }
 
 # Turns that only make sense against what was just said.
@@ -928,6 +948,15 @@ def has_subject(text: str) -> bool:
     return bool({w for w in words if len(w) > 2} - _NO_SUBJECT)
 
 
+# A message opening with a social reaction word ("lol", "haha") is a reaction
+# to the previous bot turn, not a new research question. "lol what fell over?"
+# after the error reply must not be scraped for topics.
+_SOCIAL_PREFIX_RE = re.compile(
+    r"^(?:lol|lmao|lmfao|haha|hehe|omg|wtf|oof|wow|huh|yikes|smh|rofl)\s*[!.,?]*\s+",
+    re.I,
+)
+
+
 def is_follow_up(text: str) -> bool:
     """Whether the turn refers back rather than introducing a subject.
 
@@ -935,17 +964,34 @@ def is_follow_up(text: str) -> bool:
     ("why does that matter"), which read like questions but whose subject is
     a pronoun pointing at the previous turn. Treating those as lookups sent
     "why does that matter" to an article about *matter*.
+
+    Also covers social-reaction prefixes: "lol what fell over?" is a reaction
+    to the bot's error message, not a request to research "falling over".
     """
     text = (text or "").strip()
-    return bool(_FOLLOW_UP.search(text) or _ANAPHORIC.search(text))
+    if _FOLLOW_UP.search(text) or _ANAPHORIC.search(text):
+        return True
+    return bool(_SOCIAL_PREFIX_RE.match(text))
 
 
 _CHITCHAT_REPLIES = (
     "Then talk. I'm not going to start it for you.",
-    "Go on then. Pick something.",
+    "Go on then. Ask me something.",
     "I'm here. That's about as warm as it gets.",
     "Sure. What about?",
     "Fine by me. Say something worth answering.",
+)
+
+_DELEGATION_RE = re.compile(
+    r"(?i)\b(pick one|pick something|pick anything|you pick|you choose|"
+    r"you decide|your choice|up to you|surprise me|pick for me|choose for me)\b"
+)
+
+_DELEGATION_REPLIES = (
+    "That's my line. You bring the topic, I bring the facts.",
+    "No — you ask, I answer. That's the deal.",
+    "I've got everything from quantum physics to aeroponic farming. You just have to ask.",
+    "Still your turn. Give me a subject.",
 )
 
 
@@ -955,6 +1001,8 @@ def chitchat_reply(text: str, context: dict | None = None) -> str:
     Uses what the session has actually been about when there is something,
     so it reads as continuing a conversation rather than resetting one.
     """
+    if _DELEGATION_RE.search(text or ""):
+        return _rng.choice(_DELEGATION_REPLIES)
     subject = last_subject(context)
     if not subject:
         topics = [t for t in (context or {}).get("topics", []) if len(t) > 3][:1]
@@ -963,7 +1011,7 @@ def chitchat_reply(text: str, context: dict | None = None) -> str:
         return _rng.choice((
             f"We were on {subject}. Still are, unless you've got something better.",
             f"You brought up {subject} earlier. Want to keep pulling on that?",
-            f"Last thing you cared about was {subject}. Pick that back up or pick something new.",
+            f"Last thing you cared about was {subject}. Pick that back up or ask something new.",
         ))
     return _rng.choice(_CHITCHAT_REPLIES)
 
@@ -1006,6 +1054,13 @@ def follow_up_reply(context: dict | None = None) -> str:
     return "Follow up on what? You haven't given me anything yet."
 
 
+# Social words that must never appear as the subject of a "blank on X" reply.
+_DESCRIBE_FILTER = frozenset({
+    "lol", "lmao", "lmfao", "omg", "wtf", "haha", "hehe", "hmm",
+    "wow", "huh", "yikes", "oof", "oops", "rofl", "smh", "ikr",
+})
+
+
 def describe_unknown(text: str) -> str:
     """An in-character admission of ignorance that still names the subject.
 
@@ -1014,7 +1069,10 @@ def describe_unknown(text: str) -> str:
     research -- honestly signal that the gap is being closed rather than just
     apologising for it.
     """
-    words = [w for w in extract_keywords(text) if len(w) > 2]
+    words = [
+        w for w in extract_keywords(text)
+        if len(w) > 2 and w.lower() not in _DESCRIBE_FILTER
+    ]
     subject = " ".join(words[:3]) if words else ""
 
     if not subject:
@@ -1075,6 +1133,7 @@ def compose_greeting(knowledge_count: int = 0, recent_topic: str = "") -> str:
             f"talk. Ask me something real.",
         ]
     return _rng.choice(generic)
+
 
 def _content_words(text: str) -> set[str]:
     """Meaningful words from a question, with conversational filler removed."""

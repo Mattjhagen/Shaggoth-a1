@@ -4,11 +4,13 @@ import math
 
 
 def perplexity(model, text: str, tokenizer, block_size: int = 256) -> dict:
-    import torch
-
     ids = tokenizer.encode(text)
-    if len(ids) < block_size + 1:
+    # Need at least block_size+2 tokens so the sliding window produces one chunk:
+    # range(0, len(ids)-block_size-1, stride) is empty when len==block_size+1.
+    if len(ids) < block_size + 2:
         return {"perplexity": float("inf"), "loss": float("inf"), "tokens": len(ids), "error": "text too short"}
+
+    import torch  # optional dep; only import after the cheap early-return guard
 
     device = next(model.parameters()).device
     losses = []

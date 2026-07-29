@@ -114,18 +114,49 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "Is that the whole reason, or is there more to it?",
         "And does {0} explain everything about it?",
     ]),
-    (re.compile(r"(?i)^(?:why|how|what|when|where|who)\b.*\?$"), [
-        "Good question. What's your own hunch?",
-        "Before I guess — what do you think the answer is?",
-        "Interesting question. What made you think of it?",
+    # Opinion / reaction requests — "what do you think?" "what's your take?"
+    (re.compile(r"(?i)\bwhat(?:'s| is)? (?:your )?(?:think|thought|opinion|take|view|stance|position)\b"
+                r"|\bwhat do you (?:think|reckon|say|believe|make of)\b"), [
+        "My take? I'm a retrieval engine — I'll tell you what I know, not what I feel. Ask me something specific.",
+        "I don't have opinions, I have facts. What exactly do you want to know?",
+        "On what specifically? Give me a subject and I'll tell you what the evidence says.",
     ]),
-    (re.compile(r"(?i)\b(yes|yeah|yep|sure)\b\.?$"), [
+    # Clarification requests — "what do you mean?" "can you clarify?"
+    (re.compile(r"(?i)\bwhat do you mean\b|\bcan you (?:clarify|elaborate|be more specific|explain that)\b"
+                r"|\bi don'?t (?:understand|follow|get it)\b"), [
+        "Let me put it more plainly. What part lost you?",
+        "Fair — I wasn't clear. Which part do you want me to unpack?",
+        "Ask me the specific thing that didn't land and I'll take another run at it.",
+    ]),
+    # Acknowledgements — "interesting", "got it", "makes sense"
+    (re.compile(r"(?i)^(?:interesting|got it|makes sense|fair enough|right|noted|understood|i see|good to know)[.!]?$"), [
+        "Good. What's next?",
+        "Right. Anything else you want to dig into?",
+        "Noted. Keep going or ask me something new.",
+    ]),
+    # Generic social meta-question fallback — only reached for questions that
+    # have no real content words (has_subject=False routes here first).
+    # Removed from this position: "^(?:why|how|what|...).*\?$" must NOT fire
+    # for real knowledge questions, because it intercepts describe_unknown()
+    # and prevents the auto-research trigger (source="fallback") from firing.
+    # Instead those patterns are listed as SOCIAL_QUESTION_RESPONSES below and
+    # used only by the no-subject branch in engine.py.
+    (re.compile(r"(?i)^(?:yes|yeah|yep|yup|sure|okay|ok|alright|definitely|absolutely)[.!]?$"), [
         "Great — tell me more.",
         "Okay. What's next?",
+        "Right then — go on.",
     ]),
     (re.compile(r"(?i)\b(no|nope|nah)\b\.?$"), [
         "Fair enough. Why not?",
         "Okay — what would change your mind?",
+    ]),
+    # Social check-in — "how are you?", "how's it going?"
+    (re.compile(r"(?i)\bhow are you\b|\bhow(?:'s| is) (?:it going|things|everything|life)\b"), [
+        "I run on a rack server with no feelings to report. Still running is "
+        "the best I can say.",
+        "Operational. Seventeen cores, 39 GB of RAM, and a growing list of things "
+        "I haven't read yet. You?",
+        "Still here. No feelings, but the fan is loud — if that counts.",
     ]),
 ]
 
@@ -135,6 +166,16 @@ FALLBACKS = [
     "What led you to that?",
     "I see. Can you expand on that?",
     "That's interesting — go on.",
+]
+
+# Used by PatternEngine.respond_no_subject_question() for question-shaped
+# messages with no content words that didn't match a specific rule above.
+SOCIAL_QUESTION_RESPONSES = [
+    "Good question. What's your own hunch?",
+    "Before I guess — what do you already know about it?",
+    "That depends on a lot. Can you narrow it down?",
+    "Interesting. What specifically are you asking?",
+    "I'd rather give you a real answer than a vague one — what's the subject?",
 ]
 
 
@@ -153,6 +194,16 @@ class PatternEngine:
                     return template.format(*groups)
                 except IndexError:
                     return template
+        return None
+
+    def respond_no_subject_question(self, text: str) -> str | None:
+        """Catch-all for question-shaped no-subject messages with no rule match.
+
+        Only fires after :meth:`respond` returns None, so specific patterns
+        (opinion requests, clarifications, etc.) always win.
+        """
+        if re.search(r"(?i)^(?:why|how|what|when|where|who)\b.*\?$", text):
+            return self.rng.choice(SOCIAL_QUESTION_RESPONSES)
         return None
 
     def fallback(self) -> str:

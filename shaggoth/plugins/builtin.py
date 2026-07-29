@@ -14,6 +14,10 @@ from . import PluginRegistry
 
 _MATH_RE = re.compile(r"^\s*(?:what(?:'s| is)\s+)?([\d\s+\-*/().%]+)\s*\??\s*$")
 
+# Injected by server.py serve() so the curiosity plugin uses the shared engine
+# and fires the same deferred-answer and Slack callbacks as server-side research.
+_curiosity_engine = None
+
 _OPS = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
@@ -103,7 +107,7 @@ def build_registry() -> PluginRegistry:
             match = re.search(r"(?i)\b(?:research|look up|learn about|go find|go search|go read about)\s+(.+)", text)
             if match:
                 topic = match.group(1).strip().rstrip(".?!")
-                engine = CuriosityEngine()
+                engine = _curiosity_engine or CuriosityEngine()
                 episode = engine.research_topic(topic, background=True)
                 return f"I'm researching \"{topic}\" now — I'll let you know when I find something. (episode {episode.episode_id})"
         return None

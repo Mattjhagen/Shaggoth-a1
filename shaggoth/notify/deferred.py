@@ -172,6 +172,8 @@ class DeferredQuestions:
             if not answer:
                 continue
             with self._lock:
+                if item.answered:
+                    continue  # another thread resolved it first
                 item.answer = answer
                 item.answered_at = now
             resolved.append(item)
