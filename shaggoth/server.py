@@ -395,13 +395,9 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 session_id = (params.get("session_id") or ["default"])[0]
                 since_id = int((params.get("since_id") or ["0"])[0] or 0)
                 try:
-                    rows = engine.memory.db.execute(
-                        "SELECT id, content, ts FROM messages "
-                        "WHERE session_id = ? AND role = 'assistant' AND id > ? "
-                        "ORDER BY id ASC LIMIT 20",
-                        (session_id, since_id),
-                    ).fetchall()
-                    messages = [{"id": r[0], "text": r[1], "ts": r[2]} for r in rows]
+                    messages = engine.memory.proactive_messages_after(
+                        session_id, since_id=since_id
+                    )
                 except Exception:
                     messages = []
                 return self._send_json(200, {"messages": messages})
@@ -809,7 +805,6 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     learner = LearnerPipeline()
     curiosity = CuriosityEngine(knowledge=engine.knowledge, scraper=learner.scraper)
     scheduler = CuriosityScheduler(curiosity)
-    push = PushSender()
     deferred = DeferredQuestions()
     feedback = FeedbackStore()
     # Grades Shaggoth's own answers on idle capacity, so quality stops
@@ -824,6 +819,26 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     if _openai_key and not isinstance(engine.model, OpenAIModel):
         engine.model = OpenAIModel(api_key=_openai_key)
         print(f"[openai] using {engine.model._model} as language model")
+
+    # Cloudflare integration — KV for cloud-persistent push subscriptions,
+    # D1 for cloud-mirrored conversation memory.
+    _cf_account = os.environ.get("CLOUDFLARE_ACCOUNT_ID") or ""
+    _cf_token = os.environ.get("CLOUDFLARE_API_TOKEN") or ""
+    if _cf_account and _cf_token:
+        from .notify.kv_store import KVSubscriptionStore
+        push = PushSender(store=KVSubscriptionStore())
+        print("[cloudflare] push subscriptions backed by KV")
+        from .memory.d1_sync import D1Sync
+        engine.memory = D1Sync(engine.memory, _cf_account, _cf_token)
+        print("[cloudflare] memory writes mirroring to D1")
+    else:
+        push = PushSender()
+
+    # Slack integration — post to #shaggoth when Shaggoth learns or answers.
+    from .integrations.slack import SlackSender
+    slack = SlackSender()
+    if slack.configured:
+        print("[slack] posting to #shaggoth")
 
     # Link deferred questions and push notifications to the engine
     engine.deferred_questions = deferred
@@ -862,6 +877,12 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
                 )
                 sessions_notified.add(item.session_id)
         print(f"[deferred] answered {len(resolved)} question(s) about {episode.topic!r}")
+        if slack.configured:
+            q = first.question[:120] + ("..." if len(first.question) > 120 else "")
+            slack.send_async(
+                f"Finished looking up *{episode.topic}*.\nYou asked: _{q}_\n"
+                f"Answer: {first.answer[:300] if first.answer else '(see chat)'}"
+            )
 
     def _announce_learning(episode) -> None:
         """An unprompted 'I just read about X'. Rate-limited per subscriber."""
@@ -875,6 +896,11 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
             url="/#chat",
             tag="curiosity",
         )
+        if slack.configured:
+            slack.send_async(
+                f"I just read {episode.words_learned:,} words about *{episode.topic}*. "
+                f"Ask me something."
+            )
 
     # Feedback-driven repair takes priority over age-driven refresh.
     scheduler.feedback = feedback
@@ -883,7 +909,7 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     curiosity.on_episode_complete(_announce_learning)
 
     # Proactive chatter — Shaggoth messages first, in character.
-    proactive = ProactiveChatter(engine, push)
+    proactive = ProactiveChatter(engine, push, slack=slack)
 
     scheduler.start()
     proactive.start()

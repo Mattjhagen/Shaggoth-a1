@@ -386,5 +386,21 @@ class MemoryStore:
             return ""
         return self.compact_session(session_id)
 
+    def proactive_messages_after(
+        self, session_id: str, since_id: int = 0, limit: int = 20
+    ) -> list[dict]:
+        """Assistant messages stored after ``since_id`` for a session.
+
+        Used by the proactive polling endpoint so the server doesn't access
+        the SQLite connection directly.
+        """
+        rows = self.db.execute(
+            "SELECT id, content, ts FROM messages "
+            "WHERE session_id = ? AND role = 'assistant' AND id > ? "
+            "ORDER BY id ASC LIMIT ?",
+            (session_id, since_id, limit),
+        ).fetchall()
+        return [{"id": r[0], "text": r[1], "ts": r[2]} for r in rows]
+
     def close(self) -> None:
         self.db.close()
