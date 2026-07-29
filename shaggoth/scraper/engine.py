@@ -64,15 +64,12 @@ def _extract_title(html: str) -> str:
 
 
 def _extract_links(html: str, base_url: str) -> list[str]:
-    """Pull href values that look like same-domain pages."""
-    from urllib.parse import urljoin, urlparse
-
-    base_parsed = urlparse(base_url)
+    """Pull all http/https href values, resolving relative URLs against base_url."""
     links = []
     for m in re.finditer(r'href=["\']([^"\']+)["\']', html, re.IGNORECASE):
         href = m.group(1)
-        full = urljoin(base_url, href)
-        parsed = urlparse(full)
+        full = urllib.parse.urljoin(base_url, href)
+        parsed = urllib.parse.urlparse(full)
         if parsed.scheme in ("http", "https"):
             links.append(full)
     return links
