@@ -1,7 +1,10 @@
 import unittest
 
 from shaggoth.dialogue import DialogueEngine
-from shaggoth.dialogue.engine import DRIFT, NO_DRIFT
+from shaggoth.dialogue.engine import (
+    DRIFT, NO_DRIFT,
+    chitchat_reply, describe_unknown, has_subject, is_follow_up,
+)
 from shaggoth.guardrails import GuardrailEngine
 from shaggoth.memory import MemoryStore
 
@@ -123,6 +126,73 @@ class ServerSmokeTest(unittest.TestCase):
         finally:
             httpd.shutdown()
             httpd.server_close()
+
+
+class ConversationFlowTests(unittest.TestCase):
+    """Regression tests for the three conversation-flow bugs in the screenshot.
+
+    Bug 1: "Hello" resurrected stale context from a prior session.
+    Bug 2: "Okay pick something" crashed the engine with a 500 error.
+    Bug 3: "Lol what fell over?" was scraped for topics, producing
+           "Blank on lol fell. Not my finest moment. Researching it now."
+    """
+
+    # ------------------------------------------------------------------ Bug 1
+    def test_greeting_does_not_inject_stale_context(self):
+        engine = make_engine()
+        # Seed a prior session with a topic.
+        engine.respond("what is polarity in chemistry?", session_id="old")
+        # A fresh greeting must NOT echo "Last thing you cared about was polarity".
+        reply = engine.respond("Hello", session_id="new")
+        self.assertNotIn("Last thing you cared about", reply.text)
+        self.assertNotIn("polarity", reply.text)
+
+    def test_greeting_gets_pattern_response(self):
+        engine = make_engine()
+        reply = engine.respond("hi", session_id="s1")
+        # Pattern engine handles greetings; source stays "pattern".
+        self.assertEqual(reply.source, "pattern")
+        # It must NOT be the stale-context injection.
+        self.assertNotIn("Last thing you cared about", reply.text)
+        self.assertNotIn("You brought up", reply.text)
+
+    # ------------------------------------------------------------------ Bug 2
+    def test_okay_pick_something_does_not_crash(self):
+        engine = make_engine()
+        # Must not raise; must return a usable reply.
+        reply = engine.respond("okay pick something", session_id="s1")
+        self.assertIsNotNone(reply)
+        self.assertTrue(reply.text)
+        self.assertNotEqual(reply.source, "error")
+
+    def test_pick_is_not_a_research_subject(self):
+        # "okay pick something" contains only non-subject words now.
+        self.assertFalse(has_subject("okay pick something"))
+
+    def test_social_words_are_not_subjects(self):
+        self.assertFalse(has_subject("lol"))
+        self.assertFalse(has_subject("haha"))
+        self.assertFalse(has_subject("omg"))
+
+    # ------------------------------------------------------------------ Bug 3
+    def test_social_prefix_is_follow_up(self):
+        self.assertTrue(is_follow_up("lol what fell over?"))
+        self.assertTrue(is_follow_up("haha that's funny"))
+        self.assertTrue(is_follow_up("omg seriously?"))
+
+    def test_lol_what_fell_over_does_not_trigger_unknown_topic(self):
+        engine = make_engine()
+        reply = engine.respond("lol what fell over?", session_id="s1")
+        # Must be handled as a follow-up, not a "blank on lol fell" fallback.
+        self.assertNotIn("Blank on", reply.text)
+        self.assertNotIn("lol fell", reply.text)
+        self.assertNotEqual(reply.source, "fallback")
+
+    def test_describe_unknown_filters_social_words(self):
+        result = describe_unknown("lol what fell over")
+        # Social word must not appear as the subject of the ignorance reply.
+        self.assertNotIn("lol fell", result)
+        self.assertNotIn("Blank on lol", result)
 
 
 if __name__ == "__main__":
