@@ -185,7 +185,7 @@ class TinyGPTModel(LanguageModel):
         ids = self.tokenizer.encode(prompt) or [0]
         idx = torch.tensor([ids], dtype=torch.long, device=device)
         out = self.model.sample(idx, max_new_tokens=max_tokens)
-        return self.tokenizer.decode(out[0].tolist())[len(prompt) :]
+        return self.tokenizer.decode(out[0].tolist()[len(ids):])
 
     def save(self, path: str) -> None:
         if self.model is None:

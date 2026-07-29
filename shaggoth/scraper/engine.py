@@ -95,6 +95,9 @@ class ScraperEngine:
         self.respect_robots = respect_robots
         #: origin -> (RobotFileParser | None, fetched_at)
         self._robots_cache: dict[str, tuple] = {}
+        #: Set by fetch_page() to the raw HTML of the last successfully fetched
+        #: HTML page so crawl() can extract links without a second HTTP request.
+        self._last_html: str = ""
         self._init_db()
 
     def _init_db(self) -> None:
@@ -224,9 +227,11 @@ class ScraperEngine:
                 content_type = resp.headers.get("Content-Type", "")
                 if "html" in content_type or "xhtml" in content_type:
                     html = raw.decode("utf-8", errors="replace")
+                    self._last_html = html
                     title = _extract_title(html)
                     text = _html_to_text(html)
                 else:
+                    self._last_html = ""
                     title = url.split("/")[-1] or url
                     text = raw.decode("utf-8", errors="replace")
                     text = _clean_text(text)
@@ -285,21 +290,13 @@ class ScraperEngine:
                     scraped.append(page)
                     if len(scraped) >= max_pages:
                         break
-                    # discover more links from the page
-                    try:
-                        req = urllib.request.Request(
-                            url,
-                            headers={"User-Agent": USER_AGENT},
-                        )
-                        with urllib.request.urlopen(req, timeout=10) as resp:
-                            html = resp.read().decode("utf-8", errors="replace")
-                        links = _extract_links(html, url)
+                    # Reuse the HTML cached by fetch_page — no second HTTP request.
+                    if self._last_html:
+                        links = _extract_links(self._last_html, url)
                         for link in links[:20]:
                             if link not in visited:
                                 self.add_seed(link)
                                 next_queue.append(link)
-                    except Exception:
-                        pass
             queue = next_queue[:max_pages - len(scraped)]
 
         return scraped
