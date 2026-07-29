@@ -19,7 +19,13 @@ from __future__ import annotations
 
 import pytest
 
-from shaggoth.curiosity.topics import base_topic, is_chunk_topic
+from shaggoth.curiosity.topics import (
+    base_topic,
+    canonical_subject,
+    is_chunk_topic,
+    is_question_topic,
+    strip_question_prefix,
+)
 
 
 # --------------------------------------------------------------------------
@@ -66,6 +72,66 @@ def test_is_chunk_topic():
     assert is_chunk_topic("Aeroponic Farming Part 2")
     assert not is_chunk_topic("Aeroponic Farming")
     assert not is_chunk_topic("Machine Learning")
+
+
+# --------------------------------------------------------------------------
+# strip_question_prefix / canonical_subject: AGENTS.md §NN
+#
+# "why is the sky blue" bypassing extract_topic_query stores an entry titled
+# after the whole question, duplicating the properly-named "the sky blue"
+# entry -- and, scored on title match alone, can outrank it.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "topic,expected",
+    [
+        ("Why Is The Sky Blue", "The Sky Blue"),
+        ("What Is Machine Learning", "Machine Learning"),
+        ("How Does Aeroponic Farming Work", "Aeroponic Farming Work"),
+        ("Who Is Ada Lovelace", "Ada Lovelace"),
+        ("Define Photosynthesis", "Photosynthesis"),
+        ("Definition Of Osmosis", "Osmosis"),
+        ("Tell Me About Gravity", "Gravity"),
+        ("Explain Quantum Mechanics", "Quantum Mechanics"),
+    ],
+)
+def test_strip_question_prefix(topic, expected):
+    assert strip_question_prefix(topic) == expected
+
+
+def test_strip_question_prefix_leaves_real_titles_alone():
+    for title in ("Machine Learning", "Photosynthesis", "Quantum Mechanics"):
+        assert strip_question_prefix(title) == title
+
+
+def test_strip_question_prefix_unwinds_double_processing():
+    assert strip_question_prefix("What Is Why Is Gravity") == "Gravity"
+
+
+def test_strip_question_prefix_handles_degenerate_input():
+    assert strip_question_prefix("") == ""
+    assert strip_question_prefix(None) == ""
+
+
+def test_is_question_topic():
+    assert is_question_topic("Why Is The Sky Blue")
+    assert not is_question_topic("The Sky Blue")
+    assert not is_question_topic("Machine Learning")
+
+
+def test_canonical_subject_unifies_both_acquisition_paths():
+    """The exact duplicate pair from AGENTS.md §NN: same subject, one named
+    properly, one named after the raw question that produced it."""
+    assert (
+        canonical_subject("Why Is The Sky Blue Part 1")
+        == canonical_subject("The Sky Blue Part 2")
+        == "The Sky Blue"
+    )
+
+
+def test_canonical_subject_leaves_real_titles_alone():
+    assert canonical_subject("Photosynthesis") == "Photosynthesis"
 
 
 # --------------------------------------------------------------------------

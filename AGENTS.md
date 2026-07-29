@@ -1553,3 +1553,146 @@ logged. Disable with `systemctl --user disable --now shaggoth-retrain.timer`.
 To make it *coherent* you need a bigger model (back to hours on this CPU) or a
 better box -- unchanged from SS's recommendation that retrieval remains the
 strong path. First real run logged: perplexity 12.16, coherence 0.54, REJECTED.
+
+---
+
+# SESSION 2026-07-29 — self-identity, procedural greeting, cross-entry synthesis; corpus dedup tool built
+
+Local worktree (`main` @ commits ahead of `origin/claude/ai-model-guardrails-platform-o6b50g`
+by, at session start, 3 unpushed commits from the prior session -- not yet
+logged here, so recorded now for the handoff record:
+
+- `a04ac43` -- **"what is shaggoth" / "who made you" now answer.** Both fell
+  to `source: fallback` and triggered curiosity research that could never
+  succeed (Shaggoth is private and unreleased -- web search for it is
+  always zero results). `scripts/seed_self_knowledge.py` seeds a
+  hand-written self-identity entry (`data/knowledge/` is gitignored, so this
+  has to be re-run after a fresh clone or a wipe); `dialogue/patterns.py`
+  gained "who made you" and folded "are you an LLM" into the existing
+  "are you an X" persona alternation.
+- `10613e3` -- **`compose_greeting()` is now procedurally assembled**, not
+  picked from ~10 fixed sentences. Independent opener/situational/closer
+  pools, where the situational clause pool only contains clauses that are
+  currently *true* (knowledge count, most recent topic, active research,
+  stale ratio, feedback repair backlog, episode count) -- so both the
+  wording and the numbers inside it track live state. `/greeting` now pulls
+  `curiosity.status()` and `feedback.status()` to feed those signals in.
+- `f406996` -- **definitional answers can now be assembled from more than
+  one entry.** Supporting sentences after the lead definition are joined
+  with varied transitions instead of bare concatenation;
+  `pull_cross_entry_fact()` adds one fact from a genuine same-`base_topic()`
+  continuation entry ("Gravity" + "Gravity Part 2"). Deliberately restricted
+  to matching `base_topic()` -- a looser title-overlap version was tried
+  first and answered "what is gravity" with *Gravity Falls* trivia and
+  "what is dna" with manga plot, the exact bug class `knowledge_is_relevant`
+  already guards against elsewhere (§ earlier sessions). Stayed procedural,
+  not Markov/TinyGPT -- both remain proven incoherent (see SS/WW above) and
+  gated off by design.
+
+## Corpus hygiene (§NN / §OO.5 / VV#2) -- root cause closed, cleanup tool built
+
+Three separate sessions flagged this as unfinished and never started it.
+Root cause (§NN): the acquisition path could store a raw, unnormalized
+question as an entry's title, so "why is the sky blue" produced
+`Why Is The Sky Blue (part N)` right next to the properly-named
+`The Sky Blue (part N)` from a plain lookup -- both score a perfect BM25
+title match, so the query-named duplicate (usually scraped from a worse
+search on the literal question text) could outrank the honest entry instead
+of losing to it.
+
+`74db8c3` (prior session) patched the one endpoint caught doing this
+directly. That fixed a symptom at one call site, not the invariant --
+nothing stopped a *different* caller from doing the same thing.
+
+**Fixed at the storage layer instead:**
+
+- `shaggoth/curiosity/topics.py` -- new `strip_question_prefix()` (mirrors
+  `base_topic()`, but strips a leading interrogative -- "why is", "what
+  is", "how does", "define", "explain", ... -- instead of a trailing chunk
+  suffix), `is_question_topic()`, and `canonical_subject()` (both applied,
+  the true dedup key). Idempotent, unit-tested (`tests/test_curiosity_topics.py`),
+  including the double-processing case ("What Is Why Is Gravity").
+- `shaggoth/curiosity/engine.py` -- `CuriosityEngine.research_topic()` and
+  `refresh_stale()` now call `strip_question_prefix(base_topic(topic))`
+  before anything is stored or re-researched. Every acquisition path funnels
+  through `research_topic()`, so this closes the loophole once, at the
+  layer that writes files, rather than trusting each caller to normalize
+  first.
+
+**Cleanup for what already accumulated:** `scripts/dedupe_corpus.py`.
+Groups existing entries by `canonical_subject()`, then by title variant
+(`base_topic()`, which still collapses part-N chunks of the same variant
+into one unit); any subject with more than one variant keeps the
+non-question-titled one (ties broken toward more total content, then
+label), and quarantines the rest -- moves the files to a sibling
+`knowledge_dedup_removed/` directory, **never deletes**. Dry-run by default;
+`--apply` to act; idempotent (a second `--apply` is a no-op); verified by
+hand against a throwaway fixture dir (create clean + question-prefixed
+duplicates → `--apply` → correct file kept on disk, correct file
+quarantined, re-run reports nothing to do). Planning logic
+(`group_entries` / `plan_dedup`) is filesystem-free and covered by
+`tests/test_dedupe_corpus.py` (6 tests): the exact duplicate-pair shape from
+§NN, a lone entry never flagged, ties with no clean counterpart resolved by
+size, multiple independent subjects handled separately.
+
+**Not run against the live r510 corpus this session** -- no write access to
+that box from here. Run it there next:
+
+```bash
+cd ~/Shaggoth-a1
+PYTHONPATH=. python3 scripts/dedupe_corpus.py                 # report first
+PYTHONPATH=. python3 scripts/dedupe_corpus.py --apply          # then act
+```
+
+Dry run against the **local** `data/knowledge/` (823 entries, 414/823 = 50%
+`-part-N` fragments, matching the shape reported for r510) found **zero**
+duplicate subjects -- this local corpus was built by `seed_knowledge.py`
+plus local curiosity runs, neither of which ever hit the buggy raw-question
+path, so there was nothing here to clean. That is expected, not a sign the
+tool doesn't do anything: the bug was in a code path this local corpus never
+exercised, and r510's corpus is a different, much longer-lived tree
+accumulated by 24/7 conversation-driven research -- exactly where the
+buggy path would have fired.
+
+Full suite: 355 passed (up from 335 at session start; 20 new tests --
+`tests/test_curiosity_topics.py` +14, `tests/test_dedupe_corpus.py` +6).
+
+## Deliberately not touched: OO.2, causal-reasoning "photosynthesis needs light"
+
+Traced further this session without changing anything: `_pick()` in
+`shaggoth/dialogue/reasoning.py` ranks focus-word hits with `word in
+lowered` -- a raw substring check against the whole sentence, not a
+word-tokenized one, so a focus word like "light" would also count a hit
+inside "highlighted", "flight", "delight". That is a real, independently
+provable bug (confirmed by inspection, not yet by a failing case on real
+data) -- but AGENTS.md's own note on OO.2 says the distractor "membrane"
+sentence **genuinely contains the word "light"**, not a substring artifact,
+so this would not have been the fix for that specific reported symptom.
+More likely: `_candidate_entries()` pools sentences from every entry whose
+title contains "photosynthesis", which includes every `-part-N` chunk of a
+long article -- so a later chunk covering, say, photosynthetic bacteria's
+membrane structure competes on equal footing with the chunk containing the
+actual light-energy explanation, and BM25 doesn't rank chunks by which one
+answers the question. That reasoning is exactly why the corpus-hygiene work
+above was prioritized this session over guessing at a fix here: fewer,
+better-chunked entries is the higher-leverage lever (per VV#2, "hurts BOTH
+retrieval and any future generative model"), and this project's own stated
+discipline is "verified by command, not assumed" -- there is no live
+reproduction of the photosynthesis case available from this environment to
+verify a fix against, so none was attempted. The substring-vs-word-boundary
+issue in `_pick()` is still real and worth fixing on its own merits next
+session, just not conflated with a claim that it explains OO.2.
+
+## Still open
+
+1. **Run `scripts/dedupe_corpus.py --apply` against the live r510 corpus**
+   and record before/after `-part-N` percentages here.
+2. **OO.2 causal reasoning** ("why does photosynthesis need light" ->
+   bacterial membranes) -- still not fixed; needs either a live repro on
+   r510 to verify a real fix against, or the chunking-quality angle above.
+3. **`_pick()`'s substring focus-matching** (`word in lowered`) -- switch to
+   word-tokenized membership; real bug, low risk, not yet done.
+4. **Auth on the public endpoint** -- still the user's call, unchanged.
+5. **Stack Exchange ingestion** -- still the right next source for causal
+   questions; not started.
+6. Re-verify §UU (orphaned `command_center.app` process) doesn't recur.

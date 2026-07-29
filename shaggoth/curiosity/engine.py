@@ -26,6 +26,7 @@ from .topics import (
     extract_topic_query,
     is_chunk_topic,
     is_known_topic,
+    strip_question_prefix,
 )
 from .wikipedia import learn_topic_from_wikipedia, WikiArticle
 from .freshness import FreshnessTracker
@@ -165,7 +166,15 @@ class CuriosityEngine:
         # a subject, and researching it writes a new entry whose name is one
         # suffix longer -- the loop that filled the knowledge base with
         # "... Part 1 Part 1 Part 1".
-        topic = base_topic(topic) or topic
+        #
+        # Nor a raw question. Every caller is supposed to have already
+        # reduced a question to its subject (extract_topic_query), but that
+        # was a per-call-site convention, not an invariant -- one endpoint
+        # forgot, and stored "Why Is The Sky Blue" as a title next to the
+        # honest "The Sky Blue" (AGENTS.md §NN). Stripping the interrogative
+        # lead-in here too means the storage layer itself cannot produce that
+        # duplicate, regardless of what a future caller forgets to do first.
+        topic = strip_question_prefix(base_topic(topic)) or topic
 
         episode = CuriosityEpisode(
             episode_id=f"curiosity-{uuid.uuid4().hex[:8]}",
@@ -353,7 +362,7 @@ class CuriosityEngine:
 
         subjects: list[str] = []
         for item in stale:
-            subject = base_topic(item.get("topic", "")).strip()
+            subject = strip_question_prefix(base_topic(item.get("topic", ""))).strip()
             if subject and subject not in subjects:
                 subjects.append(subject)
 

@@ -75,6 +75,51 @@ def is_chunk_topic(topic: str) -> bool:
     return base_topic(topic) != (topic or "").strip()
 
 
+# A caller that stores a raw question as a topic (bypassing
+# extract_topic_query) produces an entry titled after the *question*, not the
+# subject: "Why Is The Sky Blue" next to the properly-named "The Sky Blue".
+# Both score a perfect title match, so the query-named duplicate -- often
+# scraped from a bad search on the literal question text -- can outrank the
+# honest entry. This mirrors TOPIC_PATTERNS above (which extracts a topic
+# from a full sentence) but strips only the interrogative lead-in, leaving
+# whatever extract_topic_query would have captured untouched, so the result
+# lines up with topics stored via the normal path.
+_QUESTION_PREFIX = re.compile(
+    r"^(?:why|what|how|who|where|when|which)\s+"
+    r"(?:is|are|was|were|do|does|did|can|could|should|would)\s+"
+    r"|^(?:define|definition of|tell me about|explain)\s+",
+    re.I,
+)
+
+
+def strip_question_prefix(topic: str) -> str:
+    """Strip a leading question phrase, recovering the subject underneath.
+
+    "Why Is The Sky Blue" -> "The Sky Blue". "The Sky Blue" is returned
+    unchanged -- there is no prefix to strip. Applied repeatedly in case a
+    topic was double-processed ("What Is Why Is Gravity").
+    """
+    previous = None
+    current = (topic or "").strip()
+    while current != previous:
+        previous = current
+        current = _QUESTION_PREFIX.sub("", current, count=1).strip()
+    return current
+
+
+def is_question_topic(topic: str) -> bool:
+    """True when ``topic`` is phrased as a question rather than a subject."""
+    return strip_question_prefix(topic) != (topic or "").strip()
+
+
+def canonical_subject(topic: str) -> str:
+    """The subject a topic is really about, stripped of both a chunk suffix
+    and a leading question phrase -- the key two differently-acquired
+    entries for the same thing should collide under.
+    """
+    return base_topic(strip_question_prefix(base_topic(topic)))
+
+
 def extract_keywords_from_topic(topic: str) -> list[str]:
     """Extract meaningful keywords from a topic string."""
     return extract_keywords(topic)
