@@ -74,6 +74,13 @@ def subscription_key(subscription: dict) -> str:
     return str(subscription.get("endpoint") or "")
 
 
+def subscription_session_id(subscription: dict) -> str:
+    """Extract session_id from a subscription, if present."""
+    if not isinstance(subscription, dict):
+        return ""
+    return str(subscription.get("session_id") or "")
+
+
 def is_valid_subscription(subscription: Any) -> bool:
     """Whether a payload has the shape the Push API actually produces."""
     if not isinstance(subscription, dict):
@@ -136,6 +143,14 @@ class SubscriptionStore:
     def all(self) -> list[dict]:
         with self._lock:
             return list(self._subs.values())
+
+    def by_session(self, session_id: str) -> list[dict]:
+        """Get all subscriptions for a specific session."""
+        with self._lock:
+            return [
+                s for s in self._subs.values()
+                if subscription_session_id(s) == session_id
+            ]
 
     def __len__(self) -> int:
         with self._lock:
@@ -209,6 +224,20 @@ class PushSender:
         )
         thread.start()
 
+    def notify_session(self, session_id: str, title: str, body: str, url: str = "/",
+                       tag: str = "shaggoth", respect_rate_limit: bool = True) -> None:
+        """Send a notification to subscriptions in a specific session only."""
+        if not self.available:
+            return
+        payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
+        thread = threading.Thread(
+            target=self._send_to_session,
+            args=(session_id, payload, respect_rate_limit),
+            name="shaggoth-push",
+            daemon=True,
+        )
+        thread.start()
+
     def send_now(self, title: str, body: str, url: str = "/", tag: str = "shaggoth",
                  respect_rate_limit: bool = False) -> dict:
         """Synchronous send, for the manual test endpoint. Never raises."""
@@ -220,6 +249,21 @@ class PushSender:
     def _send_all(self, payload: str, respect_rate_limit: bool) -> dict:
         sent = failed = skipped = 0
         for subscription in self.store.all():
+            endpoint = subscription_key(subscription)
+            if respect_rate_limit and not self.store.may_send(endpoint, self.min_interval):
+                skipped += 1
+                continue
+            if self._send_one(subscription, payload):
+                self.store.mark_sent(endpoint)
+                sent += 1
+            else:
+                failed += 1
+        return {"sent": sent, "failed": failed, "skipped": skipped}
+
+    def _send_to_session(self, session_id: str, payload: str, respect_rate_limit: bool) -> dict:
+        """Send to subscriptions in a specific session only."""
+        sent = failed = skipped = 0
+        for subscription in self.store.by_session(session_id):
             endpoint = subscription_key(subscription)
             if respect_rate_limit and not self.store.may_send(endpoint, self.min_interval):
                 skipped += 1

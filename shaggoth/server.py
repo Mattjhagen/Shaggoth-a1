@@ -27,6 +27,7 @@ import json
 import mimetypes
 import os
 import re
+import threading
 import time
 import traceback
 from dataclasses import asdict
@@ -40,6 +41,7 @@ from .curiosity.engine import CuriosityEngine
 from .curiosity.scheduler import CuriosityScheduler, ScheduleConfig
 from .curiosity.topics import extract_topic_query
 from .dialogue import DialogueEngine
+from .dialogue.proactive import ProactiveChatter, ProactiveConfig
 from .knowledge.engine import KnowledgeBase
 from .learner.pipeline import LearnerPipeline
 from .feedback import FeedbackStore
@@ -50,6 +52,7 @@ from .personality.engine import PersonalityEngine
 STATIC_DIR = Path(__file__).parent / "static"
 API_KEY = os.environ.get("SHAGGOTH_API_KEY") or ""
 RATE_LIMITS: dict[str, list[float]] = {}
+_RATE_LIMIT_LOCK = threading.Lock()
 PUSH_TOKENS: list[dict] = []
 
 
@@ -165,7 +168,7 @@ def _request_mode(body: dict):
     return None
 
 
-def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None, feedback: FeedbackStore | None = None, critic: CriticLoop | None = None):
+def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None, feedback: FeedbackStore | None = None, critic: CriticLoop | None = None, proactive=None):
     class Handler(BaseHTTPRequestHandler):
         server_version = f"Shaggoth/{__version__}"
 
@@ -240,20 +243,24 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             This is the floor.
             """
             now = time.time()
-            if len(RATE_LIMITS) > 4096:
-                # An open endpoint sees a lot of distinct IPs; without this the
-                # bucket map is an unbounded memory leak.
-                for stale_key in [
-                    k for k, v in RATE_LIMITS.items() if not v or v[-1] < now - window
-                ]:
-                    RATE_LIMITS.pop(stale_key, None)
-
-            bucket = RATE_LIMITS.setdefault(key, [])
-            bucket[:] = [t for t in bucket if t > now - window]
-            if len(bucket) >= limit:
+            with _RATE_LIMIT_LOCK:
+                if len(RATE_LIMITS) > 4096:
+                    # An open endpoint sees a lot of distinct IPs; without this the
+                    # bucket map is an unbounded memory leak.
+                    for stale_key in [
+                        k for k, v in RATE_LIMITS.items() if not v or v[-1] < now - window
+                    ]:
+                        RATE_LIMITS.pop(stale_key, None)
+                bucket = RATE_LIMITS.setdefault(key, [])
+                bucket[:] = [t for t in bucket if t > now - window]
+                if len(bucket) >= limit:
+                    allowed = False
+                else:
+                    bucket.append(now)
+                    allowed = True
+            if not allowed:
                 self._send_json(429, {"error": "rate limit exceeded"})
                 return False
-            bucket.append(now)
             return True
 
         def log_message(self, fmt, *args):
@@ -266,6 +273,19 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
         def _route_get(self, path: str, url):
             if path == "/health":
                 return self._send_json(200, {"ok": True, "version": __version__})
+
+            # Dashboard and its assets are public — auth gates API calls only.
+            if path in ("/", ""):
+                return self._send_static(STATIC_DIR / "index.html")
+
+            _candidate = STATIC_DIR / path.lstrip("/")
+            try:
+                _candidate.resolve().relative_to(STATIC_DIR.resolve())
+            except ValueError:
+                pass  # path escapes STATIC_DIR — fall through to auth + API routes
+            else:
+                if _candidate.exists() and _candidate.is_file():
+                    return self._send_static(_candidate)
 
             if not self._check_auth():
                 return
@@ -400,6 +420,35 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             if path == "/push/status":
                 return self._send_json(200, push.status() if push else {"available": False})
 
+            if path == "/proactive/status":
+                return self._send_json(200, proactive.status() if proactive else {"enabled": False})
+
+            if path == "/model/status":
+                from .models.openai_model import OpenAIModel
+                m = engine.model
+                return self._send_json(200, {
+                    "name": getattr(m, "name", "none") if m else "none",
+                    "openai": isinstance(m, OpenAIModel),
+                    "openai_model": getattr(m, "_model", None) if isinstance(m, OpenAIModel) else None,
+                    "configured": getattr(m, "configured", False) if m else False,
+                    "trained": m.is_trained() if m else False,
+                })
+
+            if path == "/proactive/messages":
+                # Messages Shaggoth sent unprompted for a session, after a given
+                # message ID. The client polls this to surface proactive messages
+                # it hasn't displayed yet.
+                params = parse_qs(url.query)
+                session_id = (params.get("session_id") or ["default"])[0]
+                since_id = int((params.get("since_id") or ["0"])[0] or 0)
+                try:
+                    messages = engine.memory.proactive_messages_after(
+                        session_id, since_id=since_id
+                    )
+                except Exception:
+                    messages = []
+                return self._send_json(200, {"messages": messages})
+
             if path == "/deferred":
                 if not deferred:
                     return self._send_json(501, {"error": "deferred answers not initialized"})
@@ -414,13 +463,6 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     "pending": [asdict(i) for i in deferred.pending(session_id)],
                     **deferred.status(),
                 })
-
-            if path in ("/", ""):
-                return self._send_static(STATIC_DIR / "index.html")
-
-            file_path = STATIC_DIR / path.lstrip("/")
-            if file_path.exists() and file_path.is_file():
-                return self._send_static(file_path)
 
             return self._send_json(404, {"error": "not found"})
 
@@ -494,15 +536,17 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if scheduler:
                     scheduler.record_message(message)
 
+                # Respond before committing headers so any engine error returns
+                # a clean HTTP 500 rather than corrupt bytes in the SSE body.
+                reply = engine.respond(message, session_id=session_id, mode=mode)
+                text = reply.text
+
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream; charset=utf-8")
                 self.send_header("Cache-Control", "no-cache")
                 self.send_header("Connection", "keep-alive")
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
-
-                reply = engine.respond(message, session_id=session_id, mode=mode)
-                text = reply.text
                 chunk_size = max(1, len(text) // 20)
                 for i in range(0, len(text), chunk_size):
                     chunk = text[i : i + chunk_size]
@@ -521,7 +565,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     engine.guardrails.add_rule(rule)
                 except ValueError as exc:
                     return self._send_json(400, {"error": str(exc)})
-                return self._send_json(201, {"ok": True, "rule_id": rule["id"]})
+                return self._send_json(201, {"ok": True, "rule_id": rule.get("id")})
 
             if path == "/learn/start":
                 body = self._read_json()
@@ -562,11 +606,21 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     )
                 return self._send_json(201, {"ok": True, **feedback.status()})
 
+            if path == "/proactive/trigger":
+                if not proactive:
+                    return self._send_json(501, {"error": "proactive chatter not initialized"})
+                body = self._read_json()
+                session_id = body.get("session_id") or "default"
+                msg = proactive.send_now(session_id)
+                return self._send_json(200, {"ok": True, "message": msg})
+
             if path == "/push/subscribe":
                 if not push:
                     return self._send_json(501, {"error": "push not initialized"})
                 body = self._read_json()
                 subscription = body.get("subscription") or body
+                session_id = body.get("session_id") or "default"
+                subscription["session_id"] = session_id
                 if not push.store.add(subscription):
                     return self._send_json(400, {"error": "invalid subscription"})
                 return self._send_json(201, {"ok": True, "subscriptions": len(push.store)})
@@ -792,13 +846,49 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
 def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api_key: str = "") -> None:
     learner = LearnerPipeline()
     curiosity = CuriosityEngine(knowledge=engine.knowledge, scraper=learner.scraper)
+    # Share with builtin plugins so research triggered by the curiosity plugin
+    # fires the same deferred-answer and Slack callbacks as server-side research.
+    from .plugins import builtin as _plugins_builtin
+    _plugins_builtin._curiosity_engine = curiosity
     scheduler = CuriosityScheduler(curiosity)
-    push = PushSender()
     deferred = DeferredQuestions()
     feedback = FeedbackStore()
     # Grades Shaggoth's own answers on idle capacity, so quality stops
     # depending on a human noticing something was wrong.
     critic = CriticLoop(engine, feedback)
+
+    # Upgrade engine to GPT if OPENAI_API_KEY is set. GPT replaces the Markov
+    # model and handles all generation that knowledge retrieval doesn't cover —
+    # in-character, context-aware, and grounded in the knowledge base.
+    from .models.openai_model import OpenAIModel
+    _openai_key = os.environ.get("OPENAI_API_KEY") or ""
+    if _openai_key and not isinstance(engine.model, OpenAIModel):
+        engine.model = OpenAIModel(api_key=_openai_key)
+        print(f"[openai] using {engine.model._model} as language model")
+
+    # Cloudflare integration — KV for cloud-persistent push subscriptions,
+    # D1 for cloud-mirrored conversation memory.
+    _cf_account = os.environ.get("CLOUDFLARE_ACCOUNT_ID") or ""
+    _cf_token = os.environ.get("CLOUDFLARE_API_TOKEN") or ""
+    if _cf_account and _cf_token:
+        from .notify.kv_store import KVSubscriptionStore
+        push = PushSender(store=KVSubscriptionStore())
+        print("[cloudflare] push subscriptions backed by KV")
+        from .memory.d1_sync import D1Sync
+        engine.memory = D1Sync(engine.memory, _cf_account, _cf_token)
+        print("[cloudflare] memory writes mirroring to D1")
+    else:
+        push = PushSender()
+
+    # Slack integration — post to #shaggoth when Shaggoth learns or answers.
+    from .integrations.slack import SlackSender
+    slack = SlackSender()
+    if slack.configured:
+        print("[slack] posting to #shaggoth")
+
+    # Link deferred questions and push notifications to the engine
+    engine.deferred_questions = deferred
+    engine.push_sender = push
 
     def _deliver_deferred(episode) -> None:
         """Answer whatever was waiting on the topic this episode covered.
@@ -820,13 +910,25 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
             return
         first = resolved[0]
         more = f" (+{len(resolved) - 1} more)" if len(resolved) > 1 else ""
-        push.notify(
-            f"I looked up {episode.topic}",
-            f"You asked: {first.question}{more}. Tap for the answer.",
-            url="/#chat",
-            tag="deferred",
-        )
+        # Send notifications to each session that asked a question
+        sessions_notified = set()
+        for item in resolved:
+            if item.session_id not in sessions_notified:
+                push.notify_session(
+                    item.session_id,
+                    title=f"I looked up {episode.topic}",
+                    body=f"You asked: {item.question}{more}. Tap for the answer.",
+                    url="/#chat",
+                    tag="deferred",
+                )
+                sessions_notified.add(item.session_id)
         print(f"[deferred] answered {len(resolved)} question(s) about {episode.topic!r}")
+        if slack.configured:
+            q = first.question[:120] + ("..." if len(first.question) > 120 else "")
+            slack.send_async(
+                f"Finished looking up *{episode.topic}*.\nYou asked: _{q}_\n"
+                f"Answer: {first.answer[:300] if first.answer else '(see chat)'}"
+            )
 
     def _announce_learning(episode) -> None:
         """An unprompted 'I just read about X'. Rate-limited per subscriber."""
@@ -840,6 +942,11 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
             url="/#chat",
             tag="curiosity",
         )
+        if slack.configured:
+            slack.send_async(
+                f"I just read {episode.words_learned:,} words about *{episode.topic}*. "
+                f"Ask me something."
+            )
 
     # Feedback-driven repair takes priority over age-driven refresh.
     scheduler.feedback = feedback
@@ -847,14 +954,18 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     curiosity.on_episode_complete(_deliver_deferred)
     curiosity.on_episode_complete(_announce_learning)
 
+    # Proactive chatter — Shaggoth messages first, in character.
+    proactive = ProactiveChatter(engine, push, slack=slack)
+
     scheduler.start()
+    proactive.start()
     if critic.teacher.available():
         critic.start()
     httpd = ThreadingHTTPServer(
         (host, port),
         make_handler(
             engine, learner, api_key, curiosity, scheduler, push, deferred,
-            feedback, critic,
+            feedback, critic, proactive,
         ),
     )
     auth_status = "enabled" if api_key else "disabled"

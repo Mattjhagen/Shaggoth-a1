@@ -103,16 +103,6 @@ class CuriosityEngine:
 
     # --------------------------------------------------------- core logic
 
-    def _get_known_keywords(self) -> set[str]:
-        """Build a set of all keywords currently in the knowledge base."""
-        all_kw: set[str] = set()
-        for entry in self.knowledge.list_entries():
-            all_kw.update(entry.get("keywords", []))
-        # Also pull from raw knowledge content
-        for entry in self.knowledge._entries:
-            all_kw.update(entry.keywords)
-        return all_kw
-
     def analyze_message(self, text: str) -> str | None:
         """Analyze a user message and return a topic to research, or None.
 
@@ -381,9 +371,10 @@ class CuriosityEngine:
     # -------------------------------------------------------- status
 
     def status(self) -> dict:
+        ep = self._current_episode  # capture once; avoids TOCTOU with finishing threads
         return {
             "is_running": self._running,
-            "current_episode": asdict(self._current_episode) if self._current_episode else None,
+            "current_episode": asdict(ep) if ep else None,
             "total_episodes": len(self._history),
             "last_episode": self._history[-1] if self._history else None,
             "knowledge_entries": len(self.knowledge.list_entries()),

@@ -35,6 +35,7 @@ class FakeCuriosity:
 
 def _scheduler(curiosity=None, **config):
     config.setdefault("refresh_stale_when_idle", False)
+    config.setdefault("proactive_research", False)
     return CuriosityScheduler(curiosity or FakeCuriosity(), ScheduleConfig(**config))
 
 

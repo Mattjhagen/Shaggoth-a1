@@ -155,11 +155,11 @@ class BPETokenizer:
             "vocab": self.vocab,
             "merges": [[list(k), v] for k, v in self.merges.items()],
             "vocab_size": self.vocab_size,
-        }))
+        }), encoding="utf-8")
 
     @classmethod
     def load(cls, path: str) -> BPETokenizer:
-        data = json.loads(Path(path).read_text())
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
         tok = cls(data["vocab_size"])
         tok.vocab = data["vocab"]
         tok.merges = {tuple(m[0]): m[1] for m in data["merges"]}

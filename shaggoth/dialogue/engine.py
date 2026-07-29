@@ -23,6 +23,7 @@ import random
 import re
 import time
 from dataclasses import dataclass, field
+from typing import Any, Optional
 
 from ..curiosity.topics import base_topic
 from ..guardrails import GuardrailEngine
@@ -34,6 +35,7 @@ from ..personality.engine import PersonalityEngine
 from ..plugins import PluginRegistry, default_registry
 from .patterns import PatternEngine
 from .reasoning import Reasoner
+from ..curiosity.search import search_web
 
 
 #: Associative mode. The Markov model may speak, the knowledge teaser may
@@ -106,6 +108,8 @@ class DialogueEngine:
         recall_threshold: float = 0.35,
         seed: int | None = None,
         mode: str = DEFAULT_MODE,
+        deferred_questions: Optional[Any] = None,
+        push_sender: Optional[Any] = None,
     ):
         self.guardrails = guardrails or GuardrailEngine()
         self.memory = memory or MemoryStore()
@@ -118,12 +122,15 @@ class DialogueEngine:
             self.knowledge,
             summarize=summarize_entry_scored,
             sentences=_clean_sentences,
+            search=search_web,
         )
         self.bot_name = bot_name
         self.recall_threshold = recall_threshold
         #: Instance-wide default, overridable per request.
         self.mode = normalize_mode(mode)
         self._recalled: dict[str, set[int]] = {}
+        self.deferred_questions = deferred_questions
+        self.push_sender = push_sender
 
     def respond(self, text: str, session_id: str = "default", mode=None) -> Reply:
         """Answer ``text``.
@@ -168,6 +175,12 @@ class DialogueEngine:
         if knowledge_hits and self.model and self.model.is_trained():
             snippets = []
             for entry, score in knowledge_hits:
+                # Only inject knowledge that actually matches the question.
+                # Without this check, a Cold War article matched "Are there
+                # Russians in Moscow?" by co-occurrence and GPT reported Cold War
+                # history as the answer to a basic geography question.
+                if not knowledge_is_relevant(entry.topic, text, entry.content):
+                    continue
                 snippet = entry.content[:300].strip()
                 snippets.append(f"[Knowledge: {entry.topic}] {snippet}")
             if snippets:
@@ -188,10 +201,15 @@ class DialogueEngine:
         # This runs *after* plugins: "what is 6 * 7?" and "what do you know
         # about me?" are made entirely of filler words but are real commands.
         if not has_subject(text):
-            body = (
-                follow_up_reply(context) if is_follow_up(text)
-                else chitchat_reply(text, context)
-            )
+            if is_follow_up(text):
+                body = follow_up_reply(context)
+            else:
+                # Try specific patterns first (greetings, opinion requests, etc.),
+                # then a question-shaped catch-all, then generic chitchat.
+                body = self.patterns.respond(text)
+                if body is None:
+                    body = (self.patterns.respond_no_subject_question(text)
+                            or chitchat_reply(text, context))
             reply = self._finish(Reply(body, source="pattern", mode=mode))
             self._persist(session_id, text, reply)
             return reply
@@ -292,22 +310,42 @@ class DialogueEngine:
 
         if body is None:
             body = self.patterns.respond(text)
-        # 5b. Markov generation is DRIFT-only. The model stitches fragments
-        # from unrelated articles and cannot hold a topic, so in NO_DRIFT the
-        # turn skips straight to an honest "I don't know that yet" -- which
-        # is also what triggers curiosity research, meaning the grounded mode
-        # actively teaches itself instead of bluffing.
-        if drift and body is None and self.model is not None and self.model.is_trained():
+
+        # 5b. GPT generation — preferred over Markov when available.
+        # GPT can follow the prompt and stay in character, so it works in both
+        # drift and no_drift modes. It's tried whenever the pattern engine and
+        # knowledge base haven't produced an answer yet.
+        from ..models.openai_model import OpenAIModel
+        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
+        if body is None and _gpt is not None and _gpt.configured:
+            # Build recent conversation history for GPT context.
+            history = [
+                {"role": m["role"], "content": m["content"]}
+                for m in context.get("recent", [])
+            ]
+            generated = _gpt.generate_chat(
+                user_message=text,
+                knowledge_context=knowledge_context,
+                conversation_history=history,
+                personality_context=personality_context,
+            ).strip()
+            if generated:
+                body, source = generated, "model"
+
+        # 5c. Markov generation is DRIFT-only and runs only when GPT is absent.
+        # The model stitches fragments from unrelated articles and cannot hold a
+        # topic, so in NO_DRIFT it is skipped entirely — the turn falls through
+        # to "fallback", which is the signal server.py uses to kick off curiosity
+        # research on the topic.
+        if drift and body is None and self.model is not None and self.model.is_trained() and _gpt is None:
             prompt = text
             if knowledge_context or personality_context:
                 prompt = f"{personality_context}\n{knowledge_context}User: {text}\nAssistant:"
             generated = self.model.generate(prompt=prompt, max_tokens=40).strip()
             # Only accept generation that reads as a single coherent thought.
-            # Rejecting it here is deliberate: the turn falls through to
-            # "fallback", which is the signal server.py uses to kick off
-            # curiosity research on the topic.
             if generated and markov_is_usable(generated, text):
                 body, source = generated, "model"
+
         if body is None:
             if is_follow_up(text):
                 # "why?" is not a research topic. Keep it in the conversation
@@ -356,6 +394,26 @@ class DialogueEngine:
                   reasoning=reasoning_steps, entries_used=entries_used)
         )
         self._persist(session_id, text, reply)
+
+        # Record deferred questions and notify when research starts
+        if source == "fallback" and self.deferred_questions:
+            from ..curiosity.topics import extract_topic_query
+            topic = extract_topic_query(text)
+            deferred = None
+            if topic:
+                deferred = self.deferred_questions.record(text, topic, session_id=session_id)
+            if deferred and self.push_sender:
+                # Notify user that we're researching their question
+                try:
+                    self.push_sender.notify_session(
+                        session_id,
+                        title="Researching Your Question",
+                        body=f"Looking into: {text[:60]}{'...' if len(text) > 60 else ''}",
+                        tag="research_started",
+                    )
+                except Exception:
+                    pass  # Push notification is optional
+
         return reply
 
     # ------------------------------------------------------------------
@@ -928,6 +986,14 @@ _NO_SUBJECT = _FILLER | {
     "it", "its", "them", "they", "him", "her", "his", "hers", "we", "us",
     "our", "ours", "i", "me", "my", "mine", "you", "your", "yours", "he",
     "she", "is", "are", "am", "be",
+    # Social reaction words and internet slang — never a research topic.
+    "lol", "lmao", "lmfao", "omg", "wtf", "haha", "hehe", "hmm", "wow",
+    "huh", "oof", "yikes", "oops", "brb", "gtg", "smh", "idk", "rofl",
+    "ikr", "afk", "imo", "ngl", "fyi", "omfg", "lmk",
+    # Delegation and imperative verbs — "okay pick something" is chitchat.
+    "pick", "choose", "decide", "select",
+    # Meta-question fillers — "what do you think/mean/feel?" is not a lookup.
+    "do", "think", "mean", "feel", "work",
 }
 
 # Turns that only make sense against what was just said.
@@ -988,6 +1054,15 @@ def has_subject(text: str) -> bool:
     return bool({w for w in words if len(w) > 2} - _NO_SUBJECT)
 
 
+# A message opening with a social reaction word ("lol", "haha") is a reaction
+# to the previous bot turn, not a new research question. "lol what fell over?"
+# after the error reply must not be scraped for topics.
+_SOCIAL_PREFIX_RE = re.compile(
+    r"^(?:lol|lmao|lmfao|haha|hehe|omg|wtf|oof|wow|huh|yikes|smh|rofl)\s*[!.,?]*\s+",
+    re.I,
+)
+
+
 def is_follow_up(text: str) -> bool:
     """Whether the turn refers back rather than introducing a subject.
 
@@ -995,17 +1070,34 @@ def is_follow_up(text: str) -> bool:
     ("why does that matter"), which read like questions but whose subject is
     a pronoun pointing at the previous turn. Treating those as lookups sent
     "why does that matter" to an article about *matter*.
+
+    Also covers social-reaction prefixes: "lol what fell over?" is a reaction
+    to the bot's error message, not a request to research "falling over".
     """
     text = (text or "").strip()
-    return bool(_FOLLOW_UP.search(text) or _ANAPHORIC.search(text))
+    if _FOLLOW_UP.search(text) or _ANAPHORIC.search(text):
+        return True
+    return bool(_SOCIAL_PREFIX_RE.match(text))
 
 
 _CHITCHAT_REPLIES = (
     "Then talk. I'm not going to start it for you.",
-    "Go on then. Pick something.",
+    "Go on then. Ask me something.",
     "I'm here. That's about as warm as it gets.",
     "Sure. What about?",
     "Fine by me. Say something worth answering.",
+)
+
+_DELEGATION_RE = re.compile(
+    r"(?i)\b(pick one|pick something|pick anything|you pick|you choose|"
+    r"you decide|your choice|up to you|surprise me|pick for me|choose for me)\b"
+)
+
+_DELEGATION_REPLIES = (
+    "That's my line. You bring the topic, I bring the facts.",
+    "No — you ask, I answer. That's the deal.",
+    "I've got everything from quantum physics to aeroponic farming. You just have to ask.",
+    "Still your turn. Give me a subject.",
 )
 
 
@@ -1015,6 +1107,8 @@ def chitchat_reply(text: str, context: dict | None = None) -> str:
     Uses what the session has actually been about when there is something,
     so it reads as continuing a conversation rather than resetting one.
     """
+    if _DELEGATION_RE.search(text or ""):
+        return _rng.choice(_DELEGATION_REPLIES)
     subject = last_subject(context)
     if not subject:
         topics = [t for t in (context or {}).get("topics", []) if len(t) > 3][:1]
@@ -1023,7 +1117,7 @@ def chitchat_reply(text: str, context: dict | None = None) -> str:
         return _rng.choice((
             f"We were on {subject}. Still are, unless you've got something better.",
             f"You brought up {subject} earlier. Want to keep pulling on that?",
-            f"Last thing you cared about was {subject}. Pick that back up or pick something new.",
+            f"Last thing you cared about was {subject}. Pick that back up or ask something new.",
         ))
     return _rng.choice(_CHITCHAT_REPLIES)
 
@@ -1066,6 +1160,13 @@ def follow_up_reply(context: dict | None = None) -> str:
     return "Follow up on what? You haven't given me anything yet."
 
 
+# Social words that must never appear as the subject of a "blank on X" reply.
+_DESCRIBE_FILTER = frozenset({
+    "lol", "lmao", "lmfao", "omg", "wtf", "haha", "hehe", "hmm",
+    "wow", "huh", "yikes", "oof", "oops", "rofl", "smh", "ikr",
+})
+
+
 def describe_unknown(text: str) -> str:
     """An in-character admission of ignorance that still names the subject.
 
@@ -1074,7 +1175,10 @@ def describe_unknown(text: str) -> str:
     research -- honestly signal that the gap is being closed rather than just
     apologising for it.
     """
-    words = [w for w in extract_keywords(text) if len(w) > 2]
+    words = [
+        w for w in extract_keywords(text)
+        if len(w) > 2 and w.lower() not in _DESCRIBE_FILTER
+    ]
     subject = " ".join(words[:3]) if words else ""
 
     if not subject:
@@ -1217,6 +1321,7 @@ def compose_greeting(
         parts.append(_rng.choice(situations))
     parts.append(closer)
     return " ".join(parts)
+
 
 def _content_words(text: str) -> set[str]:
     """Meaningful words from a question, with conversational filler removed."""

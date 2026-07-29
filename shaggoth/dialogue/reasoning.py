@@ -1,4 +1,4 @@
-"""Multi-step reasoning over the knowledge base.
+"""Multi-step reasoning over the knowledge base and web search.
 
 Retrieval answers "what is X" by finding the best entry and quoting it. That
 is all Shaggoth could do: ask it to *compare* two things and it returned one
@@ -8,6 +8,7 @@ aeroponics.
 
 This module does the part retrieval cannot: work out what a question is
 actually asking for, gather the *several* pieces needed, and combine them.
+It can also perform web searches when the knowledge base is insufficient.
 
     compare   -- two subjects, both retrieved, definitions contrasted
     contrast  -- same, but stated as what they share
@@ -26,7 +27,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+from typing import Callable, Optional, Any
 
 
 class Intent:
@@ -299,6 +300,8 @@ class Reasoner:
     ``knowledge`` is a KnowledgeBase; ``summarize`` and ``sentences`` are
     passed in rather than imported so this module stays free of a circular
     dependency on the dialogue engine, and so both can be stubbed in tests.
+    ``search`` is an optional callable that performs web search and returns
+    SearchResult objects (url, title, snippet).
     """
 
     def __init__(
@@ -307,11 +310,86 @@ class Reasoner:
         summarize: Callable[[str, str], tuple],
         sentences: Callable[[str], list],
         relevant: Optional[Callable[[str, str, str], bool]] = None,
+        search: Optional[Callable[[str, int], list[Any]]] = None,
     ) -> None:
         self.knowledge = knowledge
         self.summarize = summarize
         self.sentences = sentences
         self.relevant = relevant
+        self.search = search
+        self._search_cache: set[str] = set()
+
+    # -- web search --------------------------------------------------------
+
+    def _add_search_to_knowledge(self, query: str, results: list) -> None:
+        """Add web search results to the knowledge base.
+
+        Formats search results as a new knowledge entry to improve future answers.
+        Avoids duplicates via query deduplication.
+        """
+        if not self.knowledge or not results:
+            return
+
+        # Skip if we've already added this query
+        if query in self._search_cache:
+            return
+        self._search_cache.add(query)
+
+        # Format results as a knowledge entry
+        formatted_results = []
+        for result in results:
+            if hasattr(result, 'title') and hasattr(result, 'snippet'):
+                title = result.title
+                snippet = result.snippet
+                url = getattr(result, 'url', '')
+            elif isinstance(result, dict):
+                title = result.get('title', 'Result')
+                snippet = result.get('snippet', '')
+                url = result.get('url', '')
+            else:
+                continue
+
+            if snippet:
+                formatted_results.append(f"{title}: {snippet} (source: {url})")
+
+        if formatted_results:
+            content = "\n".join(formatted_results)
+            try:
+                self.knowledge.add_entry(f"Web Search: {query}", content)
+            except Exception:
+                pass
+
+    def _search_web(self, query: str, limit: int = 3) -> tuple[list[str], list]:
+        """Perform web search and return formatted snippets with sources.
+
+        Returns (snippets, search_results) where snippets are formatted strings
+        ready to include in an answer, and search_results are the raw results
+        for tracking in the reasoning trace.
+        """
+        if not self.search:
+            return [], []
+
+        try:
+            results = self.search(query, limit)
+        except Exception:
+            return [], []
+
+        # Add search results to knowledge base for future use
+        self._add_search_to_knowledge(query, results)
+
+        snippets = []
+        for result in results:
+            if hasattr(result, 'snippet'):
+                snippet = result.snippet
+            elif isinstance(result, dict):
+                snippet = result.get('snippet', '')
+            else:
+                continue
+
+            if snippet:
+                snippets.append(snippet)
+
+        return snippets, results
 
     # -- entry lookup ------------------------------------------------------
 
@@ -408,6 +486,17 @@ class Reasoner:
             definitions.append((entry.topic, first.rstrip(".") + "."))
             steps.append(Step("lookup", f"{subject} -> {entry.topic}"))
 
+        # If we're missing a subject, try web search to fill the gap.
+        if missing and self.search:
+            for missing_subject in missing:
+                search_snippets, search_results = self._search_web(missing_subject, limit=1)
+                if search_snippets:
+                    definitions.append((missing_subject, search_snippets[0]))
+                    found.append(missing_subject)
+                    steps.append(Step("web_search", f"{missing_subject} -> found {len(search_snippets)} result(s)"))
+                    missing.remove(missing_subject)
+                    break
+
         if not definitions:
             return None
 
@@ -453,6 +542,19 @@ class Reasoner:
 
         entries = self._candidate_entries(subject, limit=8)
         if not entries:
+            # Try web search if knowledge base has nothing.
+            if self.search:
+                search_snippets, search_results = self._search_web(question, limit=2)
+                if search_snippets:
+                    steps.append(Step("lookup", f"{subject} -> web search"))
+                    steps.append(Step("web_search", f"found {len(search_snippets)} result(s)"))
+                    answer = " ".join(search_snippets)
+                    return Reasoned(
+                        answer=answer,
+                        intent=Intent.CAUSAL,
+                        steps=steps,
+                        entries_used=[subject],
+                    )
             return None
         steps.append(Step(
             "lookup",
@@ -467,6 +569,18 @@ class Reasoner:
         )
         if not picked:
             steps.append(Step("result", "no explanatory sentences in any candidate"))
+            # Try web search as fallback.
+            if self.search:
+                search_snippets, search_results = self._search_web(question, limit=2)
+                if search_snippets:
+                    steps.append(Step("web_search", f"found {len(search_snippets)} result(s)"))
+                    answer = " ".join(search_snippets)
+                    return Reasoned(
+                        answer=answer,
+                        intent=Intent.CAUSAL,
+                        steps=steps,
+                        entries_used=used or [subject],
+                    )
             return None
         steps.append(Step(
             "select",
@@ -490,6 +604,19 @@ class Reasoner:
 
         entries = self._candidate_entries(subject, limit=8)
         if not entries:
+            # Try web search if knowledge base has nothing.
+            if self.search:
+                search_snippets, search_results = self._search_web(question, limit=2)
+                if search_snippets:
+                    steps.append(Step("lookup", f"{subject} -> web search"))
+                    steps.append(Step("web_search", f"found {len(search_snippets)} result(s)"))
+                    answer = " ".join(search_snippets)
+                    return Reasoned(
+                        answer=answer,
+                        intent=Intent.ENUMERATE,
+                        steps=steps,
+                        entries_used=[subject],
+                    )
             return None
         steps.append(Step(
             "lookup",
@@ -502,6 +629,18 @@ class Reasoner:
         )
         if not picked:
             steps.append(Step("result", "nothing enumerating in any candidate"))
+            # Try web search as fallback.
+            if self.search:
+                search_snippets, search_results = self._search_web(question, limit=2)
+                if search_snippets:
+                    steps.append(Step("web_search", f"found {len(search_snippets)} result(s)"))
+                    answer = " ".join(search_snippets)
+                    return Reasoned(
+                        answer=answer,
+                        intent=Intent.ENUMERATE,
+                        steps=steps,
+                        entries_used=used or [subject],
+                    )
             return None
         steps.append(Step(
             "select",

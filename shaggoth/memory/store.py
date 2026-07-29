@@ -158,12 +158,18 @@ class MemoryStore:
             self.db.commit()
 
     # ----------------------------------------------------------- reading
-    def get_fact(self, key: str) -> str | None:
-        row = self.db.execute("SELECT value FROM facts WHERE key = ?", (key,)).fetchone()
+    def get_fact(self, key: str, user_id: str = "default") -> str | None:
+        row = self.db.execute(
+            "SELECT value FROM facts WHERE key = ? AND user_id = ?", (key, user_id)
+        ).fetchone()
         return row[0] if row else None
 
-    def all_facts(self) -> dict[str, str]:
-        return dict(self.db.execute("SELECT key, value FROM facts").fetchall())
+    def all_facts(self, user_id: str = "default") -> dict[str, str]:
+        return dict(
+            self.db.execute(
+                "SELECT key, value FROM facts WHERE user_id = ?", (user_id,)
+            ).fetchall()
+        )
 
     def history(self, session_id: str, limit: int = 50) -> list[dict]:
         rows = self.db.execute(
@@ -385,6 +391,22 @@ class MemoryStore:
         if total < self.COMPACT_AFTER:
             return ""
         return self.compact_session(session_id)
+
+    def proactive_messages_after(
+        self, session_id: str, since_id: int = 0, limit: int = 20
+    ) -> list[dict]:
+        """Assistant messages stored after ``since_id`` for a session.
+
+        Used by the proactive polling endpoint so the server doesn't access
+        the SQLite connection directly.
+        """
+        rows = self.db.execute(
+            "SELECT id, content, ts FROM messages "
+            "WHERE session_id = ? AND role = 'assistant' AND id > ? "
+            "ORDER BY id ASC LIMIT ?",
+            (session_id, since_id, limit),
+        ).fetchall()
+        return [{"id": r[0], "text": r[1], "ts": r[2]} for r in rows]
 
     def close(self) -> None:
         self.db.close()

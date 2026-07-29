@@ -53,13 +53,13 @@ class LearnerPipeline:
     def _load_history(self) -> None:
         path = Path(self.history_path)
         if path.exists():
-            self._history: list[dict] = json.loads(path.read_text())
+            self._history: list[dict] = json.loads(path.read_text(encoding="utf-8"))
         else:
             self._history = []
 
     def _save_history(self) -> None:
         Path(self.history_path).parent.mkdir(parents=True, exist_ok=True)
-        Path(self.history_path).write_text(json.dumps(self._history, indent=2))
+        Path(self.history_path).write_text(json.dumps(self._history, indent=2), encoding="utf-8")
 
     @property
     def is_learning(self) -> bool:

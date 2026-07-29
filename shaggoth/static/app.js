@@ -17,6 +17,166 @@ if ('serviceWorker' in navigator) {
   }).catch(() => {});
 }
 
+// PWA install prompt and mobile features
+let deferredPrompt = null;
+
+function detectDevice() {
+  const ua = navigator.userAgent.toLowerCase();
+  return {
+    isIOS: /iphone|ipad|ipod/.test(ua),
+    isAndroid: /android/.test(ua),
+    isMobile: /iphone|ipad|ipod|android/.test(ua),
+  };
+}
+
+function showInstallPrompt() {
+  const device = detectDevice();
+  const promptShown = localStorage.getItem('shaggoth_install_prompted');
+
+  if (promptShown) return;
+
+  if (device.isAndroid && deferredPrompt) {
+    // Android: show the native install banner
+    const installContainer = document.getElementById('installPrompt');
+    if (installContainer) {
+      installContainer.style.display = 'flex';
+      document.getElementById('installBtn').addEventListener('click', () => {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => {
+          deferredPrompt = null;
+          installContainer.style.display = 'none';
+          localStorage.setItem('shaggoth_install_prompted', 'true');
+          showFirstTimeTutorial();
+        });
+      });
+      document.getElementById('dismissInstallBtn').addEventListener('click', () => {
+        installContainer.style.display = 'none';
+        localStorage.setItem('shaggoth_install_prompted', 'true');
+      });
+    }
+  } else if (device.isIOS) {
+    // iOS: show manual install instructions
+    const installContainer = document.getElementById('installPrompt');
+    if (installContainer) {
+      const content = installContainer.querySelector('.install-content');
+      if (content) {
+        content.innerHTML = `
+          <div class="install-header">Add to Home Screen</div>
+          <p>Tap the share icon and select "Add to Home Screen" to use Shaggoth as an app!</p>
+          <div class="install-steps">
+            <div class="install-step">
+              <span class="step-number">1</span>
+              <span class="step-text">Tap the share button (up arrow in a box)</span>
+            </div>
+            <div class="install-step">
+              <span class="step-number">2</span>
+              <span class="step-text">Select "Add to Home Screen"</span>
+            </div>
+            <div class="install-step">
+              <span class="step-number">3</span>
+              <span class="step-text">Tap "Add" to confirm</span>
+            </div>
+          </div>
+        `;
+        installContainer.style.display = 'flex';
+        document.getElementById('dismissInstallBtn').addEventListener('click', () => {
+          installContainer.style.display = 'none';
+          localStorage.setItem('shaggoth_install_prompted', 'true');
+        });
+      }
+    }
+  }
+}
+
+function showFirstTimeTutorial() {
+  const tutorialShown = localStorage.getItem('shaggoth_tutorial_shown');
+
+  if (tutorialShown) return;
+
+  const tutorialContainer = document.getElementById('firstTimeTutorial');
+  if (!tutorialContainer) return;
+
+  tutorialContainer.style.display = 'flex';
+
+  // Step 1: Notifications
+  function showNotificationStep() {
+    const content = tutorialContainer.querySelector('.tutorial-content');
+    if (content) {
+      content.innerHTML = `
+        <div class="tutorial-header">Enable Notifications</div>
+        <p>Get instant updates when Shaggoth finds new information:</p>
+        <button class="tutorial-btn primary" id="enableNotifications">Enable Notifications</button>
+        <button class="tutorial-btn" id="skipNotifications">Skip for now</button>
+      `;
+      document.getElementById('enableNotifications').addEventListener('click', requestNotificationPermission);
+      document.getElementById('skipNotifications').addEventListener('click', showFeaturesStep);
+    }
+  }
+
+  function requestNotificationPermission() {
+    if ('Notification' in window) {
+      Notification.requestPermission().then((permission) => {
+        if (permission === 'granted') {
+          toast('Notifications enabled!');
+          showFeaturesStep();
+        } else {
+          showFeaturesStep();
+        }
+      });
+    }
+  }
+
+  function showFeaturesStep() {
+    const content = tutorialContainer.querySelector('.tutorial-content');
+    if (content) {
+      content.innerHTML = `
+        <div class="tutorial-header">Shaggoth Features</div>
+        <ul class="tutorial-features">
+          <li><strong>Chat:</strong> Ask questions and have conversations</li>
+          <li><strong>Knowledge:</strong> Browse and manage learned information</li>
+          <li><strong>Memory:</strong> Review what Shaggoth remembers about you</li>
+          <li><strong>Learn:</strong> Train on new content</li>
+          <li><strong>Settings:</strong> Customize your experience</li>
+        </ul>
+        <button class="tutorial-btn primary" id="closeTutorial">Get Started!</button>
+      `;
+      document.getElementById('closeTutorial').addEventListener('click', closeTutorial);
+    }
+  }
+
+  function closeTutorial() {
+    tutorialContainer.style.display = 'none';
+    localStorage.setItem('shaggoth_tutorial_shown', 'true');
+  }
+
+  showNotificationStep();
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  showInstallPrompt();
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  localStorage.setItem('shaggoth_installed', 'true');
+  showFirstTimeTutorial();
+});
+
+// Check if running as installed app
+if (window.matchMedia('(display-mode: standalone)').matches) {
+  localStorage.setItem('shaggoth_installed', 'true');
+}
+
+// Show install prompt on first visit
+window.addEventListener('load', () => {
+  if (!localStorage.getItem('shaggoth_first_visit')) {
+    localStorage.setItem('shaggoth_first_visit', 'true');
+    setTimeout(() => showInstallPrompt(), 1000);
+  }
+});
+
 function detectApi() {
   const saved = localStorage.getItem('shaggoth_api');
   if (saved) return saved.replace(/\/+$/, '');
@@ -532,7 +692,7 @@ async function enableNotifications() {
     }));
     const r = await fetch(API + '/push/subscribe', {
       method: 'POST', headers: h(),
-      body: JSON.stringify({ subscription: sub.toJSON() }),
+      body: JSON.stringify({ subscription: sub.toJSON(), session_id: sessionId }),
     });
     await readJson(r);
     toast("Subscribed. It'll tell you when it learns something.");
@@ -615,6 +775,43 @@ async function checkDeferred() {
 }
 setTimeout(checkDeferred, 2500);
 setInterval(checkDeferred, 120000);
+
+/* ---------------------------------------------------- proactive messages
+ *
+ * Shaggoth may send unprompted messages while you're away. They're stored
+ * as assistant turns in memory. We poll for new ones since the last ID we
+ * saw and inject them into the chat so they feel like live messages.
+ */
+let _lastProactiveId = 0;
+
+async function checkProactive() {
+  try {
+    const r = await fetch(
+      API + '/proactive/messages?session_id=' + encodeURIComponent(sessionId) +
+        '&since_id=' + _lastProactiveId,
+      { headers: h() }
+    );
+    const d = await readJson(r);
+    for (const msg of d.messages || []) {
+      // Skip messages from before the page loaded (they're already in history).
+      if (_lastProactiveId === 0) {
+        _lastProactiveId = msg.id;
+        continue;
+      }
+      appendMsg('assistant', msg.text, 'proactive');
+      _lastProactiveId = msg.id;
+    }
+    // After first pass just advance the watermark without showing old messages.
+    if (_lastProactiveId === 0 && (d.messages || []).length) {
+      _lastProactiveId = d.messages[d.messages.length - 1].id;
+    }
+  } catch {
+    // Background nicety — never block anything.
+  }
+}
+// First call initialises the watermark; subsequent calls surface new messages.
+setTimeout(checkProactive, 1500);
+setInterval(checkProactive, 30000);
 
 
 /* Send a judgement about an answer. A thumbs-down names the knowledge entries
