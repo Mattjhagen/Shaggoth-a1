@@ -40,7 +40,10 @@ def _pipeline(corpus: str = "", pages=None, tmp_path: Path | None = None) -> Lea
     scraper = FakeScraper(pages=pages or [], corpus=corpus)
     model_dir = tmp_path or Path(tempfile.mkdtemp())
     model_path = str(model_dir / "model.pt")
-    p = LearnerPipeline(scraper=scraper, model_path=model_path)
+    # Isolate the Markov fallback path too -- otherwise a TinyGPT-unavailable
+    # test writes straight into the real DATA_DIR/markov_model.json.
+    markov_path = str(model_dir / "markov_model.json")
+    p = LearnerPipeline(scraper=scraper, model_path=model_path, markov_path=markov_path)
     # Isolate from the global DATA_DIR history file
     p.history_path = str(model_dir / "history.json")
     p._history = []
@@ -124,21 +127,13 @@ class TestActiveModel:
         kind, path = p.active_model()
         assert kind == "tinygpt"
 
-    def test_tinygpt_preferred_over_markov(self, tmp_path, monkeypatch):
+    def test_tinygpt_preferred_over_markov(self, tmp_path):
         p = _pipeline(tmp_path=tmp_path)
         Path(p.model_path).write_text("fake tinygpt")
-        # Even if markov path also exists, tinygpt wins
-        from shaggoth.config import DATA_DIR
-        markov_path = DATA_DIR / "markov_model.json"
-        markov_existed = markov_path.exists()
-        try:
-            markov_path.parent.mkdir(parents=True, exist_ok=True)
-            markov_path.write_text("{}")
-            kind, _ = p.active_model()
-            assert kind == "tinygpt"
-        finally:
-            if not markov_existed:
-                markov_path.unlink(missing_ok=True)
+        # Even if a markov model also exists, tinygpt wins.
+        Path(p.markov_path).write_text("{}")
+        kind, _ = p.active_model()
+        assert kind == "tinygpt"
 
 
 # ---------------------------------------------------------------------------

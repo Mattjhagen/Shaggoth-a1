@@ -41,9 +41,16 @@ class LearnerPipeline:
         self,
         scraper: ScraperEngine | None = None,
         model_path: str | None = None,
+        markov_path: str | None = None,
     ):
         self.scraper = scraper or ScraperEngine()
         self.model_path = model_path or str(DATA_DIR / "tinygpt.pt")
+        # Deliberately separate from model_path, not derived from it: the
+        # Markov fallback in _run_learn used to always write to the real
+        # DATA_DIR regardless of what model_path an injected during tests --
+        # a test exercising the TinyGPT-unavailable fallback would silently
+        # overwrite a real trained data/markov_model.json on disk.
+        self.markov_path = markov_path or str(DATA_DIR / "markov_model.json")
         self.history_path = str(DATA_DIR / "learning_history.json")
         self._learning = False
         self._current_session: LearningSession | None = None
@@ -156,9 +163,8 @@ class LearnerPipeline:
                 from ..models.markov import MarkovModel
                 model = MarkovModel()
                 model.train(corpus)
-                markov_path = str(DATA_DIR / "markov_model.json")
-                model.save(markov_path)
-                session.model_path = markov_path
+                model.save(self.markov_path)
+                session.model_path = self.markov_path
                 session.training_steps = 0
 
             session.status = "completed"
@@ -187,7 +193,7 @@ class LearnerPipeline:
         tinygpt = Path(self.model_path)
         if tinygpt.exists():
             return "tinygpt", str(tinygpt)
-        markov = DATA_DIR / "markov_model.json"
+        markov = Path(self.markov_path)
         if markov.exists():
             return "markov", str(markov)
         return "none", ""
