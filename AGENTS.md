@@ -1635,24 +1635,62 @@ quarantined, re-run reports nothing to do). Planning logic
 §NN, a lone entry never flagged, ties with no clean counterpart resolved by
 size, multiple independent subjects handled separately.
 
-**Not run against the live r510 corpus this session** -- no write access to
-that box from here. Run it there next:
+**Correction, added after the fact:** the "local" checkout worked in
+throughout this session *is* `~/Shaggoth-a1` on r510-1 itself (`hostname` ->
+`r510`, `100.103.3.35`, 16 cores / 39 GB -- matches §1 exactly). The "no
+write access to r510" claim above was wrong; there was no separate sandbox.
 
-```bash
-cd ~/Shaggoth-a1
-PYTHONPATH=. python3 scripts/dedupe_corpus.py                 # report first
-PYTHONPATH=. python3 scripts/dedupe_corpus.py --apply          # then act
-```
+`scripts/dedupe_corpus.py` (dry run) against the real, live corpus (823
+entries, 414/823 = 50% `-part-N` fragments -- consistent with the 49-65%
+range earlier sessions measured here) found **zero** duplicate-title
+subjects. Two readings, not mutually exclusive: (a) the exact
+clean-vs-question-prefixed shape §NN reported may have already aged out
+through normal `refresh_stale` churn since it was last measured, or (b) a
+lot of what is filed under different, unrelated-looking titles for the same
+real subject uses wording `canonical_subject()` cannot unify (it only
+strips a *leading* interrogative, not an arbitrarily-different phrasing of
+the same question) -- those wouldn't show up as a "duplicate" by this
+tool's definition even though they still fragment the corpus. (b) is
+untested; someone should sample a few `-part-N` titles by hand next session
+and check whether their content actually overlaps with a same-subject entry
+under a different name before concluding the corpus is clean.
 
-Dry run against the **local** `data/knowledge/` (823 entries, 414/823 = 50%
-`-part-N` fragments, matching the shape reported for r510) found **zero**
-duplicate subjects -- this local corpus was built by `seed_knowledge.py`
-plus local curiosity runs, neither of which ever hit the buggy raw-question
-path, so there was nothing here to clean. That is expected, not a sign the
-tool doesn't do anything: the bug was in a code path this local corpus never
-exercised, and r510's corpus is a different, much longer-lived tree
-accumulated by 24/7 conversation-driven research -- exactly where the
-buggy path would have fired.
+## Critic loop (local-model self-grading) verified live, running
+
+`shaggoth.service` was still running the pre-merge code from before this
+session (18h+ uptime, `Restart=always`, started under the old commit).
+Restarted (`sudo systemctl restart shaggoth`, by the user -- restarting a
+service with a public Cloudflare tunnel in front of it isn't something to
+do unprompted) to pick up everything above plus the already-built-but-never-
+run `shaggoth/quality/teacher.py` / `critic.py` (local-Ollama answer-grading
+loop, merged in from `origin` this session -- see the merge commit `5bf3022`
+for what it does and why).
+
+Verified after restart, all by command:
+- `GET /health` -> `200 {"ok": true}` -- service came back up clean.
+- `GET /critic` -> `{"running": true, "model": "qwen2.5-coder:7b",
+  "available": true, ...}` -- the critic thread auto-started because
+  `Teacher.available()` found `qwen2.5-coder:7b` already loaded in the
+  Ollama on this same box (`ollama list`: `qwen2.5-coder:7b`, `gemma4:12b` --
+  matches the two models `teacher.py`'s docstring benchmarked).
+- `POST /critic/run?limit=3` -> judged 2 of the real questions in
+  `data/shaggoth.db` (20,408 stored user messages to draw from), 1 good /
+  1 weak / 0 bad, then correctly stood down (`skipped_busy: 2`) once
+  1-minute load average crossed the 6.0 ceiling (box was at ~4.6-7 from the
+  test suite + retrain running concurrently). ~62 s/judgement here, slower
+  than `teacher.py`'s documented ~20 s benchmark -- plausibly contention
+  from everything else this session had running; worth re-measuring on a
+  quiet box.
+- `GET /feedback` -> repair queue already has an entry filed with
+  `"note": "auto-graded bad by qwen2.5-coder:7b"` -- the loop's output is
+  reaching the same repair queue the curiosity scheduler drains ahead of
+  age-based refresh, exactly as `critic.py`'s docstring describes.
+
+**The loop is genuinely running now**, not just built: every ~5 minutes of
+idle capacity, it will grade more of Shaggoth's real past answers against
+the local model and file the bad ones for re-research. `GET /critic` to
+check on it; `data/feedback.json`'s `repair_queue` is where the results
+land.
 
 Full suite: 355 passed (up from 335 at session start; 20 new tests --
 `tests/test_curiosity_topics.py` +14, `tests/test_dedupe_corpus.py` +6).
@@ -1685,14 +1723,22 @@ session, just not conflated with a claim that it explains OO.2.
 
 ## Still open
 
-1. **Run `scripts/dedupe_corpus.py --apply` against the live r510 corpus**
-   and record before/after `-part-N` percentages here.
+1. **Sample actual `-part-N` titles by hand** to check for same-subject
+   duplicates `canonical_subject()` can't detect (reading (b) above) --
+   `dedupe_corpus.py --apply` is ready the moment there is something for it
+   to remove, but a dry run right now finds nothing.
 2. **OO.2 causal reasoning** ("why does photosynthesis need light" ->
    bacterial membranes) -- still not fixed; needs either a live repro on
    r510 to verify a real fix against, or the chunking-quality angle above.
+   (This box *is* r510 -- a repro attempt is now actually possible here,
+   unlike what the note above originally assumed.)
 3. **`_pick()`'s substring focus-matching** (`word in lowered`) -- switch to
    word-tokenized membership; real bug, low risk, not yet done.
-4. **Auth on the public endpoint** -- still the user's call, unchanged.
-5. **Stack Exchange ingestion** -- still the right next source for causal
+4. **Watch the critic loop for a day**: confirm judgements keep landing in
+   `/feedback`'s repair queue, re-measure seconds/judgement on a quiet box,
+   and check the scheduler is actually draining what the critic files
+   (`refresh_stale`'s repair-first priority, per an earlier session).
+5. **Auth on the public endpoint** -- still the user's call, unchanged.
+6. **Stack Exchange ingestion** -- still the right next source for causal
    questions; not started.
-6. Re-verify §UU (orphaned `command_center.app` process) doesn't recur.
+7. Re-verify §UU (orphaned `command_center.app` process) doesn't recur.
