@@ -158,12 +158,18 @@ class MemoryStore:
             self.db.commit()
 
     # ----------------------------------------------------------- reading
-    def get_fact(self, key: str) -> str | None:
-        row = self.db.execute("SELECT value FROM facts WHERE key = ?", (key,)).fetchone()
+    def get_fact(self, key: str, user_id: str = "default") -> str | None:
+        row = self.db.execute(
+            "SELECT value FROM facts WHERE key = ? AND user_id = ?", (key, user_id)
+        ).fetchone()
         return row[0] if row else None
 
-    def all_facts(self) -> dict[str, str]:
-        return dict(self.db.execute("SELECT key, value FROM facts").fetchall())
+    def all_facts(self, user_id: str = "default") -> dict[str, str]:
+        return dict(
+            self.db.execute(
+                "SELECT key, value FROM facts WHERE user_id = ?", (user_id,)
+            ).fetchall()
+        )
 
     def history(self, session_id: str, limit: int = 50) -> list[dict]:
         rows = self.db.execute(
