@@ -33,6 +33,10 @@ data/learning_history.json
 config/vapid.json
 data/push_subscriptions.json
 
+# Live secrets (OpenAI/Slack/Cloudflare keys). .env.example is the template
+# and stays tracked; .env itself must never be committed.
+.env
+
 # Runtime state, rewritten by the server on every change. Tracking it means a
 # permanently dirty tree and a merge conflict on every pull.
 data/deferred_questions.json
