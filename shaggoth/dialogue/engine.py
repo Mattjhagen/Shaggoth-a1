@@ -1083,6 +1083,7 @@ def compose_greeting(knowledge_count: int = 0, recent_topic: str = "") -> str:
         ]
     return _rng.choice(generic)
 
+
 def _content_words(text: str) -> set[str]:
     """Meaningful words from a question, with conversational filler removed."""
     return {
