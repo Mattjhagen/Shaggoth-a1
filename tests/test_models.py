@@ -50,5 +50,70 @@ class MarkovTests(unittest.TestCase):
             self.assertTrue(loaded.generate("the dog", max_tokens=10))
 
 
+class OpenAIHistoryBudgetTests(unittest.TestCase):
+    """The OpenAI model trims old conversation turns to stay within budget."""
+
+    def test_long_history_is_trimmed(self):
+        from unittest.mock import MagicMock, patch
+        from shaggoth.models.openai_model import OpenAIModel, _HISTORY_CHAR_BUDGET
+
+        model = OpenAIModel(api_key="test-key")
+        long_turn = "x" * (_HISTORY_CHAR_BUDGET // 2 + 1)
+        history = [
+            {"role": "user", "content": long_turn},
+            {"role": "assistant", "content": long_turn},
+            {"role": "user", "content": "recent question"},
+            {"role": "assistant", "content": "recent answer"},
+        ]
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = "test reply"
+
+        with patch.object(model, "_client_instance") as mock_client:
+            mock_client.return_value.chat.completions.create.return_value = mock_response
+            model.generate_chat(
+                user_message="hello",
+                conversation_history=history,
+            )
+            call_args = mock_client.return_value.chat.completions.create.call_args
+            messages = call_args.kwargs["messages"]
+            contents = [m["content"] for m in messages if m["role"] in ("user", "assistant")]
+            total_chars = sum(len(c) for c in contents)
+            assert total_chars <= _HISTORY_CHAR_BUDGET + len("hello"), (
+                f"History {total_chars} chars exceeds budget {_HISTORY_CHAR_BUDGET}"
+            )
+            assert "recent question" in contents
+            assert "recent answer" in contents
+
+    def test_short_history_is_preserved(self):
+        from unittest.mock import MagicMock, patch
+        from shaggoth.models.openai_model import OpenAIModel
+
+        model = OpenAIModel(api_key="test-key")
+        history = [
+            {"role": "user", "content": "question 1"},
+            {"role": "assistant", "content": "answer 1"},
+            {"role": "user", "content": "question 2"},
+            {"role": "assistant", "content": "answer 2"},
+        ]
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = "test reply"
+
+        with patch.object(model, "_client_instance") as mock_client:
+            mock_client.return_value.chat.completions.create.return_value = mock_response
+            model.generate_chat(
+                user_message="hello",
+                conversation_history=history,
+            )
+            call_args = mock_client.return_value.chat.completions.create.call_args
+            messages = call_args.kwargs["messages"]
+            hist_messages = [m for m in messages if m["role"] in ("user", "assistant")]
+            # 4 history turns + 1 user_message = 5
+            assert len(hist_messages) == 5
+
+
 if __name__ == "__main__":
     unittest.main()

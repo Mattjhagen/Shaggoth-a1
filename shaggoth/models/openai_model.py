@@ -29,6 +29,7 @@ _DEFAULT_MODEL = "gpt-4o-mini"
 _DEFAULT_MAX_TOKENS = 300
 _RETRIES = 2
 _BACKOFF = 1.0
+_HISTORY_CHAR_BUDGET = 12_000
 
 #: System prompt that anchors GPT in Shaggoth's character. The personality
 #: engine's trait_prompt() is appended on top of this at call time.
@@ -140,11 +141,23 @@ class OpenAIModel(LanguageModel):
 
         messages = [{"role": "system", "content": "\n".join(system_parts)}]
 
+        history_turns = []
         for turn in (conversation_history or []):
             role = turn.get("role")
             content = turn.get("content") or ""
             if role in ("user", "assistant") and content:
-                messages.append({"role": role, "content": content})
+                history_turns.append({"role": role, "content": content})
+
+        budget = _HISTORY_CHAR_BUDGET
+        kept: list[dict] = []
+        for turn in reversed(history_turns):
+            cost = len(turn["content"])
+            if budget - cost < 0 and kept:
+                break
+            kept.append(turn)
+            budget -= cost
+        kept.reverse()
+        messages.extend(kept)
 
         messages.append({"role": "user", "content": user_message})
 
