@@ -46,6 +46,13 @@ def test_contrast_questions(question):
     "why does photosynthesis need light",
     "what causes gravity",
     "how does a river work",
+    "how is steel made",
+    "how are vaccines produced",
+    "how do earthquakes happen",
+    "how can I fix a leaky faucet",
+    "what is the process of photosynthesis",
+    "what happens when water boils",
+    "what is the cause of inflation",
 ])
 def test_causal_questions(question):
     assert classify(question) == Intent.CAUSAL
@@ -106,6 +113,19 @@ def test_subject_of_drops_the_trailing_verb_phrase():
     assert subject_of("what causes gravity") == "gravity"
     assert subject_of("what are the types of cryptography") == "cryptography"
     assert subject_of("how does a river work") == "a river"
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("how is steel made", "steel"),
+    ("how are vaccines produced", "vaccines"),
+    ("how do earthquakes happen", "earthquakes"),
+    ("how can I fix a leaky faucet", "I fix a leaky faucet"),
+    ("what is the process of photosynthesis", "photosynthesis"),
+    ("what is the cause of inflation", "inflation"),
+    ("what happens when water boils", "when water boils"),
+])
+def test_subject_of_new_causal_patterns(question, expected):
+    assert subject_of(question) == expected
 
 
 # --------------------------------------------------------------------------

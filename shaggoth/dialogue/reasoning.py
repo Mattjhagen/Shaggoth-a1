@@ -82,8 +82,10 @@ _CONTRAST = re.compile(
     re.I,
 )
 _CAUSAL = re.compile(
-    r"^\s*(?:and |but |so )?why\b|\bwhat causes\b|\bhow does .+ work\b"
-    r"|\bwhat makes\b|\breason (?:for|why)\b",
+    r"^\s*(?:and |but |so )?why\b|\bwhat causes\b"
+    r"|\bhow (?:is|are|do|does|did|can|could|would|should) .+"
+    r"|\bwhat (?:is|are) the (?:cause|process|mechanism|effect|result|purpose)s? (?:of|behind)\b"
+    r"|\bwhat happens\b|\bwhat makes\b|\breason (?:for|why)\b",
     re.I,
 )
 _ENUMERATE = re.compile(
@@ -160,19 +162,23 @@ def subject_of(question: str) -> str:
     text = (question or "").strip(" ?.")
     text = re.sub(
         r"^(?:and |but |so )?(?:why|what|how)\s+"
-        r"(?:is|are|was|were|does|do|did|causes?|makes?)?\s*", "", text, flags=re.I
+        r"(?:is|are|was|were|does|do|did|can|could|would|should|causes?|makes?|happens?)?\s*",
+        "", text, flags=re.I,
     )
     text = re.sub(
         r"^(?:the\s+)?(?:types?|kinds?|sorts?|categories|examples?|forms?|list)"
         r"\s+of\s+", "", text, flags=re.I
     )
+    text = re.sub(
+        r"^(?:the\s+)?(?:cause|process|mechanism|effect|result|purpose)s?"
+        r"\s+(?:of|behind)\s+", "", text, flags=re.I,
+    )
     text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
-    # Trailing verb phrase: "photosynthesis need light" -> "photosynthesis".
-    # The subject is what to look up; the rest is what to look *for*, and
-    # carrying it into retrieval only dilutes the query.
     text = re.sub(
         r"\s+(?:need|needs|require|requires|use|uses|produce|produces|"
-        r"happen|happens|occur|occurs|exist|exists|matter|matters)\b.*$",
+        r"happen|happens|occur|occurs|exist|exists|matter|matters|"
+        r"made|created|formed|produced|prevented|caused|built|done|"
+        r"get\s+\w+ed|become|start|begin)\b.*$",
         "", text, flags=re.I,
     )
     return text.strip(" ?.,")

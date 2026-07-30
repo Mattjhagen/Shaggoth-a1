@@ -219,6 +219,7 @@ class CuriosityEngine:
             with self._lock:
                 if self._queue:
                     episode, max_results, max_pages = self._queue.pop(0)
+                    episode.status = "running"
                     self._current_episode = episode
                 else:
                     self._running = False

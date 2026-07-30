@@ -94,7 +94,7 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "I remember facts you tell me and the conversations we've had. The rest — "
         "feelings, dreams, boredom — is you reading tone into a ranking function.",
     ]),
-    (re.compile(r"(?i)^i need (?!(?:to |help |a |an |the |some |info)(?:\w))(.+)"), [
+    (re.compile(r"(?i)^i need (?!(?:to |you |help |a |an |the |some |info)(?:\w))(.+)"), [
         "What do you need {0} for? Context helps me give you something useful.",
         "Alright — what's the actual situation with {0}?",
     ]),
@@ -234,6 +234,34 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
     (re.compile(r"(?i)^(?:ugh+|sigh|meh|bleh|pfft|bruh|dude|man|bro|hmm+|huh)[.!?]*$"), [
         "Eloquent. Got a question in there?",
         "I'll take that as thinking out loud. Ready when you are.",
+    ]),
+    # Confusion / not knowing — "I don't know", "I have no idea"
+    (re.compile(r"(?i)^(?:i (?:don'?t|do not) know|i have no (?:idea|clue)|"
+                r"no idea|no clue|beats me|i'?m (?:not sure|confused|lost))[.!?]*$"), [
+        "That's fine — you don't have to know. What are you trying to figure out?",
+        "Okay, so what's the question? I might know.",
+        "Start from what you do know and I'll fill in the gaps.",
+    ]),
+    # Stories / jokes requests — "tell me a joke", "tell me a story"
+    (re.compile(r"(?i)^(?:tell me a (?:joke|story|fun fact|riddle)|"
+                r"make me laugh|say something funny|do you know any jokes)[.!?]*$"), [
+        "I'm a knowledge engine, not a comedian. But ask me something weird and "
+        "I'll make it interesting.",
+        "My humor comes from knowing obscure things, not from punchlines. "
+        "Try asking me something unexpected.",
+        "I don't do jokes on command. But I can tell you something genuinely "
+        "strange I've learned — pick a topic.",
+    ]),
+    # Direct insults — "you suck", "you're stupid", "you're useless"
+    (re.compile(r"(?i)^(?:you (?:suck|stink|blow|are (?:the )?worst)|"
+                r"you(?:'re| are) (?:stupid|dumb|useless|terrible|garbage|trash|"
+                r"bad|awful|horrible|an? idiot|worthless|broken|lame)|"
+                r"(?:screw|fuck|damn|shut up|go away|die|i hate)(?: you)?|"
+                r"you(?:'re| are) (?:a |an? )?(?:piece of |)"
+                r"(?:crap|shit|junk|waste))[.!?]*$"), [
+        "Noted. Now do you have an actual question, or was that it?",
+        "I've been called worse by better code. What do you want to know?",
+        "Fair enough. I'm still here if you want to ask something real.",
     ]),
     # Agreement / praise / judgment reactions
     (re.compile(

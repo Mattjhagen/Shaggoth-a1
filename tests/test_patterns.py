@@ -224,3 +224,22 @@ class TestPatternEngine:
                       "I agree", "fair enough", "good point", "my bad",
                       "you make me laugh"):
             assert self.engine.respond(text) is not None, text
+
+    def test_i_need_you_to_does_not_match(self):
+        result = self.engine.respond("I need you to tell me about Python")
+        assert result is None
+
+    def test_confusion_matches(self):
+        for text in ("I don't know", "i have no idea", "no clue", "beats me",
+                      "i'm not sure", "i'm confused"):
+            assert self.engine.respond(text) is not None, text
+
+    def test_joke_story_requests_match(self):
+        for text in ("tell me a joke", "tell me a story", "make me laugh",
+                      "tell me a fun fact"):
+            assert self.engine.respond(text) is not None, text
+
+    def test_insult_matches(self):
+        for text in ("you suck", "you're stupid", "you're useless",
+                      "you are terrible", "shut up"):
+            assert self.engine.respond(text) is not None, text

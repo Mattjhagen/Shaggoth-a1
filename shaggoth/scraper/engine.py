@@ -230,7 +230,12 @@ class ScraperEngine:
                 raw = resp.read()
                 content_type = resp.headers.get("Content-Type", "")
                 charset = _extract_charset(content_type)
-                if "html" in content_type or "xhtml" in content_type:
+                media_type = content_type.split(";", 1)[0].strip().lower()
+                try:
+                    "".encode(charset)
+                except LookupError:
+                    charset = "utf-8"
+                if media_type in ("text/html", "application/xhtml+xml"):
                     html = raw.decode(charset, errors="replace")
                     self._last_html = html
                     title = _extract_title(html)

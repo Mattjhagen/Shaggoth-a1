@@ -121,8 +121,7 @@ class OpenAIHistoryBudgetTests(unittest.TestCase):
         from shaggoth.models.openai_model import OpenAIModel, _HISTORY_CHAR_BUDGET
 
         model = OpenAIModel(api_key="test-key")
-        # First pair is just under budget, second pair is small
-        big = "x" * (_HISTORY_CHAR_BUDGET - 100)
+        big = "x" * (_HISTORY_CHAR_BUDGET + 100)
         history = [
             {"role": "user", "content": big},
             {"role": "assistant", "content": "old answer"},
