@@ -548,3 +548,24 @@ def test_polish_if_gpt_returns_raw_without_model(tmp_path):
     raw = "Raw extractive sentences from articles."
     result = engine._polish_if_gpt(raw, "what is gravity")
     assert result == raw
+
+
+def test_polish_if_gpt_rejects_severe_truncation(tmp_path):
+    """GPT output that drops too many facts should be rejected."""
+    from unittest.mock import MagicMock
+    from shaggoth.memory import MemoryStore
+    from shaggoth.models.openai_model import OpenAIModel
+
+    raw = "A" * 300
+    mock_model = MagicMock(spec=OpenAIModel)
+    mock_model.configured = True
+    mock_model.is_trained.return_value = True
+    mock_model.generate_chat.return_value = "Short."
+
+    engine = DialogueEngine(
+        memory=MemoryStore(str(tmp_path / "m.db")),
+        model=mock_model,
+        seed=1,
+    )
+    result = engine._polish_if_gpt(raw, "what is gravity")
+    assert result == raw, "severely truncated GPT output should be rejected"

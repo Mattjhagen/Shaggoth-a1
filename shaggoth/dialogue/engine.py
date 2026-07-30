@@ -510,19 +510,20 @@ class DialogueEngine:
         if not (_gpt and _gpt.configured):
             return raw_answer
         try:
+            raw_len = len(raw_answer)
             polished = _gpt.generate_chat(
                 user_message=(
                     f"Rephrase these facts as a natural answer to the "
-                    f"question below. Connect ideas, but stay grounded in "
-                    f"what's here — do not add information beyond what is "
-                    f"provided.\n\n"
+                    f"question below. Keep ALL the facts — connect ideas "
+                    f"and smooth the prose, but do not drop or summarize "
+                    f"away any information.\n\n"
                     f"Question: {question}\n\n"
                     f"Facts:\n{raw_answer}"
                 ),
                 personality_context=personality_context,
-                max_tokens=400,
+                max_tokens=max(400, raw_len // 3),
             ).strip()
-            if polished and len(polished) >= max(30, len(raw_answer) // 2):
+            if polished and len(polished) >= max(30, raw_len * 2 // 3):
                 return polished
         except GenerationError as exc:
             log.warning("GPT polish failed: %s", exc)
