@@ -148,16 +148,31 @@ class OpenAIModel(LanguageModel):
             if role in ("user", "assistant") and content:
                 history_turns.append({"role": role, "content": content})
 
+        # Group into (user, assistant) pairs so trimming never orphans a
+        # reply from its prompt.  Unpaired trailing turns form their own group.
+        pairs: list[list[dict]] = []
+        i = 0
+        while i < len(history_turns):
+            if (history_turns[i]["role"] == "user"
+                    and i + 1 < len(history_turns)
+                    and history_turns[i + 1]["role"] == "assistant"):
+                pairs.append([history_turns[i], history_turns[i + 1]])
+                i += 2
+            else:
+                pairs.append([history_turns[i]])
+                i += 1
+
         budget = _HISTORY_CHAR_BUDGET
-        kept: list[dict] = []
-        for turn in reversed(history_turns):
-            cost = len(turn["content"])
-            if budget - cost < 0 and kept:
+        kept_pairs: list[list[dict]] = []
+        for pair in reversed(pairs):
+            cost = sum(len(t["content"]) for t in pair)
+            if budget - cost < 0 and kept_pairs:
                 break
-            kept.append(turn)
+            kept_pairs.append(pair)
             budget -= cost
-        kept.reverse()
-        messages.extend(kept)
+        kept_pairs.reverse()
+        for pair in kept_pairs:
+            messages.extend(pair)
 
         messages.append({"role": "user", "content": user_message})
 

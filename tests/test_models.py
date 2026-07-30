@@ -115,5 +115,43 @@ class OpenAIHistoryBudgetTests(unittest.TestCase):
             assert len(hist_messages) == 5
 
 
+    def test_trimming_preserves_user_assistant_pairs(self):
+        """Trimming should never orphan an assistant turn from its user turn."""
+        from unittest.mock import MagicMock, patch
+        from shaggoth.models.openai_model import OpenAIModel, _HISTORY_CHAR_BUDGET
+
+        model = OpenAIModel(api_key="test-key")
+        # First pair is just under budget, second pair is small
+        big = "x" * (_HISTORY_CHAR_BUDGET - 100)
+        history = [
+            {"role": "user", "content": big},
+            {"role": "assistant", "content": "old answer"},
+            {"role": "user", "content": "new question"},
+            {"role": "assistant", "content": "new answer"},
+        ]
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = "test reply"
+
+        with patch.object(model, "_client_instance") as mock_client:
+            mock_client.return_value.chat.completions.create.return_value = mock_response
+            model.generate_chat(
+                user_message="hello",
+                conversation_history=history,
+            )
+            call_args = mock_client.return_value.chat.completions.create.call_args
+            messages = call_args.kwargs["messages"]
+            hist = [m for m in messages if m["role"] in ("user", "assistant")
+                    and m["content"] != "hello"]
+            # The old pair should be dropped together, keeping the new pair
+            roles = [m["role"] for m in hist]
+            for i, role in enumerate(roles):
+                if role == "assistant" and i > 0:
+                    assert roles[i - 1] == "user", (
+                        "Assistant turn orphaned without preceding user turn"
+                    )
+
+
 if __name__ == "__main__":
     unittest.main()

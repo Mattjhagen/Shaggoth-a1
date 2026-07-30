@@ -216,6 +216,11 @@ class DialogueEngine:
             self._persist(session_id, text, reply)
             return reply
 
+        # Personality context is needed by multiple downstream paths (follow-ups,
+        # GPT generation, reasoner polishing), so compute it once here.
+        self.personality.maybe_reload()
+        personality_context = self.personality.trait_prompt()
+
         # A turn with no subject is conversation, not a lookup. Answering it
         # from the knowledge base produced "Never heard of wanted chat" and,
         # because that came back as a fallback, kicked off curiosity research
@@ -226,7 +231,7 @@ class DialogueEngine:
         if not has_subject(text):
             if is_follow_up(text):
                 body, source = self._gpt_follow_up(
-                    text, context, personality_context="",
+                    text, context, personality_context=personality_context,
                 )
             else:
                 # Try specific patterns first (greetings, opinion requests, etc.),
@@ -254,9 +259,6 @@ class DialogueEngine:
         )
 
         # 5. Generation (with personality + knowledge context).
-        self.personality.maybe_reload()
-        personality_context = self.personality.trait_prompt()
-
         body = None
         source = "pattern"
 
@@ -361,16 +363,7 @@ class DialogueEngine:
         from ..models.base import GenerationError
         _gpt = self.model if isinstance(self.model, OpenAIModel) else None
         if body is None and _gpt is not None and _gpt.configured and knowledge_context:
-            history = [
-                {"role": m["role"], "content": m["content"]}
-                for m in context.get("recent", [])
-            ]
-            conv_summary = context.get("summary", "")
-            summary_extra = ""
-            if conv_summary:
-                summary_extra = (
-                    f"\nConversation summary (older turns):\n{conv_summary}"
-                )
+            history, summary_extra = self._build_history_context(context)
             try:
                 generated = _gpt.generate_chat(
                     user_message=text,
@@ -476,6 +469,25 @@ class DialogueEngine:
         return reply
 
     # ------------------------------------------------------------------
+    @staticmethod
+    def _build_history_context(context: dict) -> tuple[list[dict], str]:
+        """Extract chat history and summary from conversation context.
+
+        Returns (history_turns, summary_extra) ready for generate_chat().
+        """
+        history = [
+            {"role": m["role"], "content": m["content"]}
+            for m in context.get("recent", [])
+        ]
+        conv_summary = context.get("summary", "")
+        summary_extra = ""
+        if conv_summary:
+            summary_extra = (
+                f"\nConversation summary (older turns):\n{conv_summary}"
+            )
+        return history, summary_extra
+
+    # ------------------------------------------------------------------
     def _polish_if_gpt(
         self,
         raw_answer: str,
@@ -525,17 +537,8 @@ class DialogueEngine:
         from ..models.base import GenerationError
 
         _gpt = self.model if isinstance(self.model, OpenAIModel) else None
-        history = [
-            {"role": m["role"], "content": m["content"]}
-            for m in context.get("recent", [])
-        ]
+        history, summary_extra = self._build_history_context(context)
         if _gpt and _gpt.configured and history:
-            conv_summary = context.get("summary", "")
-            summary_extra = ""
-            if conv_summary:
-                summary_extra = (
-                    f"\nConversation summary (older turns):\n{conv_summary}"
-                )
             try:
                 generated = _gpt.generate_chat(
                     user_message=text,

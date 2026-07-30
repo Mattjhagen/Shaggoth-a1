@@ -272,6 +272,38 @@ class ResearchQueueTests(unittest.TestCase):
         """Queue should be empty on construction."""
         self.assertEqual(self.engine._queue, [])
 
+    def test_queued_item_runs_without_releasing_running(self):
+        """_running must stay True while draining the queue (no race window)."""
+        from shaggoth.curiosity.engine import CuriosityEpisode
+        import uuid
+
+        observed_running = []
+
+        original_do = self.engine._do_research
+
+        def spy_do(episode, max_results, max_pages):
+            observed_running.append(self.engine._running)
+            episode.status = "completed"
+
+        self.engine._do_research = spy_do
+
+        ep1 = CuriosityEpisode(
+            episode_id=f"test-{uuid.uuid4().hex[:8]}",
+            started_at=0, topic="first", queries=["first"],
+        )
+        ep2 = CuriosityEpisode(
+            episode_id=f"test-{uuid.uuid4().hex[:8]}",
+            started_at=0, topic="second", queries=["second"],
+        )
+
+        # Pre-load the queue so ep2 runs after ep1
+        self.engine._queue.append((ep2, 5, 3))
+        self.engine._run_research(ep1, 5, 3)
+
+        # Both should have seen _running == True
+        self.assertEqual(observed_running, [True, True])
+        self.assertFalse(self.engine._running)
+
 
 class PluginTests(unittest.TestCase):
     def test_teach_plugin_parses_topic_and_content(self):
