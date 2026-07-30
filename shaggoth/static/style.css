@@ -315,12 +315,13 @@ body {
   font-size: .85em;
 }
 
-.msg-content ul {
+.msg-content ul, .msg-content ol {
   margin: .4em 0;
   padding-left: 1.3em;
-  list-style: disc;
   white-space: normal;
 }
+.msg-content ul { list-style: disc; }
+.msg-content ol { list-style: decimal; }
 
 .msg-content li {
   margin: .15em 0;

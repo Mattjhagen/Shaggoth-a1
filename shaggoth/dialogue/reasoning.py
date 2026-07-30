@@ -70,7 +70,7 @@ _COMPARE = re.compile(
     # "compare X to Y" puts the subject between the verb and the preposition,
     # so this cannot require them to be adjacent.
     r"|\bcompare[ds]?\b.*\b(?:to|with|against)\b|\bcompare[ds]?\b"
-    r"|\bversus\b|\bvs\.?\b|\bagainst\b"
+    r"|\bversus\b|\bvs\.?\b"
     r"|\b(?:relate|hold[s]?\s+up|stack[s]?\s+up)\b.*\b(?:to|against|next to)\b"
     # "why is X different from Y" is a comparison that happens to open with
     # "why"; classify() checks COMPARE first precisely so it lands here.
@@ -533,11 +533,19 @@ class Reasoner:
                 entries_used=found,
             )
 
-        joiner = (
-            "That's how they differ."
-            if intent == Intent.COMPARE
-            else "That's what they have in common."
-        )
+        import random
+        if intent == Intent.COMPARE:
+            joiner = random.choice([
+                "That's the core difference.",
+                "So they're different approaches to similar territory.",
+                "Different mechanisms, different trade-offs.",
+            ])
+        else:
+            joiner = random.choice([
+                "That's what they have in common.",
+                "So they're connected at the root.",
+                "Different angles on the same idea.",
+            ])
         steps.append(Step("combine", f"contrasted {len(definitions)} definitions"))
         body = " ".join(d for _, d in definitions)
         return Reasoned(

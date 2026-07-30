@@ -57,6 +57,7 @@ def test_contrast_questions(question):
     "what is the process of photosynthesis",
     "what happens when water boils",
     "what is the cause of inflation",
+    "how can I protect against phishing",
 ])
 def test_causal_questions(question):
     assert classify(question) == Intent.CAUSAL

@@ -139,7 +139,6 @@ class KnowledgeBase:
     # canonical article. The base entry almost always contains the
     # definition and should rank above its fragments.
     _CHUNK_PENALTY = 0.85
-    _RAW_SCORE_FLOOR = 1.0
 
     def _topic_tokens(self, entry: "KnowledgeEntry") -> set[str]:
         title = _CHUNK_SUFFIX.sub("", entry.topic).strip()
@@ -243,8 +242,6 @@ class KnowledgeBase:
             return []
 
         best_raw = max(s for _, s in results)
-        if best_raw < self._RAW_SCORE_FLOOR:
-            return []
 
         # Normalize to 0..1 against the best hit so min_score is a stable
         # confidence threshold rather than a corpus-size-dependent magnitude.

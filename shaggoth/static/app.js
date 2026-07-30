@@ -503,11 +503,13 @@ function renderMd(raw) {
   // Italic (single asterisk, but not inside a word like file*name)
   t = t.replace(/(?<!\w)\*([^*]+?)\*(?!\w)/g, '<em>$1</em>');
   // Unordered list items: lines starting with "- " or "* "
-  t = t.replace(/^([*\-])\s+(.+)$/gm, '<li>$2</li>');
+  t = t.replace(/^([*\-])\s+(.+)$/gm, '<li class="ul">$2</li>');
   // Numbered list items: "1. ", "2. " etc.
-  t = t.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
-  // Wrap consecutive <li> into <ul>
-  t = t.replace(/((?:<li>.*?<\/li>\n?)+)/g, '<ul>$1</ul>');
+  t = t.replace(/^\d+\.\s+(.+)$/gm, '<li class="ol">$1</li>');
+  // Wrap consecutive same-type <li> into <ul> or <ol>
+  t = t.replace(/((?:<li class="ol">.*?<\/li>\n?)+)/g, '<ol>$1</ol>');
+  t = t.replace(/((?:<li class="ul">.*?<\/li>\n?)+)/g, '<ul>$1</ul>');
+  t = t.replace(/ class="[uo]l"/g, '');
   return t;
 }
 
