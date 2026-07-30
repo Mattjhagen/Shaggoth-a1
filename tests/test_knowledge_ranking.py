@@ -193,7 +193,6 @@ def test_exact_match_still_preferred_over_fuzzy(tmp_path):
     kb.add_entry("Evaluation", "Evaluation is the process of assessing something. " * 20)
     results = kb.query("evolution", limit=3, min_score=0.0)
     assert results[0][0].topic == "Evolution"
-    assert KnowledgeBase.slug_for("C++") == "c-plus-plus"
 
 
 def test_acronym_query_finds_article(tmp_path):
@@ -223,6 +222,7 @@ def test_slug_distinguishes_c_variants():
     assert KnowledgeBase.slug_for("C#") != KnowledgeBase.slug_for("C")
     assert KnowledgeBase.slug_for("C++") != KnowledgeBase.slug_for("C#")
     assert KnowledgeBase.slug_for("C#") == "c-sharp"
+    assert KnowledgeBase.slug_for("C++") == "c-plus-plus"
 
 
 def test_added_topic_round_trips_cleanly(tmp_path):

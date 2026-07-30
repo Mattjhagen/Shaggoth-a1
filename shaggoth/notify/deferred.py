@@ -128,7 +128,8 @@ class DeferredQuestions:
                 # Keep answered-but-undelivered items; trim oldest unanswered.
                 keep = [i for i in self._items if i.answered and not i.delivered]
                 rest = [i for i in self._items if not (i.answered and not i.delivered)]
-                rest = rest[-(MAX_PENDING - len(keep)):]
+                capacity = max(0, MAX_PENDING - len(keep))
+                rest = rest[-capacity:] if capacity else []
                 self._items = keep + rest
             self._save()
         return item

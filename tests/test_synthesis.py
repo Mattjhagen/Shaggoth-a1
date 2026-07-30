@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from shaggoth.dialogue.engine import (
     _is_list_debris,
+    _stem_match,
     _synthesize,
     _topic_tokens_for,
     pull_cross_entry_fact,
@@ -138,3 +139,43 @@ def test_summarize_entry_scored_still_returns_definition_flag():
     summary, is_definition = summarize_entry_scored(content, "Aeroponics")
     assert is_definition
     assert summary.startswith("Aeroponics is the process")
+
+
+def test_synthesize_preserves_acronyms():
+    result = _synthesize([
+        "DNA is deoxyribonucleic acid.",
+        "DNA carries the genetic instructions for life.",
+    ])
+    assert "DNA" in result
+    assert "dNA" not in result
+
+
+def test_synthesize_preserves_proper_nouns():
+    result = _synthesize([
+        "Gravity was first described mathematically.",
+        "Einstein proposed general relativity in 1915.",
+    ])
+    assert "Einstein" in result
+    assert "einstein" not in result
+
+
+def test_stem_match_rejects_gravity_gravel():
+    assert not _stem_match("gravity", "gravel")
+
+
+def test_stem_match_accepts_gravity_gravitational():
+    assert _stem_match("gravity", "gravitational")
+
+
+def test_stem_match_accepts_computing_computer():
+    assert _stem_match("computing", "computer")
+
+
+def test_summarizer_keeps_pronoun_continuation():
+    content = (
+        "Photosynthesis is the process by which plants convert light energy "
+        "into chemical energy. It occurs primarily in the chloroplasts of "
+        "plant cells. Photosynthesis requires carbon dioxide and water."
+    )
+    summary, _ = summarize_entry_scored(content, "Photosynthesis")
+    assert "chloroplasts" in summary or "chemical energy" in summary

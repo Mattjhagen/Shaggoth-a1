@@ -467,8 +467,8 @@ class DialogueEngine:
                         body=f"Looking into: {text[:60]}{'...' if len(text) > 60 else ''}",
                         tag="research_started",
                     )
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("[dialogue] research-started notification failed: %s", exc)
 
         return reply
 
@@ -511,18 +511,21 @@ class DialogueEngine:
             return raw_answer
         try:
             polished = _gpt.generate_chat(
-                user_message=question,
-                knowledge_context=(
-                    f"Rephrase these facts naturally — connect ideas, but "
-                    f"stay grounded in what's here:\n{raw_answer}"
+                user_message=(
+                    f"Rephrase these facts as a natural answer to the "
+                    f"question below. Connect ideas, but stay grounded in "
+                    f"what's here — do not add information beyond what is "
+                    f"provided.\n\n"
+                    f"Question: {question}\n\n"
+                    f"Facts:\n{raw_answer}"
                 ),
                 personality_context=personality_context,
                 max_tokens=400,
             ).strip()
-            if polished and len(polished) >= 30:
+            if polished and len(polished) >= max(30, len(raw_answer) // 2):
                 return polished
-        except GenerationError:
-            pass
+        except GenerationError as exc:
+            log.warning("GPT polish failed: %s", exc)
         return raw_answer
 
     # ------------------------------------------------------------------
@@ -775,7 +778,7 @@ def _topic_tokens_for(topic: str) -> set[str]:
     }
 
 
-def _stem_match(a: str, b: str, min_stem: int = 4) -> bool:
+def _stem_match(a: str, b: str, min_stem: int = 5) -> bool:
     """True when two words share a stem (aeroponic/aeroponics, learn/learning)."""
     if a == b:
         return True
@@ -908,20 +911,12 @@ def _is_definitional(sentence: str, topic_words: set[str]) -> bool:
     return any(_stem_match(t, w) for t in topic_words for w in head_set)
 
 
-def _lower_first(s: str) -> str:
-    return s[:1].lower() + s[1:] if s else s
-
-
-# Transitions used to stitch supporting sentences onto the lead definition.
-# Plain concatenation read as pasted-together encyclopedia lines; varying the
-# join -- chosen per call, so the same entry doesn't always read identically
-# -- is what makes a multi-sentence answer feel assembled rather than copied.
 _SYNTHESIS_JOINERS = [
     lambda s: s,
-    lambda s: f"Also, {_lower_first(s)}",
-    lambda s: f"Relatedly, {_lower_first(s)}",
-    lambda s: f"And {_lower_first(s)}",
-    lambda s: f"Plus, {_lower_first(s)}",
+    lambda s: f"Also, {s}",
+    lambda s: f"Relatedly, {s}",
+    lambda s: f"And {s}",
+    lambda s: f"Plus, {s}",
 ]
 
 
@@ -1001,14 +996,17 @@ def summarize_entry_scored(
 
     # Append supporting sentences, but only ones still on subject -- this is
     # what stops the answer drifting into unrelated trivia further down the page.
-    for s in sentences[start_idx + 1:]:
+    # The sentence immediately after the lead gets a free pass on the topic-word
+    # check because well-written prose defines the subject once and then uses
+    # pronouns ("Gravity is a force. It was first described by Newton.").
+    for offset, s in enumerate(sentences[start_idx + 1:], 1):
         if len(picked) >= max_sentences:
             break
         if total + len(s) + 1 > max_chars:
             break
         if s in seen:
             continue
-        if topic_words and not _mentions_topic(s, topic_words):
+        if offset > 1 and (not topic_words or not _mentions_topic(s, topic_words)):
             continue
         if _is_list_debris(s):
             continue
@@ -1418,12 +1416,16 @@ def last_subject(context: dict | None = None) -> str:
     "chat" three times in passing and "photosynthesis" once on purpose --
     the follow-up belongs to the last real subject, not the most repeated word.
     """
+    from ..curiosity.topics import extract_topic_query
     for message in reversed((context or {}).get("recent", [])):
         if message.get("role") != "user":
             continue
         text = message.get("content", "")
         if not has_subject(text) or _FACT_STATEMENT.match(text.strip()):
             continue
+        topic = extract_topic_query(text)
+        if topic:
+            return topic
         words = [
             w.strip(".,;:!?'\"").lower()
             for w in text.split()

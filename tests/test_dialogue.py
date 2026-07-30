@@ -272,20 +272,18 @@ class ConversationFlowTests(unittest.TestCase):
                 self.assertNotIn("reading up", reply.text.lower())
 
     def test_engine_with_curiosity_flag_promises_research(self):
-        """When curiosity_available is True, fallback replies may promise
-        research."""
+        """When curiosity_available is True, describe_unknown receives
+        researching=True so fallback replies can promise research."""
+        from unittest.mock import patch
         engine = make_engine()
         engine.curiosity_available = True
-        found_research = False
-        for _ in range(50):
+        with patch("shaggoth.dialogue.engine.describe_unknown",
+                   return_value="Researching quantum computing now.") as mock_du:
             reply = engine.respond("what is quantum computing", session_id="t2")
-            if reply.source == "fallback" and (
-                "research" in reply.text.lower()
-                or "looking into" in reply.text.lower()
-            ):
-                found_research = True
-                break
-        self.assertTrue(found_research)
+        self.assertEqual(reply.source, "fallback")
+        mock_du.assert_called_once()
+        _args, kwargs = mock_du.call_args
+        self.assertTrue(kwargs.get("researching", _args[1] if len(_args) > 1 else False))
 
 
 if __name__ == "__main__":

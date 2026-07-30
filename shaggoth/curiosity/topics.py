@@ -66,9 +66,13 @@ def extract_topic_query(text: str) -> str | None:
     # match, and every word must carry topical signal (not a stopword).
     words = text.split()
     if 1 <= len(words) <= 4:
-        content = [w for w in words if w.lower().rstrip("?.!,") not in STOPWORDS
-                   and w.lower().rstrip("?.!,") not in _CONVERSATIONAL
-                   and len(w) > 1]
+        content = []
+        for word in words:
+            normalized = word.lower().rstrip("?.!,;:")
+            if (normalized not in STOPWORDS
+                    and normalized not in _CONVERSATIONAL
+                    and len(normalized) > 1):
+                content.append(word)
         if content and len(content) == len(words):
             topic = re.sub(r"[?.!,;:]+$", "", text).strip()
             if len(topic) > 1:
