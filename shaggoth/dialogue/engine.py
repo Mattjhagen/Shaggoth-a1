@@ -344,20 +344,24 @@ class DialogueEngine:
         # Letting the turn fall through to "fallback" instead produces the
         # honest "I haven't looked into that" and kicks off research.
         from ..models.openai_model import OpenAIModel
+        from ..models.base import GenerationError
         _gpt = self.model if isinstance(self.model, OpenAIModel) else None
         if body is None and _gpt is not None and _gpt.configured and knowledge_context:
             history = [
                 {"role": m["role"], "content": m["content"]}
                 for m in context.get("recent", [])
             ]
-            generated = _gpt.generate_chat(
-                user_message=text,
-                knowledge_context=knowledge_context,
-                conversation_history=history,
-                personality_context=personality_context,
-            ).strip()
-            if generated:
-                body, source = generated, "model"
+            try:
+                generated = _gpt.generate_chat(
+                    user_message=text,
+                    knowledge_context=knowledge_context,
+                    conversation_history=history,
+                    personality_context=personality_context,
+                ).strip()
+                if generated:
+                    body, source = generated, "model"
+            except GenerationError as exc:
+                body, source = str(exc), "error"
 
         # 5c. Markov generation is DRIFT-only and runs only when GPT is absent.
         # The model stitches fragments from unrelated articles and cannot hold a

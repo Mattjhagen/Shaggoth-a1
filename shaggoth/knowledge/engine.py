@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 import math
 import re
 import time
@@ -162,6 +163,19 @@ class KnowledgeBase:
         candidates: set[int] = set()
         for word in query_words:
             candidates.update(self._index.get(word, ()))
+
+        # Fuzzy fallback: if exact index matching found nothing, try to
+        # match misspelled query words to known index keywords.
+        if not candidates:
+            index_keys = list(self._index.keys())
+            fuzzy_words: set[str] = set()
+            for qw in query_words:
+                close = difflib.get_close_matches(qw, index_keys, n=1, cutoff=0.8)
+                if close:
+                    fuzzy_words.add(close[0])
+                    candidates.update(self._index.get(close[0], ()))
+            if fuzzy_words:
+                query_words = query_words | fuzzy_words
 
         # Title matches count even when the body never repeats the phrase.
         title_hits: dict[int, int] = {}
