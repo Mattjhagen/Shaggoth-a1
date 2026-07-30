@@ -251,3 +251,24 @@ def test_comparison_will_not_build_on_the_wrong_article():
         "difference between aeroponics and hydroponics"
     )
     assert result is None or "Brokeback" not in result.answer
+
+
+def test_pick_uses_word_boundaries_not_substrings():
+    """'art' should not match inside 'particle' or 'starting'."""
+    from shaggoth.dialogue.reasoning import _pick, _CAUSAL_MARKER
+    sentences = [
+        "Because particle physics involves starting with quantum fields.",
+        "Because art requires creativity and imagination to produce.",
+    ]
+    picked = _pick(sentences, _CAUSAL_MARKER, {"art"}, limit=5, min_len=10)
+    assert len(picked) == 1
+    assert "creativity" in picked[0]
+
+
+def test_comparison_drops_redundant_topic_label():
+    result = _reasoner([AERO, HYDRO]).reason(
+        "what is the difference between aeroponics and hydroponics"
+    )
+    assert result is not None
+    assert "Aeroponics:" not in result.answer
+    assert "Hydroponics:" not in result.answer

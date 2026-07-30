@@ -289,5 +289,18 @@ class ConversationFlowTests(unittest.TestCase):
         self.assertTrue(kwargs.get("researching", _args[1] if len(_args) > 1 else False))
 
 
+    def test_who_is_recognized_as_definition_query(self):
+        from shaggoth.dialogue.engine import _DEFINITION_QUERY
+        m = _DEFINITION_QUERY.match("who is Albert Einstein")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1).strip(), "Albert Einstein")
+
+    def test_who_was_recognized_as_definition_query(self):
+        from shaggoth.dialogue.engine import _DEFINITION_QUERY
+        m = _DEFINITION_QUERY.match("who was Marie Curie?")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1).strip(), "Marie Curie")
+
+
 if __name__ == "__main__":
     unittest.main()

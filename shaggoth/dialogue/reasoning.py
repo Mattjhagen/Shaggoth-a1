@@ -263,14 +263,15 @@ def _pick(sentences, marker, topic_words, limit, min_len=40, focus=None):
         if not marker.search(sentence):
             continue
         lowered = sentence.lower()
+        tokens = set(re.findall(r"[a-z0-9]+", lowered))
         on_topic = (
             not topic_words
-            or any(w in lowered for w in topic_words)
+            or bool(topic_words & tokens)
             or _REFERRING.match(sentence)
         )
         if not on_topic:
             continue
-        hits = sum(1 for word in focus if word in lowered)
+        hits = sum(1 for word in focus if word in tokens)
         # Focus hits dominate. Explanatory quality only breaks ties -- but it
         # is the whole ranking when the question has no focus term, which is
         # when this previously degenerated to document order.
@@ -537,7 +538,7 @@ class Reasoner:
             else "That's what they have in common."
         )
         steps.append(Step("combine", f"contrasted {len(definitions)} definitions"))
-        body = " ".join(f"{t}: {d}" for t, d in definitions)
+        body = " ".join(d for _, d in definitions)
         return Reasoned(
             answer=f"{body} {joiner}",
             intent=intent,

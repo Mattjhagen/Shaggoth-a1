@@ -349,6 +349,9 @@ class DialogueEngine:
                     "select: best non-definitional sentence",
                 ]
 
+            if answered_from_knowledge and body:
+                body = self._polish_if_gpt(body, text, personality_context)
+
         if body is None:
             body = self.patterns.respond(text)
 
@@ -1320,6 +1323,7 @@ _REACTION = re.compile(
 _DEFINITION_QUERY = re.compile(
     r"(?i)^(?:"
     r"what (?:is|are|was|were) (?:a |an |the )?"
+    r"|who (?:is|are|was|were) (?:a |an |the )?"
     r"|define "
     r"|explain "
     r"|(?:tell|teach) me (?:about |what )(?:a |an |the )?"
