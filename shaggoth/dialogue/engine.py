@@ -208,7 +208,9 @@ class DialogueEngine:
                 knowledge_context = "\n".join(snippets) + "\n\n"
 
         # 3. Plugins.
-        plugin_response = self.plugins.dispatch(text, memory=self.memory)
+        plugin_response = self.plugins.dispatch(
+            text, memory=self.memory, knowledge=self.knowledge,
+        )
         if plugin_response is not None:
             reply = self._finish(Reply(plugin_response, source="plugin", mode=mode))
             self._persist(session_id, text, reply)

@@ -119,7 +119,7 @@ def build_registry() -> PluginRegistry:
         return None
 
     @registry.register("what_i_learned")
-    def learned_plugin(text: str, **_) -> str | None:
+    def learned_plugin(text: str, knowledge=None, **_) -> str | None:
         """Show what Shaggoth has learned recently.
 
         Anchored patterns prevent this from swallowing "what do you know
@@ -132,7 +132,7 @@ def build_registry() -> PluginRegistry:
             text.strip(),
         ):
             from ..knowledge.engine import KnowledgeBase
-            kb = KnowledgeBase()
+            kb = knowledge or KnowledgeBase()
             entries = kb.list_entries()
             if not entries:
                 return "I haven't learned anything yet — tell me about something or ask me to research a topic!"
@@ -145,7 +145,7 @@ def build_registry() -> PluginRegistry:
         return None
 
     @registry.register("teach")
-    def teach_plugin(text: str, **_) -> str | None:
+    def teach_plugin(text: str, knowledge=None, **_) -> str | None:
         """User teaches Shaggoth directly — adds to knowledge base."""
         match = re.match(r"(?i)^/?teach (?:me |you )?(?:about )?(.+?)(?:\s*[-–—:]\s*(.+))?$", text.strip())
         if match:
@@ -154,20 +154,20 @@ def build_registry() -> PluginRegistry:
             if not content:
                 return f"What would you like me to know about {topic}? Say something like:\n  teach {topic} - <your explanation>"
             from ..knowledge.engine import KnowledgeBase
-            kb = KnowledgeBase()
+            kb = knowledge or KnowledgeBase()
             path = kb.add_entry(topic, content)
             return f"Got it — I now know about {topic}. (saved to {path.name})"
         return None
 
     @registry.register("know_about")
-    def know_about_plugin(text: str, **_) -> str | None:
+    def know_about_plugin(text: str, knowledge=None, **_) -> str | None:
         """Look up a specific topic in the knowledge base."""
         match = re.match(r"(?i)^what do you know about (.+?)\??$", text.strip())
         if match:
             topic_query = match.group(1).strip()
             from ..knowledge.engine import KnowledgeBase
             from ..dialogue.engine import summarize_entry, knowledge_is_relevant
-            kb = KnowledgeBase()
+            kb = knowledge or KnowledgeBase()
             results = kb.query(topic_query, limit=3, min_score=0.1)
             if not results:
                 return f"I don't know much about \"{topic_query}\" yet. Want me to research it?"
