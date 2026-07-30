@@ -60,6 +60,12 @@ class TestPatternEngine:
         assert result is not None
         assert "coffee" in result.lower()
 
+    def test_i_need_skips_practical_requests(self):
+        assert self.engine.respond("I need to install Python") is None
+        assert self.engine.respond("I need help with my code") is None
+        assert self.engine.respond("I need a way to fix this") is None
+        assert self.engine.respond("I need some information about gravity") is None
+
     def test_i_am_sad_matches(self):
         result = self.engine.respond("I am feeling sad")
         assert result is not None
@@ -112,9 +118,15 @@ class TestPatternEngine:
         assert result is not None
 
     def test_can_you_captures(self):
-        result = self.engine.respond("Can you explain recursion?")
+        result = self.engine.respond("Can you juggle?")
         assert result is not None
-        assert "recursion" in result
+        assert "juggle" in result
+
+    def test_can_you_skips_knowledge_requests(self):
+        assert self.engine.respond("Can you explain recursion?") is None
+        assert self.engine.respond("Can you tell me about gravity?") is None
+        assert self.engine.respond("Can you describe photosynthesis?") is None
+        assert self.engine.respond("Can you help me with Python?") is None
 
     def test_because_captures(self):
         result = self.engine.respond("because gravity")

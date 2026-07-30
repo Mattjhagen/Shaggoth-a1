@@ -293,6 +293,17 @@ def test_a_real_question_containing_that_is_still_a_lookup():
     assert not is_follow_up("what is the thing that plants use to make sugar")
 
 
+@pytest.mark.parametrize("text", [
+    "what does this protein do",
+    "how does this engine work",
+    "what is this chemical",
+    "why does that algorithm fail",
+])
+def test_determiner_this_that_is_not_follow_up(text):
+    """'this/that' + noun is a determiner, not an anaphoric pronoun."""
+    assert not is_follow_up(text), text
+
+
 def test_fact_statements_do_not_become_the_conversation_subject():
     from shaggoth.dialogue.engine import last_subject
 

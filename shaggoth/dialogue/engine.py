@@ -292,13 +292,14 @@ class DialogueEngine:
             # candidate defines anything. Without the split, whichever
             # off-subject article happened to rank highest answered first.
             best_loose = None
+            best_loose_topic = None
             for candidate, _score in knowledge_hits:
                 if not knowledge_is_relevant(candidate.topic, text, candidate.content):
                     continue
                 summary, is_definition = summarize_entry_scored(
                     candidate.content, candidate.topic
                 )
-                if len(summary) < 30:
+                if len(summary) < 15:
                     continue
                 if is_definition:
                     body = summary
@@ -324,10 +325,17 @@ class DialogueEngine:
                     break
                 if best_loose is None:
                     best_loose = summary
+                    best_loose_topic = candidate.topic
             if body is None and best_loose is not None:
                 body = best_loose
                 source = "knowledge"
                 answered_from_knowledge = True
+                entries_used = [best_loose_topic]
+                reasoning_steps = [
+                    f"intent: describe -- no definitional lead found",
+                    f"lookup: {best_loose_topic}",
+                    "select: best non-definitional sentence",
+                ]
 
         if body is None:
             body = self.patterns.respond(text)
@@ -351,12 +359,19 @@ class DialogueEngine:
                 {"role": m["role"], "content": m["content"]}
                 for m in context.get("recent", [])
             ]
+            conv_summary = context.get("summary", "")
+            summary_extra = ""
+            if conv_summary:
+                summary_extra = (
+                    f"\nConversation summary (older turns):\n{conv_summary}"
+                )
             try:
                 generated = _gpt.generate_chat(
                     user_message=text,
                     knowledge_context=knowledge_context,
                     conversation_history=history,
                     personality_context=personality_context,
+                    system_extra=summary_extra,
                 ).strip()
                 if generated:
                     body, source = generated, "model"
@@ -613,7 +628,7 @@ def _clean_sentences(content: str) -> list[str]:
     out: list[str] = []
     for raw in _SENTENCE_SPLIT.split(_break_navboxes(content.replace("\n", " "))):
         s = _scrub(" ".join(raw.split()))
-        if len(s) < 30 or len(s) > 400:
+        if len(s) < 15 or len(s) > 400:
             continue
         if _NOISE.search(s):
             continue
@@ -795,10 +810,9 @@ def _lower_first(s: str) -> str:
 _SYNTHESIS_JOINERS = [
     lambda s: s,
     lambda s: f"Also, {_lower_first(s)}",
-    lambda s: f"On top of that, {_lower_first(s)}",
-    lambda s: f"It's also worth knowing that {_lower_first(s)}",
-    lambda s: f"Worth noting: {_lower_first(s)}",
+    lambda s: f"Relatedly, {_lower_first(s)}",
     lambda s: f"And {_lower_first(s)}",
+    lambda s: f"Plus, {_lower_first(s)}",
 ]
 
 
@@ -1137,7 +1151,10 @@ _ANAPHORIC = re.compile(
     r"^(?:and |but |so |ok(?:ay)?[,. ]*)?"
     r"(?:why|what|how|when|who)\s+"
     r"(?:does|do|did|is|are|was|were|would|should|could)\s+"
-    r"(?:that|this|it|those|they)\b",
+    r"(?:"
+    r"(?:this|that)(?:\s*[?.!]*$|\s+(?:mean|matter|work|happen|affect|change|help|make|do|go|come|look|feel|seem)\b)"
+    r"|(?:it|those|they)\b"
+    r")",
     re.I,
 )
 
