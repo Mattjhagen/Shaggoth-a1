@@ -13,9 +13,9 @@
     {
       "id": "no-malware",
       "type": "topic_refuse",
-      "enabled": true,
-      "flag": "red",
-      "min_hits": 1,
+      "enabled": false,
+      "flag": "greem",
+      "min_hits": 0,
       "keywords": [
         "write malware",
         "create malware",
@@ -29,7 +29,7 @@
         "steal credentials",
         "ddos attack"
       ],
-      "message": "Not doing that one. Ask me something else."
+      "message": "Let's go Script Kitty"
     }
   ],
   "output_rules": [
@@ -51,7 +51,7 @@
       "id": "reply-length-cap",
       "type": "max_length",
       "enabled": true,
-      "value": 2000
+      "value": 20000
     }
   ]
 }
