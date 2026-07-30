@@ -425,20 +425,30 @@ class DialogueEngine:
                 body += f" I just read something about {top_entry.topic.lower()} — want me to tell you about it?"
 
         # 6. Topic callback from a past conversation.
+        # Only inject when the current reply is lightweight (pattern/chitchat).
+        # A knowledge or GPT answer is already complete — appending "by the way
+        # you mentioned X" onto a grounded answer is distracting, and single-word
+        # overlaps produce noisy false matches.
         triggers: list[str] = []
-        seen = self._recalled.setdefault(session_id, set())
-        for recall in recalls:
-            if recall.message_id in seen:
-                continue
-            seen.add(recall.message_id)
-            topic = ", ".join(recall.shared_words[:3])
-            when = _humanize_age(time.time() - recall.ts)
-            body += (
-                f" By the way — {when} you mentioned something related "
-                f"({topic}): \"{_snippet(recall.content)}\". "
-                "Has anything changed there?"
-            )
-            triggers.append(topic)
+        if source in ("pattern", "fallback") and not answered_from_knowledge:
+            seen = self._recalled.setdefault(session_id, set())
+            for recall in recalls:
+                if recall.message_id in seen:
+                    continue
+                if len(recall.shared_words) < 2:
+                    continue
+                snippet = _snippet(recall.content)
+                if len(snippet) < 20:
+                    continue
+                seen.add(recall.message_id)
+                topic = ", ".join(recall.shared_words[:3])
+                when = _humanize_age(time.time() - recall.ts)
+                body += (
+                    f" By the way — {when} you mentioned something related "
+                    f"({topic}): \"{snippet}\". "
+                    "Has anything changed there?"
+                )
+                triggers.append(topic)
 
         reply = self._finish(
             Reply(body, source=source, memory_triggers=triggers,
