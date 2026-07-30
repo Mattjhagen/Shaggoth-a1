@@ -136,7 +136,7 @@ def build_registry() -> PluginRegistry:
             entries = kb.list_entries()
             if not entries:
                 return "I haven't learned anything yet — tell me about something or ask me to research a topic!"
-            recent = sorted(entries, key=lambda e: e.get("word_count", 0), reverse=True)[:5]
+            recent = sorted(entries, key=lambda e: e.get("mtime", 0), reverse=True)[:5]
             lines = []
             for e in recent:
                 lines.append(f"  {e['topic']} ({e['word_count']} words)")

@@ -279,7 +279,8 @@ class KnowledgeBase:
     def list_entries(self) -> list[dict[str, Any]]:
         self.maybe_reload()
         return [
-            {"topic": e.topic, "word_count": e.word_count, "path": e.path}
+            {"topic": e.topic, "word_count": e.word_count, "path": e.path,
+             "mtime": e.mtime}
             for e in self._entries
         ]
 

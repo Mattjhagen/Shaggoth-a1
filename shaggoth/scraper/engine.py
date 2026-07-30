@@ -54,7 +54,19 @@ def _html_to_text(html: str) -> str:
     # Decode common HTML entities
     text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
     text = text.replace("&quot;", '"').replace("&#39;", "'").replace("&nbsp;", " ")
-    text = re.sub(r"&#(\d+);", lambda m: chr(int(m.group(1))), text)
+    def _decode_entity(m):
+        try:
+            raw = m.group(1)
+            if raw.startswith(("x", "X")):
+                cp = int(raw[1:], 16)
+            else:
+                cp = int(raw)
+            if 0 < cp < 0x110000 and not (0xD800 <= cp <= 0xDFFF):
+                return chr(cp)
+        except (ValueError, OverflowError):
+            pass
+        return ""
+    text = re.sub(r"&#(x?[0-9a-fA-F]+);", _decode_entity, text)
     return _clean_text(text)
 
 
