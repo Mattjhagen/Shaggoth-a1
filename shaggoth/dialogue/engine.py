@@ -852,7 +852,12 @@ def _topic_tokens_for(topic: str) -> set[str]:
 
 
 def _stem_match(a: str, b: str, min_stem: int = 5) -> bool:
-    """True when two words share a stem (aeroponic/aeroponics, learn/learning)."""
+    """True when two words share a stem (aeroponic/aeroponics, learn/learning).
+
+    Requires the shared prefix to cover at least 60% of the shorter word,
+    preventing false matches like "photo" conflating "photosynthesis" and
+    "photography".
+    """
     if a == b:
         return True
     if len(a) < min_stem or len(b) < min_stem:
@@ -860,7 +865,13 @@ def _stem_match(a: str, b: str, min_stem: int = 5) -> bool:
         if long.startswith(short) and long[len(short):] in ("s", "es", "ed", "d", "ing", "ly"):
             return True
         return False
-    return a.startswith(b[:min_stem]) or b.startswith(a[:min_stem])
+    short, long = (a, b) if len(a) <= len(b) else (b, a)
+    prefix_len = min_stem
+    if not long.startswith(short[:prefix_len]):
+        return False
+    while prefix_len < len(short) and prefix_len < len(long) and short[prefix_len] == long[prefix_len]:
+        prefix_len += 1
+    return prefix_len >= len(short) * 0.6
 
 
 def _words_of(sentence: str) -> set[str]:

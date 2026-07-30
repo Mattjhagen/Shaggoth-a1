@@ -159,6 +159,10 @@ def test_synthesize_preserves_proper_nouns():
     assert "einstein" not in result
 
 
+def test_stem_match_rejects_photosynthesis_photography():
+    assert not _stem_match("photosynthesis", "photography")
+
+
 def test_stem_match_rejects_gravity_gravel():
     assert not _stem_match("gravity", "gravel")
 
