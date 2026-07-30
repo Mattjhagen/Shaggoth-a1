@@ -67,13 +67,19 @@ class PersonalityEngine:
         traits = self.config.get("traits", [])
         style = self.config.get("speaking_style", "")
         mood = self.config.get("mood", "")
+        values = self.config.get("values", [])
+        interests = self.config.get("interests", [])
         parts = []
         if traits:
-            parts.append(f"You are: {', '.join(traits)}.")
+            parts.append(f"Your traits: {', '.join(traits)}.")
         if style:
-            parts.append(f"Speaking style: {style}.")
+            parts.append(f"Speaking style: {style}")
+        if values:
+            parts.append(f"Core values: {', '.join(values)}.")
+        if interests:
+            parts.append(f"You're especially engaged by: {', '.join(interests[:4])}.")
         if mood:
-            parts.append(f"Mood: {mood}.")
+            parts.append(f"Current mood: {mood}.")
         return " ".join(parts)
 
     def random_quirk(self) -> str | None:

@@ -60,9 +60,9 @@ class TestConfiguration:
         m = OpenAIModel(api_key="sk-x")
         assert m._model == "gpt-3.5-turbo"
 
-    def test_max_tokens_defaults_to_300(self):
+    def test_max_tokens_defaults_to_512(self):
         m = _model()
-        assert m._max_tokens == 300
+        assert m._max_tokens == 512
 
     def test_max_tokens_override(self):
         m = OpenAIModel(api_key="sk-x", max_tokens=500)

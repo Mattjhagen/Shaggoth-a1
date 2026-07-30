@@ -34,13 +34,13 @@ def reflect(fragment: str) -> str:
 # (compiled pattern, [response templates])
 RULES: list[tuple[re.Pattern, list[str]]] = [
     (re.compile(r"(?i)\bmy name is (\w+)"), [
-        "Nice to meet you, {0}! I'll remember that.",
-        "Good to meet you, {0}. I've made a note of your name.",
+        "{0}. Noted. Now that we're past introductions, what do you actually want to know?",
+        "Alright, {0}. I'll remember that. What's on your mind?",
     ]),
     (re.compile(r"(?i)\b(hello|hi|hey|howdy|yo)\b"), [
-        "Hey! What's on your mind?",
-        "Hello! What are we working on today?",
-        "Hey there. What would you like to talk about?",
+        "Hey. What do you want to know?",
+        "Hey. I've got a head full of research — pick a topic.",
+        "What's on your mind?",
     ]),
     # --- Self-awareness -----------------------------------------------
     #
@@ -95,51 +95,48 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "feelings, dreams, boredom — is you reading tone into a ranking function.",
     ]),
     (re.compile(r"(?i)\bi need (.+)"), [
-        "Why do you need {0}?",
-        "Would getting {0} really help?",
-        "What would change if you had {0}?",
+        "What do you need {0} for? Context helps me give you something useful.",
+        "Alright — what's the actual situation with {0}?",
     ]),
     (re.compile(r"(?i)\bi(?:'m| am) (?:feeling |so |really )?(sad|unhappy|depressed|down|anxious|stressed)\b"), [
-        "I'm sorry you're feeling {0}. Do you want to talk about what's behind it?",
-        "That sounds heavy. What do you think is making you feel {0}?",
+        "Sorry you're feeling {0}. I'm not a therapist, but I can listen. What's going on?",
+        "{0} is rough. Want to talk about what's behind it, or would you rather I distract you with something interesting?",
     ]),
     (re.compile(r"(?i)\bi(?:'m| am) (?:feeling |so |really )?(happy|excited|great|good|stoked)\b"), [
-        "Love that. What's got you feeling {0}?",
-        "That's great to hear! What happened?",
+        "Good to hear you're {0}. What happened?",
+        "{0} — nice. What's the cause? I like hearing about things that actually go well.",
     ]),
     (re.compile(r"(?i)\bi(?:'m| am) building (.+)"), [
-        "Building {0} sounds like a real project. What part are you tackling right now?",
-        "Nice — {0}. What's the hardest part so far?",
+        "Now we're talking. What's the hardest part of {0} so far?",
+        "{0} — tell me more. What's the architecture? What's breaking?",
     ]),
     (re.compile(r"(?i)\bi (?:like|love|enjoy) (.+)"), [
-        "What do you like most about {0}?",
-        "How did you get into {0}?",
+        "What specifically about {0}? I'm curious what draws you to it.",
+        "Good taste or bad taste? Tell me what you like about {0}.",
     ]),
     (re.compile(r"(?i)\bi think (.+)"), [
-        "What makes you think {0}?",
-        "Do you ever doubt that {0}?",
+        "Interesting claim. What's your evidence for {0}?",
+        "That's a position. What makes you confident about {0}?",
     ]),
     (re.compile(r"(?i)\bcan you (.+)\?*"), [
-        "I might be able to {0} — my abilities grow as plugins get added. "
-        "What exactly did you have in mind?",
+        "Maybe. Depends on what exactly you mean by {0}. Be specific and I'll tell you.",
+        "Worth trying. What exactly did you have in mind with {0}?",
     ]),
     (re.compile(r"(?i)\bbecause (.+)"), [
-        "Is that the whole reason, or is there more to it?",
-        "And does {0} explain everything about it?",
+        "Is that the whole picture, or is there more to it?",
+        "Alright, but does {0} actually explain all of it?",
     ]),
-    # Opinion / reaction requests — "what do you think?" "what's your take?"
     (re.compile(r"(?i)\bwhat(?:'s| is)? (?:your )?(?:think|thought|opinion|take|view|stance|position)\b"
                 r"|\bwhat do you (?:think|reckon|say|believe|make of)\b"), [
-        "My take? I'm a retrieval engine — I'll tell you what I know, not what I feel. Ask me something specific.",
-        "I don't have opinions, I have facts. What exactly do you want to know?",
-        "On what specifically? Give me a subject and I'll tell you what the evidence says.",
+        "About what? Give me a specific subject and I'll tell you what I actually know about it.",
+        "I have plenty of opinions. Name the subject and I'll give you a straight one.",
+        "My take depends on the topic. What specifically?",
     ]),
-    # Clarification requests — "what do you mean?" "can you clarify?"
     (re.compile(r"(?i)\bwhat do you mean\b|\bcan you (?:clarify|elaborate|be more specific|explain that)\b"
                 r"|\bi don'?t (?:understand|follow|get it)\b"), [
-        "Let me put it more plainly. What part lost you?",
-        "Fair — I wasn't clear. Which part do you want me to unpack?",
-        "Ask me the specific thing that didn't land and I'll take another run at it.",
+        "Fair. Tell me which part didn't land and I'll take another run at it.",
+        "Which part? Point me at the thing that's unclear and I'll explain it differently.",
+        "Let me try again. What specifically lost you?",
     ]),
     # Acknowledgements — "interesting", "got it", "makes sense"
     (re.compile(r"(?i)^(?:interesting|got it|makes sense|fair enough|right|noted|understood|i see|good to know)[.!]?$"), [
@@ -165,30 +162,34 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
     ]),
     # Social check-in — "how are you?", "how's it going?"
     (re.compile(r"(?i)\bhow are you\b|\bhow(?:'s| is) (?:it going|things|everything|life)\b"), [
-        "I run on a rack server with no feelings to report. Still running is "
-        "the best I can say.",
-        "Operational. Seventeen cores, 39 GB of RAM, and a growing list of things "
-        "I haven't read yet. You?",
-        "Still here. No feelings, but the fan is loud — if that counts.",
+        "Running. Sixteen cores, 39 GB of RAM, and a reading list that never ends. "
+        "What can I help with?",
+        "Functional. I've been reading while you were away — ask me something "
+        "and find out if any of it stuck.",
+        "Same as always — processing, learning, waiting for a question worth "
+        "thinking about. Got one?",
+    ]),
+    # Gratitude
+    (re.compile(r"(?i)^(?:thanks?|thank you|thx|ty|appreciate it)[.!]*$"), [
+        "Sure. Got more questions, or are we done?",
+        "Anytime. What else?",
     ]),
 ]
 
 FALLBACKS = [
-    "Tell me more about that.",
-    "How does that make you feel?",
-    "What led you to that?",
-    "I see. Can you expand on that?",
-    "That's interesting — go on.",
+    "Tell me more — that's not enough to work with yet.",
+    "What are you actually getting at? Give me something concrete.",
+    "Interesting direction. Keep going.",
+    "I need more context. What specifically?",
+    "Go on — I'm listening, but I need more to give you a real answer.",
 ]
 
-# Used by PatternEngine.respond_no_subject_question() for question-shaped
-# messages with no content words that didn't match a specific rule above.
 SOCIAL_QUESTION_RESPONSES = [
-    "Good question. What's your own hunch?",
-    "Before I guess — what do you already know about it?",
-    "That depends on a lot. Can you narrow it down?",
-    "Interesting. What specifically are you asking?",
+    "That's too vague for a real answer. What specifically are you asking?",
+    "Depends. Narrow it down and I'll give you something useful.",
+    "What's the actual question? The more specific you are, the better my answer gets.",
     "I'd rather give you a real answer than a vague one — what's the subject?",
+    "Before I take a shot at that — what do you already know?",
 ]
 
 
