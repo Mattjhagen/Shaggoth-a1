@@ -310,3 +310,23 @@ def test_short_stopwords_excluded_from_topic_tokens():
     assert "of" not in tokens
     assert "history" in tokens
     assert "art" in tokens
+
+
+def test_relevance_stem_matches_title():
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    assert knowledge_is_relevant(
+        "Gravity",
+        "what is gravitational force",
+        "Gravity is a fundamental interaction.",
+    )
+
+
+def test_relevance_stem_match_rejects_unrelated():
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    assert not knowledge_is_relevant(
+        "Gravel",
+        "what is gravitational force",
+        "Gravel is a type of rock fragment.",
+    )

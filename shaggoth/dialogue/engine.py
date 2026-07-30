@@ -1701,7 +1701,10 @@ def knowledge_is_relevant(topic: str, text: str, content: str = "") -> bool:
     asked = _content_words(text)
     if not asked:
         return False
-    if asked & _topic_words(topic):
+    title_words = _topic_words(topic)
+    if asked & title_words:
+        return True
+    if any(_stem_match(a, t) for a in asked for t in title_words):
         return True
     if len(asked) < 2 or not content:
         return False
