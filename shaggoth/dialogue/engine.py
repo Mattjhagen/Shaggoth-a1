@@ -223,7 +223,9 @@ class DialogueEngine:
         # about me?" are made entirely of filler words but are real commands.
         if not has_subject(text):
             if is_follow_up(text):
-                body = follow_up_reply(context)
+                body, source = self._gpt_follow_up(
+                    text, context, personality_context="",
+                )
             else:
                 # Try specific patterns first (greetings, opinion requests, etc.),
                 # then a question-shaped catch-all, then generic chitchat.
@@ -231,7 +233,8 @@ class DialogueEngine:
                 if body is None:
                     body = (self.patterns.respond_no_subject_question(text)
                             or chitchat_reply(text, context))
-            reply = self._finish(Reply(body, source="pattern", mode=mode))
+                source = "pattern"
+            reply = self._finish(Reply(body, source=source, mode=mode))
             self._persist(session_id, text, reply)
             return reply
 
@@ -394,8 +397,7 @@ class DialogueEngine:
 
         if body is None:
             if is_follow_up(text):
-                body = follow_up_reply(context)
-                source = "pattern"
+                body, source = self._gpt_follow_up(text, context, personality_context)
             elif _looks_like_question(text):
                 body = describe_unknown(text)
                 source = "fallback"
@@ -469,6 +471,46 @@ class DialogueEngine:
                     pass  # Push notification is optional
 
         return reply
+
+    # ------------------------------------------------------------------
+    def _gpt_follow_up(
+        self,
+        text: str,
+        context: dict,
+        personality_context: str = "",
+    ) -> tuple[str, str]:
+        """Try to answer a follow-up ("why?", "go on") via GPT.
+
+        Returns (body, source).  Falls back to the canned follow_up_reply
+        when no GPT model is configured or the call fails.
+        """
+        from ..models.openai_model import OpenAIModel
+        from ..models.base import GenerationError
+
+        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
+        history = [
+            {"role": m["role"], "content": m["content"]}
+            for m in context.get("recent", [])
+        ]
+        if _gpt and _gpt.configured and history:
+            conv_summary = context.get("summary", "")
+            summary_extra = ""
+            if conv_summary:
+                summary_extra = (
+                    f"\nConversation summary (older turns):\n{conv_summary}"
+                )
+            try:
+                generated = _gpt.generate_chat(
+                    user_message=text,
+                    conversation_history=history,
+                    personality_context=personality_context,
+                    system_extra=summary_extra,
+                ).strip()
+                if generated:
+                    return generated, "model"
+            except GenerationError:
+                pass
+        return follow_up_reply(context), "pattern"
 
     # ------------------------------------------------------------------
     def _finish(self, reply: Reply) -> Reply:

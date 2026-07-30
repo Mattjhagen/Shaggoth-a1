@@ -475,3 +475,39 @@ def test_short_definitional_article_not_repeated(tmp_path):
     reply = engine.respond("what is gravity", session_id="s1")
     count = reply.text.lower().count("fundamental force")
     assert count <= 1, f"Repeated {count} times: {reply.text}"
+
+
+def test_gpt_follow_up_routes_through_model(tmp_path):
+    """When GPT is configured, follow-ups should go through the model."""
+    from unittest.mock import MagicMock, patch
+    from shaggoth.memory import MemoryStore
+    from shaggoth.models.openai_model import OpenAIModel
+
+    mock_model = MagicMock(spec=OpenAIModel)
+    mock_model.configured = True
+    mock_model.is_trained.return_value = True
+    mock_model.generate_chat.return_value = "Because gravity warps spacetime."
+
+    engine = DialogueEngine(
+        memory=MemoryStore(str(tmp_path / "m.db")),
+        model=mock_model,
+        seed=1,
+    )
+    engine.respond("what is gravity", session_id="s1")
+    reply = engine.respond("why?", session_id="s1")
+    assert reply.source == "model"
+    assert "spacetime" in reply.text.lower()
+    mock_model.generate_chat.assert_called()
+
+
+def test_gpt_follow_up_falls_back_without_model(tmp_path):
+    """Without GPT, follow-ups still get canned replies."""
+    from shaggoth.memory import MemoryStore
+
+    engine = DialogueEngine(
+        memory=MemoryStore(str(tmp_path / "m.db")),
+        seed=1,
+    )
+    engine.respond("what is gravity", session_id="s1")
+    reply = engine.respond("why?", session_id="s1")
+    assert reply.source == "pattern"
