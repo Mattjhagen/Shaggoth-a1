@@ -3,6 +3,7 @@ import { View, StatusBar, SafeAreaView, Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
+import * as Linking from 'expo-linking'
 import { colors } from './src/theme/colors'
 import TabBar from './src/components/TabBar'
 import HomeScreen from './src/screens/HomeScreen'
@@ -24,10 +25,18 @@ export default function App() {
   const [tab, setTab] = useState('home')
   const [subScreen, setSubScreen] = useState(null)
   const [connected, setConnected] = useState(false)
+  const [assistMode, setAssistMode] = useState(false)
 
   useEffect(() => {
     api.initStorage()
     api.health().then(() => setConnected(true)).catch(() => {})
+
+    Linking.getInitialURL().then((url) => {
+      if (url && url.includes('assistMode')) {
+        setAssistMode(true)
+        setSubScreen({ screen: 'chat', params: {} })
+      }
+    })
 
     async function setupPush() {
       if (!Device.isDevice) return
@@ -57,13 +66,14 @@ export default function App() {
 
   const goBack = () => {
     setSubScreen(null)
+    setAssistMode(false)
   }
 
   const renderContent = () => {
     if (subScreen) {
       switch (subScreen.screen) {
         case 'chat':
-          return <ChatScreen onBack={goBack} />
+          return <ChatScreen onBack={goBack} assistMode={assistMode} />
         case 'knowledge':
           return <ExploreScreen onNavigate={navigate} onBack={goBack} />
         case 'learn':

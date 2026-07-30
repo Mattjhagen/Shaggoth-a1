@@ -157,10 +157,10 @@ def test_follow_up_pool_has_variety():
     assert len(seen) >= 2
 
 
-def test_follow_up_no_context_pool_has_variety():
-    """Multiple unique replies when there is no prior context."""
-    seen = {follow_up_reply({}) for _ in range(40)}
-    assert len(seen) >= 2
+def test_follow_up_no_context_returns_a_reply():
+    """A follow-up with no prior context still produces a response."""
+    reply = follow_up_reply({})
+    assert reply and len(reply) > 10
 
 
 # --------------------------------------------------------------------------

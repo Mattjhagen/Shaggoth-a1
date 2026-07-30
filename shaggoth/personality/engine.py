@@ -70,19 +70,19 @@ class PersonalityEngine:
             parts.append(backstory)
         traits = self.config.get("traits", [])
         if traits:
-            parts.append(f"You are: {', '.join(traits)}.")
+            parts.append(f"Your traits: {', '.join(traits)}.")
         style = self.config.get("speaking_style", "")
         if style:
-            parts.append(f"Speaking style: {style}.")
-        interests = self.config.get("interests", [])
-        if interests:
-            parts.append(f"Interests: {', '.join(interests)}.")
+            parts.append(f"Speaking style: {style}")
         values = self.config.get("values", [])
         if values:
-            parts.append(f"Values: {', '.join(values)}.")
+            parts.append(f"Core values: {', '.join(values)}.")
+        interests = self.config.get("interests", [])
+        if interests:
+            parts.append(f"You're especially engaged by: {', '.join(interests[:4])}.")
         mood = self.config.get("mood", "")
         if mood:
-            parts.append(f"Mood: {mood}.")
+            parts.append(f"Current mood: {mood}.")
         return " ".join(parts)
 
     def random_quirk(self) -> str | None:
