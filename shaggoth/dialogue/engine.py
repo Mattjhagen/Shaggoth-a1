@@ -326,7 +326,7 @@ class DialogueEngine:
                 if len(summary) < 15:
                     continue
                 if is_definition:
-                    body = summary
+                    body = _frame_knowledge(summary)
                     source = "knowledge"
                     answered_from_knowledge = True
                     entries_used = [candidate.topic]
@@ -351,7 +351,7 @@ class DialogueEngine:
                     best_loose = summary
                     best_loose_topic = candidate.topic
             if body is None and best_loose is not None:
-                body = best_loose
+                body = _frame_knowledge(best_loose)
                 source = "knowledge"
                 answered_from_knowledge = True
                 entries_used = [best_loose_topic]
@@ -1036,6 +1036,25 @@ def _synthesize(sentences: list[str]) -> str:
     for s in sentences[1:]:
         parts.append(_rng.choice(_SYNTHESIS_JOINERS)(s))
     return " ".join(parts).strip()
+
+
+_KNOWLEDGE_FRAMES = [
+    "From what I've read — {body}",
+    "Here's what I've got: {body}",
+    "{body}",
+    "{body}",
+    "Based on my research — {body}",
+]
+
+
+def _frame_knowledge(body: str) -> str:
+    """Add a light conversational frame to extracted knowledge.
+
+    Without this, non-GPT responses read like dictionary lookups. The frame
+    is applied randomly (with a bias toward no frame) so the pattern
+    doesn't become its own crutch.
+    """
+    return _rng.choice(_KNOWLEDGE_FRAMES).format(body=body)
 
 
 def summarize_entry(
