@@ -384,9 +384,13 @@ class DialogueEngine:
                 body = chitchat_reply(text, context)
                 source = "pattern"
 
-        # Personalize with remembered name and knowledge.
+        # Personalize with remembered name — but only for lightweight replies
+        # (patterns, chitchat). Adding ", Matt." to a knowledge answer reads
+        # as bizarre robotic filler.
         name = self.memory.get_fact("name")
-        if name and name.lower() not in body.lower() and len(body) < 80:
+        if (name and name.lower() not in body.lower() and len(body) < 80
+                and source in ("pattern", "fallback", "model")
+                and not answered_from_knowledge):
             if hash(text) % 4 == 0:
                 stripped = body.rstrip(".!? ")
                 tail = body[len(stripped):].strip()
