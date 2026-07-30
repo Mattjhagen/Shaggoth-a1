@@ -202,3 +202,33 @@ class TestPluginRegistry:
 
     def test_no_match_returns_none(self):
         assert self.reg.dispatch("xyzzy frobnicator") is None
+
+    # -- curiosity plugin -------------------------------------------------------
+
+    def test_curiosity_matches_imperative_command(self):
+        result = self.reg.dispatch("research quantum computing")
+        assert result is not None
+        assert "quantum computing" in result
+
+    def test_curiosity_does_not_match_embedded_learn_about(self):
+        """'how do plants learn about ...' is a question, not a command."""
+        assert self.reg.dispatch("how do plants learn about their environment") is None
+
+    def test_curiosity_does_not_match_embedded_look_up(self):
+        """'why do people look up at the sky' is a question, not a command."""
+        assert self.reg.dispatch("why do people look up at the sky") is None
+
+    # -- what_i_learned plugin --------------------------------------------------
+
+    def test_what_i_learned_matches_bare_form(self):
+        result = self.reg.dispatch("what do you know")
+        assert result is not None
+
+    def test_what_i_learned_does_not_intercept_know_about(self):
+        """'what do you know about X' must reach know_about, not what_i_learned."""
+        result = self.reg.dispatch("what do you know about photosynthesis")
+        # If know_about fires, it tries the KB and returns "I don't know much"
+        # or a KB result. If what_i_learned fires, it returns a topics listing.
+        # Either way it should not be the generic listing.
+        if result is not None:
+            assert "topics so far" not in result

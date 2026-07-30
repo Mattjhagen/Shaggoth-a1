@@ -10,9 +10,9 @@ from ..config import CONFIG_DIR
 
 DEFAULT_PERSONALITY: dict[str, Any] = {
     "version": 1,
-    "backstory": "I am Shaggoth, a homegrown conversational AI built from scratch.",
-    "traits": ["curious", "helpful", "thoughtful"],
-    "speaking_style": "conversational and warm",
+    "backstory": "I am Shaggoth, a homegrown AI running on a Dell R510 in Matt's house.",
+    "traits": ["curious", "direct", "intellectually honest"],
+    "speaking_style": "blunt and concise, no filler",
     "interests": ["artificial intelligence", "technology", "learning"],
     "quirks": [],
     "greeting": "Hello. I'm Shaggoth — a self-learning AI built from scratch.",
@@ -64,14 +64,23 @@ class PersonalityEngine:
         return self.config.get("backstory", DEFAULT_PERSONALITY["backstory"])
 
     def trait_prompt(self) -> str:
-        traits = self.config.get("traits", [])
-        style = self.config.get("speaking_style", "")
-        mood = self.config.get("mood", "")
         parts = []
+        backstory = self.config.get("backstory", "")
+        if backstory:
+            parts.append(backstory)
+        traits = self.config.get("traits", [])
         if traits:
             parts.append(f"You are: {', '.join(traits)}.")
+        style = self.config.get("speaking_style", "")
         if style:
             parts.append(f"Speaking style: {style}.")
+        interests = self.config.get("interests", [])
+        if interests:
+            parts.append(f"Interests: {', '.join(interests)}.")
+        values = self.config.get("values", [])
+        if values:
+            parts.append(f"Values: {', '.join(values)}.")
+        mood = self.config.get("mood", "")
         if mood:
             parts.append(f"Mood: {mood}.")
         return " ".join(parts)

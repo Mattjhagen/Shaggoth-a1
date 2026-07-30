@@ -292,13 +292,14 @@ class DialogueEngine:
             # candidate defines anything. Without the split, whichever
             # off-subject article happened to rank highest answered first.
             best_loose = None
+            best_loose_topic = None
             for candidate, _score in knowledge_hits:
                 if not knowledge_is_relevant(candidate.topic, text, candidate.content):
                     continue
                 summary, is_definition = summarize_entry_scored(
                     candidate.content, candidate.topic
                 )
-                if len(summary) < 60:
+                if len(summary) < 15:
                     continue
                 if is_definition:
                     body = summary
@@ -324,10 +325,17 @@ class DialogueEngine:
                     break
                 if best_loose is None:
                     best_loose = summary
+                    best_loose_topic = candidate.topic
             if body is None and best_loose is not None:
                 body = best_loose
                 source = "knowledge"
                 answered_from_knowledge = True
+                entries_used = [best_loose_topic]
+                reasoning_steps = [
+                    f"intent: describe -- no definitional lead found",
+                    f"lookup: {best_loose_topic}",
+                    "select: best non-definitional sentence",
+                ]
 
         if body is None:
             body = self.patterns.respond(text)
@@ -344,20 +352,31 @@ class DialogueEngine:
         # Letting the turn fall through to "fallback" instead produces the
         # honest "I haven't looked into that" and kicks off research.
         from ..models.openai_model import OpenAIModel
+        from ..models.base import GenerationError
         _gpt = self.model if isinstance(self.model, OpenAIModel) else None
         if body is None and _gpt is not None and _gpt.configured and knowledge_context:
             history = [
                 {"role": m["role"], "content": m["content"]}
                 for m in context.get("recent", [])
             ]
-            generated = _gpt.generate_chat(
-                user_message=text,
-                knowledge_context=knowledge_context,
-                conversation_history=history,
-                personality_context=personality_context,
-            ).strip()
-            if generated:
-                body, source = generated, "model"
+            conv_summary = context.get("summary", "")
+            summary_extra = ""
+            if conv_summary:
+                summary_extra = (
+                    f"\nConversation summary (older turns):\n{conv_summary}"
+                )
+            try:
+                generated = _gpt.generate_chat(
+                    user_message=text,
+                    knowledge_context=knowledge_context,
+                    conversation_history=history,
+                    personality_context=personality_context,
+                    system_extra=summary_extra,
+                ).strip()
+                if generated:
+                    body, source = generated, "model"
+            except GenerationError as exc:
+                body, source = str(exc), "error"
 
         # 5c. Markov generation is DRIFT-only and runs only when GPT is absent.
         # The model stitches fragments from unrelated articles and cannot hold a
@@ -391,7 +410,12 @@ class DialogueEngine:
         name = self.memory.get_fact("name")
         if name and name.lower() not in body.lower() and len(body) < 80:
             if hash(text) % 4 == 0:
-                body = f"{body[:-1]}, {name}{body[-1]}" if body[-1] in ".!?" else f"{body}, {name}"
+                stripped = body.rstrip(".!? ")
+                tail = body[len(stripped):]
+                if tail:
+                    body = f"{stripped}, {name}{tail.lstrip()[0]}"
+                else:
+                    body = f"{body}, {name}."
 
         # Inject knowledge quirk if the top hit is actually on-topic.
         # DRIFT-only: offering a tangent instead of answering is precisely
@@ -604,7 +628,7 @@ def _clean_sentences(content: str) -> list[str]:
     out: list[str] = []
     for raw in _SENTENCE_SPLIT.split(_break_navboxes(content.replace("\n", " "))):
         s = _scrub(" ".join(raw.split()))
-        if len(s) < 30 or len(s) > 400:
+        if len(s) < 15 or len(s) > 400:
             continue
         if _NOISE.search(s):
             continue
@@ -786,10 +810,9 @@ def _lower_first(s: str) -> str:
 _SYNTHESIS_JOINERS = [
     lambda s: s,
     lambda s: f"Also, {_lower_first(s)}",
-    lambda s: f"On top of that, {_lower_first(s)}",
-    lambda s: f"It's also worth knowing that {_lower_first(s)}",
-    lambda s: f"Worth noting: {_lower_first(s)}",
+    lambda s: f"Relatedly, {_lower_first(s)}",
     lambda s: f"And {_lower_first(s)}",
+    lambda s: f"Plus, {_lower_first(s)}",
 ]
 
 
@@ -864,6 +887,7 @@ def summarize_entry_scored(
         start_idx = 0
 
     picked: list[str] = [sentences[start_idx]]
+    seen: set[str] = {sentences[start_idx]}
     total = len(sentences[start_idx])
 
     # Append supporting sentences, but only ones still on subject -- this is
@@ -873,11 +897,14 @@ def summarize_entry_scored(
             break
         if total + len(s) + 1 > max_chars:
             break
+        if s in seen:
+            continue
         if topic_words and not _mentions_topic(s, topic_words):
             continue
         if _is_list_debris(s):
             continue
         picked.append(s)
+        seen.add(s)
         total += len(s) + 1
 
     return _synthesize(picked), is_definition
@@ -1080,6 +1107,18 @@ _NO_SUBJECT = _FILLER | {
     "enough", "everything", "everybody", "everyone", "somebody",
     "someone", "nobody", "for", "into", "also", "too", "very",
     "just", "even", "only", "still", "already", "yet",
+    # Conversational pushback — "you're lying" is disagreement, not a topic.
+    "lying", "wrong", "right", "correct", "incorrect", "joking",
+    "kidding", "serious", "liar", "shut", "quiet", "bull", "bullshit",
+    "way", "nope", "nah",
+    # Meta-conversational verbs — "can you elaborate" is a request, not a topic.
+    "elaborate", "clarify", "repeat", "rephrase", "simplify",
+    "expand", "specify", "summarize", "recap",
+    # Imperative verbs not already in _FILLER.
+    "show", "bring", "send",
+    # Abstract conversational nouns — "interesting perspective" is a reaction.
+    "perspective", "opinion", "thought", "thoughts", "view", "views",
+    "take", "stance", "side", "question", "answer", "response",
 }
 
 # Turns that only make sense against what was just said.
@@ -1112,7 +1151,10 @@ _ANAPHORIC = re.compile(
     r"^(?:and |but |so |ok(?:ay)?[,. ]*)?"
     r"(?:why|what|how|when|who)\s+"
     r"(?:does|do|did|is|are|was|were|would|should|could)\s+"
-    r"(?:that|this|it|those|they)\b",
+    r"(?:"
+    r"(?:this|that)(?:\s*[?.!]*$|\s+(?:mean|matter|work|happen|affect|change|help|make|do|go|come|look|feel|seem)\b)"
+    r"|(?:it|those|they)\b"
+    r")",
     re.I,
 )
 
@@ -1141,6 +1183,12 @@ _REACTION = re.compile(
 )
 
 
+_DEFINITION_QUERY = re.compile(
+    r"(?i)^(?:what (?:is|are|was|were) (?:a |an |the )?|define |explain )"
+    r"(\w[\w\s\-]{0,30}?)\s*[?.!]*$",
+)
+
+
 def has_subject(text: str) -> bool:
     """Whether a message is *about* anything Shaggoth could look up.
 
@@ -1148,11 +1196,14 @@ def has_subject(text: str) -> bool:
     through knowledge retrieval produced the reply "Never heard of wanted
     chat", which is both wrong and rude about a perfectly normal thing to say.
     """
-    if _REACTION.match((text or "").strip()):
+    stripped = (text or "").strip()
+    if _REACTION.match(stripped):
         return False
+    if _DEFINITION_QUERY.match(stripped):
+        return True
     words = {
-        w.strip(".,;:!?’\"’’""").lower()
-        for w in (text or "").split()
+        w.strip(".,;:!?’\"’‘“”").lower()
+        for w in stripped.split()
     }
     return bool({w for w in words if len(w) > 2} - _NO_SUBJECT)
 
@@ -1282,13 +1333,6 @@ def follow_up_reply(context: dict | None = None) -> str:
     return "Follow up on what? You haven't given me anything yet."
 
 
-# Social words that must never appear as the subject of a "blank on X" reply.
-_DESCRIBE_FILTER = frozenset({
-    "lol", "lmao", "lmfao", "omg", "wtf", "haha", "hehe", "hmm",
-    "wow", "huh", "yikes", "oof", "oops", "rofl", "smh", "ikr",
-})
-
-
 def describe_unknown(text: str) -> str:
     """An in-character admission of ignorance that still names the subject.
 
@@ -1297,11 +1341,15 @@ def describe_unknown(text: str) -> str:
     research -- honestly signal that the gap is being closed rather than just
     apologising for it.
     """
-    words = [
-        w for w in extract_keywords(text)
-        if len(w) > 2 and w.lower() not in _DESCRIBE_FILTER
-    ]
-    subject = " ".join(words[:3]) if words else ""
+    defn_match = _DEFINITION_QUERY.match((text or "").strip())
+    if defn_match:
+        subject = defn_match.group(1).strip()
+    else:
+        words = [
+            w for w in extract_keywords(text)
+            if len(w) > 2 and w.lower() not in _NO_SUBJECT
+        ]
+        subject = " ".join(words[:3]) if words else ""
 
     if not subject:
         blanks = [

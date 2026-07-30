@@ -16,13 +16,19 @@ Configure with:
 
 from __future__ import annotations
 
+import logging
 import os
+import time
 from typing import Optional
 
-from .base import LanguageModel
+from .base import GenerationError, LanguageModel
+
+log = logging.getLogger(__name__)
 
 _DEFAULT_MODEL = "gpt-4o-mini"
 _DEFAULT_MAX_TOKENS = 300
+_RETRIES = 2
+_BACKOFF = 1.0
 
 #: System prompt that anchors GPT in Shaggoth's character. The personality
 #: engine's trait_prompt() is appended on top of this at call time.
@@ -42,6 +48,16 @@ If you genuinely don't know something AND the knowledge base doesn't cover it, s
 plainly and note that you'll look into it. Don't make things up.
 
 Keep replies concise: 1-4 sentences unless the question genuinely warrants more. No padding."""
+
+
+def _is_transient(exc: Exception) -> bool:
+    """Return True for errors worth retrying (rate limits, timeouts, network)."""
+    cls_name = type(exc).__name__
+    if cls_name in ("RateLimitError", "APITimeoutError", "APIConnectionError"):
+        return True
+    if "timeout" in str(exc).lower() or "connection" in str(exc).lower():
+        return True
+    return False
 
 
 class OpenAIModel(LanguageModel):
@@ -76,7 +92,6 @@ class OpenAIModel(LanguageModel):
     # LanguageModel interface --------------------------------------------------
 
     def train(self, text: str) -> None:
-        # GPT is a pre-trained model; training is a no-op here.
         pass
 
     def save(self, path: str) -> None:
@@ -86,11 +101,6 @@ class OpenAIModel(LanguageModel):
         pass
 
     def generate(self, prompt: str = "", max_tokens: int = 0) -> str:
-        """Generate a reply for a pre-built prompt string.
-
-        This is the simple interface used by the dialogue engine for drift mode.
-        For the full RAG-aware call, use generate_chat().
-        """
         if not self.configured:
             return ""
         return self.generate_chat(user_message=prompt, max_tokens=max_tokens or self._max_tokens)
@@ -109,17 +119,15 @@ class OpenAIModel(LanguageModel):
     ) -> str:
         """Full RAG-aware chat completion.
 
-        Builds a proper OpenAI messages array with:
-        - System prompt (character + personality traits + knowledge)
-        - Prior conversation turns
-        - The user's current message
+        Raises GenerationError on non-transient failures so the dialogue
+        engine can surface a user-facing message instead of silently
+        falling through to the fallback path.
         """
         if not self.configured:
             return ""
 
         max_tokens = max_tokens or self._max_tokens
 
-        # Build the system message
         system_parts = [_BASE_SYSTEM]
         if personality_context:
             system_parts.append(f"\nPersonality overlay: {personality_context}")
@@ -132,7 +140,6 @@ class OpenAIModel(LanguageModel):
 
         messages = [{"role": "system", "content": "\n".join(system_parts)}]
 
-        # Inject recent conversation turns
         for turn in (conversation_history or []):
             role = turn.get("role")
             content = turn.get("content") or ""
@@ -141,15 +148,30 @@ class OpenAIModel(LanguageModel):
 
         messages.append({"role": "user", "content": user_message})
 
-        try:
-            client = self._client_instance()
-            resp = client.chat.completions.create(
-                model=self._model,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=0.7,
-            )
-            return (resp.choices[0].message.content or "").strip()
-        except Exception as exc:
-            print(f"[openai] generation failed: {exc}")
-            return ""
+        last_exc: Exception | None = None
+        for attempt in range(_RETRIES + 1):
+            try:
+                client = self._client_instance()
+                resp = client.chat.completions.create(
+                    model=self._model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=0.7,
+                )
+                return (resp.choices[0].message.content or "").strip()
+            except Exception as exc:
+                last_exc = exc
+                if _is_transient(exc) and attempt < _RETRIES:
+                    wait = _BACKOFF * (2 ** attempt)
+                    log.warning("[openai] transient error (attempt %d/%d), retrying in %.1fs: %s",
+                                attempt + 1, _RETRIES + 1, wait, exc)
+                    time.sleep(wait)
+                    continue
+                log.error("[openai] generation failed: %s", exc)
+                raise GenerationError(
+                    "My brain glitched — the language model didn't respond. Try again in a moment."
+                ) from exc
+
+        raise GenerationError(
+            "My brain glitched — the language model didn't respond. Try again in a moment."
+        ) from last_exc

@@ -94,10 +94,9 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "I remember facts you tell me and the conversations we've had. The rest — "
         "feelings, dreams, boredom — is you reading tone into a ranking function.",
     ]),
-    (re.compile(r"(?i)\bi need (.+)"), [
-        "Why do you need {0}?",
-        "Would getting {0} really help?",
-        "What would change if you had {0}?",
+    (re.compile(r"(?i)^i need (?!(?:to |help |a |an |the |some |info)(?:\w))(.+)"), [
+        "What specifically about {0}?",
+        "Noted — {0}. Can you be more specific?",
     ]),
     (re.compile(r"(?i)\bi(?:'m| am) (?:feeling |so |really )?(sad|unhappy|depressed|down|anxious|stressed)\b"), [
         "I'm sorry you're feeling {0}. Do you want to talk about what's behind it?",
@@ -115,15 +114,15 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "What do you like most about {0}?",
         "How did you get into {0}?",
     ]),
-    (re.compile(r"(?i)\bi think (.+)"), [
+    (re.compile(r"(?i)^i think (.+)"), [
         "What makes you think {0}?",
-        "Do you ever doubt that {0}?",
+        "Interesting — {0}. What's your reasoning?",
     ]),
-    (re.compile(r"(?i)\bcan you (.+)\?*"), [
+    (re.compile(r"(?i)^can you (?!(?:explain|tell|describe|show|help|find|search|look|give|teach|write|code|build|create|make|calculate|solve|convert|summarize|define|clarify|elaborate|believe|imagine)\b)(.+)\?*$"), [
         "I might be able to {0} — my abilities grow as plugins get added. "
         "What exactly did you have in mind?",
     ]),
-    (re.compile(r"(?i)\bbecause (.+)"), [
+    (re.compile(r"(?i)^because (.+)"), [
         "Is that the whole reason, or is there more to it?",
         "And does {0} explain everything about it?",
     ]),
@@ -167,7 +166,7 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
     (re.compile(r"(?i)\bhow are you\b|\bhow(?:'s| is) (?:it going|things|everything|life)\b"), [
         "I run on a rack server with no feelings to report. Still running is "
         "the best I can say.",
-        "Operational. Seventeen cores, 39 GB of RAM, and a growing list of things "
+        "Operational. Sixteen cores, 39 GB of RAM, and a growing list of things "
         "I haven't read yet. You?",
         "Still here. No feelings, but the fan is loud — if that counts.",
     ]),
@@ -256,11 +255,11 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
 ]
 
 FALLBACKS = [
-    "Tell me more about that.",
-    "How does that make you feel?",
-    "What led you to that?",
-    "I see. Can you expand on that?",
-    "That's interesting — go on.",
+    "Not sure what to do with that. Got a question?",
+    "I'm a retrieval engine, not a mind reader. Ask me something specific.",
+    "I don't have enough to go on. What do you actually want to know?",
+    "That's vague. Give me a topic and I'll see what I've got.",
+    "I need something concrete to work with. Try asking a question.",
 ]
 
 # Used by PatternEngine.respond_no_subject_question() for question-shaped

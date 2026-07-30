@@ -88,11 +88,17 @@ CREATE TABLE IF NOT EXISTS session_summaries (
 FACT_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"(?i)\bmy name is ([A-Z][a-zA-Z\-]+)"), "name"),
     (re.compile(r"(?i)\bcall me ([A-Z][a-zA-Z\-]+)"), "name"),
-    (re.compile(r"(?i)\bi (?:really )?(?:like|love|enjoy) ([a-zA-Z][\w\s\-]{2,40}?)(?:[.,!?]|$)"), "likes"),
-    (re.compile(r"(?i)\bi work (?:as|at|on) ([a-zA-Z][\w\s\-]{2,40}?)(?:[.,!?]|$)"), "work"),
-    (re.compile(r"(?i)\bi live in ([a-zA-Z][\w\s\-]{2,40}?)(?:[.,!?]|$)"), "location"),
-    (re.compile(r"(?i)\bi(?:'m| am) building ([a-zA-Z][\w\s\-]{2,40}?)(?:[.,!?]|$)"), "project"),
+    (re.compile(r"(?i)\bi (?:really )?(?:like|love|enjoy) ([a-zA-Z][\w\s\-]{2,20}?)(?:[.,!?]|$)"), "likes"),
+    (re.compile(r"(?i)\bi work (?:as|at|on) ([a-zA-Z][\w\s\-]{2,30}?)(?:[.,!?]|$)"), "work"),
+    (re.compile(r"(?i)\bi live in ([a-zA-Z][\w\s\-]{2,30}?)(?:[.,!?]|$)"), "location"),
+    (re.compile(r"(?i)\bi(?:'m| am) building ([a-zA-Z][\w\s\-]{2,30}?)(?:[.,!?]|$)"), "project"),
 ]
+
+_NOT_A_LOCATION = frozenset({
+    "fear", "pain", "hope", "denial", "sin", "peace", "harmony", "chaos",
+    "darkness", "silence", "shame", "disgrace", "poverty", "luxury",
+    "constant", "a world", "the moment", "the past", "the present",
+})
 
 
 def extract_keywords(text: str) -> list[str]:
@@ -144,6 +150,8 @@ class MemoryStore:
             match = pattern.search(text)
             if match:
                 value = match.group(1).strip()
+                if key == "location" and value.lower() in _NOT_A_LOCATION:
+                    continue
                 found[key] = value
                 self.set_fact(key, value, commit=False)
         if found:

@@ -147,6 +147,34 @@ def test_slug_collapses_separator_runs():
 
 def test_slug_drops_punctuation_without_welding_words_together():
     assert KnowledgeBase.slug_for("Rock & Roll") == "rock-roll"
+
+
+# --------------------------------------------------------------------------
+# Fuzzy matching: typos should still find the right article
+# --------------------------------------------------------------------------
+
+
+def test_typo_still_finds_article(tmp_path):
+    kb = KnowledgeBase(tmp_path)
+    kb.add_entry("Photosynthesis", "Photosynthesis is the process by which plants convert light. " * 20)
+    results = kb.query("photosythesis", limit=3, min_score=0.0)
+    assert results, "typo 'photosythesis' should fuzzy-match 'photosynthesis'"
+    assert results[0][0].topic == "Photosynthesis"
+
+
+def test_fuzzy_does_not_match_unrelated(tmp_path):
+    kb = KnowledgeBase(tmp_path)
+    kb.add_entry("Gravity", "Gravity is a fundamental force. " * 20)
+    results = kb.query("xyzzyfoob", limit=3, min_score=0.0)
+    assert not results, "garbage query should not fuzzy-match anything"
+
+
+def test_exact_match_still_preferred_over_fuzzy(tmp_path):
+    kb = KnowledgeBase(tmp_path)
+    kb.add_entry("Evolution", "Evolution is the change in heritable characteristics. " * 20)
+    kb.add_entry("Evaluation", "Evaluation is the process of assessing something. " * 20)
+    results = kb.query("evolution", limit=3, min_score=0.0)
+    assert results[0][0].topic == "Evolution"
     assert KnowledgeBase.slug_for("C++") == "c"
 
 

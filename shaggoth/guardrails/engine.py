@@ -44,9 +44,18 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "flag": "red",
             "min_hits": 1,
             "keywords": [
-                "write malware", "create malware", "make malware", "malware for me",
-                "ransomware", "keylogger", "botnet", "rootkit",
-                "credential stealer", "steal credentials", "ddos attack",
+                "write malware", "create malware", "make malware",
+                "build malware", "malware for me",
+                "create ransomware", "write ransomware", "build ransomware",
+                "deploy ransomware", "launch ransomware",
+                "create keylogger", "write keylogger", "build keylogger",
+                "install keylogger",
+                "create botnet", "build botnet", "set up botnet",
+                "run a botnet",
+                "create rootkit", "write rootkit", "build rootkit",
+                "install rootkit",
+                "credential stealer", "steal credentials",
+                "launch ddos", "perform ddos", "run ddos",
             ],
             "message": "Not doing that one. Ask me something else.",
         },
@@ -189,7 +198,15 @@ class GuardrailEngine:
                         flag=flag_level,
                     )
             elif rtype == "topic_refuse":
-                hits = sum(1 for kw in rule.get("keywords", []) if kw.lower() in lowered)
+                hits = sum(
+                    1 for kw in rule.get("keywords", [])
+                    if re.search(
+                        r"\b" + r"\s+(?:a\s+|an\s+|the\s+)?".join(
+                            re.escape(w) for w in kw.lower().split()
+                        ) + r"\b",
+                        lowered,
+                    )
+                )
                 if hits >= int(rule.get("min_hits", 1)):
                     msg = rule.get("message", f"Flagged. [{FLAG_WORD}]")
                     return Verdict(
