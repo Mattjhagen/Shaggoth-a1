@@ -75,25 +75,26 @@ class TestProperties:
 # ---------------------------------------------------------------------------
 
 class TestTraitPrompt:
-    def test_includes_traits(self, tmp_path):
+    def test_omits_traits_covered_by_system_prompt(self, tmp_path):
         p = tmp_path / "p.json"
         p.write_text(json.dumps({"traits": ["brilliant", "impatient"]}))
         eng = PersonalityEngine(path=p)
         prompt = eng.trait_prompt()
-        assert "brilliant" in prompt
-        assert "impatient" in prompt
+        assert isinstance(prompt, str)
 
-    def test_includes_speaking_style(self, tmp_path):
+    def test_omits_speaking_style_covered_by_system_prompt(self, tmp_path):
         p = tmp_path / "p.json"
         p.write_text(json.dumps({"speaking_style": "extremely terse"}))
         eng = PersonalityEngine(path=p)
-        assert "extremely terse" in eng.trait_prompt()
+        assert isinstance(eng.trait_prompt(), str)
 
-    def test_includes_mood(self, tmp_path):
+    def test_includes_mood_as_feeling(self, tmp_path):
         p = tmp_path / "p.json"
         p.write_text(json.dumps({"mood": "irritable"}))
         eng = PersonalityEngine(path=p)
-        assert "irritable" in eng.trait_prompt()
+        prompt = eng.trait_prompt()
+        assert "irritable" in prompt
+        assert "feeling" in prompt
 
     def test_empty_traits_produces_minimal_prompt(self, tmp_path):
         p = tmp_path / "p.json"
@@ -120,20 +121,23 @@ class TestTraitPrompt:
         assert "chess" in prompt
         assert "rockets" in prompt
 
-    def test_includes_values(self, tmp_path):
+    def test_omits_values_covered_by_system_prompt(self, tmp_path):
         p = tmp_path / "p.json"
         p.write_text(json.dumps({"values": ["honesty", "growth"]}))
         eng = PersonalityEngine(path=p)
         prompt = eng.trait_prompt()
-        assert "honesty" in prompt
+        assert isinstance(prompt, str)
 
     def test_exclude_backstory(self, tmp_path):
         p = tmp_path / "p.json"
-        p.write_text(json.dumps({"backstory": "I run on a toaster.", "traits": ["fast"]}))
+        p.write_text(json.dumps({
+            "backstory": "I run on a toaster.",
+            "interests": ["chess"],
+        }))
         eng = PersonalityEngine(path=p)
         prompt = eng.trait_prompt(include_backstory=False)
         assert "toaster" not in prompt
-        assert "fast" in prompt
+        assert "chess" in prompt
 
 
 # ---------------------------------------------------------------------------

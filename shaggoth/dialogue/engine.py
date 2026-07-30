@@ -306,6 +306,8 @@ class DialogueEngine:
                         source = "fallback"
                     else:
                         source = "model"
+                else:
+                    log.debug("GPT returned empty for: %s", text[:80])
             except GenerationError as exc:
                 log.warning("GPT generation failed: %s", exc)
 
@@ -550,8 +552,9 @@ class DialogueEngine:
             subject = last_subject(context)
             knowledge_context = ""
             if subject and self.knowledge:
-                hits = self.knowledge.query(subject, limit=2)
-                knowledge_context = self._build_knowledge_context(subject, hits)
+                prior_text = _last_user_question(context) or subject
+                hits = self.knowledge.query(prior_text, limit=2)
+                knowledge_context = self._build_knowledge_context(prior_text, hits)
             try:
                 generated = _gpt.generate_chat(
                     user_message=text,
@@ -1480,6 +1483,17 @@ def chitchat_reply(text: str, context: dict | None = None) -> str:
             f"me a new direction.",
         ))
     return _rng.choice(_CHITCHAT_REPLIES)
+
+
+def _last_user_question(context: dict | None = None) -> str:
+    """The full text of the most recent user message that has a subject."""
+    for message in reversed((context or {}).get("recent", [])):
+        if message.get("role") != "user":
+            continue
+        text = message.get("content", "")
+        if has_subject(text):
+            return text
+    return ""
 
 
 def last_subject(context: dict | None = None) -> str:

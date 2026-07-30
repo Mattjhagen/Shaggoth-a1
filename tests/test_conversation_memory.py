@@ -285,6 +285,29 @@ def test_more_conversational_phrasings_are_not_lookups(text):
     assert not has_subject(text)
 
 
+def test_last_user_question_returns_full_text():
+    from shaggoth.dialogue.engine import _last_user_question
+
+    context = {"recent": [
+        {"role": "user", "content": "why does photosynthesis need light"},
+        {"role": "assistant", "content": "Because chlorophyll absorbs photons."},
+        {"role": "user", "content": "why?"},
+    ]}
+    result = _last_user_question(context)
+    assert result == "why does photosynthesis need light"
+
+
+def test_last_user_question_empty_when_no_subject():
+    from shaggoth.dialogue.engine import _last_user_question
+
+    context = {"recent": [
+        {"role": "user", "content": "hey"},
+        {"role": "user", "content": "ok"},
+    ]}
+    assert _last_user_question(context) == ""
+    assert _last_user_question({}) == ""
+
+
 @pytest.mark.parametrize("text", [
     "why does that matter",
     "what does this mean",
