@@ -76,7 +76,7 @@ class SearchQueryTests(unittest.TestCase):
         queries = build_search_queries("quantum computing")
         self.assertEqual(len(queries), 3)
         self.assertIn("quantum computing", queries)
-        self.assertIn("quantum computing explained", queries)
+        self.assertIn("quantum computing Wikipedia", queries)
 
     def test_max_queries(self):
         queries = build_search_queries("rust", max_queries=1)

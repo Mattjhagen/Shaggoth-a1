@@ -26,11 +26,24 @@ TOPIC_PATTERNS: list[re.Pattern] = [
 ]
 
 
+_CONVERSATIONAL = frozenset(
+    "hello hi hey howdy yo sup greetings bye goodbye cya seeya "
+    "lol lmao haha hah heh wow omg wtf nah yep nope ok okay sure "
+    "please thanks stop quit help".split()
+)
+
+
 def extract_topic_query(text: str) -> str | None:
     """Extract a searchable topic from a user message.
 
     Returns a clean query string suitable for web search, or None if
     the message doesn't look like a knowledge request.
+
+    Bare nouns and short noun phrases ("photosynthesis", "quantum mechanics")
+    are implicit lookups even though they lack question scaffolding.  Without
+    this fallback, typing a bare topic hit ``describe_unknown`` in the dialogue
+    engine but curiosity research was never triggered -- the knowledge gap was
+    announced but never closed.
     """
     text = text.strip()
     if not text:
@@ -44,6 +57,19 @@ def extract_topic_query(text: str) -> str | None:
             topic = re.sub(r"[?.!,;:]+$", "", topic).strip()
             topic = re.sub(r"\b(?:please|thanks|thank you)\b", "", topic, flags=re.IGNORECASE).strip()
             if len(topic) > 3:
+                return topic
+
+    # Bare noun fallback: a short phrase whose words are all content words is
+    # an implicit lookup.  Capped at 4 words so "I went to the store" does not
+    # match, and every word must carry topical signal (not a stopword).
+    words = text.split()
+    if 1 <= len(words) <= 4:
+        content = [w for w in words if w.lower().rstrip("?.!,") not in STOPWORDS
+                   and w.lower().rstrip("?.!,") not in _CONVERSATIONAL
+                   and len(w) > 1]
+        if content and len(content) == len(words):
+            topic = re.sub(r"[?.!,;:]+$", "", text).strip()
+            if len(topic) > 1:
                 return topic
 
     return None
@@ -144,15 +170,14 @@ def is_known_topic(topic: str, known_keywords: set[str], min_overlap: float = 0.
 def build_search_queries(topic: str, max_queries: int = 3) -> list[str]:
     """Generate search queries from a topic to maximize coverage.
 
-    For a topic like "machine learning neural networks", generates:
-    - "machine learning neural networks"
-    - "machine learning neural networks explained"
-    - "machine learning neural networks tutorial"
+    Uses Wikipedia-style and definitional queries rather than always
+    appending "explained"/"tutorial", which produces bad results for
+    people, places, and events ("Albert Einstein tutorial").
     """
     queries = [topic]
     if len(queries) < max_queries:
-        queries.append(f"{topic} explained")
+        queries.append(f"{topic} Wikipedia")
     if len(queries) < max_queries:
-        queries.append(f"{topic} tutorial")
+        queries.append(f"what is {topic}")
 
     return queries[:max_queries]
