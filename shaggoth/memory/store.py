@@ -36,9 +36,16 @@ STOPWORDS = frozenset(
     got get did does doing yes yeah okay too also because been being will may might
     from into onto over under out off all any some more most other such only own
     same our ours their theirs mine me my myself you'll i'll i'm you're we're
-    let's says said told tell asked one two three time day today yesterday tomorrow
+    they're he's she's it's that's what's who's there's here's we'll we've
+    they'll they've i've i'd you'd we'd they'd don't doesn't didn't won't
+    wouldn't can't couldn't shouldn't haven't hasn't hadn't isn't aren't
+    wasn't weren't ain't let's
+    says said told tell asked one two three time day today yesterday tomorrow
     thing things stuff way ways make made need needs new now still even ever never
-    much many lot bit good great nice cool right left back well much""".split()
+    much many lot bit good great nice cool right left back well much
+    feel feeling feelings felt happy sad angry tired bored excited stressed
+    anxious depressed nervous frustrated lonely scared sick hungry sleepy fine
+    terrible awful wonderful amazing fantastic horrible better worse""".split()
 )
 
 SCHEMA = """
@@ -84,6 +91,8 @@ FACT_PATTERNS: list[tuple[re.Pattern, str]] = [
 
 
 def extract_keywords(text: str) -> list[str]:
+    # Normalize iOS/smart curly quotes so contractions tokenize correctly.
+    text = text.replace("‘", "'").replace("’", "'")
     words = [w.lower() for w in _WORD_RE.findall(text)]
     return [w for w in words if w not in STOPWORDS]
 

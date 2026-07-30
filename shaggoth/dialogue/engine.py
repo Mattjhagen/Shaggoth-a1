@@ -38,6 +38,24 @@ from .reasoning import Reasoner
 from ..curiosity.search import search_web
 
 
+def _normalize_quotes(text: str) -> str:
+    """Replace iOS/smart curly quotes with ASCII equivalents.
+
+    Mobile keyboards substitute U+2018/2019 for apostrophes and U+201C/201D
+    for double quotes.  Every regex in the pipeline (ELIZA patterns, keyword
+    extraction, word splitting) uses ASCII punctuation, so a curly apostrophe
+    in "I’m" silently broke contraction matching and let emotional
+    self-reports like "I’m feeling good" fall through to describe_unknown.
+    """
+    return (
+        text
+        .replace("‘", "'")
+        .replace("’", "'")
+        .replace("“", '"')
+        .replace("”", '"')
+    )
+
+
 #: Associative mode. The Markov model may speak, the knowledge teaser may
 #: fire, and past conversations may be woven back in. Answers wander.
 DRIFT = "drift"
@@ -142,7 +160,7 @@ class DialogueEngine:
         mode = normalize_mode(mode, default=self.mode)
         drift = mode == DRIFT
 
-        text = text.strip()
+        text = _normalize_quotes(text.strip())
         if not text:
             return Reply("Say something and I'll do my best.", source="fallback", mode=mode)
 
@@ -986,6 +1004,21 @@ _NO_SUBJECT = _FILLER | {
     "it", "its", "them", "they", "him", "her", "his", "hers", "we", "us",
     "our", "ours", "i", "me", "my", "mine", "you", "your", "yours", "he",
     "she", "is", "are", "am", "be",
+    # Contractions — the constituent words are already here, but mobile
+    # keyboards produce these as single tokens that slip through otherwise.
+    "i'm", "i've", "i'll", "i'd", "you're", "you've", "you'll", "you'd",
+    "we're", "we've", "we'll", "we'd", "they're", "they've", "they'll",
+    "they'd", "he's", "she's", "it's", "that's", "what's", "who's",
+    "there's", "here's", "don't", "doesn't", "didn't", "won't", "wouldn't",
+    "can't", "couldn't", "shouldn't", "haven't", "hasn't", "hadn't",
+    "isn't", "aren't", "wasn't", "weren't", "ain't", "let's",
+    # Emotional self-reports — "I'm feeling good" is conversation about the
+    # user's state, never a request to research the word "feeling".
+    "feeling", "feelings", "felt", "happy", "sad", "angry", "tired",
+    "bored", "excited", "stressed", "anxious", "depressed", "nervous",
+    "frustrated", "lonely", "scared", "sick", "hungry", "sleepy",
+    "fine", "terrible", "awful", "wonderful", "amazing", "fantastic",
+    "horrible", "great", "better", "worse", "okay",
     # Social reaction words and internet slang — never a research topic.
     "lol", "lmao", "lmfao", "omg", "wtf", "haha", "hehe", "hmm", "wow",
     "huh", "oof", "yikes", "oops", "brb", "gtg", "smh", "idk", "rofl",
@@ -1048,7 +1081,7 @@ def has_subject(text: str) -> bool:
     chat", which is both wrong and rude about a perfectly normal thing to say.
     """
     words = {
-        w.strip(".,;:!?'\"") .lower()
+        w.strip(".,;:!?'\"‘’“”").lower()
         for w in (text or "").split()
     }
     return bool({w for w in words if len(w) > 2} - _NO_SUBJECT)

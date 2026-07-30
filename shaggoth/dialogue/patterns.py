@@ -142,7 +142,7 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "Ask me the specific thing that didn't land and I'll take another run at it.",
     ]),
     # Acknowledgements — "interesting", "got it", "makes sense"
-    (re.compile(r"(?i)^(?:interesting|got it|makes sense|fair enough|right|noted|understood|i see|good to know)[.!]?$"), [
+    (re.compile(r"(?i)^(?:interesting|got it|makes sense|fair enough|right|noted|understood|i see|good to know|good|great|nice|cool|neat|sweet|perfect|awesome|excellent)[.!]?$"), [
         "Good. What's next?",
         "Right. Anything else you want to dig into?",
         "Noted. Keep going or ask me something new.",
