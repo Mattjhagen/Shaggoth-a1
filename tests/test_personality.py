@@ -106,6 +106,27 @@ class TestTraitPrompt:
         eng = _engine(tmp_path)
         assert isinstance(eng.trait_prompt(), str)
 
+    def test_includes_backstory(self, tmp_path):
+        p = tmp_path / "p.json"
+        p.write_text(json.dumps({"backstory": "I run on a toaster."}))
+        eng = PersonalityEngine(path=p)
+        assert "toaster" in eng.trait_prompt()
+
+    def test_includes_interests(self, tmp_path):
+        p = tmp_path / "p.json"
+        p.write_text(json.dumps({"interests": ["chess", "rockets"]}))
+        eng = PersonalityEngine(path=p)
+        prompt = eng.trait_prompt()
+        assert "chess" in prompt
+        assert "rockets" in prompt
+
+    def test_includes_values(self, tmp_path):
+        p = tmp_path / "p.json"
+        p.write_text(json.dumps({"values": ["honesty", "growth"]}))
+        eng = PersonalityEngine(path=p)
+        prompt = eng.trait_prompt()
+        assert "honesty" in prompt
+
 
 # ---------------------------------------------------------------------------
 # random_quirk

@@ -38,6 +38,24 @@ from .reasoning import Reasoner
 from ..curiosity.search import search_web
 
 
+def _normalize_quotes(text: str) -> str:
+    """Replace iOS/smart curly quotes with ASCII equivalents.
+
+    Mobile keyboards substitute U+2018/2019 for apostrophes and U+201C/201D
+    for double quotes.  Every regex in the pipeline (ELIZA patterns, keyword
+    extraction, word splitting) uses ASCII punctuation, so a curly apostrophe
+    in "I’m" silently broke contraction matching and let emotional
+    self-reports like "I’m feeling good" fall through to describe_unknown.
+    """
+    return (
+        text
+        .replace("‘", "'")
+        .replace("’", "'")
+        .replace(""", '"')
+        .replace(""", '"')
+    )
+
+
 #: Associative mode. The Markov model may speak, the knowledge teaser may
 #: fire, and past conversations may be woven back in. Answers wander.
 DRIFT = "drift"
@@ -142,7 +160,7 @@ class DialogueEngine:
         mode = normalize_mode(mode, default=self.mode)
         drift = mode == DRIFT
 
-        text = text.strip()
+        text = _normalize_quotes(text.strip())
         if not text:
             return Reply("Say something and I'll do my best.", source="fallback", mode=mode)
 
@@ -177,7 +195,12 @@ class DialogueEngine:
             for entry, score in knowledge_hits:
                 if not knowledge_is_relevant(entry.topic, text, entry.content):
                     continue
-                snippet = entry.content[:600].strip()
+                snippet = summarize_entry(
+                    entry.content, entry.topic,
+                    max_sentences=3, max_chars=600,
+                )
+                if not snippet:
+                    snippet = entry.content[:600].strip()
                 snippets.append(f"[{entry.topic}]\n{snippet}")
             if snippets:
                 knowledge_context = "\n\n".join(snippets) + "\n"
@@ -267,13 +290,14 @@ class DialogueEngine:
             # candidate defines anything. Without the split, whichever
             # off-subject article happened to rank highest answered first.
             best_loose = None
+            best_loose_topic = None
             for candidate, _score in knowledge_hits:
                 if not knowledge_is_relevant(candidate.topic, text, candidate.content):
                     continue
                 summary, is_definition = summarize_entry_scored(
                     candidate.content, candidate.topic
                 )
-                if len(summary) < 60:
+                if len(summary) < 15:
                     continue
                 if is_definition:
                     body = summary
@@ -299,10 +323,17 @@ class DialogueEngine:
                     break
                 if best_loose is None:
                     best_loose = summary
+                    best_loose_topic = candidate.topic
             if body is None and best_loose is not None:
                 body = best_loose
                 source = "knowledge"
                 answered_from_knowledge = True
+                entries_used = [best_loose_topic]
+                reasoning_steps = [
+                    f"intent: describe -- no definitional lead found",
+                    f"lookup: {best_loose_topic}",
+                    "select: best non-definitional sentence",
+                ]
 
         if body is None:
             body = self.patterns.respond(text)
@@ -311,22 +342,39 @@ class DialogueEngine:
         # GPT can follow the prompt and stay in character, so it works in both
         # drift and no_drift modes. It's tried whenever the pattern engine and
         # knowledge base haven't produced an answer yet.
+        #
+        # Only when knowledge_context is non-empty: without grounding, GPT
+        # answers from training data and the source becomes "model", which
+        # never triggers curiosity research. The chatbot appears to know the
+        # answer when it actually doesn't — and the corpus never grows.
+        # Letting the turn fall through to "fallback" instead produces the
+        # honest "I haven't looked into that" and kicks off research.
         from ..models.openai_model import OpenAIModel
+        from ..models.base import GenerationError
         _gpt = self.model if isinstance(self.model, OpenAIModel) else None
-        if body is None and _gpt is not None and _gpt.configured:
-            # Build recent conversation history for GPT context.
+        if body is None and _gpt is not None and _gpt.configured and knowledge_context:
             history = [
                 {"role": m["role"], "content": m["content"]}
                 for m in context.get("recent", [])
             ]
-            generated = _gpt.generate_chat(
-                user_message=text,
-                knowledge_context=knowledge_context,
-                conversation_history=history,
-                personality_context=personality_context,
-            ).strip()
-            if generated:
-                body, source = generated, "model"
+            conv_summary = context.get("summary", "")
+            summary_extra = ""
+            if conv_summary:
+                summary_extra = (
+                    f"\nConversation summary (older turns):\n{conv_summary}"
+                )
+            try:
+                generated = _gpt.generate_chat(
+                    user_message=text,
+                    knowledge_context=knowledge_context,
+                    conversation_history=history,
+                    personality_context=personality_context,
+                    system_extra=summary_extra,
+                ).strip()
+                if generated:
+                    body, source = generated, "model"
+            except GenerationError as exc:
+                body, source = str(exc), "error"
 
         # 5c. Markov generation is DRIFT-only and runs only when GPT is absent.
         # The model stitches fragments from unrelated articles and cannot hold a
@@ -344,29 +392,37 @@ class DialogueEngine:
 
         if body is None:
             if is_follow_up(text):
-                # "why?" is not a research topic. Keep it in the conversation
-                # rather than admitting ignorance of the word "why".
                 body = follow_up_reply(context)
                 source = "pattern"
-            else:
-                # Prefer a relevant "I don't know that yet" over a random
-                # canned line, so the answer is at least about what was asked.
+            elif _looks_like_question(text):
                 body = describe_unknown(text)
                 source = "fallback"
+            else:
+                # A statement ("the sky is blue", "dogs are better than
+                # cats") is conversation, not a lookup. Routing it to
+                # describe_unknown produced "Never heard of dogs cats".
+                body = chitchat_reply(text, context)
+                source = "pattern"
 
         # Personalize with remembered name and knowledge.
         name = self.memory.get_fact("name")
         if name and name.lower() not in body.lower() and len(body) < 80:
             if hash(text) % 4 == 0:
-                body = f"{body[:-1]}, {name}{body[-1]}" if body[-1] in ".!?" else f"{body}, {name}"
+                stripped = body.rstrip(".!? ")
+                tail = body[len(stripped):]
+                if tail:
+                    body = f"{stripped}, {name}{tail.lstrip()[0]}"
+                else:
+                    body = f"{body}, {name}."
 
-        # Inject knowledge quirk if relevant. DRIFT-only: offering a tangent
-        # instead of answering is precisely the "never completes a thought"
-        # behaviour, and it has no place in a grounded reply.
+        # Inject knowledge quirk if the top hit is actually on-topic.
+        # DRIFT-only: offering a tangent instead of answering is precisely
+        # the "never completes a thought" behaviour.
         if (drift and not answered_from_knowledge and knowledge_hits
                 and len(body) < 100 and hash(text) % 3 == 0):
-            topic = knowledge_hits[0][0].topic
-            body += f" I just read something about {topic.lower()} — want me to tell you about it?"
+            top_entry = knowledge_hits[0][0]
+            if knowledge_is_relevant(top_entry.topic, text, top_entry.content):
+                body += f" I just read something about {top_entry.topic.lower()} — want me to tell you about it?"
 
         # 6. Topic callback from a past conversation.
         triggers: list[str] = []
@@ -501,9 +557,17 @@ def _looks_like_question(text: str) -> bool:
         return False
     if stripped.endswith("?"):
         return True
-    # Search rather than match: "you tell me a story" and "so what is X" are
-    # information requests even though they do not start with the cue word.
-    return bool(_QUESTION_HINT.search(stripped))
+    if _QUESTION_HINT.search(stripped):
+        return True
+    # A bare noun or short noun phrase ("gravity", "quantum mechanics") is an
+    # implicit lookup even though it lacks question scaffolding. Without this,
+    # typing "gravity" hit fallback despite a matching knowledge entry.
+    # Capped at 2 words: 3-word statements like "its raining outside" are
+    # conversation, not topic lookups.
+    words = stripped.split()
+    if len(words) <= 2 and has_subject(stripped):
+        return True
+    return False
 
 
 # Reference scaffolding that should be scrubbed from otherwise-good prose,
@@ -562,7 +626,7 @@ def _clean_sentences(content: str) -> list[str]:
     out: list[str] = []
     for raw in _SENTENCE_SPLIT.split(_break_navboxes(content.replace("\n", " "))):
         s = _scrub(" ".join(raw.split()))
-        if len(s) < 30 or len(s) > 400:
+        if len(s) < 15 or len(s) > 400:
             continue
         if _NOISE.search(s):
             continue
@@ -744,10 +808,9 @@ def _lower_first(s: str) -> str:
 _SYNTHESIS_JOINERS = [
     lambda s: s,
     lambda s: f"Also, {_lower_first(s)}",
-    lambda s: f"On top of that, {_lower_first(s)}",
-    lambda s: f"It's also worth knowing that {_lower_first(s)}",
-    lambda s: f"Worth noting: {_lower_first(s)}",
+    lambda s: f"Relatedly, {_lower_first(s)}",
     lambda s: f"And {_lower_first(s)}",
+    lambda s: f"Plus, {_lower_first(s)}",
 ]
 
 
@@ -822,6 +885,7 @@ def summarize_entry_scored(
         start_idx = 0
 
     picked: list[str] = [sentences[start_idx]]
+    seen: set[str] = {sentences[start_idx]}
     total = len(sentences[start_idx])
 
     # Append supporting sentences, but only ones still on subject -- this is
@@ -831,11 +895,14 @@ def summarize_entry_scored(
             break
         if total + len(s) + 1 > max_chars:
             break
+        if s in seen:
+            continue
         if topic_words and not _mentions_topic(s, topic_words):
             continue
         if _is_list_debris(s):
             continue
         picked.append(s)
+        seen.add(s)
         total += len(s) + 1
 
     return _synthesize(picked), is_definition
@@ -982,6 +1049,21 @@ _NO_SUBJECT = _FILLER | {
     "it", "its", "them", "they", "him", "her", "his", "hers", "we", "us",
     "our", "ours", "i", "me", "my", "mine", "you", "your", "yours", "he",
     "she", "is", "are", "am", "be",
+    # Contractions — the constituent words are already here, but mobile
+    # keyboards produce these as single tokens that slip through otherwise.
+    "i'm", "i've", "i'll", "i'd", "you're", "you've", "you'll", "you'd",
+    "we're", "we've", "we'll", "we'd", "they're", "they've", "they'll",
+    "they'd", "he's", "she's", "it's", "that's", "what's", "who's",
+    "there's", "here's", "don't", "doesn't", "didn't", "won't", "wouldn't",
+    "can't", "couldn't", "shouldn't", "haven't", "hasn't", "hadn't",
+    "isn't", "aren't", "wasn't", "weren't", "ain't", "let's",
+    # Emotional self-reports — "I'm feeling good" is conversation about the
+    # user's state, never a request to research the word "feeling".
+    "feeling", "feelings", "felt", "happy", "sad", "angry", "tired",
+    "bored", "excited", "stressed", "anxious", "depressed", "nervous",
+    "frustrated", "lonely", "scared", "sick", "hungry", "sleepy",
+    "fine", "terrible", "awful", "wonderful", "amazing", "fantastic",
+    "horrible", "great", "better", "worse", "okay",
     # Social reaction words and internet slang — never a research topic.
     "lol", "lmao", "lmfao", "omg", "wtf", "haha", "hehe", "hmm", "wow",
     "huh", "oof", "yikes", "oops", "brb", "gtg", "smh", "idk", "rofl",
@@ -990,6 +1072,51 @@ _NO_SUBJECT = _FILLER | {
     "pick", "choose", "decide", "select",
     # Meta-question fillers — "what do you think/mean/feel?" is not a lookup.
     "do", "think", "mean", "feel", "work",
+    # Gratitude, apologies, farewells — social rituals, not topics.
+    "thank", "thanks", "thankyou", "thx", "sorry", "apologize",
+    "goodbye", "farewell", "seeya", "later", "cya", "see", "bye",
+    # Interjections and filler reactions.
+    "bruh", "dude", "man", "bro", "dang", "damn", "yooo", "meh",
+    "hmmm", "hmmmm", "ugh", "sigh", "bleh", "pfft", "stfu",
+    "wait", "hold", "whoa",
+    # Evaluative reactions — "that's cool/crazy/wild" is a reaction, not a query.
+    "cool", "crazy", "wild", "hilarious", "funny", "weird", "strange",
+    "dumb", "smart", "stupid", "suck", "sucks", "lame", "boring",
+    "true", "false", "real", "same",
+    # "never mind" / "forget it" / "whatever" — disengagement, not research.
+    "never", "mind", "forget", "whatever", "nvm", "idc", "care",
+    "nothing", "changed",
+    # Help-seeking — handled by patterns, not knowledge retrieval.
+    "help", "helping",
+    # "what's up" / "not much" — social check-ins.
+    "much", "whats", "not",
+    # Contractions typed without the apostrophe (mobile keyboards, habit).
+    "youre", "theyre", "dont", "doesnt", "didnt", "wont", "cant",
+    "couldnt", "shouldnt", "wouldnt", "isnt", "arent", "wasnt",
+    "werent", "havent", "hasnt", "hadnt", "aint", "thats", "hes",
+    "shes", "whos", "wheres", "whens", "hows",
+    # Evaluative adjectives — "you're awesome" is a reaction, not a topic.
+    "awesome", "incredible", "brilliant", "genius", "interesting",
+    "useless", "worthless", "terrible", "pathetic",
+    # Agreement and disagreement — never a lookup topic.
+    "agree", "disagree", "agreed", "disagreed",
+    # Filler quantities, intensifiers, and prepositions.
+    "lot", "lots", "pretty", "kinda", "sorta", "totally", "completely",
+    "enough", "everything", "everybody", "everyone", "somebody",
+    "someone", "nobody", "for", "into", "also", "too", "very",
+    "just", "even", "only", "still", "already", "yet",
+    # Conversational pushback — "you're lying" is disagreement, not a topic.
+    "lying", "wrong", "right", "correct", "incorrect", "joking",
+    "kidding", "serious", "liar", "shut", "quiet", "bull", "bullshit",
+    "way", "nope", "nah",
+    # Meta-conversational verbs — "can you elaborate" is a request, not a topic.
+    "elaborate", "clarify", "repeat", "rephrase", "simplify",
+    "expand", "specify", "summarize", "recap",
+    # Imperative verbs not already in _FILLER.
+    "show", "bring", "send",
+    # Abstract conversational nouns — "interesting perspective" is a reaction.
+    "perspective", "opinion", "thought", "thoughts", "view", "views",
+    "take", "stance", "side", "question", "answer", "response",
 }
 
 # Turns that only make sense against what was just said.
@@ -1022,7 +1149,10 @@ _ANAPHORIC = re.compile(
     r"^(?:and |but |so |ok(?:ay)?[,. ]*)?"
     r"(?:why|what|how|when|who)\s+"
     r"(?:does|do|did|is|are|was|were|would|should|could)\s+"
-    r"(?:that|this|it|those|they)\b",
+    r"(?:"
+    r"(?:this|that)(?:\s*[?.!]*$|\s+(?:mean|matter|work|happen|affect|change|help|make|do|go|come|look|feel|seem)\b)"
+    r"|(?:it|those|they)\b"
+    r")",
     re.I,
 )
 
@@ -1036,6 +1166,34 @@ _FACT_STATEMENT = re.compile(
 )
 
 
+_REACTION = re.compile(
+    r"(?i)^(?:that(?:'s| is| was) (?:fun|nice|great|fine|cool|fair|"
+    r"rough|tough|awkward|awful|sad|bad|good|neat|sweet|sick|dope|lit|"
+    r"insane|bonkers|mental|random|classic|iconic|nuts|huge|wild|crazy|"
+    r"hilarious|intense|epic|brutal|gnarly|fire|legit|valid|peak|based|mid)"
+    r"|(?:nice|good) (?:one|job|stuff|call|move|work)"
+    r"|well done|fair (?:enough|point)|good (?:point|call)"
+    r"|I (?:agree|disagree)(?:\s|$)"
+    r"|(?:you|that) (?:make|made|crack|cracked) me\b.*"
+    r"|my (?:bad|fault|mistake)"
+    r")[.!?]*$",
+    re.I,
+)
+
+
+_DEFINITION_QUERY = re.compile(
+    r"(?i)^(?:"
+    r"what (?:is|are|was|were) (?:a |an |the )?"
+    r"|define "
+    r"|explain "
+    r"|(?:tell|teach) me (?:about |what )(?:a |an |the )?"
+    r"|describe (?:a |an |the )?"
+    r"|(?:talk|know) about (?:a |an |the )?"
+    r")"
+    r"(\w[\w\s\-]{0,30}?)\s*[?.!]*$",
+)
+
+
 def has_subject(text: str) -> bool:
     """Whether a message is *about* anything Shaggoth could look up.
 
@@ -1043,9 +1201,14 @@ def has_subject(text: str) -> bool:
     through knowledge retrieval produced the reply "Never heard of wanted
     chat", which is both wrong and rude about a perfectly normal thing to say.
     """
+    stripped = (text or "").strip()
+    if _REACTION.match(stripped):
+        return False
+    if _DEFINITION_QUERY.match(stripped):
+        return True
     words = {
-        w.strip(".,;:!?'\"") .lower()
-        for w in (text or "").split()
+        w.strip(".,;:!?’\"’‘“”").lower()
+        for w in stripped.split()
     }
     return bool({w for w in words if len(w) > 2} - _NO_SUBJECT)
 
@@ -1147,9 +1310,28 @@ def last_subject(context: dict | None = None) -> str:
     return ""
 
 
+def _last_assistant_snippet(context: dict | None, limit: int = 80) -> str:
+    """The tail of the most recent assistant response, for follow-up context."""
+    for message in reversed((context or {}).get("recent", [])):
+        if message.get("role") == "assistant":
+            text = (message.get("content") or "").strip()
+            if text:
+                return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+    return ""
+
+
 def follow_up_reply(context: dict | None = None) -> str:
     """A reply to 'why?' / 'go on' that names what is being followed up."""
     subject = last_subject(context)
+    snippet = _last_assistant_snippet(context)
+    if subject and snippet:
+        return _rng.choice((
+            f"On {subject}? I said: \"{snippet}\" — what specifically do you "
+            "want to know more about?",
+            f"On {subject}? Ask me something specific and I'll give you a "
+            "specific answer.",
+            f"Regarding {subject} — what part wasn't clear?",
+        ))
     if subject:
         return _rng.choice((
             f"On {subject}? Ask me something specific — like 'why does "
@@ -1164,13 +1346,6 @@ def follow_up_reply(context: dict | None = None) -> str:
     return "Follow up on what? Give me a starting point."
 
 
-# Social words that must never appear as the subject of a "blank on X" reply.
-_DESCRIBE_FILTER = frozenset({
-    "lol", "lmao", "lmfao", "omg", "wtf", "haha", "hehe", "hmm",
-    "wow", "huh", "yikes", "oof", "oops", "rofl", "smh", "ikr",
-})
-
-
 def describe_unknown(text: str) -> str:
     """An in-character admission of ignorance that still names the subject.
 
@@ -1179,11 +1354,15 @@ def describe_unknown(text: str) -> str:
     research -- honestly signal that the gap is being closed rather than just
     apologising for it.
     """
-    words = [
-        w for w in extract_keywords(text)
-        if len(w) > 2 and w.lower() not in _DESCRIBE_FILTER
-    ]
-    subject = " ".join(words[:3]) if words else ""
+    defn_match = _DEFINITION_QUERY.match((text or "").strip())
+    if defn_match:
+        subject = defn_match.group(1).strip()
+    else:
+        words = [
+            w for w in extract_keywords(text)
+            if len(w) > 2 and w.lower() not in _NO_SUBJECT
+        ]
+        subject = " ".join(words[:3]) if words else ""
 
     if not subject:
         blanks = [

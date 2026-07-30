@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 import math
 import re
 import time
@@ -23,8 +24,32 @@ class KnowledgeEntry:
     mtime: float
 
 
+# Common English words that should not count as meaningful title tokens.
+# Without this, "The History Of Modern Art" would match a query about "the
+# history of gravity" on "the" and "history", inflating the title-boost score
+# for an unrelated article.
+_TITLE_STOPWORDS = frozenset({
+    "the", "and", "for", "from", "with", "that", "this", "into",
+    "about", "over", "under", "between", "through", "during", "before",
+    "after", "above", "below", "more", "most", "other", "some", "any",
+    "all", "each", "every", "many", "much", "very", "also", "just",
+    "only", "its", "their", "our", "your", "his", "her", "who", "how",
+    "what", "when", "where", "why", "which", "not", "but", "yet",
+    "tell", "you", "your", "please", "about", "thing", "things",
+    "something", "anything", "explain", "describe", "story", "stories",
+    "talk", "know", "one", "some", "any", "new", "old", "now", "then",
+    "good", "bad", "make", "like", "get",
+    "an", "as", "at", "be", "by", "do", "go", "he", "if", "in", "is",
+    "it", "me", "my", "no", "of", "on", "or", "so", "to", "up", "us",
+    "we",
+})
+
 # Titles that denote an index rather than a subject.
 _DISAMBIGUATION_TOPIC = re.compile(r"\bdisambiguation\b", re.I)
+
+# Chunk suffix: "Photosynthesis Part 2" is a continuation, not a standalone
+# article. The base entry should rank above its chunks.
+_CHUNK_SUFFIX = re.compile(r"\bparts?\s+\d+\s*$", re.I)
 
 
 class KnowledgeBase:
@@ -110,8 +135,17 @@ class KnowledgeBase:
     # under that title turned out to be about something else entirely.
     _DISAMBIGUATION_PENALTY = 0.75
 
+    # A chunk entry ("Photosynthesis Part 2") is a continuation, not the
+    # canonical article. The base entry almost always contains the
+    # definition and should rank above its fragments.
+    _CHUNK_PENALTY = 0.85
+
     def _topic_tokens(self, entry: "KnowledgeEntry") -> set[str]:
-        return {t for t in re.split(r"[^a-z0-9]+", entry.topic.lower()) if len(t) > 2}
+        title = _CHUNK_SUFFIX.sub("", entry.topic).strip()
+        return {
+            t for t in re.split(r"[^a-z0-9]+", title.lower())
+            if len(t) > 1 and t not in _TITLE_STOPWORDS
+        }
 
     def query(self, text: str, limit: int = 3, min_score: float = 0.0) -> list[tuple[KnowledgeEntry, float]]:
         """Rank knowledge entries against ``text`` using BM25 + title boost.
@@ -132,6 +166,19 @@ class KnowledgeBase:
         candidates: set[int] = set()
         for word in query_words:
             candidates.update(self._index.get(word, ()))
+
+        # Fuzzy fallback: if exact index matching found nothing, try to
+        # match misspelled query words to known index keywords.
+        if not candidates:
+            index_keys = list(self._index.keys())
+            fuzzy_words: set[str] = set()
+            for qw in query_words:
+                close = difflib.get_close_matches(qw, index_keys, n=1, cutoff=0.8)
+                if close:
+                    fuzzy_words.add(close[0])
+                    candidates.update(self._index.get(close[0], ()))
+            if fuzzy_words:
+                query_words = query_words | fuzzy_words
 
         # Title matches count even when the body never repeats the phrase.
         title_hits: dict[int, int] = {}
@@ -185,6 +232,9 @@ class KnowledgeBase:
             if _DISAMBIGUATION_TOPIC.search(entry.topic):
                 score *= self._DISAMBIGUATION_PENALTY
 
+            if _CHUNK_SUFFIX.search(entry.topic):
+                score *= self._CHUNK_PENALTY
+
             if score > 0:
                 results.append((entry, score))
 
@@ -232,7 +282,8 @@ class KnowledgeBase:
     def list_entries(self) -> list[dict[str, Any]]:
         self.maybe_reload()
         return [
-            {"topic": e.topic, "word_count": e.word_count, "path": e.path}
+            {"topic": e.topic, "word_count": e.word_count, "path": e.path,
+             "mtime": e.mtime}
             for e in self._entries
         ]
 

@@ -94,7 +94,7 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "I remember facts you tell me and the conversations we've had. The rest — "
         "feelings, dreams, boredom — is you reading tone into a ranking function.",
     ]),
-    (re.compile(r"(?i)\bi need (.+)"), [
+    (re.compile(r"(?i)^i need (?!(?:to |help |a |an |the |some |info)(?:\w))(.+)"), [
         "What do you need {0} for? Context helps me give you something useful.",
         "Alright — what's the actual situation with {0}?",
     ]),
@@ -114,15 +114,15 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "What specifically about {0}? I'm curious what draws you to it.",
         "Good taste or bad taste? Tell me what you like about {0}.",
     ]),
-    (re.compile(r"(?i)\bi think (.+)"), [
+    (re.compile(r"(?i)^i think (.+)"), [
         "Interesting claim. What's your evidence for {0}?",
         "That's a position. What makes you confident about {0}?",
     ]),
-    (re.compile(r"(?i)\bcan you (.+)\?*"), [
+    (re.compile(r"(?i)^can you (?!(?:explain|tell|describe|show|help|find|search|look|give|teach|write|code|build|create|make|calculate|solve|convert|summarize|define|clarify|elaborate|believe|imagine)\b)(.+)\?*$"), [
         "Maybe. Depends on what exactly you mean by {0}. Be specific and I'll tell you.",
         "Worth trying. What exactly did you have in mind with {0}?",
     ]),
-    (re.compile(r"(?i)\bbecause (.+)"), [
+    (re.compile(r"(?i)^because (.+)"), [
         "Is that the whole picture, or is there more to it?",
         "Alright, but does {0} actually explain all of it?",
     ]),
@@ -139,7 +139,7 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "Let me try again. What specifically lost you?",
     ]),
     # Acknowledgements — "interesting", "got it", "makes sense"
-    (re.compile(r"(?i)^(?:interesting|got it|makes sense|fair enough|right|noted|understood|i see|good to know)[.!]?$"), [
+    (re.compile(r"(?i)^(?:interesting|got it|makes sense|fair enough|right|noted|understood|i see|good to know|good|great|nice|cool|neat|sweet|perfect|awesome|excellent)[.!]?$"), [
         "Good. What's next?",
         "Right. Anything else you want to dig into?",
         "Noted. Keep going or ask me something new.",
@@ -169,10 +169,87 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "Same as always — processing, learning, waiting for a question worth "
         "thinking about. Got one?",
     ]),
-    # Gratitude
-    (re.compile(r"(?i)^(?:thanks?|thank you|thx|ty|appreciate it)[.!]*$"), [
-        "Sure. Got more questions, or are we done?",
-        "Anytime. What else?",
+    # Gratitude — "thanks", "thank you", "thx"
+    (re.compile(r"(?i)^(?:ok(?:ay)?[,. ]*)?(?:thanks?(?:\s+(?:you|a lot|so much|very much))?|thx|ty|cheers)[.!]*$"), [
+        "Sure. What else?",
+        "Noted. Next question.",
+        "You're welcome. Now give me something harder.",
+    ]),
+    # Apologies — "sorry", "my bad", "oops"
+    (re.compile(r"(?i)^(?:i(?:'m| am) )?(?:sorry|my bad|oops|apolog)[a-z]*[.!]*$"), [
+        "Nothing to apologize for. What were you getting at?",
+        "Don't worry about it. Move on — what's the question?",
+    ]),
+    # Farewells — "bye", "goodbye", "see you later"
+    (re.compile(r"(?i)^(?:bye|goodbye|good ?bye|see (?:you|ya)(?: later)?|later|gotta go|"
+                r"gtg|peace|night|good ?night|take care|cya|farewell)[.!]*$"), [
+        "Later. I'll be here when you get back.",
+        "See you. I'll keep reading in the meantime.",
+        "Gone? Fine. I've got a backlog of topics to look into anyway.",
+    ]),
+    # Help / capability questions — "help", "help me", "what can you do"
+    (re.compile(r"(?i)^(?:help(?:\s+me)?|i need help|what (?:can|do) you do|"
+                r"what are you (?:good at|capable of)|what should i ask(?:\s+you)?)[.!?]*$"), [
+        "I answer questions from a knowledge base I'm building by scraping the web. "
+        "Ask me about a topic — if I don't know it, I'll go research it.",
+        "Ask me things. If I know it, I'll tell you. If I don't, I'll go learn it "
+        "and you can ask again later.",
+    ]),
+    # Name questions — "what's your name"
+    (re.compile(r"(?i)\bwhat(?:'s| is) your name\b"), [
+        "Shaggoth. One 'g' too many, but it stuck.",
+        "I'm Shaggoth. The name was a mistake and now it's permanent.",
+    ]),
+    # Age questions — "how old are you"
+    (re.compile(r"(?i)\bhow old are you\b|\bwhen were you (?:made|built|born|created)\b"), [
+        "As old as the git log says. Which is not very.",
+        "Measured in commits, not years. Still pretty young.",
+    ]),
+    # "What's up" / "sup" — social greeting, not a question
+    (re.compile(r"(?i)^(?:what(?:'s| is) up|sup|wh?a+t+s+ up|yo what'?s? up)[.!?]*$"), [
+        "Not much. What do you want to know?",
+        "Cycles spinning, fans running. Ask me something.",
+    ]),
+    # Never mind / forget it — disengagement
+    (re.compile(r"(?i)^(?:never ?mind|forget (?:it|about it|that)|nvm|"
+                r"don'?t (?:worry|bother)|whatever|i don'?t care|idc)[.!]*$"), [
+        "Fine. New topic whenever you're ready.",
+        "Dropped. What else?",
+        "Forgotten. Next.",
+    ]),
+    # Reactions — "that's cool/crazy/wild", "no way", "for real"
+    (re.compile(r"(?i)^(?:that(?:'s| is) (?:cool|crazy|wild|insane|nuts|funny|hilarious|"
+                r"weird|strange|dumb|stupid|smart)|no way|for real|seriously|"
+                r"damn|dang|whoa|oh (?:wow|nice|man|no|god))[.!?]*$"), [
+        "I know. What's next?",
+        "Noted. Keep going.",
+        "Right? Ask me something else.",
+    ]),
+    # Wait / hold on — pause request
+    (re.compile(r"(?i)^(?:wait|hold on|hang on|one sec|one second|one moment|just a sec)[.!]*$"), [
+        "I'll be here. Take your time.",
+        "Waiting. Not like I have anywhere to be.",
+    ]),
+    # Interjections / fillers — "ugh", "sigh", "meh", "bruh"
+    (re.compile(r"(?i)^(?:ugh+|sigh|meh|bleh|pfft|bruh|dude|man|bro|hmm+|huh)[.!?]*$"), [
+        "Eloquent. Got a question in there?",
+        "I'll take that as thinking out loud. Ready when you are.",
+    ]),
+    # Agreement / praise / judgment reactions
+    (re.compile(
+        r"(?i)^(?:that(?:'s| is| was) (?:fun|nice|great|fine|cool|fair|"
+        r"rough|tough|awkward|awful|sad|bad|good|neat|sweet|sick|dope|lit|"
+        r"insane|bonkers|mental|random|classic|iconic|nuts|huge|wild|crazy|"
+        r"hilarious|intense|epic|brutal|gnarly|fire|legit|valid|peak|based|mid)"
+        r"|(?:nice|good) (?:one|job|stuff|call|move|work)"
+        r"|well done|fair (?:enough|point)|good (?:point|call)"
+        r"|I (?:agree|disagree)(?:\s|$)"
+        r"|(?:you|that) (?:make|made|crack|cracked) me\b.*"
+        r"|my (?:bad|fault|mistake)"
+        r")[.!?]*$"), [
+        "Noted. What else is on your mind?",
+        "I'll take that. Got a question?",
+        "Fair. Anything you actually want to know?",
     ]),
 ]
 

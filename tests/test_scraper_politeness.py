@@ -142,3 +142,30 @@ def test_robots_result_is_cached_per_origin(scraper, monkeypatch):
     for path in ("/a", "/b", "/c"):
         scraper.robots_allows("https://example.com" + path)
     assert len(fetches) == 1
+
+
+# ---------------------------------------------------------------------------
+# HTML entity decoding — invalid codepoints must not crash the scraper
+# ---------------------------------------------------------------------------
+
+def test_html_entity_decodes_numeric():
+    from shaggoth.scraper.engine import _html_to_text
+    assert "'" in _html_to_text("it&#39;s fine")
+
+
+def test_html_entity_decodes_hex():
+    from shaggoth.scraper.engine import _html_to_text
+    assert "'" in _html_to_text("it&#x27;s fine")
+
+
+def test_html_entity_surrogate_does_not_crash():
+    from shaggoth.scraper.engine import _html_to_text
+    result = _html_to_text("bad&#55296;stuff")
+    assert "bad" in result
+    assert "stuff" in result
+
+
+def test_html_entity_zero_does_not_crash():
+    from shaggoth.scraper.engine import _html_to_text
+    result = _html_to_text("null&#0;byte")
+    assert "null" in result

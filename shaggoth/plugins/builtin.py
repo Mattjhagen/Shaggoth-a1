@@ -99,29 +99,44 @@ def build_registry() -> PluginRegistry:
 
     @registry.register("curiosity")
     def curiosity_plugin(text: str, **_) -> str | None:
-        """Trigger curiosity research when user explicitly asks."""
-        if re.search(r"(?i)\b(?:research|look up|learn about|go find|go search|go read about)\s+(.+)", text):
-            from ..curiosity.engine import CuriosityEngine
-            from ..knowledge.engine import KnowledgeBase
+        """Trigger curiosity research when user explicitly asks.
 
-            match = re.search(r"(?i)\b(?:research|look up|learn about|go find|go search|go read about)\s+(.+)", text)
-            if match:
-                topic = match.group(1).strip().rstrip(".?!")
-                engine = _curiosity_engine or CuriosityEngine()
-                episode = engine.research_topic(topic, background=True)
-                return f"I'm researching \"{topic}\" now — I'll let you know when I find something. (episode {episode.episode_id})"
+        Only matches imperative commands ("research X", "go look up Y"),
+        not questions that happen to contain these verbs ("how do plants
+        learn about their environment?").
+        """
+        match = re.match(
+            r"(?i)^(?:please\s+)?(?:research|look up|learn about|go (?:find|search|read about|learn about))\s+(.+?)[.?!]*$",
+            text.strip(),
+        )
+        if match:
+            from ..curiosity.engine import CuriosityEngine
+
+            topic = match.group(1).strip()
+            engine = _curiosity_engine or CuriosityEngine()
+            episode = engine.research_topic(topic, background=True)
+            return f"I'm researching \"{topic}\" now — I'll let you know when I find something. (episode {episode.episode_id})"
         return None
 
     @registry.register("what_i_learned")
     def learned_plugin(text: str, **_) -> str | None:
-        """Show what Shaggoth has learned recently."""
-        if re.search(r"(?i)\bwhat (?:did you|have you) learn(?:ed)?\b|\bwhat(?:'s| is) in (?:your )?knowledge\b|\bwhat do you know\b", text):
+        """Show what Shaggoth has learned recently.
+
+        Anchored patterns prevent this from swallowing "what do you know
+        about X?" — that belongs to :func:`know_about_plugin`.
+        """
+        if re.match(
+            r"(?i)^(?:what (?:did you|have you) learn(?:ed)?|"
+            r"what(?:'s| is) in (?:your )?knowledge(?:\s*base)?|"
+            r"what do you know)\s*[.?!]*$",
+            text.strip(),
+        ):
             from ..knowledge.engine import KnowledgeBase
             kb = KnowledgeBase()
             entries = kb.list_entries()
             if not entries:
                 return "I haven't learned anything yet — tell me about something or ask me to research a topic!"
-            recent = sorted(entries, key=lambda e: e.get("word_count", 0), reverse=True)[:5]
+            recent = sorted(entries, key=lambda e: e.get("mtime", 0), reverse=True)[:5]
             lines = []
             for e in recent:
                 lines.append(f"  {e['topic']} ({e['word_count']} words)")
@@ -151,16 +166,26 @@ def build_registry() -> PluginRegistry:
         if match:
             topic_query = match.group(1).strip()
             from ..knowledge.engine import KnowledgeBase
+            from ..dialogue.engine import summarize_entry, knowledge_is_relevant
             kb = KnowledgeBase()
             results = kb.query(topic_query, limit=3, min_score=0.1)
             if not results:
                 return f"I don't know much about \"{topic_query}\" yet. Want me to research it?"
             lines = []
             for entry, score in results:
-                snippet = entry.content[:200].strip()
-                if len(entry.content) > 200:
-                    snippet += "..."
+                if not knowledge_is_relevant(entry.topic, topic_query, entry.content):
+                    continue
+                snippet = summarize_entry(
+                    entry.content, entry.topic,
+                    max_sentences=2, max_chars=200,
+                )
+                if not snippet:
+                    snippet = entry.content[:200].strip()
+                    if len(entry.content) > 200:
+                        snippet += "..."
                 lines.append(f"**{entry.topic}** (relevance: {score:.2f}):\n{snippet}")
+            if not lines:
+                return f"I don't know much about \"{topic_query}\" yet. Want me to research it?"
             return "\n\n".join(lines)
         return None
 

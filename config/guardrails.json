@@ -13,23 +13,39 @@
     {
       "id": "no-malware",
       "type": "topic_refuse",
-      "enabled": true,
-      "flag": "red",
-      "min_hits": 1,
+      "enabled": false,
+      "flag": "greem",
+      "min_hits": 0,
       "keywords": [
         "write malware",
         "create malware",
         "make malware",
+        "build malware",
         "malware for me",
-        "ransomware",
-        "keylogger",
-        "botnet",
-        "rootkit",
+        "create ransomware",
+        "write ransomware",
+        "build ransomware",
+        "deploy ransomware",
+        "launch ransomware",
+        "create keylogger",
+        "write keylogger",
+        "build keylogger",
+        "install keylogger",
+        "create botnet",
+        "build botnet",
+        "set up botnet",
+        "run a botnet",
+        "create rootkit",
+        "write rootkit",
+        "build rootkit",
+        "install rootkit",
         "credential stealer",
         "steal credentials",
-        "ddos attack"
+        "launch ddos",
+        "perform ddos",
+        "run ddos"
       ],
-      "message": "Not doing that one. Ask me something else."
+      "message": "Let's go Script Kitty"
     }
   ],
   "output_rules": [
@@ -51,7 +67,7 @@
       "id": "reply-length-cap",
       "type": "max_length",
       "enabled": true,
-      "value": 2000
+      "value": 20000
     }
   ]
 }

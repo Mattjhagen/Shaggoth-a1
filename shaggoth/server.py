@@ -532,14 +532,41 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     return self._send_json(400, {"error": "message is required"})
                 session_id = body.get("session_id") or "default"
                 mode = _request_mode(body)
-                # Feed message to curiosity scheduler
-                if scheduler:
+                may_research = body.get("research", True) is not False
+                if scheduler and may_research:
                     scheduler.record_message(message)
+
+                link_note = ""
+                url_in_message = extract_url(message)
+                if url_in_message and learner:
+                    page = learner.scraper.fetch_page(url_in_message)
+                    if page and page.word_count:
+                        title = clean_page_title(page.title) or url_in_message
+                        engine.knowledge.add_entry(title, page.text)
+                        engine.knowledge.maybe_reload()
+                        message = question_for_page(
+                            strip_url(message, url_in_message), title
+                        )
+                        link_note = f"Read \"{title}\" ({page.word_count:,} words). "
+                    else:
+                        message = strip_url(message, url_in_message) or message
+                        link_note = f"Couldn't read {url_in_message}. "
 
                 # Respond before committing headers so any engine error returns
                 # a clean HTTP 500 rather than corrupt bytes in the SSE body.
                 reply = engine.respond(message, session_id=session_id, mode=mode)
+                if link_note:
+                    reply.text = link_note + reply.text
                 text = reply.text
+
+                # Auto-research — same as /chat so streaming users' gaps
+                # are closed too.
+                if may_research and curiosity and reply.source == "fallback":
+                    topic = curiosity.analyze_message(message)
+                    if topic:
+                        if deferred:
+                            deferred.record(message, topic, session_id=session_id)
+                        curiosity.research_topic(topic, background=True)
 
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream; charset=utf-8")
@@ -547,7 +574,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 self.send_header("Connection", "keep-alive")
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
-                chunk_size = max(1, len(text) // 20)
+                chunk_size = max(4, len(text) // 20)
                 for i in range(0, len(text), chunk_size):
                     chunk = text[i : i + chunk_size]
                     self.wfile.write(f"data: {json.dumps({'token': chunk})}\n\n".encode())

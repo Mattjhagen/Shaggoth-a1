@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 _WORD_RE = re.compile(r"[a-zA-Z][a-zA-Z'\-]{2,}")
+_ACRONYM_RE = re.compile(r"\b[A-Z]{2,5}\b")
 
 # Common words that carry no topical signal.
 STOPWORDS = frozenset(
@@ -36,9 +37,21 @@ STOPWORDS = frozenset(
     got get did does doing yes yeah okay too also because been being will may might
     from into onto over under out off all any some more most other such only own
     same our ours their theirs mine me my myself you'll i'll i'm you're we're
-    let's says said told tell asked one two three time day today yesterday tomorrow
+    they're he's she's it's that's what's who's there's here's we'll we've
+    they'll they've i've i'd you'd we'd they'd don't doesn't didn't won't
+    wouldn't can't couldn't shouldn't haven't hasn't hadn't isn't aren't
+    wasn't weren't ain't let's
+    says said told tell asked one two three time day today yesterday tomorrow
     thing things stuff way ways make made need needs new now still even ever never
-    much many lot bit good great nice cool right left back well much""".split()
+    much many lot bit good great nice cool right left back well much
+    feel feeling feelings felt happy sad angry tired bored excited stressed
+    anxious depressed nervous frustrated lonely scared sick hungry sleepy fine
+    terrible awful wonderful amazing fantastic horrible better worse
+    thank thanks thankyou thx sorry apologize goodbye farewell seeya cya
+    bruh dude man bro dang damn yooo meh hmmm hmmmm ugh sigh bleh pfft stfu
+    wait hold whoa cool crazy wild hilarious funny weird strange dumb smart
+    stupid suck sucks lame boring true false real same never mind forget
+    whatever nvm idc care nothing changed help helping whats""".split()
 )
 
 SCHEMA = """
@@ -76,16 +89,27 @@ CREATE TABLE IF NOT EXISTS session_summaries (
 FACT_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"(?i)\bmy name is ([A-Z][a-zA-Z\-]+)"), "name"),
     (re.compile(r"(?i)\bcall me ([A-Z][a-zA-Z\-]+)"), "name"),
-    (re.compile(r"(?i)\bi (?:really )?(?:like|love|enjoy) ([a-zA-Z][\w\s\-]{2,40}?)(?:[.,!?]|$)"), "likes"),
-    (re.compile(r"(?i)\bi work (?:as|at|on) ([a-zA-Z][\w\s\-]{2,40}?)(?:[.,!?]|$)"), "work"),
-    (re.compile(r"(?i)\bi live in ([a-zA-Z][\w\s\-]{2,40}?)(?:[.,!?]|$)"), "location"),
-    (re.compile(r"(?i)\bi(?:'m| am) building ([a-zA-Z][\w\s\-]{2,40}?)(?:[.,!?]|$)"), "project"),
+    (re.compile(r"(?i)\bi (?:really )?(?:like|love|enjoy) ([a-zA-Z][\w\s\-]{2,20}?)(?:[.,!?]|$)"), "likes"),
+    (re.compile(r"(?i)\bi work (?:as|at|on) ([a-zA-Z][\w\s\-]{2,30}?)(?:[.,!?]|$)"), "work"),
+    (re.compile(r"(?i)\bi live in ([a-zA-Z][\w\s\-]{2,30}?)(?:[.,!?]|$)"), "location"),
+    (re.compile(r"(?i)\bi(?:'m| am) building ([a-zA-Z][\w\s\-]{2,30}?)(?:[.,!?]|$)"), "project"),
 ]
+
+_NOT_A_LOCATION = frozenset({
+    "fear", "pain", "hope", "denial", "sin", "peace", "harmony", "chaos",
+    "darkness", "silence", "shame", "disgrace", "poverty", "luxury",
+    "constant", "a world", "the moment", "the past", "the present",
+})
 
 
 def extract_keywords(text: str) -> list[str]:
+    # Normalize iOS/smart curly quotes so contractions tokenize correctly.
+    text = text.replace("‘", "'").replace("’", "'")
     words = [w.lower() for w in _WORD_RE.findall(text)]
-    return [w for w in words if w not in STOPWORDS]
+    # Capture uppercase acronyms (AI, UK, EU, pH) that the 3+ char regex misses.
+    acronyms = [a.lower() for a in _ACRONYM_RE.findall(text)]
+    combined = words + [a for a in acronyms if a not in words]
+    return [w for w in combined if w not in STOPWORDS]
 
 
 @dataclass
@@ -130,6 +154,8 @@ class MemoryStore:
             match = pattern.search(text)
             if match:
                 value = match.group(1).strip()
+                if key == "location" and value.lower() in _NOT_A_LOCATION:
+                    continue
                 found[key] = value
                 self.set_fact(key, value, commit=False)
         if found:
