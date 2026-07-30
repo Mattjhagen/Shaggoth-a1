@@ -479,17 +479,30 @@ class DialogueEngine:
 
     @staticmethod
     def _build_knowledge_context(query: str, hits) -> str:
-        """Format knowledge hits into a context string for GPT."""
+        """Format knowledge hits into a context string for GPT.
+
+        Passes more content for explanatory questions (how/why) so GPT has
+        richer material to construct a real answer rather than just
+        parroting a definition.
+        """
+        is_explanatory = bool(re.search(
+            r"(?i)^\s*(?:why|how)\b|"
+            r"\bwhat (?:causes|makes|happens|leads)\b",
+            query,
+        ))
+        max_sents = 5 if is_explanatory else 3
+        max_ch = 900 if is_explanatory else 600
+
         snippets = []
         for entry, _score in hits:
             if not knowledge_is_relevant(entry.topic, query, entry.content):
                 continue
             snippet = summarize_entry(
                 entry.content, entry.topic,
-                max_sentences=3, max_chars=600,
+                max_sentences=max_sents, max_chars=max_ch,
             )
             if not snippet:
-                snippet = entry.content[:600].strip()
+                snippet = entry.content[:max_ch].strip()
             snippets.append(f"[{entry.topic}]\n{snippet}")
         return "\n\n".join(snippets) + "\n" if snippets else ""
 
@@ -515,10 +528,11 @@ class DialogueEngine:
             raw_len = len(raw_answer)
             polished = _gpt.generate_chat(
                 user_message=(
-                    f"Rephrase these facts as a natural answer to the "
-                    f"question below. Keep ALL the facts — connect ideas "
-                    f"and smooth the prose, but do not drop or summarize "
-                    f"away any information.\n\n"
+                    f"Turn these facts into a natural conversational answer "
+                    f"to the question below. Keep ALL the facts but make it "
+                    f"sound like you're explaining something you find "
+                    f"interesting, not reading from an encyclopedia. Answer "
+                    f"the actual question first, then add context.\n\n"
                     f"Question: {question}\n\n"
                     f"Facts:\n{raw_answer}"
                 ),
@@ -1001,9 +1015,10 @@ def _is_definitional(sentence: str, topic_words: set[str]) -> bool:
 _SYNTHESIS_JOINERS = [
     lambda s: s,
     lambda s: f"Also, {s}",
-    lambda s: f"Relatedly, {s}",
+    lambda s: f"Beyond that, {s}",
     lambda s: f"And {s}",
-    lambda s: f"Plus, {s}",
+    lambda s: f"Worth noting — {s}",
+    lambda s: f"On top of that, {s}",
 ]
 
 

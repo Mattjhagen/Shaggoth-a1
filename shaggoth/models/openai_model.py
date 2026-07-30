@@ -143,8 +143,12 @@ class OpenAIModel(LanguageModel):
             system_parts.append(f"\n{personality_context}")
         if knowledge_context:
             system_parts.append(
-                "\nRelevant knowledge from your research (synthesize — don't just "
-                "repeat these verbatim; connect ideas and explain what matters):\n"
+                "\nRelevant knowledge from your research. Answer the user's actual "
+                "question using this — don't just recite definitions. If they ask "
+                "'why', explain the cause. If they ask 'how', walk through the "
+                "mechanism. If they ask 'what is', give the definition but then say "
+                "something interesting about it. Weave the knowledge in naturally, "
+                "as if you're explaining something you genuinely find interesting:\n"
                 + knowledge_context
             )
         if system_extra:
