@@ -517,15 +517,14 @@ class Reasoner:
             )
 
         joiner = (
-            "The difference is in those two descriptions"
+            "That's how they differ."
             if intent == Intent.COMPARE
-            else "What they share is in those two descriptions"
+            else "That's what they have in common."
         )
         steps.append(Step("combine", f"contrasted {len(definitions)} definitions"))
         body = " ".join(f"{t}: {d}" for t, d in definitions)
         return Reasoned(
-            answer=f"{body} {joiner} — I'm laying them side by side, not "
-                   f"interpreting them for you.",
+            answer=f"{body} {joiner}",
             intent=intent,
             steps=steps,
             entries_used=found,

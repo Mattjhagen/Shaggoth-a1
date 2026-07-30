@@ -255,11 +255,11 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
 ]
 
 FALLBACKS = [
-    "Tell me more about that.",
-    "How does that make you feel?",
-    "What led you to that?",
-    "I see. Can you expand on that?",
-    "That's interesting — go on.",
+    "Not sure what to do with that. Got a question?",
+    "I'm a retrieval engine, not a mind reader. Ask me something specific.",
+    "I don't have enough to go on. What do you actually want to know?",
+    "That's vague. Give me a topic and I'll see what I've got.",
+    "I need something concrete to work with. Try asking a question.",
 ]
 
 # Used by PatternEngine.respond_no_subject_question() for question-shaped

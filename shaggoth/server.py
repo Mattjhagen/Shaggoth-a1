@@ -532,8 +532,8 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     return self._send_json(400, {"error": "message is required"})
                 session_id = body.get("session_id") or "default"
                 mode = _request_mode(body)
-                # Feed message to curiosity scheduler
-                if scheduler:
+                may_research = body.get("research", True) is not False
+                if scheduler and may_research:
                     scheduler.record_message(message)
 
                 # Respond before committing headers so any engine error returns
