@@ -541,6 +541,15 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 reply = engine.respond(message, session_id=session_id, mode=mode)
                 text = reply.text
 
+                # Auto-research — same as /chat so streaming users' gaps
+                # are closed too.
+                if may_research and curiosity and reply.source == "fallback":
+                    topic = curiosity.analyze_message(message)
+                    if topic:
+                        if deferred:
+                            deferred.record(message, topic, session_id=session_id)
+                        curiosity.research_topic(topic, background=True)
+
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream; charset=utf-8")
                 self.send_header("Cache-Control", "no-cache")

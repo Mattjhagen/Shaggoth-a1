@@ -373,3 +373,45 @@ def test_bare_noun_not_in_kb_still_falls_through(tmp_path):
     engine = DialogueEngine(memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
     reply = engine.respond("zorbulon", session_id="s1")
     assert reply.source == "fallback"
+
+
+# --------------------------------------------------------------------------
+# Conversational pushback — must not become research topics
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text", [
+    "you're lying", "you are lying", "that's wrong", "thats wrong",
+    "no way", "bull", "not true", "nope", "nah",
+])
+def test_conversational_pushback_has_no_subject(text):
+    assert not has_subject(text), f"{text!r} should not have a subject"
+
+
+@pytest.mark.parametrize("text", [
+    "can you elaborate", "please clarify", "repeat that",
+    "summarize what you said", "rephrase that",
+])
+def test_meta_requests_have_no_subject(text):
+    assert not has_subject(text), f"{text!r} should not be a lookup"
+
+
+def test_describe_unknown_filters_filler_words():
+    """describe_unknown should not include common words in the subject."""
+    from shaggoth.dialogue.engine import describe_unknown
+    reply = describe_unknown("can you elaborate on that interesting perspective")
+    assert "elaborate" not in reply.lower()
+    assert "perspective" not in reply.lower()
+
+
+def test_short_definitional_article_not_repeated(tmp_path):
+    """A short article should produce one sentence, not the same one 4x."""
+    from shaggoth.memory import MemoryStore
+
+    engine = DialogueEngine(memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
+    engine.knowledge.add_entry(
+        "Gravity",
+        "Gravity is a fundamental force of nature. " * 20,
+    )
+    reply = engine.respond("what is gravity", session_id="s1")
+    count = reply.text.lower().count("fundamental force")
+    assert count <= 1, f"Repeated {count} times: {reply.text}"

@@ -298,7 +298,7 @@ class DialogueEngine:
                 summary, is_definition = summarize_entry_scored(
                     candidate.content, candidate.topic
                 )
-                if len(summary) < 60:
+                if len(summary) < 30:
                     continue
                 if is_definition:
                     body = summary
@@ -391,7 +391,12 @@ class DialogueEngine:
         name = self.memory.get_fact("name")
         if name and name.lower() not in body.lower() and len(body) < 80:
             if hash(text) % 4 == 0:
-                body = f"{body[:-1]}, {name}{body[-1]}" if body[-1] in ".!?" else f"{body}, {name}"
+                stripped = body.rstrip(".!? ")
+                tail = body[len(stripped):]
+                if tail:
+                    body = f"{stripped}, {name}{tail.lstrip()[0]}"
+                else:
+                    body = f"{body}, {name}."
 
         # Inject knowledge quirk if the top hit is actually on-topic.
         # DRIFT-only: offering a tangent instead of answering is precisely
@@ -864,6 +869,7 @@ def summarize_entry_scored(
         start_idx = 0
 
     picked: list[str] = [sentences[start_idx]]
+    seen: set[str] = {sentences[start_idx]}
     total = len(sentences[start_idx])
 
     # Append supporting sentences, but only ones still on subject -- this is
@@ -873,11 +879,14 @@ def summarize_entry_scored(
             break
         if total + len(s) + 1 > max_chars:
             break
+        if s in seen:
+            continue
         if topic_words and not _mentions_topic(s, topic_words):
             continue
         if _is_list_debris(s):
             continue
         picked.append(s)
+        seen.add(s)
         total += len(s) + 1
 
     return _synthesize(picked), is_definition
@@ -1080,6 +1089,18 @@ _NO_SUBJECT = _FILLER | {
     "enough", "everything", "everybody", "everyone", "somebody",
     "someone", "nobody", "for", "into", "also", "too", "very",
     "just", "even", "only", "still", "already", "yet",
+    # Conversational pushback — "you're lying" is disagreement, not a topic.
+    "lying", "wrong", "right", "correct", "incorrect", "joking",
+    "kidding", "serious", "liar", "shut", "quiet", "bull", "bullshit",
+    "way", "nope", "nah",
+    # Meta-conversational verbs — "can you elaborate" is a request, not a topic.
+    "elaborate", "clarify", "repeat", "rephrase", "simplify",
+    "expand", "specify", "summarize", "recap",
+    # Imperative verbs not already in _FILLER.
+    "show", "bring", "send",
+    # Abstract conversational nouns — "interesting perspective" is a reaction.
+    "perspective", "opinion", "thought", "thoughts", "view", "views",
+    "take", "stance", "side", "question", "answer", "response",
 }
 
 # Turns that only make sense against what was just said.
@@ -1282,13 +1303,6 @@ def follow_up_reply(context: dict | None = None) -> str:
     return "Follow up on what? You haven't given me anything yet."
 
 
-# Social words that must never appear as the subject of a "blank on X" reply.
-_DESCRIBE_FILTER = frozenset({
-    "lol", "lmao", "lmfao", "omg", "wtf", "haha", "hehe", "hmm",
-    "wow", "huh", "yikes", "oof", "oops", "rofl", "smh", "ikr",
-})
-
-
 def describe_unknown(text: str) -> str:
     """An in-character admission of ignorance that still names the subject.
 
@@ -1299,7 +1313,7 @@ def describe_unknown(text: str) -> str:
     """
     words = [
         w for w in extract_keywords(text)
-        if len(w) > 2 and w.lower() not in _DESCRIBE_FILTER
+        if len(w) > 2 and w.lower() not in _NO_SUBJECT
     ]
     subject = " ".join(words[:3]) if words else ""
 
