@@ -107,6 +107,11 @@ def test_split_subjects_refuses_to_guess_at_one():
     assert split_subjects("") == []
 
 
+def test_split_subjects_short_acronyms():
+    """Two-letter acronyms like AI and ML should be valid comparison subjects."""
+    assert split_subjects("AI vs ML") == ["AI", "ML"]
+
+
 def test_subject_of_drops_the_trailing_verb_phrase():
     """The subject is what to look up; the rest is what to look for."""
     assert subject_of("why does photosynthesis need light") == "photosynthesis"

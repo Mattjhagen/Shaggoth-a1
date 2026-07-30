@@ -283,3 +283,30 @@ def test_chunk_title_tokens_exclude_part_suffix(tmp_path):
     kb.add_entry("Gravity Part 2", "Gravity is a force. " + ("gravity " * 200))
     tokens = kb._topic_tokens(kb._entries[0])
     assert "part" not in tokens
+
+
+# --------------------------------------------------------------------------
+# Relevance: 2-letter acronyms must not be dropped
+# --------------------------------------------------------------------------
+
+
+def test_two_letter_acronym_is_relevant():
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    assert knowledge_is_relevant("AI", "what is AI")
+
+
+def test_two_letter_acronym_topic_tokens():
+    from shaggoth.dialogue.engine import _topic_tokens_for
+
+    tokens = _topic_tokens_for("AI")
+    assert "ai" in tokens
+
+
+def test_short_stopwords_excluded_from_topic_tokens():
+    from shaggoth.dialogue.engine import _topic_tokens_for
+
+    tokens = _topic_tokens_for("History of Art")
+    assert "of" not in tokens
+    assert "history" in tokens
+    assert "art" in tokens

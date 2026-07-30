@@ -56,7 +56,7 @@ def extract_topic_query(text: str) -> str | None:
             # Clean up the topic — remove trailing punctuation, pronouns
             topic = re.sub(r"[?.!,;:]+$", "", topic).strip()
             topic = re.sub(r"\b(?:please|thanks|thank you)\b", "", topic, flags=re.IGNORECASE).strip()
-            if len(topic) > 3:
+            if len(topic) > 1:
                 return topic
 
     # Bare noun fallback: a short phrase whose words are all content words is

@@ -235,6 +235,23 @@ class ConversationFlowTests(unittest.TestCase):
         self.assertFalse(is_follow_up("what about quantum computing"))
         self.assertFalse(is_follow_up("what about the new telescope?"))
 
+    def test_describe_unknown_no_research_promise_when_flag_false(self):
+        for _ in range(20):
+            result = describe_unknown("what is quantum computing", researching=False)
+            self.assertNotIn("research", result.lower())
+            self.assertNotIn("looking into", result.lower())
+            self.assertNotIn("reading up", result.lower())
+            self.assertNotIn("pulling information", result.lower())
+
+    def test_describe_unknown_promises_research_by_default(self):
+        found_research = False
+        for _ in range(50):
+            result = describe_unknown("what is quantum computing")
+            if "research" in result.lower() or "looking into" in result.lower():
+                found_research = True
+                break
+        self.assertTrue(found_research)
+
 
 if __name__ == "__main__":
     unittest.main()

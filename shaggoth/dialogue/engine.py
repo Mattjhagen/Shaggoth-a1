@@ -378,7 +378,7 @@ class DialogueEngine:
                 if generated:
                     body, source = generated, "model"
             except GenerationError as exc:
-                body, source = str(exc), "error"
+                log.warning("GPT generation failed: %s", exc)
 
         # 5c. Markov generation is DRIFT-only and runs only when GPT is absent.
         # The model stitches fragments from unrelated articles and cannot hold a
@@ -512,8 +512,8 @@ class DialogueEngine:
             polished = _gpt.generate_chat(
                 user_message=question,
                 knowledge_context=(
-                    f"Answer these facts in your own words (do not add new "
-                    f"information):\n{raw_answer}"
+                    f"Rephrase these facts naturally — connect ideas, but "
+                    f"stay grounded in what's here:\n{raw_answer}"
                 ),
                 personality_context=personality_context,
                 max_tokens=400,
@@ -631,6 +631,11 @@ _FILLER = {
     "want", "need", "like", "make", "let", "get", "one", "some", "any",
     "more", "much", "many", "good", "bad", "new", "old", "now", "then",
 }
+
+_SHORT_STOPWORDS = frozenset({
+    "an", "as", "at", "be", "by", "do", "go", "he", "if", "in", "is",
+    "it", "me", "my", "no", "of", "on", "or", "so", "to", "up", "us", "we",
+})
 
 _QUESTION_HINT = re.compile(
     r"\b(what|who|when|where|why|how|which|does|did|can you|could you|"
@@ -765,7 +770,7 @@ def _topic_tokens_for(topic: str) -> set[str]:
     """Meaningful words from an article title."""
     return {
         t for t in re.split(r"[^a-z0-9]+", (topic or "").lower())
-        if len(t) > 2 and t not in _FILLER
+        if len(t) > 1 and t not in _FILLER and t not in _SHORT_STOPWORDS
     }
 
 
@@ -1222,6 +1227,12 @@ _NO_SUBJECT = _FILLER | {
     # Abstract conversational nouns — "interesting perspective" is a reaction.
     "perspective", "opinion", "thought", "thoughts", "view", "views",
     "take", "stance", "side", "question", "answer", "response",
+    # 2-letter noise: function words, interjections, and fillers that are
+    # never topics on their own. Acronyms like AI, UK, EU are NOT listed
+    # because they ARE legitimate subjects.
+    "go", "ha", "ah", "oh", "um", "uh", "hm", "sh", "aw", "ew",
+    "if", "at", "as", "by", "so", "or", "to", "in", "on", "up",
+    "an", "of", "we", "us", "he",
 }
 
 # Turns that only make sense against what was just said.
@@ -1316,7 +1327,7 @@ def has_subject(text: str) -> bool:
         w.strip(".,;:!?’\"’‘“”").lower()
         for w in stripped.split()
     }
-    return bool({w for w in words if len(w) > 2} - _NO_SUBJECT)
+    return bool({w for w in words if len(w) > 1} - _NO_SUBJECT)
 
 
 # A message opening with a social reaction word ("lol", "haha") is a reaction
@@ -1411,7 +1422,7 @@ def last_subject(context: dict | None = None) -> str:
             w.strip(".,;:!?'\"").lower()
             for w in text.split()
         ]
-        subject = [w for w in words if len(w) > 3 and w not in _NO_SUBJECT]
+        subject = [w for w in words if len(w) > 1 and w not in _NO_SUBJECT]
         if subject:
             return " ".join(subject[:3])
     return ""
@@ -1453,13 +1464,12 @@ def follow_up_reply(context: dict | None = None) -> str:
     return "Follow up on what? Give me a starting point."
 
 
-def describe_unknown(text: str) -> str:
+def describe_unknown(text: str, researching: bool = True) -> str:
     """An in-character admission of ignorance that still names the subject.
 
-    A single canned sentence made every gap sound identical and robotic. These
-    vary, stay in voice, and -- because the turn is about to trigger curiosity
-    research -- honestly signal that the gap is being closed rather than just
-    apologising for it.
+    When *researching* is True (the default), the reply promises that
+    curiosity research is underway. When False, it admits the gap without
+    making a promise the system cannot keep.
     """
     defn_match = _DEFINITION_QUERY.match((text or "").strip())
     if defn_match:
@@ -1467,7 +1477,7 @@ def describe_unknown(text: str) -> str:
     else:
         words = [
             w for w in extract_keywords(text)
-            if len(w) > 2 and w.lower() not in _NO_SUBJECT
+            if len(w) > 1 and w.lower() not in _NO_SUBJECT
         ]
         subject = " ".join(words[:3]) if words else ""
 
@@ -1481,20 +1491,30 @@ def describe_unknown(text: str) -> str:
         ]
         return _rng.choice(blanks)
 
-    known = [
-        f"I don't have anything on {subject} yet. I'm going to research it "
-        f"now — ask me again in a bit and I'll have a real answer.",
-        f"{subject} — that's a gap in my knowledge. I'm looking into it right "
-        f"now. Come back shortly.",
-        f"Nothing on {subject} yet. I'd rather admit that than make something "
-        f"up. Researching it now.",
-        f"Don't know {subject} well enough to answer honestly. I'm reading up "
-        f"on it — give me a minute.",
-        f"{subject} isn't in my knowledge base yet, but it will be soon. "
-        f"I'm pulling information on it now.",
-        f"Blank on {subject}. Fixing that — I'm researching it as we speak.",
-    ]
-    return _rng.choice(known)
+    if researching:
+        pool = [
+            f"I don't have anything on {subject} yet. I'm going to research it "
+            f"now — ask me again in a bit and I'll have a real answer.",
+            f"{subject} — that's a gap in my knowledge. I'm looking into it right "
+            f"now. Come back shortly.",
+            f"Nothing on {subject} yet. I'd rather admit that than make something "
+            f"up. Researching it now.",
+            f"Don't know {subject} well enough to answer honestly. I'm reading up "
+            f"on it — give me a minute.",
+            f"{subject} isn't in my knowledge base yet, but it will be soon. "
+            f"I'm pulling information on it now.",
+            f"Blank on {subject}. Fixing that — I'm researching it as we speak.",
+        ]
+    else:
+        pool = [
+            f"I don't have anything on {subject} right now.",
+            f"{subject} — that's a gap in what I know.",
+            f"Nothing on {subject} yet. I'd rather admit that than make "
+            f"something up.",
+            f"Don't know {subject} well enough to answer honestly.",
+            f"Blank on {subject}. That's all I've got.",
+        ]
+    return _rng.choice(pool)
 
 
 _GREETING_OPENERS = [
@@ -1619,12 +1639,15 @@ def _content_words(text: str) -> set[str]:
     return {
         w.lower()
         for w in extract_keywords(text)
-        if len(w) > 2 and w.lower() not in _FILLER
+        if len(w) > 1 and w.lower() not in _FILLER
     }
 
 
 def _topic_words(topic: str) -> set[str]:
-    return {t for t in re.split(r"[^a-z0-9]+", topic.lower()) if len(t) > 2}
+    return {
+        t for t in re.split(r"[^a-z0-9]+", topic.lower())
+        if len(t) > 1 and t not in _SHORT_STOPWORDS
+    }
 
 
 def knowledge_is_relevant(topic: str, text: str, content: str = "") -> bool:

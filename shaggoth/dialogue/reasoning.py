@@ -152,7 +152,7 @@ def split_subjects(question: str) -> list:
         parts = re.split(joiner, text, maxsplit=1, flags=re.I)
         if len(parts) == 2:
             left, right = (p.strip(" ?.,") for p in parts)
-            if left and right and len(left) > 2 and len(right) > 2:
+            if left and right and len(left) > 1 and len(right) > 1:
                 return [left, right]
     return []
 
@@ -294,8 +294,17 @@ _QUESTION_WORDS = {
 }
 
 
+_TOPIC_STOPWORDS = frozenset({
+    "an", "as", "at", "be", "by", "do", "go", "he", "if", "in", "is",
+    "it", "me", "my", "no", "of", "on", "or", "so", "to", "up", "us", "we",
+})
+
+
 def _topic_words(text: str) -> set:
-    return {w for w in re.split(r"[^a-z0-9]+", (text or "").lower()) if len(w) > 2}
+    return {
+        w for w in re.split(r"[^a-z0-9]+", (text or "").lower())
+        if len(w) > 1 and w not in _TOPIC_STOPWORDS
+    }
 
 
 # -- the reasoner ----------------------------------------------------------

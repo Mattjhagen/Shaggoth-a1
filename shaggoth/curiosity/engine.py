@@ -127,7 +127,7 @@ class CuriosityEngine:
     def knows_topic(self, topic: str) -> bool:
         """True when an entry actually *about* ``topic`` already exists."""
         wanted = {
-            w for w in extract_keywords_from_topic(topic) if len(w) > 2
+            w for w in extract_keywords_from_topic(topic) if len(w) > 1
         }
         if not wanted:
             return False
