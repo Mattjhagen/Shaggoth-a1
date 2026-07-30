@@ -47,11 +47,15 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
     (re.compile(r"(?i)\bmy name is (\w+)"), [
         "{0}. Noted. Now that we're past introductions, what do you actually want to know?",
         "Alright, {0}. I'll remember that. What's on your mind?",
+        "{0} — got it. So what are we talking about?",
+        "Good to meet you, {0}. I work better with a topic than with small talk.",
     ]),
     (re.compile(r"(?i)\b(hello|hi|hey|howdy|yo)\b"), [
         "Hey. What do you want to know?",
         "Hey. I've got a head full of research — pick a topic.",
         "What's on your mind?",
+        "Hello. I've been reading — test me on something.",
+        "Hey. Ask me something or tell me what you're working on.",
     ]),
     # --- Self-awareness -----------------------------------------------
     #
@@ -108,6 +112,8 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
     (re.compile(r"(?i)^i need (?!(?:to |you |help |a |an |the |some |info)(?:\w))(.+)"), [
         "What do you need {0} for? Context helps me give you something useful.",
         "Alright — what's the actual situation with {0}?",
+        "Tell me more about {0}. What are you trying to do?",
+        "Okay — {0}. What's the context?",
     ]),
     (re.compile(r"(?i)\bi(?:'m| am) (?:feeling |so |really )?(sad|unhappy|depressed|down|anxious|stressed)\b"), [
         "Sorry you're feeling {0}. I'm not a therapist, but I can listen. What's going on?",
@@ -120,10 +126,14 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
     (re.compile(r"(?i)\bi(?:'m| am) building (.+)"), [
         "Now we're talking. What's the hardest part of {0} so far?",
         "{0} — tell me more. What's the architecture? What's breaking?",
+        "Interesting. How far along is {0}?",
+        "What stack are you using for {0}?",
     ]),
     (re.compile(r"(?i)\bi (?:like|love|enjoy) (.+)"), [
         "What specifically about {0}? I'm curious what draws you to it.",
         "Good taste or bad taste? Tell me what you like about {0}.",
+        "What got you into {0}?",
+        "{0} — that's a subject I could get into. What angle interests you most?",
     ]),
     (re.compile(r"(?i)^i think (.+)"), [
         "Interesting claim. What's your evidence for {0}?",
@@ -154,6 +164,8 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "Good. What's next?",
         "Right. Anything else you want to dig into?",
         "Noted. Keep going or ask me something new.",
+        "Want to go deeper on that, or switch topics?",
+        "Alright. Where do you want to take this?",
     ]),
     # Generic social meta-question fallback — only reached for questions that
     # have no real content words (has_subject=False routes here first).
@@ -166,10 +178,14 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "Great — tell me more.",
         "Okay. What's next?",
         "Right then — go on.",
+        "Good. Keep going.",
+        "Alright, what else?",
     ]),
     (re.compile(r"(?i)\b(no|nope|nah)\b\.?$"), [
         "Fair enough. Why not?",
         "Okay — what would change your mind?",
+        "Alright. Different topic then?",
+        "No? Okay. What would you rather talk about?",
     ]),
     # Social check-in — "how are you?", "how's it going?"
     (re.compile(r"(?i)\bhow are you\b|\bhow(?:'s| is) (?:it going|things|everything|life)\b"), [
@@ -235,16 +251,22 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "I know. What's next?",
         "Noted. Keep going.",
         "Right? Ask me something else.",
+        "Want to know more about it?",
+        "There's usually more to it. Want the details?",
     ]),
     # Wait / hold on — pause request
     (re.compile(r"(?i)^(?:wait|hold on|hang on|one sec|one second|one moment|just a sec)[.!]*$"), [
         "I'll be here. Take your time.",
         "Waiting. Not like I have anywhere to be.",
+        "No rush. I'm patient by design.",
+        "Take your time. I'll keep thinking.",
     ]),
     # Interjections / fillers — "ugh", "sigh", "meh", "bruh"
     (re.compile(r"(?i)^(?:ugh+|sigh|meh|bleh|pfft|bruh|dude|man|bro|hmm+|huh)[.!?]*$"), [
         "Eloquent. Got a question in there?",
         "I'll take that as thinking out loud. Ready when you are.",
+        "Take your time. I can wait.",
+        "Processing. Let me know when words happen.",
     ]),
     # Confusion / not knowing — "I don't know", "I have no idea"
     (re.compile(r"(?i)^(?:i (?:don'?t|do not) know|i have no (?:idea|clue)|"
@@ -289,6 +311,8 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "Noted. What else is on your mind?",
         "I'll take that. Got a question?",
         "Fair. Anything you actually want to know?",
+        "Appreciate that. What's next?",
+        "Good. Want to explore something related?",
     ]),
 ]
 
@@ -298,6 +322,8 @@ FALLBACKS = [
     "Interesting direction. Keep going.",
     "I need more context. What specifically?",
     "Go on — I'm listening, but I need more to give you a real answer.",
+    "Give me a subject and I'll work with it.",
+    "I can do more with a specific topic. What are you curious about?",
 ]
 
 SOCIAL_QUESTION_RESPONSES = [
@@ -306,6 +332,8 @@ SOCIAL_QUESTION_RESPONSES = [
     "What's the actual question? The more specific you are, the better my answer gets.",
     "I'd rather give you a real answer than a vague one — what's the subject?",
     "Before I take a shot at that — what do you already know?",
+    "That could go a dozen directions. Which one are you interested in?",
+    "Good question shape, but I need a topic. What are we talking about?",
 ]
 
 
@@ -332,7 +360,7 @@ class PatternEngine:
         Only fires after :meth:`respond` returns None, so specific patterns
         (opinion requests, clarifications, etc.) always win.
         """
-        if re.search(r"(?i)^(?:why|how|what|when|where|who)\b.*\?$", text):
+        if re.search(r"(?i)^(?:why|how|what|when|where|who)\b.*\??$", text):
             return self.rng.choice(SOCIAL_QUESTION_RESPONSES)
         return None
 
