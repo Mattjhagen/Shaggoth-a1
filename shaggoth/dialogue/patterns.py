@@ -129,7 +129,7 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "Interesting claim. What's your evidence for {0}?",
         "That's a position. What makes you confident about {0}?",
     ]),
-    (re.compile(r"(?i)^can you (?!(?:explain|tell|describe|show|help|find|search|look|give|teach|write|code|build|create|make|calculate|solve|convert|summarize|define|clarify|elaborate|believe|imagine)\b)(.+)\?*$"), [
+    (re.compile(r"(?i)^can you (?!(?:explain|tell|describe|show|help|find|search|look|give|teach|write|code|build|create|make|calculate|solve|convert|summarize|define|clarify|elaborate|believe|imagine|compare|contrast|list|name)\b)(.+)\?*$"), [
         "Maybe. Depends on what exactly you mean by {0}. Be specific and I'll tell you.",
         "Worth trying. What exactly did you have in mind with {0}?",
     ]),

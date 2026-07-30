@@ -152,6 +152,7 @@ class DialogueEngine:
         self._recalled: dict[str, set[int]] = {}
         self.deferred_questions = deferred_questions
         self.push_sender = push_sender
+        self.curiosity_available = False
 
     def respond(self, text: str, session_id: str = "default", mode=None) -> Reply:
         """Answer ``text``.
@@ -398,7 +399,7 @@ class DialogueEngine:
             if is_follow_up(text):
                 body, source = self._gpt_follow_up(text, context, personality_context)
             elif _looks_like_question(text):
-                body = describe_unknown(text)
+                body = describe_unknown(text, researching=self.curiosity_available)
                 source = "fallback"
             else:
                 # A statement ("the sky is blue", "dogs are better than
@@ -1106,7 +1107,7 @@ def markov_is_usable(generated: str, prompt_text: str) -> bool:
     if digit_tokens > 1 or digit_tokens / len(words) > 0.1:
         return False
 
-    asked = {w.lower().strip(".,;:!?") for w in prompt_text.split()}
+    asked = {w.lower().strip(".,;:!?()") for w in prompt_text.split()}
     foreign = [p for p in _proper_nouns(text) if p and p.lower() not in asked]
     # More than one unrequested proper noun is the signature of stitched-together
     # fragments rather than a single coherent thought.
@@ -1119,7 +1120,7 @@ def markov_is_usable(generated: str, prompt_text: str) -> bool:
     # "fallback" is what triggers curiosity research in server.py. Leaking
     # nonsense through as source="model" silently suppressed that research and
     # is why total_episodes sat at 0.
-    content = {w for w in asked if len(w) > 3} - _FILLER
+    content = {w for w in asked if len(w) > 1 and w not in _SHORT_STOPWORDS} - _FILLER
     if not content:
         # The prompt carried no content word at all ("you", "hi", "ofjds").
         # There is nothing for the output to be *about*, so relevance cannot
@@ -1354,7 +1355,12 @@ def is_follow_up(text: str) -> bool:
     text = (text or "").strip()
     if _FOLLOW_UP.search(text) or _ANAPHORIC.search(text):
         return True
-    return bool(_SOCIAL_PREFIX_RE.match(text))
+    m = _SOCIAL_PREFIX_RE.match(text)
+    if m:
+        remainder = text[m.end():].strip()
+        from ..curiosity.topics import extract_topic_query
+        return extract_topic_query(remainder) is None
+    return False
 
 
 _CHITCHAT_REPLIES = (

@@ -29,7 +29,9 @@ TOPIC_PATTERNS: list[re.Pattern] = [
 _CONVERSATIONAL = frozenset(
     "hello hi hey howdy yo sup greetings bye goodbye cya seeya "
     "lol lmao haha hah heh wow omg wtf nah yep nope ok okay sure "
-    "please thanks stop quit help".split()
+    "please thanks stop quit help "
+    "seriously really truly actually honestly literally basically "
+    "anyway anyways whatever nevermind".split()
 )
 
 

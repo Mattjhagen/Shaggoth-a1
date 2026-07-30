@@ -235,6 +235,12 @@ class ConversationFlowTests(unittest.TestCase):
         self.assertFalse(is_follow_up("what about quantum computing"))
         self.assertFalse(is_follow_up("what about the new telescope?"))
 
+    def test_social_prefix_with_real_topic_is_not_follow_up(self):
+        """'lol what is quantum computing' should reach the knowledge pipeline."""
+        self.assertFalse(is_follow_up("lol what is quantum computing"))
+        self.assertFalse(is_follow_up("wtf is photosynthesis"))
+        self.assertFalse(is_follow_up("omg tell me about DNA"))
+
     def test_describe_unknown_no_research_promise_when_flag_false(self):
         for _ in range(20):
             result = describe_unknown("what is quantum computing", researching=False)
@@ -248,6 +254,35 @@ class ConversationFlowTests(unittest.TestCase):
         for _ in range(50):
             result = describe_unknown("what is quantum computing")
             if "research" in result.lower() or "looking into" in result.lower():
+                found_research = True
+                break
+        self.assertTrue(found_research)
+
+    def test_engine_without_curiosity_does_not_promise_research(self):
+        """When curiosity_available is False, the fallback reply must not
+        promise research that will never happen."""
+        engine = make_engine()
+        # Default: curiosity_available is False
+        self.assertFalse(engine.curiosity_available)
+        for _ in range(20):
+            reply = engine.respond("what is quantum computing", session_id="t1")
+            if reply.source == "fallback":
+                self.assertNotIn("research", reply.text.lower())
+                self.assertNotIn("looking into", reply.text.lower())
+                self.assertNotIn("reading up", reply.text.lower())
+
+    def test_engine_with_curiosity_flag_promises_research(self):
+        """When curiosity_available is True, fallback replies may promise
+        research."""
+        engine = make_engine()
+        engine.curiosity_available = True
+        found_research = False
+        for _ in range(50):
+            reply = engine.respond("what is quantum computing", session_id="t2")
+            if reply.source == "fallback" and (
+                "research" in reply.text.lower()
+                or "looking into" in reply.text.lower()
+            ):
                 found_research = True
                 break
         self.assertTrue(found_research)

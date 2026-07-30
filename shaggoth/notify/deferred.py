@@ -125,7 +125,11 @@ class DeferredQuestions:
             )
             self._items.append(item)
             if len(self._items) > MAX_PENDING:
-                del self._items[: len(self._items) - MAX_PENDING]
+                # Keep answered-but-undelivered items; trim oldest unanswered.
+                keep = [i for i in self._items if i.answered and not i.delivered]
+                rest = [i for i in self._items if not (i.answered and not i.delivered)]
+                rest = rest[-(MAX_PENDING - len(keep)):]
+                self._items = keep + rest
             self._save()
         return item
 
@@ -137,6 +141,10 @@ class DeferredQuestions:
         Matched on shared words rather than string equality: the question was
         "what is aeroponic farming" and the episode is filed under
         "aeroponic farming", or vice versa.
+
+        Single-word subset matches are rejected: "farming" should not match
+        "organic farming", "factory farming", and every other topic that
+        happens to contain the word.
         """
         wanted = set(_norm(topic).split())
         if not wanted:
@@ -148,7 +156,19 @@ class DeferredQuestions:
                 if item.answered or item.age(now) > self.max_age:
                     continue
                 stored = set(_norm(item.topic).split())
-                if stored and (stored <= wanted or wanted <= stored):
+                if not stored:
+                    continue
+                overlap = stored & wanted
+                if not overlap:
+                    continue
+                # Exact match (after normalization) is always accepted.
+                if stored == wanted:
+                    out.append(item)
+                # Subset match only when the smaller side has 2+ words,
+                # so a single common word doesn't match the whole corpus.
+                elif stored <= wanted and len(stored) >= 2:
+                    out.append(item)
+                elif wanted <= stored and len(wanted) >= 2:
                     out.append(item)
         return out
 

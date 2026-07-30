@@ -917,6 +917,7 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     # Link deferred questions and push notifications to the engine
     engine.deferred_questions = deferred
     engine.push_sender = push
+    engine.curiosity_available = curiosity is not None
 
     def _deliver_deferred(episode) -> None:
         """Answer whatever was waiting on the topic this episode covered.

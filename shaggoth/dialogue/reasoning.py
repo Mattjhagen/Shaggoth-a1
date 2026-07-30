@@ -549,7 +549,7 @@ class Reasoner:
 
     def _causal(self, question: str) -> Optional[Reasoned]:
         subject = subject_of(question)
-        if len(subject) < 3:
+        if len(subject) < 2:
             return None
         steps = [Step("intent", "causal -- looking for explanation, not definition")]
         steps.append(Step("subject", subject))
@@ -611,7 +611,7 @@ class Reasoner:
 
     def _enumerate(self, question: str) -> Optional[Reasoned]:
         subject = subject_of(question)
-        if len(subject) < 3:
+        if len(subject) < 2:
             return None
         steps = [Step("intent", "enumerate -- looking for a list, not a definition")]
         steps.append(Step("subject", subject))
