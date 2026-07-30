@@ -45,7 +45,12 @@ STOPWORDS = frozenset(
     much many lot bit good great nice cool right left back well much
     feel feeling feelings felt happy sad angry tired bored excited stressed
     anxious depressed nervous frustrated lonely scared sick hungry sleepy fine
-    terrible awful wonderful amazing fantastic horrible better worse""".split()
+    terrible awful wonderful amazing fantastic horrible better worse
+    thank thanks thankyou thx sorry apologize goodbye farewell seeya cya
+    bruh dude man bro dang damn yooo meh hmmm hmmmm ugh sigh bleh pfft stfu
+    wait hold whoa cool crazy wild hilarious funny weird strange dumb smart
+    stupid suck sucks lame boring true false real same never mind forget
+    whatever nvm idc care nothing changed help helping whats""".split()
 )
 
 SCHEMA = """

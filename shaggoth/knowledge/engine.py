@@ -26,6 +26,10 @@ class KnowledgeEntry:
 # Titles that denote an index rather than a subject.
 _DISAMBIGUATION_TOPIC = re.compile(r"\bdisambiguation\b", re.I)
 
+# Chunk suffix: "Photosynthesis Part 2" is a continuation, not a standalone
+# article. The base entry should rank above its chunks.
+_CHUNK_SUFFIX = re.compile(r"\bparts?\s+\d+\s*$", re.I)
+
 
 class KnowledgeBase:
     def __init__(self, directory: str | Path | None = None):
@@ -110,8 +114,14 @@ class KnowledgeBase:
     # under that title turned out to be about something else entirely.
     _DISAMBIGUATION_PENALTY = 0.75
 
+    # A chunk entry ("Photosynthesis Part 2") is a continuation, not the
+    # canonical article. The base entry almost always contains the
+    # definition and should rank above its fragments.
+    _CHUNK_PENALTY = 0.85
+
     def _topic_tokens(self, entry: "KnowledgeEntry") -> set[str]:
-        return {t for t in re.split(r"[^a-z0-9]+", entry.topic.lower()) if len(t) > 2}
+        title = _CHUNK_SUFFIX.sub("", entry.topic).strip()
+        return {t for t in re.split(r"[^a-z0-9]+", title.lower()) if len(t) > 2}
 
     def query(self, text: str, limit: int = 3, min_score: float = 0.0) -> list[tuple[KnowledgeEntry, float]]:
         """Rank knowledge entries against ``text`` using BM25 + title boost.
@@ -184,6 +194,9 @@ class KnowledgeBase:
 
             if _DISAMBIGUATION_TOPIC.search(entry.topic):
                 score *= self._DISAMBIGUATION_PENALTY
+
+            if _CHUNK_SUFFIX.search(entry.topic):
+                score *= self._CHUNK_PENALTY
 
             if score > 0:
                 results.append((entry, score))

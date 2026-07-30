@@ -301,3 +301,75 @@ def test_fact_statements_do_not_become_the_conversation_subject():
         {"role": "user", "content": "my name is Matt"},
     ]}
     assert "aeroponics" in last_subject(context)
+
+
+# --------------------------------------------------------------------------
+# Conversational messages that must never reach knowledge retrieval
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text", [
+    "thank you", "thanks", "thanks a lot", "thx",
+    "sorry", "my bad",
+    "goodbye", "see you later", "bye",
+    "help", "help me",
+    "never mind", "forget it", "whatever", "idc",
+    "bruh", "dude", "ugh", "meh", "sigh",
+    "damn", "dang", "hold on", "wait",
+    "for real", "same", "true", "not really",
+    "not much", "nothing much",
+    "youre dumb", "youre awesome", "youre smart",
+    "thats cool", "thats crazy", "thats wild",
+    "I dont know", "I dont care",
+    "whats up",
+    "tell me something interesting",
+    "I changed my mind", "forget about it",
+    "that was fun", "nice one", "good job", "well done",
+    "I agree", "I disagree", "fair enough", "fair point",
+    "you make me laugh", "you crack me up", "good call",
+    "my bad", "good point", "nice work",
+])
+def test_social_and_reactive_messages_have_no_subject(text):
+    assert not has_subject(text), f"{text!r} should not be treated as a lookup"
+
+
+@pytest.mark.parametrize("text", [
+    "what is photosynthesis",
+    "tell me about aeroponics",
+    "who is Albert Einstein",
+    "explain quantum mechanics",
+    "gravity",
+    "what is DNA",
+    "how does evolution work",
+    "tell me about machine learning",
+])
+def test_real_knowledge_questions_still_have_subjects(text):
+    assert has_subject(text), f"{text!r} should be treated as a lookup"
+
+
+def test_social_messages_never_trigger_fallback(engine):
+    """None of these should produce source='fallback', which triggers research."""
+    for text in ("thank you", "sorry", "goodbye", "never mind", "ugh",
+                 "thats cool", "youre awesome", "whats up", "hold on"):
+        reply = engine.respond(text, session_id="s1")
+        assert reply.source != "fallback", f"{text!r} produced fallback: {reply.text}"
+
+
+def test_bare_noun_answers_from_knowledge_when_available(tmp_path):
+    """Typing just 'gravity' should answer from the KB, not claim ignorance."""
+    from shaggoth.memory import MemoryStore
+
+    engine = DialogueEngine(memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
+    engine.knowledge.add_entry(
+        "Gravity",
+        "Gravity is a fundamental force of nature. " * 20,
+    )
+    reply = engine.respond("gravity", session_id="s1")
+    assert reply.source == "knowledge", f"expected knowledge, got {reply.source}: {reply.text}"
+
+
+def test_bare_noun_not_in_kb_still_falls_through(tmp_path):
+    from shaggoth.memory import MemoryStore
+
+    engine = DialogueEngine(memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
+    reply = engine.respond("zorbulon", session_id="s1")
+    assert reply.source == "fallback"

@@ -51,8 +51,8 @@ def _normalize_quotes(text: str) -> str:
         text
         .replace("‘", "'")
         .replace("’", "'")
-        .replace("“", '"')
-        .replace("”", '"')
+        .replace(""", '"')
+        .replace(""", '"')
     )
 
 
@@ -193,13 +193,16 @@ class DialogueEngine:
         if knowledge_hits and self.model and self.model.is_trained():
             snippets = []
             for entry, score in knowledge_hits:
-                # Only inject knowledge that actually matches the question.
-                # Without this check, a Cold War article matched "Are there
-                # Russians in Moscow?" by co-occurrence and GPT reported Cold War
-                # history as the answer to a basic geography question.
                 if not knowledge_is_relevant(entry.topic, text, entry.content):
                     continue
-                snippet = entry.content[:300].strip()
+                # Extract clean prose instead of raw content that may open
+                # with navbox debris or citation scaffolding.
+                snippet = summarize_entry(
+                    entry.content, entry.topic,
+                    max_sentences=3, max_chars=300,
+                )
+                if not snippet:
+                    snippet = entry.content[:300].strip()
                 snippets.append(f"[Knowledge: {entry.topic}] {snippet}")
             if snippets:
                 knowledge_context = "\n".join(snippets) + "\n\n"
@@ -333,10 +336,16 @@ class DialogueEngine:
         # GPT can follow the prompt and stay in character, so it works in both
         # drift and no_drift modes. It's tried whenever the pattern engine and
         # knowledge base haven't produced an answer yet.
+        #
+        # Only when knowledge_context is non-empty: without grounding, GPT
+        # answers from training data and the source becomes "model", which
+        # never triggers curiosity research. The chatbot appears to know the
+        # answer when it actually doesn't — and the corpus never grows.
+        # Letting the turn fall through to "fallback" instead produces the
+        # honest "I haven't looked into that" and kicks off research.
         from ..models.openai_model import OpenAIModel
         _gpt = self.model if isinstance(self.model, OpenAIModel) else None
-        if body is None and _gpt is not None and _gpt.configured:
-            # Build recent conversation history for GPT context.
+        if body is None and _gpt is not None and _gpt.configured and knowledge_context:
             history = [
                 {"role": m["role"], "content": m["content"]}
                 for m in context.get("recent", [])
@@ -366,15 +375,17 @@ class DialogueEngine:
 
         if body is None:
             if is_follow_up(text):
-                # "why?" is not a research topic. Keep it in the conversation
-                # rather than admitting ignorance of the word "why".
                 body = follow_up_reply(context)
                 source = "pattern"
-            else:
-                # Prefer a relevant "I don't know that yet" over a random
-                # canned line, so the answer is at least about what was asked.
+            elif _looks_like_question(text):
                 body = describe_unknown(text)
                 source = "fallback"
+            else:
+                # A statement ("the sky is blue", "dogs are better than
+                # cats") is conversation, not a lookup. Routing it to
+                # describe_unknown produced "Never heard of dogs cats".
+                body = chitchat_reply(text, context)
+                source = "pattern"
 
         # Personalize with remembered name and knowledge.
         name = self.memory.get_fact("name")
@@ -382,13 +393,14 @@ class DialogueEngine:
             if hash(text) % 4 == 0:
                 body = f"{body[:-1]}, {name}{body[-1]}" if body[-1] in ".!?" else f"{body}, {name}"
 
-        # Inject knowledge quirk if relevant. DRIFT-only: offering a tangent
-        # instead of answering is precisely the "never completes a thought"
-        # behaviour, and it has no place in a grounded reply.
+        # Inject knowledge quirk if the top hit is actually on-topic.
+        # DRIFT-only: offering a tangent instead of answering is precisely
+        # the "never completes a thought" behaviour.
         if (drift and not answered_from_knowledge and knowledge_hits
                 and len(body) < 100 and hash(text) % 3 == 0):
-            topic = knowledge_hits[0][0].topic
-            body += f" I just read something about {topic.lower()} — want me to tell you about it?"
+            top_entry = knowledge_hits[0][0]
+            if knowledge_is_relevant(top_entry.topic, text, top_entry.content):
+                body += f" I just read something about {top_entry.topic.lower()} — want me to tell you about it?"
 
         # 6. Topic callback from a past conversation.
         triggers: list[str] = []
@@ -523,9 +535,17 @@ def _looks_like_question(text: str) -> bool:
         return False
     if stripped.endswith("?"):
         return True
-    # Search rather than match: "you tell me a story" and "so what is X" are
-    # information requests even though they do not start with the cue word.
-    return bool(_QUESTION_HINT.search(stripped))
+    if _QUESTION_HINT.search(stripped):
+        return True
+    # A bare noun or short noun phrase ("gravity", "quantum mechanics") is an
+    # implicit lookup even though it lacks question scaffolding. Without this,
+    # typing "gravity" hit fallback despite a matching knowledge entry.
+    # Capped at 2 words: 3-word statements like "its raining outside" are
+    # conversation, not topic lookups.
+    words = stripped.split()
+    if len(words) <= 2 and has_subject(stripped):
+        return True
+    return False
 
 
 # Reference scaffolding that should be scrubbed from otherwise-good prose,
@@ -1027,6 +1047,39 @@ _NO_SUBJECT = _FILLER | {
     "pick", "choose", "decide", "select",
     # Meta-question fillers — "what do you think/mean/feel?" is not a lookup.
     "do", "think", "mean", "feel", "work",
+    # Gratitude, apologies, farewells — social rituals, not topics.
+    "thank", "thanks", "thankyou", "thx", "sorry", "apologize",
+    "goodbye", "farewell", "seeya", "later", "cya", "see", "bye",
+    # Interjections and filler reactions.
+    "bruh", "dude", "man", "bro", "dang", "damn", "yooo", "meh",
+    "hmmm", "hmmmm", "ugh", "sigh", "bleh", "pfft", "stfu",
+    "wait", "hold", "whoa",
+    # Evaluative reactions — "that's cool/crazy/wild" is a reaction, not a query.
+    "cool", "crazy", "wild", "hilarious", "funny", "weird", "strange",
+    "dumb", "smart", "stupid", "suck", "sucks", "lame", "boring",
+    "true", "false", "real", "same",
+    # "never mind" / "forget it" / "whatever" — disengagement, not research.
+    "never", "mind", "forget", "whatever", "nvm", "idc", "care",
+    "nothing", "changed",
+    # Help-seeking — handled by patterns, not knowledge retrieval.
+    "help", "helping",
+    # "what's up" / "not much" — social check-ins.
+    "much", "whats", "not",
+    # Contractions typed without the apostrophe (mobile keyboards, habit).
+    "youre", "theyre", "dont", "doesnt", "didnt", "wont", "cant",
+    "couldnt", "shouldnt", "wouldnt", "isnt", "arent", "wasnt",
+    "werent", "havent", "hasnt", "hadnt", "aint", "thats", "hes",
+    "shes", "whos", "wheres", "whens", "hows",
+    # Evaluative adjectives — "you're awesome" is a reaction, not a topic.
+    "awesome", "incredible", "brilliant", "genius", "interesting",
+    "useless", "worthless", "terrible", "pathetic",
+    # Agreement and disagreement — never a lookup topic.
+    "agree", "disagree", "agreed", "disagreed",
+    # Filler quantities, intensifiers, and prepositions.
+    "lot", "lots", "pretty", "kinda", "sorta", "totally", "completely",
+    "enough", "everything", "everybody", "everyone", "somebody",
+    "someone", "nobody", "for", "into", "also", "too", "very",
+    "just", "even", "only", "still", "already", "yet",
 }
 
 # Turns that only make sense against what was just said.
@@ -1073,6 +1126,21 @@ _FACT_STATEMENT = re.compile(
 )
 
 
+_REACTION = re.compile(
+    r"(?i)^(?:that(?:'s| is| was) (?:fun|nice|great|fine|cool|fair|"
+    r"rough|tough|awkward|awful|sad|bad|good|neat|sweet|sick|dope|lit|"
+    r"insane|bonkers|mental|random|classic|iconic|nuts|huge|wild|crazy|"
+    r"hilarious|intense|epic|brutal|gnarly|fire|legit|valid|peak|based|mid)"
+    r"|(?:nice|good) (?:one|job|stuff|call|move|work)"
+    r"|well done|fair (?:enough|point)|good (?:point|call)"
+    r"|I (?:agree|disagree)(?:\s|$)"
+    r"|(?:you|that) (?:make|made|crack|cracked) me\b.*"
+    r"|my (?:bad|fault|mistake)"
+    r")[.!?]*$",
+    re.I,
+)
+
+
 def has_subject(text: str) -> bool:
     """Whether a message is *about* anything Shaggoth could look up.
 
@@ -1080,8 +1148,10 @@ def has_subject(text: str) -> bool:
     through knowledge retrieval produced the reply "Never heard of wanted
     chat", which is both wrong and rude about a perfectly normal thing to say.
     """
+    if _REACTION.match((text or "").strip()):
+        return False
     words = {
-        w.strip(".,;:!?'\"‘’“”").lower()
+        w.strip(".,;:!?’\"’’""").lower()
         for w in (text or "").split()
     }
     return bool({w for w in words if len(w) > 2} - _NO_SUBJECT)
@@ -1179,9 +1249,28 @@ def last_subject(context: dict | None = None) -> str:
     return ""
 
 
+def _last_assistant_snippet(context: dict | None, limit: int = 80) -> str:
+    """The tail of the most recent assistant response, for follow-up context."""
+    for message in reversed((context or {}).get("recent", [])):
+        if message.get("role") == "assistant":
+            text = (message.get("content") or "").strip()
+            if text:
+                return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+    return ""
+
+
 def follow_up_reply(context: dict | None = None) -> str:
     """A reply to 'why?' / 'go on' that names what is being followed up."""
     subject = last_subject(context)
+    snippet = _last_assistant_snippet(context)
+    if subject and snippet:
+        return _rng.choice((
+            f"On {subject}? I said: \"{snippet}\" — what specifically do you "
+            "want to know more about?",
+            f"On {subject}? Ask me something specific and I'll give you a "
+            "specific answer.",
+            f"Regarding {subject} — what part wasn't clear?",
+        ))
     if subject:
         return (
             f"On {subject}? Ask me something specific and I'll give you a "
