@@ -419,7 +419,7 @@ function appendMsg(role, text, source, flag, meta) {
   div.className = 'msg ' + role;
   let html = '<div class="msg-content">' + esc(text || '') + '</div>';
   const tags = [];
-  if (source && source !== 'pattern') tags.push(source);
+  if (source && source !== 'pattern' && source !== 'model') tags.push(source);
   if (flag && flag !== 'green') tags.push(flag.toUpperCase());
   if (tags.length) html += '<div class="msg-source">' + tags.join(' · ') + '</div>';
 

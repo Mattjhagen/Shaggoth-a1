@@ -196,19 +196,7 @@ class DialogueEngine:
         knowledge_hits = self.knowledge.query(text, limit=6, min_score=0.25)
         knowledge_context = ""
         if knowledge_hits and self.model and self.model.is_trained():
-            snippets = []
-            for entry, score in knowledge_hits:
-                if not knowledge_is_relevant(entry.topic, text, entry.content):
-                    continue
-                snippet = summarize_entry(
-                    entry.content, entry.topic,
-                    max_sentences=3, max_chars=600,
-                )
-                if not snippet:
-                    snippet = entry.content[:600].strip()
-                snippets.append(f"[{entry.topic}]\n{snippet}")
-            if snippets:
-                knowledge_context = "\n\n".join(snippets) + "\n"
+            knowledge_context = self._build_knowledge_context(text, knowledge_hits)
 
         # 3. Plugins.
         plugin_response = self.plugins.dispatch(
@@ -487,6 +475,22 @@ class DialogueEngine:
             )
         return history, summary_extra
 
+    @staticmethod
+    def _build_knowledge_context(query: str, hits) -> str:
+        """Format knowledge hits into a context string for GPT."""
+        snippets = []
+        for entry, _score in hits:
+            if not knowledge_is_relevant(entry.topic, query, entry.content):
+                continue
+            snippet = summarize_entry(
+                entry.content, entry.topic,
+                max_sentences=3, max_chars=600,
+            )
+            if not snippet:
+                snippet = entry.content[:600].strip()
+            snippets.append(f"[{entry.topic}]\n{snippet}")
+        return "\n\n".join(snippets) + "\n" if snippets else ""
+
     # ------------------------------------------------------------------
     def _polish_if_gpt(
         self,
@@ -547,19 +551,7 @@ class DialogueEngine:
             knowledge_context = ""
             if subject and self.knowledge:
                 hits = self.knowledge.query(subject, limit=2)
-                snippets = []
-                for entry, _score in hits:
-                    if not knowledge_is_relevant(entry.topic, subject, entry.content):
-                        continue
-                    snippet = summarize_entry(
-                        entry.content, entry.topic,
-                        max_sentences=3, max_chars=600,
-                    )
-                    if not snippet:
-                        snippet = entry.content[:600].strip()
-                    snippets.append(f"[{entry.topic}]\n{snippet}")
-                if snippets:
-                    knowledge_context = "\n\n".join(snippets) + "\n"
+                knowledge_context = self._build_knowledge_context(subject, hits)
             try:
                 generated = _gpt.generate_chat(
                     user_message=text,
@@ -600,7 +592,7 @@ class DialogueEngine:
                     max_tokens=200,
                 ).strip()
                 if generated:
-                    return generated, "pattern"
+                    return generated, "model"
             except GenerationError:
                 pass
         body = self.patterns.respond(text)

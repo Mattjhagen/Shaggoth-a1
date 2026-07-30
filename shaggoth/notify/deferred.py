@@ -131,8 +131,9 @@ class DeferredQuestions:
                 capacity = max(0, MAX_PENDING - len(keep))
                 rest = rest[-capacity:] if capacity else []
                 self._items = keep + rest
+            retained = any(existing is item for existing in self._items)
             self._save()
-        return item
+        return item if retained else None
 
     # -- resolution -------------------------------------------------------
 

@@ -371,6 +371,7 @@ class GPTConversationTests(unittest.TestCase):
             )
             engine.knowledge = KnowledgeBase(td)
             reply = engine.respond("what is quantum computing", session_id="s1")
+            mock_gpt.generate_chat.assert_called()
             self.assertEqual(reply.source, "fallback")
 
     def test_gpt_statement_without_knowledge_is_model(self):
@@ -383,6 +384,7 @@ class GPTConversationTests(unittest.TestCase):
             )
             engine.knowledge = KnowledgeBase(td)
             reply = engine.respond("the weather is nice today", session_id="s1")
+            mock_gpt.generate_chat.assert_called()
             self.assertNotEqual(reply.source, "fallback")
 
     def test_no_gpt_falls_back_to_patterns(self):
