@@ -83,9 +83,11 @@ class LoudModel:
 def engine_factory(tmp_path):
     def build(mode=DEFAULT_MODE, model=None):
         from shaggoth.memory import MemoryStore
+        from shaggoth.knowledge.engine import KnowledgeBase
 
         return DialogueEngine(
             memory=MemoryStore(str(tmp_path / f"mem-{mode}-{id(model)}.db")),
+            knowledge=KnowledgeBase(tmp_path / f"kb-{mode}-{id(model)}"),
             model=model,
             mode=mode,
         )

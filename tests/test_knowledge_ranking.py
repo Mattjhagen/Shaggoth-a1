@@ -168,3 +168,48 @@ def test_remove_entry_finds_what_add_entry_wrote(tmp_path):
     base.add_entry("- Algebra", "Algebra is a branch of mathematics. " * 30)
     assert base.remove_entry("- Algebra")
     assert base.list_entries() == []
+
+
+# --------------------------------------------------------------------------
+# Chunk fragments: base article must rank above its part-N continuations
+# --------------------------------------------------------------------------
+
+
+def test_base_article_beats_its_chunks(tmp_path):
+    """'Photosynthesis' must rank above 'Photosynthesis Part 2'."""
+    kb = KnowledgeBase(tmp_path)
+    kb.add_entry(
+        "Photosynthesis",
+        "Photosynthesis is a biological process used by plants to convert "
+        "light energy into chemical energy. " + ("photosynthesis plants " * 200),
+    )
+    kb.add_entry(
+        "Photosynthesis Part 2",
+        "Photosynthesis in cyanobacteria uses similar mechanisms. "
+        + ("photosynthesis cyanobacteria " * 200),
+    )
+    kb.add_entry(
+        "Photosynthesis Part 3",
+        "The evolution of photosynthesis changed Earth's atmosphere. "
+        + ("photosynthesis evolution " * 200),
+    )
+    results = kb.query("what is photosynthesis", limit=5)
+    assert results[0][0].topic == "Photosynthesis"
+
+
+def test_chunks_are_still_reachable(tmp_path):
+    """Chunks should rank lower, not disappear."""
+    kb = KnowledgeBase(tmp_path)
+    kb.add_entry("DNA", "DNA is the molecule. " + ("dna genetics " * 200))
+    kb.add_entry("DNA Part 2", "DNA replication. " + ("dna replication " * 200))
+    results = kb.query("what is dna", limit=5)
+    topics = [e.topic.lower() for e, _ in results]
+    assert any("part" in t for t in topics)
+
+
+def test_chunk_title_tokens_exclude_part_suffix(tmp_path):
+    """'Part 2' should not count as title overlap against the query."""
+    kb = KnowledgeBase(tmp_path)
+    kb.add_entry("Gravity Part 2", "Gravity is a force. " + ("gravity " * 200))
+    tokens = kb._topic_tokens(kb._entries[0])
+    assert "part" not in tokens

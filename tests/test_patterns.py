@@ -161,3 +161,54 @@ class TestPatternEngine:
                 outputs.add(out)
         # There are 3 greeting templates; different seeds should surface all
         assert len(outputs) > 1
+
+    # -- New conversational pattern rules -----------------------------------
+
+    def test_thank_you_matches(self):
+        for text in ("thank you", "thanks", "thanks a lot", "thx", "ty"):
+            assert self.engine.respond(text) is not None, text
+
+    def test_sorry_matches(self):
+        for text in ("sorry", "my bad", "I'm sorry"):
+            assert self.engine.respond(text) is not None, text
+
+    def test_farewell_matches(self):
+        for text in ("bye", "goodbye", "see you later", "good night", "gotta go"):
+            assert self.engine.respond(text) is not None, text
+
+    def test_help_request_matches(self):
+        for text in ("help", "help me", "what can you do"):
+            assert self.engine.respond(text) is not None, text
+
+    def test_whats_your_name_matches(self):
+        result = self.engine.respond("what's your name")
+        assert result is not None
+        assert "shaggoth" in result.lower()
+
+    def test_how_old_are_you_matches(self):
+        assert self.engine.respond("how old are you") is not None
+
+    def test_whats_up_matches(self):
+        assert self.engine.respond("what's up") is not None
+
+    def test_never_mind_matches(self):
+        for text in ("never mind", "forget it", "nvm", "whatever", "idc"):
+            assert self.engine.respond(text) is not None, text
+
+    def test_reaction_matches(self):
+        for text in ("that's cool", "no way", "for real", "damn", "oh wow"):
+            assert self.engine.respond(text) is not None, text
+
+    def test_wait_matches(self):
+        for text in ("wait", "hold on", "one sec"):
+            assert self.engine.respond(text) is not None, text
+
+    def test_interjection_matches(self):
+        for text in ("ugh", "sigh", "meh", "bruh", "hmm"):
+            assert self.engine.respond(text) is not None, text
+
+    def test_agreement_praise_reactions_match(self):
+        for text in ("that was fun", "nice one", "good job", "well done",
+                      "I agree", "fair enough", "good point", "my bad",
+                      "you make me laugh"):
+            assert self.engine.respond(text) is not None, text
