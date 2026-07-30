@@ -740,7 +740,7 @@ def _clean_sentences(content: str) -> list[str]:
     out: list[str] = []
     for raw in _SENTENCE_SPLIT.split(_break_navboxes(content.replace("\n", " "))):
         s = _scrub(" ".join(raw.split()))
-        if len(s) < 15 or len(s) > 400:
+        if len(s) < 15 or len(s) > 800:
             continue
         if _NOISE.search(s):
             continue
@@ -1396,7 +1396,7 @@ def chitchat_reply(text: str, context: dict | None = None) -> str:
     if not subject:
         topics = [t for t in (context or {}).get("topics", []) if len(t) > 3][:1]
         subject = topics[0] if topics else ""
-    if subject and _rng.random() < 0.6:
+    if subject and _rng.random() < 0.85:
         return _rng.choice((
             f"We were talking about {subject}. Want to go deeper on that, or "
             f"switch to something new?",

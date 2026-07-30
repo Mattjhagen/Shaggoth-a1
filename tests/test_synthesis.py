@@ -179,3 +179,29 @@ def test_summarizer_keeps_pronoun_continuation():
     )
     summary, _ = summarize_entry_scored(content, "Photosynthesis")
     assert "chloroplasts" in summary or "chemical energy" in summary
+
+
+def test_clean_sentences_accepts_long_encyclopedia_leads():
+    from shaggoth.dialogue.engine import _clean_sentences
+    long_lead = (
+        "Photosynthesis is a system of biological processes by which "
+        "photosynthetic organisms convert light energy into chemical energy "
+        "that can later be released to fuel the organism's activities, and "
+        "involves a complex set of reactions that include the absorption of "
+        "light by proteins containing chlorophylls, the transfer of that energy "
+        "to molecular reaction centers, the production of adenosine triphosphate "
+        "and the reduction of carbon dioxide to organic compounds by a sequence "
+        "of chemical reactions known collectively as the Calvin cycle, which "
+        "takes place in the stroma of the chloroplast and represents the "
+        "primary pathway by which inorganic carbon enters the biological world."
+    )
+    assert len(long_lead) > 400
+    sentences = _clean_sentences(long_lead)
+    assert sentences, "long encyclopedia lead should not be rejected"
+
+
+def test_clean_sentences_still_rejects_very_long_garbage():
+    from shaggoth.dialogue.engine import _clean_sentences
+    garbage = "word " * 200
+    sentences = _clean_sentences(garbage)
+    assert not sentences, "900-char wall of noise should be rejected"

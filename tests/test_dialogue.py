@@ -274,12 +274,15 @@ class ConversationFlowTests(unittest.TestCase):
     def test_engine_with_curiosity_flag_promises_research(self):
         """When curiosity_available is True, describe_unknown receives
         researching=True so fallback replies can promise research."""
+        import tempfile
         from unittest.mock import patch
-        engine = make_engine()
-        engine.curiosity_available = True
-        with patch("shaggoth.dialogue.engine.describe_unknown",
-                   return_value="Researching quantum computing now.") as mock_du:
-            reply = engine.respond("what is quantum computing", session_id="t2")
+        from shaggoth.knowledge.engine import KnowledgeBase
+        with tempfile.TemporaryDirectory() as td:
+            engine = make_engine(knowledge=KnowledgeBase(td))
+            engine.curiosity_available = True
+            with patch("shaggoth.dialogue.engine.describe_unknown",
+                       return_value="Researching zymurgy now.") as mock_du:
+                reply = engine.respond("what is zymurgy", session_id="t2")
         self.assertEqual(reply.source, "fallback")
         mock_du.assert_called_once()
         _args, kwargs = mock_du.call_args
