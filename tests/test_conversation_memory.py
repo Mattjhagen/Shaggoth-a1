@@ -141,7 +141,26 @@ def test_follow_up_reply_names_the_subject():
 
 
 def test_follow_up_reply_without_context_says_so():
-    assert follow_up_reply({}) 
+    assert follow_up_reply({})
+
+
+def test_chitchat_pool_has_variety():
+    """At least 5 unique replies across 30 draws — proves the pool is large."""
+    seen = {chitchat_reply("hey", {}) for _ in range(60)}
+    assert len(seen) >= 5
+
+
+def test_follow_up_pool_has_variety():
+    """Multiple unique follow-up replies for the subject branch."""
+    ctx = {"recent": [{"role": "user", "content": "tell me about aeroponics"}]}
+    seen = {follow_up_reply(ctx) for _ in range(40)}
+    assert len(seen) >= 2
+
+
+def test_follow_up_no_context_pool_has_variety():
+    """Multiple unique replies when there is no prior context."""
+    seen = {follow_up_reply({}) for _ in range(40)}
+    assert len(seen) >= 2
 
 
 # --------------------------------------------------------------------------

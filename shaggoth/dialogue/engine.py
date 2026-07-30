@@ -1247,6 +1247,11 @@ _CHITCHAT_REPLIES = (
     "I'm here. That's about as warm as it gets.",
     "Sure. What about?",
     "Fine by me. Say something worth answering.",
+    "I'm listening. Barely, but I am.",
+    "Right. Whenever you're ready.",
+    "Still here. Still waiting for a question.",
+    "Your move. Ask me something I can actually answer.",
+    "That's nice. Got a question in there somewhere?",
 )
 
 _DELEGATION_RE = re.compile(
@@ -1279,6 +1284,8 @@ def chitchat_reply(text: str, context: dict | None = None) -> str:
             f"We were on {subject}. Still are, unless you've got something better.",
             f"You brought up {subject} earlier. Want to keep pulling on that?",
             f"Last thing you cared about was {subject}. Pick that back up or ask something new.",
+            f"We were talking about {subject}. Got more questions?",
+            f"Still have {subject} loaded up. What else?",
         ))
     return _rng.choice(_CHITCHAT_REPLIES)
 
@@ -1330,14 +1337,23 @@ def follow_up_reply(context: dict | None = None) -> str:
             f"Regarding {subject} — what part wasn't clear?",
         ))
     if subject:
-        return (
+        return _rng.choice((
             f"On {subject}? Ask me something specific and I'll give you a "
-            "specific answer."
-        )
+            "specific answer.",
+            f"Still on {subject}? What do you want to know?",
+            f"We were talking about {subject}. What's the question?",
+        ))
     recent = (context or {}).get("recent", [])
     if any(m.get("role") == "assistant" for m in recent):
-        return "That's as far as I got. Ask me something narrower."
-    return "Follow up on what? You haven't given me anything yet."
+        return _rng.choice((
+            "That's as far as I got. Ask me something narrower.",
+            "I said what I know. What part needs more?",
+            "Need more? Ask a specific question.",
+        ))
+    return _rng.choice((
+        "Follow up on what? You haven't given me anything yet.",
+        "There's nothing to follow up on. Ask me something first.",
+    ))
 
 
 def describe_unknown(text: str) -> str:

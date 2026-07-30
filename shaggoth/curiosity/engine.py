@@ -77,6 +77,7 @@ class CuriosityEngine:
         self._running = False
         self._current_episode: CuriosityEpisode | None = None
         self._lock = threading.Lock()
+        self._queue: list[tuple[CuriosityEpisode, int, int]] = []
         self._history: list[dict] = self._load_history()
         self._completion_hooks: list = []
 
@@ -193,8 +194,12 @@ class CuriosityEngine:
     ) -> None:
         with self._lock:
             if self._running:
-                episode.status = "failed"
-                episode.error = "Already researching"
+                if len(self._queue) < 5:
+                    self._queue.append((episode, max_results, max_pages))
+                    episode.status = "queued"
+                else:
+                    episode.status = "failed"
+                    episode.error = "Research queue full"
                 return
             self._running = True
             self._current_episode = episode
@@ -262,9 +267,13 @@ class CuriosityEngine:
             episode.ended_at = time.time()
             self._history.append(asdict(episode))
             self._save_history()
-            self._running = False
-            self._current_episode = None
+            with self._lock:
+                self._running = False
+                self._current_episode = None
+                queued = self._queue.pop(0) if self._queue else None
             self._fire_completion(episode)
+            if queued:
+                self._run_research(*queued)
 
     def on_episode_complete(self, callback) -> None:
         """Register a callback fired after each research episode ends.
