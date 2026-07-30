@@ -6,6 +6,7 @@ Uses only stdlib (urllib + regex) so no extra deps are needed.
 from __future__ import annotations
 
 import hashlib
+import html as html_mod
 import json
 import re
 import sqlite3
@@ -33,6 +34,12 @@ USER_AGENT = (
 ROBOTS_TTL_SECONDS = 3600
 
 
+def _extract_charset(content_type: str) -> str:
+    """Parse charset from a Content-Type header, defaulting to utf-8."""
+    match = re.search(r"charset=([^\s;]+)", content_type, re.IGNORECASE)
+    return match.group(1).strip().strip("\"'") if match else "utf-8"
+
+
 def _clean_text(text: str) -> str:
     """Collapse whitespace, strip control chars, normalize."""
     text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
@@ -51,22 +58,7 @@ def _html_to_text(html: str) -> str:
     html = re.sub(r"<(?:br|hr|p|div|h[1-6]|li|tr|blockquote)[^>]*>", "\n", html, flags=re.IGNORECASE)
     # Strip all remaining tags
     text = re.sub(r"<[^>]+>", " ", html)
-    # Decode common HTML entities
-    text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-    text = text.replace("&quot;", '"').replace("&#39;", "'").replace("&nbsp;", " ")
-    def _decode_entity(m):
-        try:
-            raw = m.group(1)
-            if raw.startswith(("x", "X")):
-                cp = int(raw[1:], 16)
-            else:
-                cp = int(raw)
-            if 0 < cp < 0x110000 and not (0xD800 <= cp <= 0xDFFF):
-                return chr(cp)
-        except (ValueError, OverflowError):
-            pass
-        return ""
-    text = re.sub(r"&#(x?[0-9a-fA-F]+);", _decode_entity, text)
+    text = html_mod.unescape(text)
     return _clean_text(text)
 
 
@@ -237,15 +229,16 @@ class ScraperEngine:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 raw = resp.read()
                 content_type = resp.headers.get("Content-Type", "")
+                charset = _extract_charset(content_type)
                 if "html" in content_type or "xhtml" in content_type:
-                    html = raw.decode("utf-8", errors="replace")
+                    html = raw.decode(charset, errors="replace")
                     self._last_html = html
                     title = _extract_title(html)
                     text = _html_to_text(html)
                 else:
                     self._last_html = ""
                     title = url.split("/")[-1] or url
-                    text = raw.decode("utf-8", errors="replace")
+                    text = raw.decode(charset, errors="replace")
                     text = _clean_text(text)
 
             content_hash = hashlib.sha256(text.encode()).hexdigest()[:16]
