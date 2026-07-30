@@ -511,3 +511,40 @@ def test_gpt_follow_up_falls_back_without_model(tmp_path):
     engine.respond("what is gravity", session_id="s1")
     reply = engine.respond("why?", session_id="s1")
     assert reply.source == "pattern"
+
+
+def test_polish_if_gpt_rewrites_raw_answer(tmp_path):
+    """_polish_if_gpt should rewrite extractive prose through GPT."""
+    from unittest.mock import MagicMock
+    from shaggoth.memory import MemoryStore
+    from shaggoth.models.openai_model import OpenAIModel
+
+    mock_model = MagicMock(spec=OpenAIModel)
+    mock_model.configured = True
+    mock_model.is_trained.return_value = True
+    mock_model.generate_chat.return_value = "Polished answer about gravity."
+
+    engine = DialogueEngine(
+        memory=MemoryStore(str(tmp_path / "m.db")),
+        model=mock_model,
+        seed=1,
+    )
+    result = engine._polish_if_gpt(
+        "Raw extractive sentences from articles.",
+        "what is gravity",
+    )
+    assert result == "Polished answer about gravity."
+    mock_model.generate_chat.assert_called_once()
+
+
+def test_polish_if_gpt_returns_raw_without_model(tmp_path):
+    """Without GPT, _polish_if_gpt returns the raw answer unchanged."""
+    from shaggoth.memory import MemoryStore
+
+    engine = DialogueEngine(
+        memory=MemoryStore(str(tmp_path / "m.db")),
+        seed=1,
+    )
+    raw = "Raw extractive sentences from articles."
+    result = engine._polish_if_gpt(raw, "what is gravity")
+    assert result == raw

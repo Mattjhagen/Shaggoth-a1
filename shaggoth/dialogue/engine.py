@@ -281,6 +281,7 @@ class DialogueEngine:
                 answered_from_knowledge = True
                 reasoning_steps = reasoned.trace
                 entries_used = reasoned.entries_used
+                body = self._polish_if_gpt(body, text, personality_context)
 
         if body is None and knowledge_hits and _looks_like_question(text) and not is_follow_up(text):
             # Walk the ranked hits and take the first whose *title* actually
@@ -471,6 +472,40 @@ class DialogueEngine:
                     pass  # Push notification is optional
 
         return reply
+
+    # ------------------------------------------------------------------
+    def _polish_if_gpt(
+        self,
+        raw_answer: str,
+        question: str,
+        personality_context: str = "",
+    ) -> str:
+        """Rewrite extractive prose through GPT so it reads naturally.
+
+        Returns the original ``raw_answer`` unchanged when no GPT model is
+        configured or the rewrite call fails.
+        """
+        from ..models.openai_model import OpenAIModel
+        from ..models.base import GenerationError
+
+        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
+        if not (_gpt and _gpt.configured):
+            return raw_answer
+        try:
+            polished = _gpt.generate_chat(
+                user_message=question,
+                knowledge_context=(
+                    f"Answer these facts in your own words (do not add new "
+                    f"information):\n{raw_answer}"
+                ),
+                personality_context=personality_context,
+                max_tokens=400,
+            ).strip()
+            if polished and len(polished) >= 30:
+                return polished
+        except GenerationError:
+            pass
+        return raw_answer
 
     # ------------------------------------------------------------------
     def _gpt_follow_up(
