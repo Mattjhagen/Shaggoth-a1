@@ -414,6 +414,11 @@ def test_meta_requests_have_no_subject(text):
     "define point",
     "explain sense",
     "what was the change",
+    "tell me about work",
+    "tell me what matter is",
+    "describe the mind",
+    "teach me about change",
+    "talk about sense",
 ])
 def test_definition_queries_bypass_no_subject(text):
     """Explicit definition queries should always be treated as lookups."""
