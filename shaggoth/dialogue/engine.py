@@ -1183,6 +1183,12 @@ _REACTION = re.compile(
 )
 
 
+_DEFINITION_QUERY = re.compile(
+    r"(?i)^(?:what (?:is|are|was|were) (?:a |an |the )?|define |explain )"
+    r"(\w[\w\s\-]{0,30}?)\s*[?.!]*$",
+)
+
+
 def has_subject(text: str) -> bool:
     """Whether a message is *about* anything Shaggoth could look up.
 
@@ -1190,11 +1196,14 @@ def has_subject(text: str) -> bool:
     through knowledge retrieval produced the reply "Never heard of wanted
     chat", which is both wrong and rude about a perfectly normal thing to say.
     """
-    if _REACTION.match((text or "").strip()):
+    stripped = (text or "").strip()
+    if _REACTION.match(stripped):
         return False
+    if _DEFINITION_QUERY.match(stripped):
+        return True
     words = {
-        w.strip(".,;:!?’\"’’""").lower()
-        for w in (text or "").split()
+        w.strip(".,;:!?’\"’‘“”").lower()
+        for w in stripped.split()
     }
     return bool({w for w in words if len(w) > 2} - _NO_SUBJECT)
 
@@ -1332,11 +1341,15 @@ def describe_unknown(text: str) -> str:
     research -- honestly signal that the gap is being closed rather than just
     apologising for it.
     """
-    words = [
-        w for w in extract_keywords(text)
-        if len(w) > 2 and w.lower() not in _NO_SUBJECT
-    ]
-    subject = " ".join(words[:3]) if words else ""
+    defn_match = _DEFINITION_QUERY.match((text or "").strip())
+    if defn_match:
+        subject = defn_match.group(1).strip()
+    else:
+        words = [
+            w for w in extract_keywords(text)
+            if len(w) > 2 and w.lower() not in _NO_SUBJECT
+        ]
+        subject = " ".join(words[:3]) if words else ""
 
     if not subject:
         blanks = [

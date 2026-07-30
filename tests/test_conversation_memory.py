@@ -406,6 +406,31 @@ def test_meta_requests_have_no_subject(text):
     assert not has_subject(text), f"{text!r} should not be a lookup"
 
 
+@pytest.mark.parametrize("text", [
+    "what is work",
+    "what is matter",
+    "what is the mind",
+    "what are ideas",
+    "define point",
+    "explain sense",
+    "what was the change",
+])
+def test_definition_queries_bypass_no_subject(text):
+    """Explicit definition queries should always be treated as lookups."""
+    assert has_subject(text), f"{text!r} should be treated as a lookup"
+
+
+@pytest.mark.parametrize("text", [
+    "does that work",
+    "what do you think",
+    "that doesn't matter",
+    "I changed my mind",
+])
+def test_conversational_uses_still_blocked(text):
+    """Non-definition uses of dual-use words should still be chitchat."""
+    assert not has_subject(text), f"{text!r} should not be treated as a lookup"
+
+
 def test_describe_unknown_filters_filler_words():
     """describe_unknown should not include common words in the subject."""
     from shaggoth.dialogue.engine import describe_unknown
