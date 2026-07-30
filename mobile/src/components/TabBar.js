@@ -3,9 +3,9 @@ import { View, TouchableOpacity, Text, Platform } from 'react-native'
 import { colors } from '../theme/colors'
 
 const TABS = [
-  { key: 'home', label: 'Home', icon: '⌂' },
-  { key: 'explore', label: 'Explore', icon: '◈' },
-  { key: 'tools', label: 'Tools', icon: '✦' },
+  { key: 'home', label: 'Home', icon: '🛸' },
+  { key: 'explore', label: 'Explore', icon: '🌌' },
+  { key: 'tools', label: 'Tools', icon: '🔧' },
   { key: 'settings', label: 'Settings', icon: '⚙' },
 ]
 

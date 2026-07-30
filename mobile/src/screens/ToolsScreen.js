@@ -136,8 +136,8 @@ export default function ToolsScreen() {
 
   const tabs = [
     { key: 'learn', label: 'Learn', icon: '🧠' },
-    { key: 'memory', label: 'Memory', icon: '📝' },
-    { key: 'add', label: 'Add', icon: '➕' },
+    { key: 'memory', label: 'Memory', icon: '🛰' },
+    { key: 'add', label: 'Add', icon: '📡' },
   ]
 
   return (

@@ -9,15 +9,15 @@ import Header from '../components/Header'
 import * as api from '../api/shaggoth'
 
 const TOOLS = [
-  { key: 'wiki', icon: '📖', title: 'Wikipedia', desc: 'Look up topics on Wikipedia', category: 'Research' },
-  { key: 'time', icon: '🕐', title: 'Time', desc: 'Get current time info', category: 'Utility' },
+  { key: 'wiki', icon: '🪐', title: 'Wikipedia', desc: 'Look up topics across the galaxy', category: 'Research' },
+  { key: 'time', icon: '⏱', title: 'Time', desc: 'Get current stardate info', category: 'Utility' },
   { key: 'calc', icon: '🔢', title: 'Calculator', desc: 'Evaluate math expressions', category: 'Utility' },
-  { key: 'research', icon: '🔍', title: 'Research', desc: 'Autonomous topic research', category: 'Research' },
-  { key: 'remember', icon: '💾', title: 'Remember', desc: 'Store facts about you', category: 'Memory' },
-  { key: 'teach', icon: '📝', title: 'Teach', desc: 'Add knowledge directly', category: 'Knowledge' },
+  { key: 'research', icon: '🔭', title: 'Research', desc: 'Autonomous topic research', category: 'Research' },
+  { key: 'remember', icon: '💾', title: 'Remember', desc: 'Store facts in memory banks', category: 'Memory' },
+  { key: 'teach', icon: '📡', title: 'Teach', desc: 'Transmit knowledge directly', category: 'Knowledge' },
   { key: 'know', icon: '🧠', title: 'What I Know', desc: 'Query the knowledge base', category: 'Knowledge' },
-  { key: 'learned', icon: '📊', title: 'What I Learned', desc: 'Recent learning history', category: 'Research' },
-  { key: 'facts', icon: '📋', title: 'Recall Facts', desc: 'View stored facts', category: 'Memory' },
+  { key: 'learned', icon: '📊', title: 'What I Learned', desc: 'Recent acquisition history', category: 'Research' },
+  { key: 'facts', icon: '🛰', title: 'Recall Facts', desc: 'View stored data banks', category: 'Memory' },
 ]
 
 const CATEGORIES = ['All', 'Research', 'Knowledge', 'Memory', 'Utility']

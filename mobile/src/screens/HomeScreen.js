@@ -70,64 +70,40 @@ export default function HomeScreen({ onNavigate, connected }) {
         marginBottom: spacing.lg,
       }}>
         <View style={{
-          width: 160,
-          height: 160,
-          borderRadius: 80,
+          width: 170,
+          height: 170,
+          borderRadius: 85,
           backgroundColor: colors.surfaceCard,
           alignItems: 'center',
           justifyContent: 'center',
           borderWidth: 2,
           borderColor: colors.border,
-          shadowColor: colors.primary,
+          shadowColor: colors.green,
           shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.2,
-          shadowRadius: 20,
-          elevation: 10,
+          shadowOpacity: 0.3,
+          shadowRadius: 24,
+          elevation: 12,
         }}>
           <View style={{
-            width: 140,
-            height: 140,
-            borderRadius: 70,
+            width: 148,
+            height: 148,
+            borderRadius: 74,
             backgroundColor: colors.surfaceLight,
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <Text style={{ fontSize: 32, marginBottom: 4 }}>{'👾'}</Text>
-            <View style={{
-              flexDirection: 'row',
-              gap: 16,
-              marginTop: 4,
-            }}>
-              <View style={{
-                width: 14,
-                height: 14,
-                borderRadius: 7,
-                backgroundColor: colors.primary,
-                shadowColor: colors.primary,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.8,
-                shadowRadius: 6,
-              }} />
-              <View style={{
-                width: 14,
-                height: 14,
-                borderRadius: 7,
-                backgroundColor: colors.primary,
-                shadowColor: colors.primary,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.8,
-                shadowRadius: 6,
-              }} />
-            </View>
-            <View style={{
-              width: 20,
-              height: 3,
-              borderRadius: 2,
-              backgroundColor: colors.primaryDim,
-              marginTop: 8,
-            }} />
+            <Text style={{ fontSize: 64 }}>{'👽'}</Text>
           </View>
         </View>
+        <Text style={{
+          color: colors.textDim,
+          fontSize: fontSize.sm,
+          marginTop: spacing.md,
+          letterSpacing: 2,
+          textTransform: 'uppercase',
+        }}>
+          {connected ? 'Uplink Established' : 'Node Offline'}
+        </Text>
       </View>
 
       <View style={{ paddingHorizontal: spacing.lg }}>
@@ -137,16 +113,16 @@ export default function HomeScreen({ onNavigate, connected }) {
           marginBottom: spacing.md,
         }}>
           <FeatureCard
-            icon="💬"
+            icon="🛸"
             title="Chat"
-            subtitle="Smart AI for seamless conversations"
+            subtitle="Transmit messages to the AI core"
             accentColor={colors.primary}
             onPress={() => onNavigate('chat')}
           />
           <FeatureCard
-            icon="📚"
+            icon="🌌"
             title="Knowledge"
-            subtitle="Browse & search the knowledge base"
+            subtitle="Browse the orbital knowledge base"
             accentColor={colors.green}
             onPress={() => onNavigate('knowledge')}
           />
@@ -155,7 +131,7 @@ export default function HomeScreen({ onNavigate, connected }) {
         <FeatureCard
           icon="🧠"
           title="Self-Learn"
-          subtitle="Autonomous web research and knowledge acquisition"
+          subtitle="Autonomous web research & knowledge acquisition"
           accentColor={colors.blue}
           onPress={() => onNavigate('learn')}
           wide

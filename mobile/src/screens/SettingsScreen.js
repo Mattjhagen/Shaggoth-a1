@@ -209,11 +209,12 @@ export default function SettingsScreen() {
         )}
 
         <View style={{ marginTop: spacing.xxxl, alignItems: 'center' }}>
+          <Text style={{ fontSize: 24, marginBottom: spacing.sm }}>{'👽'}</Text>
           <Text style={{ color: colors.textDim, fontSize: fontSize.xs }}>
             Shaggoth AI v1.0.0
           </Text>
           <Text style={{ color: colors.textMuted, fontSize: fontSize.xs, marginTop: spacing.xs }}>
-            Self-hosted conversational AI
+            Orbital AI Command Center
           </Text>
         </View>
       </ScrollView>

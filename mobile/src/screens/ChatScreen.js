@@ -96,12 +96,13 @@ export default function ChatScreen({ onBack }) {
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
         ListEmptyComponent={
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ fontSize: 48, marginBottom: spacing.md }}>{'👽'}</Text>
             <Text style={{
               color: colors.textDim,
               fontSize: fontSize.lg,
               textAlign: 'center',
             }}>
-              Start the conversation!
+              Open a channel to Shaggoth
             </Text>
           </View>
         }
