@@ -222,6 +222,13 @@ def test_enumerating_questions_get_the_list_sentence():
     assert result.intent == Intent.ENUMERATE
 
 
+def test_topic_words_includes_3_char_terms():
+    from shaggoth.dialogue.reasoning import _topic_words
+    words = _topic_words("DNA and RNA sequencing")
+    assert "dna" in words
+    assert "rna" in words
+
+
 def test_reasoner_declines_plain_definitions():
     """Retrieval already handles these; reasoning must not intercept them."""
     assert _reasoner([PHOTO]).reason("what is photosynthesis") is None

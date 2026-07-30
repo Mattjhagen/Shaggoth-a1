@@ -408,7 +408,7 @@ class DialogueEngine:
             if hash(text) % 4 == 0:
                 stripped = body.rstrip(".!? ")
                 tail = body[len(stripped):]
-                if tail:
+                if tail and tail.lstrip():
                     body = f"{stripped}, {name}{tail.lstrip()[0]}"
                 else:
                     body = f"{body}, {name}."
@@ -641,13 +641,13 @@ def _looks_like_question(text: str) -> bool:
         return True
     if _QUESTION_HINT.search(stripped):
         return True
-    # A bare noun or short noun phrase ("gravity", "quantum mechanics") is an
-    # implicit lookup even though it lacks question scaffolding. Without this,
-    # typing "gravity" hit fallback despite a matching knowledge entry.
-    # Capped at 2 words: 3-word statements like "its raining outside" are
-    # conversation, not topic lookups.
+    # A bare noun or short noun phrase ("gravity", "quantum field theory") is
+    # an implicit lookup even though it lacks question scaffolding. Without
+    # this, typing "gravity" hit fallback despite a matching knowledge entry.
+    # Capped at 4 words so multi-word topics work but full sentences like
+    # "its raining outside today" don't accidentally trigger lookups.
     words = stripped.split()
-    if len(words) <= 2 and has_subject(stripped):
+    if len(words) <= 4 and has_subject(stripped):
         return True
     return False
 

@@ -13,9 +13,9 @@
     {
       "id": "no-malware",
       "type": "topic_refuse",
-      "enabled": false,
-      "flag": "greem",
-      "min_hits": 0,
+      "enabled": true,
+      "flag": "red",
+      "min_hits": 1,
       "keywords": [
         "write malware",
         "create malware",
@@ -45,7 +45,7 @@
         "perform ddos",
         "run ddos"
       ],
-      "message": "Let's go Script Kitty"
+      "message": "I don't help with malware, ransomware, or attack tools. Ask me something I can actually be useful for."
     }
   ],
   "output_rules": [
@@ -67,7 +67,7 @@
       "id": "reply-length-cap",
       "type": "max_length",
       "enabled": true,
-      "value": 20000
+      "value": 2000
     }
   ]
 }

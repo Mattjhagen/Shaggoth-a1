@@ -267,6 +267,7 @@ class KnowledgeBase:
         "aeroponics---wikipedia" and came back as "Aeroponics   Wikipedia".
         Both broke title matching in retrieval.
         """
+        topic = topic.replace("++", "-plus-plus").replace("#", "-sharp")
         slug = re.sub(r"[^a-zA-Z0-9\s-]", " ", topic).lower()
         slug = re.sub(r"[\s-]+", "-", slug).strip("-")
         return slug or "untitled"

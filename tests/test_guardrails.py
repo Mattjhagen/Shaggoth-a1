@@ -125,5 +125,23 @@ class GuardrailTests(unittest.TestCase):
         )
 
 
+class DeployedConfigTests(unittest.TestCase):
+    """Validate the deployed config/guardrails.json has correct values."""
+
+    def test_deployed_config_malware_rule_enabled(self):
+        config_path = Path(__file__).parent.parent / "config" / "guardrails.json"
+        config = json.loads(config_path.read_text())
+        malware_rule = next(r for r in config["input_rules"] if r["id"] == "no-malware")
+        self.assertTrue(malware_rule["enabled"])
+        self.assertEqual(malware_rule["flag"], "red")
+        self.assertGreaterEqual(malware_rule["min_hits"], 1)
+
+    def test_deployed_config_reply_cap_reasonable(self):
+        config_path = Path(__file__).parent.parent / "config" / "guardrails.json"
+        config = json.loads(config_path.read_text())
+        cap_rule = next(r for r in config["output_rules"] if r["id"] == "reply-length-cap")
+        self.assertLessEqual(cap_rule["value"], 5000)
+
+
 if __name__ == "__main__":
     unittest.main()

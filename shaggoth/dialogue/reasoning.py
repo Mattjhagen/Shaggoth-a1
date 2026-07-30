@@ -295,7 +295,7 @@ _QUESTION_WORDS = {
 
 
 def _topic_words(text: str) -> set:
-    return {w for w in re.split(r"[^a-z0-9]+", (text or "").lower()) if len(w) > 3}
+    return {w for w in re.split(r"[^a-z0-9]+", (text or "").lower()) if len(w) > 2}
 
 
 # -- the reasoner ----------------------------------------------------------
