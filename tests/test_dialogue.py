@@ -338,6 +338,28 @@ class GPTConversationTests(unittest.TestCase):
         self.assertNotEqual(reply.source, "fallback")
         mock_gpt.generate_chat.assert_called()
 
+    def test_gpt_synthesizes_knowledge_instead_of_extracting(self):
+        """With GPT configured, knowledge questions go through GPT for
+        natural synthesis rather than the old extract-and-quote pipeline."""
+        import tempfile
+        from shaggoth.knowledge.engine import KnowledgeBase
+        with tempfile.TemporaryDirectory() as td:
+            engine, mock_gpt = self._make_gpt_engine(
+                "Photosynthesis is how plants convert sunlight into energy — "
+                "pretty fundamental to life on Earth."
+            )
+            kb = KnowledgeBase(td)
+            kb.add_entry("Photosynthesis",
+                         "Photosynthesis is the process by which plants convert light. " * 20)
+            engine.knowledge = kb
+            reply = engine.respond("what is photosynthesis", session_id="s1")
+            # GPT should have been called with knowledge context
+            mock_gpt.generate_chat.assert_called()
+            call_kwargs = mock_gpt.generate_chat.call_args
+            self.assertIn("Photosynthesis", call_kwargs.kwargs.get("knowledge_context", ""))
+            # The reply should be the GPT output, not extracted text
+            self.assertIn("pretty fundamental", reply.text)
+
     def test_gpt_question_without_knowledge_is_fallback(self):
         """A question GPT can't ground in knowledge should still source='fallback'
         so curiosity research triggers."""

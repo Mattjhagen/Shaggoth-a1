@@ -287,18 +287,44 @@ class DialogueEngine:
                 entries_used = reasoned.entries_used
                 body = self._polish_if_gpt(body, text, personality_context)
 
+        # 5b. GPT generation — the primary conversational engine when
+        # available. GPT handles everything: greetings, self-awareness,
+        # chitchat, AND knowledge questions. When knowledge_context is
+        # present, GPT synthesizes a natural answer from it rather than
+        # the old extract-and-quote pipeline.
+        from ..models.openai_model import OpenAIModel
+        from ..models.base import GenerationError
+        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
+        if body is None and _gpt is not None and _gpt.configured:
+            history, summary_extra = self._build_history_context(context)
+            try:
+                generated = _gpt.generate_chat(
+                    user_message=text,
+                    knowledge_context=knowledge_context,
+                    conversation_history=history,
+                    personality_context=personality_context,
+                    system_extra=summary_extra,
+                ).strip()
+                if generated:
+                    body = generated
+                    if knowledge_context:
+                        source = "model"
+                        answered_from_knowledge = True
+                        entries_used = [
+                            e.topic for e, _ in knowledge_hits
+                            if knowledge_is_relevant(e.topic, text, e.content)
+                        ]
+                    elif _looks_like_question(text) and not _is_about_self(text):
+                        source = "fallback"
+                    else:
+                        source = "model"
+            except GenerationError as exc:
+                log.warning("GPT generation failed: %s", exc)
+
+        # 5b-fallback. Knowledge extraction without GPT — walks the ranked
+        # hits and extracts a definition or summary sentence directly.
+        # Only runs when GPT is absent or failed.
         if body is None and knowledge_hits and _looks_like_question(text) and not is_follow_up(text):
-            # Walk the ranked hits and take the first whose *title* actually
-            # matches the question. Rank alone is not evidence of relevance:
-            # scores are normalized, so the top hit is always 1.0 even when
-            # every candidate is off-topic.
-            #
-            # Two passes, and the order matters. Several articles can share a
-            # title -- "DNA" the molecule and "DNA²" the manga both match the
-            # word "dna" -- so a first pass takes only a candidate that yields
-            # an actual *definition*, and the lenient pass runs only if no
-            # candidate defines anything. Without the split, whichever
-            # off-subject article happened to rank highest answered first.
             best_loose = None
             best_loose_topic = None
             for candidate, _score in knowledge_hits:
@@ -344,42 +370,6 @@ class DialogueEngine:
                     f"lookup: {best_loose_topic}",
                     "select: best non-definitional sentence",
                 ]
-
-            if answered_from_knowledge and body:
-                body = self._polish_if_gpt(body, text, personality_context)
-
-        # 5b. GPT generation — the primary conversational engine when
-        # available. GPT handles everything the pattern engine used to:
-        # greetings, self-awareness, chitchat, AND knowledge questions.
-        # Patterns are the fallback for when GPT is absent.
-        from ..models.openai_model import OpenAIModel
-        from ..models.base import GenerationError
-        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
-        if body is None and _gpt is not None and _gpt.configured:
-            history, summary_extra = self._build_history_context(context)
-            try:
-                generated = _gpt.generate_chat(
-                    user_message=text,
-                    knowledge_context=knowledge_context,
-                    conversation_history=history,
-                    personality_context=personality_context,
-                    system_extra=summary_extra,
-                ).strip()
-                if generated:
-                    body = generated
-                    # With knowledge context, GPT is grounded — it's a real
-                    # answer. Without it, GPT is conversing but the question
-                    # may need research, so mark as "fallback" to trigger
-                    # curiosity. Non-questions (chitchat, self-awareness) get
-                    # "model" since there's nothing to research.
-                    if knowledge_context:
-                        source = "model"
-                    elif _looks_like_question(text) and not _is_about_self(text):
-                        source = "fallback"
-                    else:
-                        source = "model"
-            except GenerationError as exc:
-                log.warning("GPT generation failed: %s", exc)
 
         # 5c. Markov generation is DRIFT-only and runs only when GPT is absent.
         if drift and body is None and self.model is not None and self.model.is_trained() and _gpt is None:
