@@ -238,13 +238,9 @@ class DialogueEngine:
                     text, context, personality_context=personality_context,
                 )
             else:
-                # Try specific patterns first (greetings, opinion requests, etc.),
-                # then a question-shaped catch-all, then generic chitchat.
-                body = self.patterns.respond(text)
-                if body is None:
-                    body = (self.patterns.respond_no_subject_question(text)
-                            or chitchat_reply(text, context))
-                source = "pattern"
+                body, source = self._gpt_chitchat(
+                    text, context, personality_context=personality_context,
+                )
             reply = self._finish(Reply(body, source=source, mode=mode))
             self._persist(session_id, text, reply)
             return reply
@@ -352,24 +348,14 @@ class DialogueEngine:
             if answered_from_knowledge and body:
                 body = self._polish_if_gpt(body, text, personality_context)
 
-        if body is None:
-            body = self.patterns.respond(text)
-
-        # 5b. GPT generation — preferred over Markov when available.
-        # GPT can follow the prompt and stay in character, so it works in both
-        # drift and no_drift modes. It's tried whenever the pattern engine and
-        # knowledge base haven't produced an answer yet.
-        #
-        # Only when knowledge_context is non-empty: without grounding, GPT
-        # answers from training data and the source becomes "model", which
-        # never triggers curiosity research. The chatbot appears to know the
-        # answer when it actually doesn't — and the corpus never grows.
-        # Letting the turn fall through to "fallback" instead produces the
-        # honest "I haven't looked into that" and kicks off research.
+        # 5b. GPT generation — the primary conversational engine when
+        # available. GPT handles everything the pattern engine used to:
+        # greetings, self-awareness, chitchat, AND knowledge questions.
+        # Patterns are the fallback for when GPT is absent.
         from ..models.openai_model import OpenAIModel
         from ..models.base import GenerationError
         _gpt = self.model if isinstance(self.model, OpenAIModel) else None
-        if body is None and _gpt is not None and _gpt.configured and knowledge_context:
+        if body is None and _gpt is not None and _gpt.configured:
             history, summary_extra = self._build_history_context(context)
             try:
                 generated = _gpt.generate_chat(
@@ -380,34 +366,41 @@ class DialogueEngine:
                     system_extra=summary_extra,
                 ).strip()
                 if generated:
-                    body, source = generated, "model"
+                    body = generated
+                    # With knowledge context, GPT is grounded — it's a real
+                    # answer. Without it, GPT is conversing but the question
+                    # may need research, so mark as "fallback" to trigger
+                    # curiosity. Non-questions (chitchat, self-awareness) get
+                    # "model" since there's nothing to research.
+                    if knowledge_context:
+                        source = "model"
+                    elif _looks_like_question(text) and not _is_about_self(text):
+                        source = "fallback"
+                    else:
+                        source = "model"
             except GenerationError as exc:
                 log.warning("GPT generation failed: %s", exc)
 
         # 5c. Markov generation is DRIFT-only and runs only when GPT is absent.
-        # The model stitches fragments from unrelated articles and cannot hold a
-        # topic, so in NO_DRIFT it is skipped entirely — the turn falls through
-        # to "fallback", which is the signal server.py uses to kick off curiosity
-        # research on the topic.
         if drift and body is None and self.model is not None and self.model.is_trained() and _gpt is None:
             prompt = text
             if knowledge_context or personality_context:
                 prompt = f"{personality_context}\n{knowledge_context}User: {text}\nAssistant:"
             generated = self.model.generate(prompt=prompt, max_tokens=40).strip()
-            # Only accept generation that reads as a single coherent thought.
             if generated and markov_is_usable(generated, text):
                 body, source = generated, "model"
 
         if body is None:
-            if is_follow_up(text):
+            # No GPT, no knowledge, no reasoning — fall back to patterns.
+            pattern_body = self.patterns.respond(text)
+            if pattern_body:
+                body, source = pattern_body, "pattern"
+            elif is_follow_up(text):
                 body, source = self._gpt_follow_up(text, context, personality_context)
             elif _looks_like_question(text):
                 body = describe_unknown(text, researching=self.curiosity_available)
                 source = "fallback"
             else:
-                # A statement ("the sky is blue", "dogs are better than
-                # cats") is conversation, not a lookup. Routing it to
-                # describe_unknown produced "Never heard of dogs cats".
                 body = chitchat_reply(text, context)
                 source = "pattern"
 
@@ -582,6 +575,41 @@ class DialogueEngine:
         return follow_up_reply(context), "pattern"
 
     # ------------------------------------------------------------------
+    def _gpt_chitchat(
+        self,
+        text: str,
+        context: dict,
+        personality_context: str = "",
+    ) -> tuple[str, str]:
+        """Handle no-subject messages (greetings, chitchat, opinions) via GPT.
+
+        Falls back to pattern engine / canned chitchat when GPT is absent.
+        """
+        from ..models.openai_model import OpenAIModel
+        from ..models.base import GenerationError
+
+        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
+        if _gpt and _gpt.configured:
+            history, summary_extra = self._build_history_context(context)
+            try:
+                generated = _gpt.generate_chat(
+                    user_message=text,
+                    conversation_history=history,
+                    personality_context=personality_context,
+                    system_extra=summary_extra,
+                    max_tokens=200,
+                ).strip()
+                if generated:
+                    return generated, "pattern"
+            except GenerationError:
+                pass
+        body = self.patterns.respond(text)
+        if body is None:
+            body = (self.patterns.respond_no_subject_question(text)
+                    or chitchat_reply(text, context))
+        return body, "pattern"
+
+    # ------------------------------------------------------------------
     def _finish(self, reply: Reply) -> Reply:
         reply.text, reply.output_rules_applied = self.guardrails.filter_output(reply.text)
         return reply
@@ -673,6 +701,19 @@ _ARTIFACTS = re.compile(
 )
 
 
+_ABOUT_SELF = re.compile(
+    r"(?i)^(?:are you|what are you|who are you|do you|can you|"
+    r"how do you|how are you|what do you|what can you|"
+    r"tell me about yourself|what should i (?:call|ask) you|"
+    r"how old are you|where (?:do you|are you) (?:run|live|come from))",
+)
+
+
+def _is_about_self(text: str) -> bool:
+    """True when the question is about the bot itself, not a knowledge topic."""
+    return bool(_ABOUT_SELF.match(text.strip()))
+
+
 def _looks_like_question(text: str) -> bool:
     """True when the user is asking for information rather than chatting."""
     stripped = text.strip()
@@ -759,7 +800,14 @@ def _clean_sentences(content: str) -> list[str]:
     protected = _protect_abbrevs(_break_navboxes(content.replace("\n", " ")))
     for raw in _SENTENCE_SPLIT.split(protected):
         s = _restore_abbrevs(_scrub(" ".join(raw.split())))
-        if len(s) < 15 or len(s) > 800:
+        if len(s) < 15:
+            continue
+        if len(s) > 800:
+            s = _truncate_at_clause(s, 800)
+            if not s or len(s) < 15:
+                continue
+        words = s.split()
+        if len(words) >= 10 and len(set(words)) / len(words) < 0.3:
             continue
         if _NOISE.search(s):
             continue
@@ -767,6 +815,16 @@ def _clean_sentences(content: str) -> list[str]:
             continue
         out.append(s)
     return out
+
+
+def _truncate_at_clause(text: str, limit: int) -> str:
+    """Cut a long sentence at the last clause boundary before *limit*."""
+    chunk = text[:limit]
+    for sep in ("; ", ", which ", ", and ", ", "):
+        pos = chunk.rfind(sep)
+        if pos > limit // 3:
+            return chunk[:pos].rstrip(" ,;") + "."
+    return chunk.rstrip(" ,;") + "."
 
 
 # A defining construction: "X is ...", "X refers to ...", "X was ...".

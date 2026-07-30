@@ -302,5 +302,92 @@ class ConversationFlowTests(unittest.TestCase):
         self.assertEqual(m.group(1).strip(), "Marie Curie")
 
 
+class GPTConversationTests(unittest.TestCase):
+    """Tests for the GPT-as-primary-conversationalist architecture.
+
+    When GPT is configured, it should handle all turns — not just
+    knowledge-grounded ones. The old behavior dumped definitions from
+    the knowledge base and used canned templates for everything else.
+    """
+
+    def _make_gpt_engine(self, generate_return="Test GPT response."):
+        from unittest.mock import MagicMock, PropertyMock
+        from shaggoth.models.openai_model import OpenAIModel
+        engine = make_engine()
+        mock_gpt = MagicMock(spec=OpenAIModel)
+        type(mock_gpt).configured = PropertyMock(return_value=True)
+        mock_gpt.is_trained.return_value = True
+        mock_gpt.generate_chat.return_value = generate_return
+        engine.model = mock_gpt
+        return engine, mock_gpt
+
+    def test_gpt_handles_greeting_instead_of_pattern(self):
+        """With GPT configured, greetings get GPT responses, not canned patterns."""
+        engine, mock_gpt = self._make_gpt_engine("Hey. What's on your mind?")
+        reply = engine.respond("hello", session_id="s1")
+        self.assertEqual(reply.text, "Hey. What's on your mind?")
+        mock_gpt.generate_chat.assert_called()
+
+    def test_gpt_handles_self_awareness_question(self):
+        """'are you an LLM?' should get a GPT response and NOT trigger research."""
+        engine, mock_gpt = self._make_gpt_engine(
+            "I'm a knowledge base with a retrieval engine. Not an LLM in the usual sense."
+        )
+        reply = engine.respond("are you an LLM?", session_id="s1")
+        self.assertIn("knowledge base", reply.text)
+        self.assertNotEqual(reply.source, "fallback")
+        mock_gpt.generate_chat.assert_called()
+
+    def test_gpt_question_without_knowledge_is_fallback(self):
+        """A question GPT can't ground in knowledge should still source='fallback'
+        so curiosity research triggers."""
+        import tempfile
+        from shaggoth.knowledge.engine import KnowledgeBase
+        with tempfile.TemporaryDirectory() as td:
+            engine, mock_gpt = self._make_gpt_engine(
+                "Haven't looked into quantum computing yet."
+            )
+            engine.knowledge = KnowledgeBase(td)
+            reply = engine.respond("what is quantum computing", session_id="s1")
+            self.assertEqual(reply.source, "fallback")
+
+    def test_gpt_statement_without_knowledge_is_model(self):
+        """A statement (not a question) should get source='model', not 'fallback'."""
+        import tempfile
+        from shaggoth.knowledge.engine import KnowledgeBase
+        with tempfile.TemporaryDirectory() as td:
+            engine, mock_gpt = self._make_gpt_engine(
+                "Fair point about the weather."
+            )
+            engine.knowledge = KnowledgeBase(td)
+            reply = engine.respond("the weather is nice today", session_id="s1")
+            self.assertNotEqual(reply.source, "fallback")
+
+    def test_no_gpt_falls_back_to_patterns(self):
+        """Without GPT, the pattern engine still handles greetings."""
+        engine = make_engine()
+        reply = engine.respond("hello", session_id="s1")
+        self.assertEqual(reply.source, "pattern")
+        self.assertTrue(reply.text)
+
+    def test_gpt_chitchat_no_subject(self):
+        """No-subject messages go through GPT for natural conversation."""
+        engine, mock_gpt = self._make_gpt_engine("Quiet day? I'm here.")
+        reply = engine.respond("hey", session_id="s1")
+        self.assertEqual(reply.text, "Quiet day? I'm here.")
+        mock_gpt.generate_chat.assert_called()
+
+    def test_is_about_self_catches_self_referential_questions(self):
+        from shaggoth.dialogue.engine import _is_about_self
+        self.assertTrue(_is_about_self("are you an LLM?"))
+        self.assertTrue(_is_about_self("what are you?"))
+        self.assertTrue(_is_about_self("who are you"))
+        self.assertTrue(_is_about_self("can you help me"))
+        self.assertTrue(_is_about_self("how old are you"))
+        self.assertFalse(_is_about_self("what is photosynthesis"))
+        self.assertFalse(_is_about_self("who is Albert Einstein"))
+        self.assertFalse(_is_about_self("how does gravity work"))
+
+
 if __name__ == "__main__":
     unittest.main()
