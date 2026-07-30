@@ -1,11 +1,12 @@
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  KeyboardAvoidingView, Platform, ActivityIndicator,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Animated,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { colors, spacing, radius, fontSize } from '../theme/colors'
 import Header from '../components/Header'
+import useVoice from '../hooks/useVoice'
 import * as api from '../api/shaggoth'
 
 async function getSessionId() {
@@ -17,34 +18,107 @@ async function getSessionId() {
   return sid
 }
 
-export default function ChatScreen({ onBack }) {
+function MicButton({ listening, onPress, available }) {
+  const pulseAnim = useRef(new Animated.Value(1)).current
+
+  useEffect(() => {
+    if (listening) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.25, duration: 600, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+        ])
+      ).start()
+    } else {
+      pulseAnim.stopAnimation()
+      pulseAnim.setValue(1)
+    }
+  }, [listening, pulseAnim])
+
+  if (!available) return null
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+      <Animated.View style={{
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: listening ? colors.red : colors.surfaceCard,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: listening ? colors.red : colors.border,
+        marginRight: spacing.sm,
+        transform: [{ scale: pulseAnim }],
+      }}>
+        <Text style={{ fontSize: 20 }}>{listening ? '⏹' : '🎙'}</Text>
+      </Animated.View>
+    </TouchableOpacity>
+  )
+}
+
+function SpeakerButton({ speaking, onPress }) {
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={{ marginLeft: spacing.xs }}>
+      <View style={{
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs,
+        borderRadius: radius.sm,
+        backgroundColor: speaking ? colors.primaryMuted : 'transparent',
+      }}>
+        <Text style={{ fontSize: 14, color: speaking ? colors.primary : colors.textDim }}>
+          {speaking ? '🔊' : '🔈'}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  )
+}
+
+export default function ChatScreen({ onBack, assistMode }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [autoSpeak, setAutoSpeak] = useState(false)
   const flatRef = useRef(null)
+  const voice = useVoice()
 
-  const send = useCallback(async () => {
-    const text = input.trim()
-    if (!text || loading) return
+  useEffect(() => {
+    if (assistMode && voice.available) {
+      voice.startListening((text) => {
+        if (text) {
+          setInput(text)
+          setTimeout(() => sendWithText(text), 300)
+        }
+      })
+    }
+  }, [assistMode, voice.available])
+
+  const sendWithText = useCallback(async (text) => {
+    if (!text?.trim() || loading) return
     setInput('')
     const sid = await getSessionId()
 
-    const userMsg = { id: Date.now().toString(), role: 'user', text }
+    const userMsg = { id: Date.now().toString(), role: 'user', text: text.trim() }
     setMessages(prev => [...prev, userMsg])
 
     const botId = (Date.now() + 1).toString()
     setMessages(prev => [...prev, { id: botId, role: 'assistant', text: '', source: 'streaming' }])
     setLoading(true)
 
-    api.chatStream(text, sid,
-      token => setMessages(prev => prev.map(m =>
-        m.id === botId ? { ...m, text: m.text + token } : m
-      )),
+    let fullReply = ''
+    api.chatStream(text.trim(), sid,
+      token => {
+        fullReply += token
+        setMessages(prev => prev.map(m =>
+          m.id === botId ? { ...m, text: m.text + token } : m
+        ))
+      },
       meta => {
         setMessages(prev => prev.map(m =>
           m.id === botId ? { ...m, source: meta.source, flag: meta.flag } : m
         ))
         setLoading(false)
+        if (autoSpeak && fullReply) voice.speak(fullReply)
       },
       err => {
         setMessages(prev => prev.map(m =>
@@ -53,11 +127,24 @@ export default function ChatScreen({ onBack }) {
         setLoading(false)
       }
     )
-  }, [input, loading])
+  }, [loading, autoSpeak, voice])
+
+  const send = useCallback(() => sendWithText(input), [input, sendWithText])
+
+  const handleMicPress = useCallback(() => {
+    if (voice.listening) {
+      voice.stopListening()
+    } else {
+      voice.startListening((text) => {
+        if (text) setInput(text)
+      })
+    }
+  }, [voice])
 
   const newChat = async () => {
     await AsyncStorage.removeItem('shaggoth_session')
     setMessages([])
+    voice.stopSpeaking()
   }
 
   return (
@@ -70,22 +157,66 @@ export default function ChatScreen({ onBack }) {
         title="Comms"
         onBack={onBack}
         rightContent={
-          <TouchableOpacity onPress={newChat} activeOpacity={0.7}>
-            <View style={{
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.xs + 2,
-              borderRadius: radius.full,
-              backgroundColor: colors.primaryMuted,
-              borderWidth: 1,
-              borderColor: colors.primaryBorder,
-            }}>
-              <Text style={{ color: colors.primary, fontSize: fontSize.sm, fontWeight: '600' }}>
-                New Chat
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity
+              onPress={() => setAutoSpeak(v => !v)}
+              activeOpacity={0.7}
+              style={{
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.xs + 2,
+                borderRadius: radius.full,
+                backgroundColor: autoSpeak ? colors.primaryMuted : colors.surfaceCard,
+                borderWidth: 1,
+                borderColor: autoSpeak ? colors.primaryBorder : colors.border,
+                marginRight: spacing.sm,
+              }}
+            >
+              <Text style={{
+                color: autoSpeak ? colors.primary : colors.textDim,
+                fontSize: fontSize.sm,
+                fontWeight: '600',
+              }}>
+                {autoSpeak ? '🔊 Voice' : '🔇 Mute'}
               </Text>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={newChat} activeOpacity={0.7}>
+              <View style={{
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.xs + 2,
+                borderRadius: radius.full,
+                backgroundColor: colors.primaryMuted,
+                borderWidth: 1,
+                borderColor: colors.primaryBorder,
+              }}>
+                <Text style={{ color: colors.primary, fontSize: fontSize.sm, fontWeight: '600' }}>
+                  New Chat
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         }
       />
+
+      {voice.listening && voice.transcript ? (
+        <View style={{
+          backgroundColor: colors.surfaceCard,
+          borderBottomWidth: 1,
+          borderColor: colors.border,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}>
+          <View style={{
+            width: 8, height: 8, borderRadius: 4,
+            backgroundColor: colors.red, marginRight: spacing.md,
+          }} />
+          <Text style={{ color: colors.textSecondary, fontSize: fontSize.md, flex: 1 }}
+            numberOfLines={2}>
+            {voice.transcript}
+          </Text>
+        </View>
+      ) : null}
 
       <FlatList
         ref={flatRef}
@@ -104,6 +235,16 @@ export default function ChatScreen({ onBack }) {
             }}>
               Open a channel to Shaggoth
             </Text>
+            {voice.available && (
+              <Text style={{
+                color: colors.textDim,
+                fontSize: fontSize.sm,
+                textAlign: 'center',
+                marginTop: spacing.sm,
+              }}>
+                Tap the mic to speak
+              </Text>
+            )}
           </View>
         }
         renderItem={({ item }) => {
@@ -138,16 +279,24 @@ export default function ChatScreen({ onBack }) {
                   {item.text || (item.source === 'streaming' ? '...' : '')}
                 </Text>
               </View>
-              {tags.length > 0 && (
-                <Text style={{
-                  color: colors.textDim,
-                  fontSize: fontSize.xs,
-                  marginTop: spacing.xs,
-                  marginHorizontal: spacing.xs,
-                }}>
-                  {tags.join(' · ')}
-                </Text>
-              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {tags.length > 0 && (
+                  <Text style={{
+                    color: colors.textDim,
+                    fontSize: fontSize.xs,
+                    marginTop: spacing.xs,
+                    marginHorizontal: spacing.xs,
+                  }}>
+                    {tags.join(' · ')}
+                  </Text>
+                )}
+                {!isUser && item.text && item.source !== 'streaming' && (
+                  <SpeakerButton
+                    speaking={voice.speaking}
+                    onPress={() => voice.speaking ? voice.stopSpeaking() : voice.speak(item.text)}
+                  />
+                )}
+              </View>
             </View>
           )
         }}
@@ -162,6 +311,11 @@ export default function ChatScreen({ onBack }) {
         borderTopWidth: 1,
         borderColor: colors.border,
       }}>
+        <MicButton
+          listening={voice.listening}
+          onPress={handleMicPress}
+          available={voice.available}
+        />
         <TextInput
           value={input}
           onChangeText={setInput}

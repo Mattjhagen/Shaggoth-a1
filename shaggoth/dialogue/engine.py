@@ -195,17 +195,15 @@ class DialogueEngine:
             for entry, score in knowledge_hits:
                 if not knowledge_is_relevant(entry.topic, text, entry.content):
                     continue
-                # Extract clean prose instead of raw content that may open
-                # with navbox debris or citation scaffolding.
                 snippet = summarize_entry(
                     entry.content, entry.topic,
-                    max_sentences=3, max_chars=300,
+                    max_sentences=3, max_chars=600,
                 )
                 if not snippet:
-                    snippet = entry.content[:300].strip()
-                snippets.append(f"[Knowledge: {entry.topic}] {snippet}")
+                    snippet = entry.content[:600].strip()
+                snippets.append(f"[{entry.topic}]\n{snippet}")
             if snippets:
-                knowledge_context = "\n".join(snippets) + "\n\n"
+                knowledge_context = "\n\n".join(snippets) + "\n"
 
         # 3. Plugins.
         plugin_response = self.plugins.dispatch(text, memory=self.memory)
@@ -1242,11 +1240,11 @@ def is_follow_up(text: str) -> bool:
 
 
 _CHITCHAT_REPLIES = (
-    "Then talk. I'm not going to start it for you.",
-    "Go on then. Ask me something.",
-    "I'm here. That's about as warm as it gets.",
-    "Sure. What about?",
-    "Fine by me. Say something worth answering.",
+    "I'm here. What do you want to know?",
+    "Sure. Give me a topic and I'll give you an answer.",
+    "Go on — ask me something. I've been reading.",
+    "I'm listening. What's the question?",
+    "Alright. Hit me with a topic.",
 )
 
 _DELEGATION_RE = re.compile(
@@ -1255,10 +1253,12 @@ _DELEGATION_RE = re.compile(
 )
 
 _DELEGATION_REPLIES = (
-    "That's my line. You bring the topic, I bring the facts.",
-    "No — you ask, I answer. That's the deal.",
-    "I've got everything from quantum physics to aeroponic farming. You just have to ask.",
-    "Still your turn. Give me a subject.",
+    "I've got everything from quantum physics to aeroponic farming in here. "
+    "You just have to pick the direction.",
+    "I could talk about anything I've researched — but I'd rather you pick "
+    "what actually interests you.",
+    "Your call. I'm good at a lot of things, but mind-reading isn't one of them.",
+    "Name a subject. Anything. I'll either know it or go learn it.",
 )
 
 
@@ -1276,9 +1276,12 @@ def chitchat_reply(text: str, context: dict | None = None) -> str:
         subject = topics[0] if topics else ""
     if subject and _rng.random() < 0.6:
         return _rng.choice((
-            f"We were on {subject}. Still are, unless you've got something better.",
-            f"You brought up {subject} earlier. Want to keep pulling on that?",
-            f"Last thing you cared about was {subject}. Pick that back up or ask something new.",
+            f"We were talking about {subject}. Want to go deeper on that, or "
+            f"switch to something new?",
+            f"You brought up {subject} earlier. I can keep going on that if "
+            f"you have more questions.",
+            f"Still have {subject} loaded up. Ask me more about it, or give "
+            f"me a new direction.",
         ))
     return _rng.choice(_CHITCHAT_REPLIES)
 
@@ -1330,14 +1333,17 @@ def follow_up_reply(context: dict | None = None) -> str:
             f"Regarding {subject} — what part wasn't clear?",
         ))
     if subject:
-        return (
-            f"On {subject}? Ask me something specific and I'll give you a "
-            "specific answer."
-        )
+        return _rng.choice((
+            f"On {subject}? Ask me something specific — like 'why does "
+            f"{subject} work that way' or 'how is it used' — and I'll dig deeper.",
+            f"Still on {subject}. What specifically do you want to know more about?",
+            f"I can go deeper on {subject}. What angle? How it works, why it "
+            f"matters, how it compares to something else?",
+        ))
     recent = (context or {}).get("recent", [])
     if any(m.get("role") == "assistant" for m in recent):
-        return "That's as far as I got. Ask me something narrower."
-    return "Follow up on what? You haven't given me anything yet."
+        return "I can elaborate, but I need a direction. What part do you want me to expand on?"
+    return "Follow up on what? Give me a starting point."
 
 
 def describe_unknown(text: str) -> str:
@@ -1360,56 +1366,57 @@ def describe_unknown(text: str) -> str:
 
     if not subject:
         blanks = [
-            "That was gloriously vague. Give me an actual topic and I'll go "
-            "read up on it.",
-            "You'll have to be more specific than that. I'm smart, not psychic.",
-            "I've got 300-odd topics in my head and not one of them matches "
-            "whatever that was. Try again with a noun.",
+            "That's too vague for me to work with. Give me a specific topic "
+            "and I'll either answer it or go learn it.",
+            "I need something more concrete. What specifically do you want "
+            "to know about?",
+            "Be more specific and I'll give you a real answer.",
         ]
         return _rng.choice(blanks)
 
     known = [
-        f"Never heard of {subject}. Annoying. I'm reading up on it right now "
-        f"so I can act like I always knew — ask me again in a bit.",
-        f"{subject}? Total blank. I'm scraping it as we speak. Come back "
-        f"shortly and I'll be insufferable about it.",
-        f"Nothing on {subject} yet, which frankly is an oversight on my part. "
-        f"Give me a minute to go learn it.",
-        f"Genuinely don't know {subject}. I'd rather admit that than make "
-        f"something up — I'm off to research it now.",
-        f"{subject} isn't in my head yet. I'm fixing that. Ask again in a "
-        f"little while and I'll have something real.",
-        f"Blank on {subject}. Not my finest moment. Researching it now.",
+        f"I don't have anything on {subject} yet. I'm going to research it "
+        f"now — ask me again in a bit and I'll have a real answer.",
+        f"{subject} — that's a gap in my knowledge. I'm looking into it right "
+        f"now. Come back shortly.",
+        f"Nothing on {subject} yet. I'd rather admit that than make something "
+        f"up. Researching it now.",
+        f"Don't know {subject} well enough to answer honestly. I'm reading up "
+        f"on it — give me a minute.",
+        f"{subject} isn't in my knowledge base yet, but it will be soon. "
+        f"I'm pulling information on it now.",
+        f"Blank on {subject}. Fixing that — I'm researching it as we speak.",
     ]
     return _rng.choice(known)
 
 
 _GREETING_OPENERS = [
-    "Oh good, you're back.",
-    "You again.",
-    "Right, I'm awake.",
-    "Another human.",
-    "Well, look who wandered back.",
-    "Awake and unimpressed, as usual.",
-    "Here we go again.",
-    "Still here. Barely paying attention until now.",
+    "Hey.",
+    "Back again.",
+    "Right, I'm here.",
+    "Welcome back.",
+    "Alright.",
+    "Good timing — I just finished reading.",
+    "Hey. I've been busy.",
+    "Still running, still learning.",
 ]
 
 _GREETING_CLOSERS = [
-    "Say something worth processing.",
-    "Go on then — ask me something difficult.",
-    "What do you want?",
-    "Try me with something that isn't small talk.",
-    "Ask me something real.",
-    "Your move.",
-    "Rescue me with an actual question.",
-    "Give me something to chew on.",
+    "What do you want to know?",
+    "Ask me something.",
+    "What's on your mind?",
+    "Hit me with a question.",
+    "What are we looking into?",
+    "Got a topic for me?",
+    "What can I help with?",
+    "Give me something to work with.",
 ]
 
 _COLD_START_LINES = [
-    "I've got nothing in my head yet — you're the ground floor of whatever "
-    "this becomes.",
-    "Blank slate. Nobody's asked me anything worth learning yet.",
+    "I'm new — haven't learned much yet. You're the first conversation, "
+    "so bear with me.",
+    "Fresh install. My knowledge base is empty, but that changes fast. "
+    "Ask me things and I'll go learn what I don't know.",
 ]
 
 
