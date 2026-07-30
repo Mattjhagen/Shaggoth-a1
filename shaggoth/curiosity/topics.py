@@ -13,17 +13,29 @@ from ..memory.store import extract_keywords, STOPWORDS
 # Patterns that indicate the user is asking about something specific
 # we might not know yet. Groups capture the topic phrase.
 TOPIC_PATTERNS: list[re.Pattern] = [
-    re.compile(r"(?i)\bwhat (?:is|are|do you know about|can you tell me about)\s+(.+?)[?.!]*$"),
+    re.compile(r"(?i)\bwhat(?:'s| is| are| do you know about| can you tell me about)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\btell me about\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\bexplain\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\bhow (?:does|do|did|is|are|was|were)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\bwhy (?:is|are|do|does|did|was|were)\s+(.+?)[?.!]*$"),
-    re.compile(r"(?i)\bwho (?:is|are|was|were)\s+(.+?)[?.!]*$"),
+    re.compile(r"(?i)\bwho(?:'s| is| are| was| were)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\b(?:define|definition of)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\b(?:difference between|versus|vs\.?)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\b(?:movies|films|shows?|books?|articles?|news|updates?|information) (?:with|on|about|for|by)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\bany (?:news|updates?|information) (?:on|about)\s+(.+?)[?.!]*$"),
 ]
+
+# Verbs that commonly trail the subject in question captures and should
+# be stripped: "how does DNA replication work" -> "DNA replication"
+_TRAILING_VERB = re.compile(
+    r"\s+\b(?:works?|functions?|happens?|occurs?|operates?|runs?|go(?:es)?|"
+    r"does|looks?|means?|needs?|requires?|causes?|affects?|helps?|feels?|"
+    r"sounds?|tastes?|smells?|starts?|begins?|ends?|stops?|changes?|"
+    r"grows?|moves?|lives?|dies?|costs?|gets?|makes?|comes?|takes?|"
+    r"gives?|finds?|keeps?|holds?|turns?|becomes?|"
+    r"look like|sound like|differs?|compares?)\b.*$",
+    re.I,
+)
 
 
 _CONVERSATIONAL = frozenset(
@@ -55,9 +67,14 @@ def extract_topic_query(text: str) -> str | None:
         match = pattern.search(text)
         if match:
             topic = match.group(1).strip()
-            # Clean up the topic — remove trailing punctuation, pronouns
             topic = re.sub(r"[?.!,;:]+$", "", topic).strip()
             topic = re.sub(r"\b(?:please|thanks|thank you)\b", "", topic, flags=re.IGNORECASE).strip()
+            topic = re.sub(
+                r"^(?:how|why|what|where|when)\s+", "", topic, flags=re.IGNORECASE,
+            ).strip() or topic
+            cleaned = _TRAILING_VERB.sub("", topic).strip()
+            if cleaned and len(cleaned) > 1:
+                topic = cleaned
             if len(topic) > 1:
                 return topic
 

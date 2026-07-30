@@ -30,7 +30,23 @@ class TopicExtractionTests(unittest.TestCase):
 
     def test_extracts_explain(self):
         topic = extract_topic_query("explain how DNS works")
-        self.assertEqual(topic, "how DNS works")
+        self.assertEqual(topic, "DNS")
+
+    def test_extracts_contraction_whats(self):
+        topic = extract_topic_query("what's the capital of France")
+        self.assertEqual(topic, "the capital of France")
+
+    def test_extracts_contraction_whos(self):
+        topic = extract_topic_query("who's Elon Musk")
+        self.assertEqual(topic, "Elon Musk")
+
+    def test_strips_trailing_verb(self):
+        topic = extract_topic_query("how does DNA replication work")
+        self.assertEqual(topic, "DNA replication")
+
+    def test_strips_trailing_verb_photosynthesis(self):
+        topic = extract_topic_query("why does photosynthesis need light")
+        self.assertEqual(topic, "photosynthesis")
 
     def test_returns_none_for_greeting(self):
         topic = extract_topic_query("hello there")
