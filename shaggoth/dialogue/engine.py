@@ -597,6 +597,11 @@ class DialogueEngine:
 _rng = random.Random()
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+_ABBREV_DOT = re.compile(
+    r"\b(Dr|Mr|Mrs|Ms|Prof|Jr|Sr|St|vs|etc|approx|Vol|No|Gen|Lt|Sgt|Capt|Col"
+    r"|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec"
+    r"|Ph|[A-Z])\. ",
+)
 
 # Wikipedia-derived articles open with navigation cruft and pipe tables; a
 # usable sentence has real prose shape and no leftover markup.
@@ -731,6 +736,15 @@ def _break_navboxes(content: str) -> str:
     return _DEFINITION_RESTART.sub(". ", content)
 
 
+def _protect_abbrevs(text: str) -> str:
+    """Replace abbreviation dots with a placeholder so they survive sentence splitting."""
+    return _ABBREV_DOT.sub(lambda m: m.group(1) + "\x00 ", text)
+
+
+def _restore_abbrevs(text: str) -> str:
+    return text.replace("\x00", ".")
+
+
 def _clean_sentences(content: str) -> list[str]:
     """Split article text into usable prose sentences, dropping markup noise.
 
@@ -739,8 +753,9 @@ def _clean_sentences(content: str) -> list[str]:
     away the single most useful line in every article.
     """
     out: list[str] = []
-    for raw in _SENTENCE_SPLIT.split(_break_navboxes(content.replace("\n", " "))):
-        s = _scrub(" ".join(raw.split()))
+    protected = _protect_abbrevs(_break_navboxes(content.replace("\n", " ")))
+    for raw in _SENTENCE_SPLIT.split(protected):
+        s = _restore_abbrevs(_scrub(" ".join(raw.split())))
         if len(s) < 15 or len(s) > 800:
             continue
         if _NOISE.search(s):
@@ -758,7 +773,8 @@ _DEFINING_VERB = re.compile(
     # Compositional definitions. "An atom consists of a nucleus of protons..."
     # is the lead sentence of the Atom article and was not recognised, so the
     # answer fell back to an image caption further up the page.
-    r"consists? of|consist of|comprises?|comprise|is composed of|"
+    r"consists? of|comprise[sd]?|is comprised of|is composed of|"
+    r"includes?|contains?|"
     r"is made up of|is made of|comprising|consisting of)\b",
     re.I,
 )
@@ -784,6 +800,9 @@ def _stem_match(a: str, b: str, min_stem: int = 5) -> bool:
     if a == b:
         return True
     if len(a) < min_stem or len(b) < min_stem:
+        short, long = (a, b) if len(a) < len(b) else (b, a)
+        if long.startswith(short) and long[len(short):] in ("s", "es", "ed", "d", "ing", "ly"):
+            return True
         return False
     return a.startswith(b[:min_stem]) or b.startswith(a[:min_stem])
 
@@ -1702,9 +1721,9 @@ def _body_discusses(content: str, asked: set[str]) -> bool:
     Appearing in the same sentence is what distinguishes "this document
     discusses the subject" from "these words happen to be in here".
     """
-    cleaned = _break_navboxes(content.replace("\n", " "))
+    cleaned = _protect_abbrevs(_break_navboxes(content.replace("\n", " ")))
     for sentence in _SENTENCE_SPLIT.split(cleaned):
-        sentence = _scrub(" ".join(sentence.split()))
+        sentence = _restore_abbrevs(_scrub(" ".join(sentence.split())))
         if len(sentence) < 15 or _NOISE.search(sentence):
             continue
         tokens = set(re.findall(r"[a-z0-9]+", sentence.lower()))

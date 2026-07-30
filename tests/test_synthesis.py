@@ -205,3 +205,74 @@ def test_clean_sentences_still_rejects_very_long_garbage():
     garbage = "word " * 200
     sentences = _clean_sentences(garbage)
     assert not sentences, "900-char wall of noise should be rejected"
+
+
+# -- _DEFINING_VERB expansion tests ------------------------------------------
+
+def test_defining_verb_recognises_comprised_of():
+    from shaggoth.dialogue.engine import _DEFINING_VERB
+    assert _DEFINING_VERB.search("An atom is comprised of protons and neutrons.")
+
+
+def test_defining_verb_recognises_includes():
+    from shaggoth.dialogue.engine import _DEFINING_VERB
+    assert _DEFINING_VERB.search("The solar system includes eight major planets.")
+
+
+def test_defining_verb_recognises_contains():
+    from shaggoth.dialogue.engine import _DEFINING_VERB
+    assert _DEFINING_VERB.search("A cell contains a nucleus and cytoplasm.")
+
+
+# -- _stem_match short-word inflection tests ----------------------------------
+
+def test_stem_match_gene_genes():
+    assert _stem_match("gene", "genes")
+
+
+def test_stem_match_gene_genetic_rejects():
+    assert not _stem_match("gene", "genetic")
+
+
+def test_stem_match_cell_cells():
+    assert _stem_match("cell", "cells")
+
+
+def test_stem_match_ice_iced():
+    assert _stem_match("ice", "iced")
+
+
+def test_stem_match_short_unrelated_rejects():
+    assert not _stem_match("ice", "idea")
+
+
+# -- Abbreviation-aware sentence splitting tests -----------------------------
+
+def test_clean_sentences_preserves_dr_abbreviation():
+    from shaggoth.dialogue.engine import _clean_sentences
+    text = "Dr. Smith discovered the element. It was a breakthrough."
+    sentences = _clean_sentences(text)
+    assert any("Dr." in s and "Smith" in s for s in sentences), \
+        f"Dr. Smith should stay in one sentence, got: {sentences}"
+
+
+def test_clean_sentences_preserves_jan_abbreviation():
+    from shaggoth.dialogue.engine import _clean_sentences
+    text = "The event took place on Jan. 15 in the city hall. It was well attended."
+    sentences = _clean_sentences(text)
+    assert any("Jan." in s and "15" in s for s in sentences), \
+        f"Jan. should not split the sentence, got: {sentences}"
+
+
+def test_body_discusses_abbreviation_no_false_split():
+    from shaggoth.dialogue.engine import _body_discusses
+    text = "Dr. Watson assisted Holmes in solving the mystery of the missing jewels."
+    assert _body_discusses(text, {"watson", "holmes"}), \
+        "Co-occurrence should work across abbreviation dots"
+
+
+def test_body_discusses_still_splits_real_sentences():
+    from shaggoth.dialogue.engine import _body_discusses
+    text = "Gravity pulls objects down. Light travels in straight lines."
+    assert not _body_discusses(text, {"gravity", "light"}), \
+        "Words in different sentences should not co-occur"
