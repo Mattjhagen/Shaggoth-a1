@@ -19,6 +19,7 @@ LanguageModel, PersonalityEngine, or KnowledgeBase.
 
 from __future__ import annotations
 
+import logging
 import random
 import re
 import time
@@ -36,6 +37,8 @@ from ..plugins import PluginRegistry, default_registry
 from .patterns import PatternEngine
 from .reasoning import Reasoner
 from ..curiosity.search import search_web
+
+log = logging.getLogger(__name__)
 
 
 def _normalize_quotes(text: str) -> str:
@@ -184,7 +187,8 @@ class DialogueEngine:
         # "Never heard of it".
         try:
             context = self.memory.conversation_context(session_id)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            log.warning("[dialogue] conversation_context failed: %s", exc)
             context = {}
 
         # 3. Knowledge: find relevant entries.
@@ -215,9 +219,10 @@ class DialogueEngine:
             return reply
 
         # Personality context is needed by multiple downstream paths (follow-ups,
-        # GPT generation, reasoner polishing), so compute it once here.
+        # GPT generation, reasoner polishing), so compute it once here. Skip
+        # the backstory — _BASE_SYSTEM already describes Shaggoth's identity.
         self.personality.maybe_reload()
-        personality_context = self.personality.trait_prompt()
+        personality_context = self.personality.trait_prompt(include_backstory=False)
 
         # A turn with no subject is conversation, not a lookup. Answering it
         # from the knowledge base produced "Never heard of wanted chat" and,
@@ -275,7 +280,7 @@ class DialogueEngine:
             try:
                 reasoned = self.reasoner.reason(text)
             except Exception as exc:  # noqa: BLE001
-                print(f"[reasoning] failed on {text!r}: {exc}")
+                log.warning("[reasoning] failed on %r: %s", text, exc)
                 reasoned = None
             if reasoned and len(reasoned.answer) >= 40:
                 body = reasoned.answer
@@ -461,8 +466,8 @@ class DialogueEngine:
                         body=f"Looking into: {text[:60]}{'...' if len(text) > 60 else ''}",
                         tag="research_started",
                     )
-                except Exception:
-                    pass  # Push notification is optional
+                except Exception:  # noqa: BLE001
+                    pass
 
         return reply
 
@@ -537,9 +542,27 @@ class DialogueEngine:
         _gpt = self.model if isinstance(self.model, OpenAIModel) else None
         history, summary_extra = self._build_history_context(context)
         if _gpt and _gpt.configured and history:
+            subject = last_subject(context)
+            knowledge_context = ""
+            if subject and self.knowledge:
+                hits = self.knowledge.query(subject, limit=2)
+                snippets = []
+                for entry, _score in hits:
+                    if not knowledge_is_relevant(entry.topic, subject, entry.content):
+                        continue
+                    snippet = summarize_entry(
+                        entry.content, entry.topic,
+                        max_sentences=3, max_chars=600,
+                    )
+                    if not snippet:
+                        snippet = entry.content[:600].strip()
+                    snippets.append(f"[{entry.topic}]\n{snippet}")
+                if snippets:
+                    knowledge_context = "\n\n".join(snippets) + "\n"
             try:
                 generated = _gpt.generate_chat(
                     user_message=text,
+                    knowledge_context=knowledge_context,
                     conversation_history=history,
                     personality_context=personality_context,
                     system_extra=summary_extra,
@@ -563,7 +586,7 @@ class DialogueEngine:
         try:
             self.memory.maybe_compact(session_id)
         except Exception as exc:  # noqa: BLE001
-            print(f"[memory] compaction failed: {exc}")
+            log.warning("[memory] compaction failed: %s", exc)
 
 
 _rng = random.Random()
@@ -589,12 +612,12 @@ _NOISE = re.compile(
     r"displaystyle|^\W*$"
     # Editorial boilerplate aimed at Wikipedia editors -- noise ANYWHERE in the
     # sentence, which is why these must not sit inside the anchored group.
-    r"|this article has|please help improve|learn how and when|"
-    r"contains promotional|talk page|needs additional citation|"
-    r"unsourced material|citations for verification|is a stub|"
-    r"you can help|this section does not|verify the claims|"
-    r"scam warning|advice if the article is about you|"
-    r"improve it by removing|add citations to reliable",
+    r"|\bthis article\b|\bplease help improve\b|\blearn how and when\b|"
+    r"\bcontains promotional\b|\btalk page\b|\bneeds additional citation\b|"
+    r"\bunsourced material\b|\bcitations for verification\b|\bis a stub\b|"
+    r"\byou can help\b.*\bexpand(ing)?\b|\bthis section does not\b|\bverify the claims\b|"
+    r"\bscam warning\b|\badvice if the article is about you\b|"
+    r"\bimprove it by removing\b|\badd citations to reliable\b",
     re.I,
 )
 
@@ -1216,8 +1239,9 @@ _FOLLOW_UP = re.compile(
     r"^(?:and |but |so |ok(?:ay)?[,. ]*)?"
     r"(?:(?:why|how come|really|and|go on|more|then what|prove it|"
     r"keep going|continue|say more|tell me more)[?.!]*$"
-    r"|(?:why not|what about (?:it|that|this)|says who|since when|has it|"
-    r"have you|did you|do you|are you sure|explain that)\b)",
+    r"|(?:why not|says who|since when|has it|"
+    r"have you|did you|do you|are you sure|explain that)\b"
+    r"|what about (?:it|that|this)\s*[?.!]*$)",
     re.I,
 )
 
@@ -1312,8 +1336,9 @@ def is_follow_up(text: str) -> bool:
     a pronoun pointing at the previous turn. Treating those as lookups sent
     "why does that matter" to an article about *matter*.
 
-    Also covers social-reaction prefixes: "lol what fell over?" is a reaction
-    to the bot's error message, not a request to research "falling over".
+    Also covers social-reaction prefixes: "lol that's wild" is a reaction
+    to the bot's previous turn — but "lol what is quantum computing" has a
+    real subject, so it passes through to the knowledge pipeline.
     """
     text = (text or "").strip()
     if _FOLLOW_UP.search(text) or _ANAPHORIC.search(text):
@@ -1645,7 +1670,11 @@ def _body_discusses(content: str, asked: set[str]) -> bool:
     Appearing in the same sentence is what distinguishes "this document
     discusses the subject" from "these words happen to be in here".
     """
-    for sentence in _SENTENCE_SPLIT.split(content):
+    cleaned = _break_navboxes(content.replace("\n", " "))
+    for sentence in _SENTENCE_SPLIT.split(cleaned):
+        sentence = _scrub(" ".join(sentence.split()))
+        if len(sentence) < 15 or _NOISE.search(sentence):
+            continue
         tokens = set(re.findall(r"[a-z0-9]+", sentence.lower()))
         if not tokens:
             continue

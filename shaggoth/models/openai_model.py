@@ -180,8 +180,10 @@ class OpenAIModel(LanguageModel):
             if budget - cost < 0 and kept_pairs:
                 break
             if cost > _HISTORY_CHAR_BUDGET:
+                cap = _HISTORY_CHAR_BUDGET // len(pair)
                 pair = [
-                    {**t, "content": t["content"][:_HISTORY_CHAR_BUDGET // len(pair)]}
+                    {**t, "content": t["content"][:cap] + "...[truncated]"}
+                    if len(t["content"]) > cap else t
                     for t in pair
                 ]
                 cost = sum(len(t["content"]) for t in pair)

@@ -63,17 +63,18 @@ class PersonalityEngine:
     def backstory(self) -> str:
         return self.config.get("backstory", DEFAULT_PERSONALITY["backstory"])
 
-    def trait_prompt(self) -> str:
+    def trait_prompt(self, include_backstory: bool = True) -> str:
         parts = []
-        backstory = self.config.get("backstory", "")
-        if backstory:
-            parts.append(backstory)
+        if include_backstory:
+            backstory = self.config.get("backstory", "")
+            if backstory:
+                parts.append(backstory)
         traits = self.config.get("traits", [])
         if traits:
             parts.append(f"Your traits: {', '.join(traits)}.")
         style = self.config.get("speaking_style", "")
         if style:
-            parts.append(f"Speaking style: {style}")
+            parts.append(f"Speaking style: {style}.")
         values = self.config.get("values", [])
         if values:
             parts.append(f"Core values: {', '.join(values)}.")

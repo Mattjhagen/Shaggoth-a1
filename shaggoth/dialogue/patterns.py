@@ -28,7 +28,18 @@ REFLECTIONS = {
 
 def reflect(fragment: str) -> str:
     words = fragment.strip().rstrip(".!?").split()
-    return " ".join(REFLECTIONS.get(w.lower(), w) for w in words)
+    result = []
+    i = 0
+    while i < len(words):
+        if i + 1 < len(words):
+            bigram = f"{words[i].lower()} {words[i+1].lower()}"
+            if bigram in REFLECTIONS:
+                result.append(REFLECTIONS[bigram])
+                i += 2
+                continue
+        result.append(REFLECTIONS.get(words[i].lower(), words[i]))
+        i += 1
+    return " ".join(result)
 
 
 # (compiled pattern, [response templates])

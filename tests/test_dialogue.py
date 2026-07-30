@@ -226,6 +226,15 @@ class ConversationFlowTests(unittest.TestCase):
         self.assertNotIn("lol fell", result)
         self.assertNotIn("Blank on lol", result)
 
+    def test_what_about_that_is_follow_up(self):
+        self.assertTrue(is_follow_up("what about that"))
+        self.assertTrue(is_follow_up("what about this?"))
+        self.assertTrue(is_follow_up("what about it"))
+
+    def test_what_about_new_topic_is_not_follow_up(self):
+        self.assertFalse(is_follow_up("what about quantum computing"))
+        self.assertFalse(is_follow_up("what about the new telescope?"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -128,6 +128,24 @@ def test_body_route_is_off_without_content():
     assert not knowledge_is_relevant("Chapter 23", "who is Ellie Finch")
 
 
+def test_body_discusses_cleans_citations():
+    from shaggoth.dialogue.engine import _body_discusses
+
+    content = "Ellie Finch [1] published a [citation needed] seminal paper."
+    assert _body_discusses(content, {"ellie", "finch"})
+
+
+def test_body_discusses_ignores_noise_sentences():
+    from shaggoth.dialogue.engine import _body_discusses
+
+    content = "This article has multiple issues. Ellie Finch is a character."
+    assert _body_discusses(content, {"ellie", "finch"})
+    assert not _body_discusses(
+        "This article has multiple issues with Ellie Finch references.",
+        {"ellie", "finch"},
+    )
+
+
 # --------------------------------------------------------------------------
 # Slugs: the filename stem IS the topic, so a bad slug is a permanent bad topic
 # --------------------------------------------------------------------------

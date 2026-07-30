@@ -127,6 +127,14 @@ class TestTraitPrompt:
         prompt = eng.trait_prompt()
         assert "honesty" in prompt
 
+    def test_exclude_backstory(self, tmp_path):
+        p = tmp_path / "p.json"
+        p.write_text(json.dumps({"backstory": "I run on a toaster.", "traits": ["fast"]}))
+        eng = PersonalityEngine(path=p)
+        prompt = eng.trait_prompt(include_backstory=False)
+        assert "toaster" not in prompt
+        assert "fast" in prompt
+
 
 # ---------------------------------------------------------------------------
 # random_quirk

@@ -11,7 +11,7 @@ class TestReflect:
         assert reflect("i am happy") == "you are happy"
 
     def test_second_person_to_first(self):
-        assert reflect("you are right") == "I are right"
+        assert reflect("you are right") == "I am right"
 
     def test_my_to_your(self):
         assert reflect("my name") == "your name"
@@ -35,6 +35,13 @@ class TestReflect:
     def test_mixed_case_preserved_for_unknown(self):
         result = reflect("Shaggoth knows")
         assert "Shaggoth" in result
+
+    def test_bigram_you_are_becomes_i_am(self):
+        assert reflect("you are wrong") == "I am wrong"
+        assert reflect("you are the best") == "I am the best"
+
+    def test_bigram_i_am_becomes_you_are(self):
+        assert reflect("i am tired") == "you are tired"
 
 
 class TestPatternEngine:
