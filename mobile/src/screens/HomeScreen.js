@@ -1,17 +1,9 @@
-import React, { useEffect, useState } from 'react'
-import { View, Text, ScrollView } from 'react-native'
+import React from 'react'
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native'
 import { colors, spacing, radius, fontSize } from '../theme/colors'
 import FeatureCard from '../components/FeatureCard'
-import * as api from '../api/shaggoth'
 
 export default function HomeScreen({ onNavigate, connected }) {
-  const [greeting, setGreeting] = useState('')
-
-  useEffect(() => {
-    api.health()
-      .then(() => setGreeting('Online'))
-      .catch(() => setGreeting('Offline'))
-  }, [])
 
   return (
     <ScrollView
@@ -48,18 +40,22 @@ export default function HomeScreen({ onNavigate, connected }) {
               borderRadius: 4,
               backgroundColor: connected ? colors.green : colors.red,
             }} />
-            <View style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: colors.surfaceLight,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}>
+            <TouchableOpacity
+              onPress={() => onNavigate('settings')}
+              activeOpacity={0.7}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: colors.surfaceLight,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
               <Text style={{ color: colors.text, fontSize: 16 }}>{'⚙'}</Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
       </View>

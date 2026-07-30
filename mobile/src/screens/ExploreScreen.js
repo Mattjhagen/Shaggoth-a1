@@ -22,7 +22,7 @@ const TOOLS = [
 
 const CATEGORIES = ['All', 'Research', 'Knowledge', 'Memory', 'Utility']
 
-export default function ExploreScreen({ onNavigate }) {
+export default function ExploreScreen({ onNavigate, onBack }) {
   const [category, setCategory] = useState('All')
   const [knowledge, setKnowledge] = useState([])
   const [loading, setLoading] = useState(true)
@@ -41,7 +41,7 @@ export default function ExploreScreen({ onNavigate }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <Header title="Explore" />
+      <Header title="Explore" onBack={onBack} />
 
       <ScrollView
         horizontal

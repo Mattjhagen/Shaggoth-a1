@@ -67,7 +67,7 @@ export default function ChatScreen({ onBack }) {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <Header
-        title="AI Chat"
+        title="Comms"
         onBack={onBack}
         rightContent={
           <TouchableOpacity onPress={newChat} activeOpacity={0.7}>

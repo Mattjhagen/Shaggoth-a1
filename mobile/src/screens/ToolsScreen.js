@@ -61,7 +61,7 @@ function SectionHeader({ title }) {
   )
 }
 
-export default function ToolsScreen() {
+export default function ToolsScreen({ onBack }) {
   const [section, setSection] = useState('learn')
   const [learnStatus, setLearnStatus] = useState(null)
   const [learnHistory, setLearnHistory] = useState([])
@@ -142,7 +142,7 @@ export default function ToolsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <Header title="Tools" />
+      <Header title="Tools" onBack={onBack} />
 
       <View style={{
         flexDirection: 'row',

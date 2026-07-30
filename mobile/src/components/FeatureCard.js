@@ -37,7 +37,6 @@ export default function FeatureCard({ icon, title, subtitle, accentColor, onPres
           fontWeight: '700',
           marginBottom: spacing.xs,
         }}>
-          <Text style={{ color: accentColor || colors.primary }}>Ai </Text>
           {title}
         </Text>
         {subtitle && (

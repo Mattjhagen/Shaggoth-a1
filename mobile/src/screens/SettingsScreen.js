@@ -23,7 +23,7 @@ function SectionHeader({ title }) {
   )
 }
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ connected }) {
   const [apiUrl, setApiUrl] = useState(api.getApiUrl())
   const [apiKey, setApiKey] = useState(api.getApiKey())
   const [guardrails, setGuardrails] = useState([])
@@ -39,19 +39,46 @@ export default function SettingsScreen() {
     setSaving(true)
     await api.saveApiUrl(apiUrl)
     await api.saveApiKey(apiKey)
-    Alert.alert('Saved', 'Settings updated. Reconnect to apply.')
+    Alert.alert('Saved', 'Uplink settings updated. Reconnect to apply.')
     setSaving(false)
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <Header title="Settings" />
+      <Header
+        title="Settings"
+        rightContent={
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.xs,
+            paddingHorizontal: spacing.sm,
+            paddingVertical: spacing.xs,
+            borderRadius: radius.full,
+            backgroundColor: (connected ? colors.green : colors.red) + '15',
+          }}>
+            <View style={{
+              width: 6,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: connected ? colors.green : colors.red,
+            }} />
+            <Text style={{
+              color: connected ? colors.green : colors.red,
+              fontSize: fontSize.xs,
+              fontWeight: '600',
+            }}>
+              {connected ? 'Online' : 'Offline'}
+            </Text>
+          </View>
+        }
+      />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        <SectionHeader title="Connection" />
+        <SectionHeader title="Uplink" />
 
         <Text style={{ color: colors.textDim, fontSize: fontSize.sm, marginBottom: spacing.xs }}>
           API URL

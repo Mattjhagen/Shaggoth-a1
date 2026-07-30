@@ -45,6 +45,11 @@ export default function App() {
   }, [])
 
   const navigate = (screen, params) => {
+    if (screen === 'settings') {
+      setSubScreen(null)
+      setTab('settings')
+      return
+    }
     if (['chat', 'knowledge', 'learn'].includes(screen)) {
       setSubScreen({ screen, params })
     }
@@ -60,9 +65,9 @@ export default function App() {
         case 'chat':
           return <ChatScreen onBack={goBack} />
         case 'knowledge':
-          return <ExploreScreen onNavigate={navigate} />
+          return <ExploreScreen onNavigate={navigate} onBack={goBack} />
         case 'learn':
-          return <ToolsScreen />
+          return <ToolsScreen onBack={goBack} />
       }
     }
 
@@ -74,7 +79,7 @@ export default function App() {
       case 'tools':
         return <ToolsScreen />
       case 'settings':
-        return <SettingsScreen />
+        return <SettingsScreen connected={connected} />
       default:
         return <HomeScreen onNavigate={navigate} connected={connected} />
     }
