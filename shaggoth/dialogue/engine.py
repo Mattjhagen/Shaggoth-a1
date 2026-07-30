@@ -490,8 +490,8 @@ class DialogueEngine:
             r"\bwhat (?:causes|makes|happens|leads)\b",
             query,
         ))
-        max_sents = 5 if is_explanatory else 3
-        max_ch = 900 if is_explanatory else 600
+        max_sents = 5 if is_explanatory else 4
+        max_ch = 900 if is_explanatory else 800
 
         snippets = []
         for entry, _score in hits:
@@ -503,7 +503,7 @@ class DialogueEngine:
             )
             if not snippet:
                 snippet = entry.content[:max_ch].strip()
-            snippets.append(f"[{entry.topic}]\n{snippet}")
+            snippets.append(f"On {entry.topic}: {snippet}")
         return "\n\n".join(snippets) + "\n" if snippets else ""
 
     # ------------------------------------------------------------------
@@ -528,11 +528,11 @@ class DialogueEngine:
             raw_len = len(raw_answer)
             polished = _gpt.generate_chat(
                 user_message=(
-                    f"Turn these facts into a natural conversational answer "
-                    f"to the question below. Keep ALL the facts but make it "
-                    f"sound like you're explaining something you find "
-                    f"interesting, not reading from an encyclopedia. Answer "
-                    f"the actual question first, then add context.\n\n"
+                    f"Rewrite these facts as a direct conversational answer. "
+                    f"Don't start with '[Topic] is...' — answer the question "
+                    f"first, then add what's interesting. Keep every fact but "
+                    f"make it sound like you're telling someone about something "
+                    f"you genuinely know, not reading notes aloud.\n\n"
                     f"Question: {question}\n\n"
                     f"Facts:\n{raw_answer}"
                 ),

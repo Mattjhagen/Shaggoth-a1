@@ -417,7 +417,8 @@ function appendThinking() {
 function appendMsg(role, text, source, flag, meta) {
   const div = document.createElement('div');
   div.className = 'msg ' + role;
-  let html = '<div class="msg-content">' + esc(text || '') + '</div>';
+  const rendered = role === 'assistant' ? renderMd(text || '') : esc(text || '');
+  let html = '<div class="msg-content">' + rendered + '</div>';
   const tags = [];
   if (source && source !== 'pattern' && source !== 'model') tags.push(source);
   if (flag && flag !== 'green') tags.push(flag.toUpperCase());
@@ -491,6 +492,23 @@ function esc(t) {
   const d = document.createElement('div');
   d.textContent = t;
   return d.innerHTML;
+}
+
+function renderMd(raw) {
+  let t = esc(raw);
+  // Inline code (before bold/italic so backtick content is not styled)
+  t = t.replace(/`([^`]+?)`/g, '<code>$1</code>');
+  // Bold
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic (single asterisk, but not inside a word like file*name)
+  t = t.replace(/(?<!\w)\*([^*]+?)\*(?!\w)/g, '<em>$1</em>');
+  // Unordered list items: lines starting with "- " or "* "
+  t = t.replace(/^([*\-])\s+(.+)$/gm, '<li>$2</li>');
+  // Numbered list items: "1. ", "2. " etc.
+  t = t.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+  // Wrap consecutive <li> into <ul>
+  t = t.replace(/((?:<li>.*?<\/li>\n?)+)/g, '<ul>$1</ul>');
+  return t;
 }
 
 // Personality

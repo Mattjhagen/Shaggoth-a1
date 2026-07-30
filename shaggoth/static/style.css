@@ -307,6 +307,25 @@ body {
   border-radius: var(--msg-radius) var(--msg-radius) var(--msg-radius) 4px;
 }
 
+.msg-content code {
+  background: rgba(0,0,0,.15);
+  padding: .1em .3em;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: .85em;
+}
+
+.msg-content ul {
+  margin: .4em 0;
+  padding-left: 1.3em;
+  list-style: disc;
+  white-space: normal;
+}
+
+.msg-content li {
+  margin: .15em 0;
+}
+
 .msg-source {
   font-size: .65rem;
   color: var(--text-dim);
