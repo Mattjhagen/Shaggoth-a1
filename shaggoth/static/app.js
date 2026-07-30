@@ -373,6 +373,8 @@ async function loadGreeting() {
 }
 loadGreeting();
 
+let _awaitingResponse = false;
+
 inputBar.addEventListener('submit', async (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
@@ -380,6 +382,7 @@ inputBar.addEventListener('submit', async (e) => {
   appendMsg('user', text);
   chatInput.value = '';
   sendBtn.disabled = true;
+  _awaitingResponse = true;
   const thinking = appendThinking();
   try {
     const r = await fetch(API + '/chat', {
@@ -394,6 +397,7 @@ inputBar.addEventListener('submit', async (e) => {
     thinking.remove();
     appendMsg('assistant', 'Error: ' + err.message, 'error');
   }
+  _awaitingResponse = false;
   sendBtn.disabled = false;
   chatInput.focus();
 });
@@ -784,6 +788,8 @@ setInterval(checkDeferred, 120000);
  */
 let _lastProactiveId = 0;
 
+let _deferredProactive = [];
+
 async function checkProactive() {
   try {
     const r = await fetch(
@@ -793,17 +799,25 @@ async function checkProactive() {
     );
     const d = await readJson(r);
     for (const msg of d.messages || []) {
-      // Skip messages from before the page loaded (they're already in history).
       if (_lastProactiveId === 0) {
         _lastProactiveId = msg.id;
         continue;
       }
-      appendMsg('assistant', msg.text, 'proactive');
+      if (_awaitingResponse) {
+        _deferredProactive.push(msg);
+      } else {
+        appendMsg('assistant', msg.text, 'proactive');
+      }
       _lastProactiveId = msg.id;
     }
-    // After first pass just advance the watermark without showing old messages.
     if (_lastProactiveId === 0 && (d.messages || []).length) {
       _lastProactiveId = d.messages[d.messages.length - 1].id;
+    }
+    if (!_awaitingResponse && _deferredProactive.length) {
+      for (const dm of _deferredProactive) {
+        appendMsg('assistant', dm.text, 'proactive');
+      }
+      _deferredProactive = [];
     }
   } catch {
     // Background nicety — never block anything.

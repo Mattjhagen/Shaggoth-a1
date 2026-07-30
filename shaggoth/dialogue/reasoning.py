@@ -69,8 +69,9 @@ _COMPARE = re.compile(
     r"\b(?:difference|differences|differ|distinguish|distinction)\b"
     # "compare X to Y" puts the subject between the verb and the preposition,
     # so this cannot require them to be adjacent.
-    r"|\bcompare[ds]?\b.*\b(?:to|with|against)\b|^\s*compare\b"
+    r"|\bcompare[ds]?\b.*\b(?:to|with|against)\b|\bcompare[ds]?\b"
     r"|\bversus\b|\bvs\.?\b|\bagainst\b"
+    r"|\b(?:relate|hold[s]?\s+up|stack[s]?\s+up)\b.*\b(?:to|against|next to)\b"
     # "why is X different from Y" is a comparison that happens to open with
     # "why"; classify() checks COMPARE first precisely so it lands here.
     r"|\b(?:how|why|in what way(?:s)?) (?:is|are|does|do) .+ different\b",

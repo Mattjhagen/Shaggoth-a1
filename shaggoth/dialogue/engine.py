@@ -409,11 +409,11 @@ class DialogueEngine:
         if name and name.lower() not in body.lower() and len(body) < 80:
             if hash(text) % 4 == 0:
                 stripped = body.rstrip(".!? ")
-                tail = body[len(stripped):]
-                if tail and tail.lstrip():
-                    body = f"{stripped}, {name}{tail.lstrip()[0]}"
+                tail = body[len(stripped):].strip()
+                if tail:
+                    body = f"{stripped}, {name}{tail}"
                 else:
-                    body = f"{body}, {name}."
+                    body = f"{stripped}, {name}."
 
         # Inject knowledge quirk if the top hit is actually on-topic.
         # DRIFT-only: offering a tangent instead of answering is precisely

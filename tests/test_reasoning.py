@@ -28,6 +28,10 @@ from shaggoth.dialogue.reasoning import (
     "aeroponics versus hydroponics",
     "aeroponics vs hydroponics",
     "compare aeroponics to hydroponics",
+    "compare cats and dogs",
+    "how does X relate to Y",
+    "how does X hold up against Y",
+    "how does X stack up against Y",
 ])
 def test_comparison_questions(question):
     assert classify(question) == Intent.COMPARE

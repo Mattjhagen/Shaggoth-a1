@@ -389,5 +389,52 @@ class GPTConversationTests(unittest.TestCase):
         self.assertFalse(_is_about_self("how does gravity work"))
 
 
+class NameInjectionTests(unittest.TestCase):
+    """Name personalization edge cases."""
+
+    def test_name_injection_preserves_all_trailing_punctuation(self):
+        body = "Sure thing?!"
+        name = "Alice"
+        stripped = body.rstrip(".!? ")
+        tail = body[len(stripped):].strip()
+        if tail:
+            result = f"{stripped}, {name}{tail}"
+        else:
+            result = f"{stripped}, {name}."
+        self.assertEqual(result, "Sure thing, Alice?!")
+
+    def test_name_injection_trailing_whitespace_only(self):
+        body = "Sure thing   "
+        name = "Test"
+        stripped = body.rstrip(".!? ")
+        tail = body[len(stripped):].strip()
+        if tail:
+            result = f"{stripped}, {name}{tail}"
+        else:
+            result = f"{stripped}, {name}."
+        self.assertEqual(result, "Sure thing, Test.")
+
+
+class RecallQualityGateTests(unittest.TestCase):
+    """Recall callbacks should only fire on lightweight replies."""
+
+    def _make_gpt_engine_with_recall(self):
+        from unittest.mock import MagicMock, PropertyMock
+        from shaggoth.models.openai_model import OpenAIModel
+        engine = make_engine()
+        mock_gpt = MagicMock(spec=OpenAIModel)
+        type(mock_gpt).configured = PropertyMock(return_value=True)
+        mock_gpt.is_trained.return_value = True
+        mock_gpt.generate_chat.return_value = "Here's what I know about photosynthesis."
+        engine.model = mock_gpt
+        return engine
+
+    def test_recall_does_not_inject_into_gpt_responses(self):
+        engine = self._make_gpt_engine_with_recall()
+        engine.memory.add_message("s1", "user", "I am building an LLM")
+        reply = engine.respond("tell me about photosynthesis", session_id="s1")
+        self.assertNotIn("you mentioned", reply.text)
+
+
 if __name__ == "__main__":
     unittest.main()
