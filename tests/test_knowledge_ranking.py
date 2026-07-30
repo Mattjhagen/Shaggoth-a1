@@ -178,6 +178,23 @@ def test_exact_match_still_preferred_over_fuzzy(tmp_path):
     assert KnowledgeBase.slug_for("C++") == "c"
 
 
+def test_acronym_query_finds_article(tmp_path):
+    """Two-letter acronyms like AI should match knowledge entries."""
+    kb = KnowledgeBase(tmp_path)
+    kb.add_entry("AI", "AI is the simulation of human intelligence by machines. " * 20)
+    results = kb.query("what is AI", limit=3, min_score=0.0)
+    assert results, "AI query should find the AI article"
+    assert results[0][0].topic.lower() == "ai"
+
+
+def test_acronym_keyword_extraction():
+    """extract_keywords should capture uppercase 2-letter acronyms."""
+    from shaggoth.memory.store import extract_keywords
+    kw = extract_keywords("What is AI and how does it relate to UK policy?")
+    assert "ai" in kw
+    assert "uk" in kw
+
+
 def test_slug_never_returns_empty():
     assert KnowledgeBase.slug_for("!!!") == "untitled"
     assert KnowledgeBase.slug_for("") == "untitled"

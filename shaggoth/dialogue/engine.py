@@ -1184,7 +1184,14 @@ _REACTION = re.compile(
 
 
 _DEFINITION_QUERY = re.compile(
-    r"(?i)^(?:what (?:is|are|was|were) (?:a |an |the )?|define |explain )"
+    r"(?i)^(?:"
+    r"what (?:is|are|was|were) (?:a |an |the )?"
+    r"|define "
+    r"|explain "
+    r"|(?:tell|teach) me (?:about |what )(?:a |an |the )?"
+    r"|describe (?:a |an |the )?"
+    r"|(?:talk|know) about (?:a |an |the )?"
+    r")"
     r"(\w[\w\s\-]{0,30}?)\s*[?.!]*$",
 )
 

@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 _WORD_RE = re.compile(r"[a-zA-Z][a-zA-Z'\-]{2,}")
+_ACRONYM_RE = re.compile(r"\b[A-Z]{2,5}\b")
 
 # Common words that carry no topical signal.
 STOPWORDS = frozenset(
@@ -105,7 +106,10 @@ def extract_keywords(text: str) -> list[str]:
     # Normalize iOS/smart curly quotes so contractions tokenize correctly.
     text = text.replace("‘", "'").replace("’", "'")
     words = [w.lower() for w in _WORD_RE.findall(text)]
-    return [w for w in words if w not in STOPWORDS]
+    # Capture uppercase acronyms (AI, UK, EU, pH) that the 3+ char regex misses.
+    acronyms = [a.lower() for a in _ACRONYM_RE.findall(text)]
+    combined = words + [a for a in acronyms if a not in words]
+    return [w for w in combined if w not in STOPWORDS]
 
 
 @dataclass

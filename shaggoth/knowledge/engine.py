@@ -39,6 +39,9 @@ _TITLE_STOPWORDS = frozenset({
     "something", "anything", "explain", "describe", "story", "stories",
     "talk", "know", "one", "some", "any", "new", "old", "now", "then",
     "good", "bad", "make", "like", "get",
+    "an", "as", "at", "be", "by", "do", "go", "he", "if", "in", "is",
+    "it", "me", "my", "no", "of", "on", "or", "so", "to", "up", "us",
+    "we",
 })
 
 # Titles that denote an index rather than a subject.
@@ -141,7 +144,7 @@ class KnowledgeBase:
         title = _CHUNK_SUFFIX.sub("", entry.topic).strip()
         return {
             t for t in re.split(r"[^a-z0-9]+", title.lower())
-            if len(t) > 2 and t not in _TITLE_STOPWORDS
+            if len(t) > 1 and t not in _TITLE_STOPWORDS
         }
 
     def query(self, text: str, limit: int = 3, min_score: float = 0.0) -> list[tuple[KnowledgeEntry, float]]:
