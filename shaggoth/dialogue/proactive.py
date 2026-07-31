@@ -200,12 +200,10 @@ class ProactiveChatter:
         """Sessions that have had user messages within the active window."""
         cutoff = time.time() - self.config.active_session_window_hours * 3600
         try:
-            rows = self.engine.memory.db.execute(
-                "SELECT DISTINCT session_id FROM messages "
-                "WHERE role = 'user' AND ts > ? AND session_id NOT IN ('default', 'deferred')",
-                (cutoff,),
-            ).fetchall()
-            return [r[0] for r in rows]
+            # Locked accessor -- this runs on the proactive loop's own
+            # background thread, concurrently with request-handling threads
+            # on the same sqlite3.Connection.
+            return self.engine.memory.active_session_ids(cutoff)
         except Exception:
             return []
 

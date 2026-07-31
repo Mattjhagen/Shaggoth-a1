@@ -136,6 +136,16 @@ class CuriosityEngineTests(unittest.TestCase):
         self.assertIn("total_episodes", status)
         self.assertFalse(status["is_running"])
 
+    def test_status_knowledge_total_words_sums_entries_not_scraper_pages(self):
+        # Wikipedia ingestion (ingest_text/add_entry) never touches the
+        # scraper's `pages` table, so knowledge_total_words must be derived
+        # from the knowledge base itself, not scraper_stats.total_words.
+        self.knowledge.add_entry("Alpha", "one two three four five")
+        self.knowledge.add_entry("Beta", "six seven eight")
+        status = self.engine.status()
+        self.assertEqual(status["knowledge_total_words"], 8)
+        self.assertEqual(status["scraper_stats"]["total_words"], 0)
+
     def test_history_empty(self):
         history = self.engine.history()
         self.assertEqual(history, [])

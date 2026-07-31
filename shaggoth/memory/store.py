@@ -22,6 +22,7 @@ from __future__ import annotations
 import math
 import re
 import sqlite3
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -104,36 +105,45 @@ class MemoryStore:
     def __init__(self, db_path: str | Path = ":memory:"):
         if db_path != ":memory:":
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        # sqlite3.connect(check_same_thread=False) only disables the same-thread
+        # check -- it does not make one Connection safe for concurrent use from
+        # multiple threads (the server is a ThreadingHTTPServer; the critic loop
+        # and proactive-messaging loop each run in their own background thread).
+        # Every access below is serialized through this lock instead.
+        self._lock = threading.RLock()
         self.db = sqlite3.connect(str(db_path), check_same_thread=False)
-        self.db.executescript(SCHEMA)
-        self.db.commit()
+        with self._lock:
+            self.db.executescript(SCHEMA)
+            self.db.commit()
 
     # ----------------------------------------------------------- writing
     def add_message(self, session_id: str, role: str, content: str) -> int:
-        cur = self.db.execute(
-            "INSERT INTO messages (session_id, role, content, ts) VALUES (?, ?, ?, ?)",
-            (session_id, role, content, time.time()),
-        )
-        message_id = cur.lastrowid
-        # Index unique keywords only, to keep scoring about overlap not repetition.
-        for word in set(extract_keywords(content)):
-            self.db.execute(
-                "INSERT INTO keywords (message_id, word) VALUES (?, ?)", (message_id, word)
+        with self._lock:
+            cur = self.db.execute(
+                "INSERT INTO messages (session_id, role, content, ts) VALUES (?, ?, ?, ?)",
+                (session_id, role, content, time.time()),
             )
-        self.db.commit()
-        return int(message_id)
+            message_id = cur.lastrowid
+            # Index unique keywords only, to keep scoring about overlap not repetition.
+            for word in set(extract_keywords(content)):
+                self.db.execute(
+                    "INSERT INTO keywords (message_id, word) VALUES (?, ?)", (message_id, word)
+                )
+            self.db.commit()
+            return int(message_id)
 
     def extract_and_store_facts(self, text: str) -> dict[str, str]:
         """Pull durable facts out of a user message; returns any new facts."""
         found: dict[str, str] = {}
-        for pattern, key in FACT_PATTERNS:
-            match = pattern.search(text)
-            if match:
-                value = match.group(1).strip()
-                found[key] = value
-                self.set_fact(key, value, commit=False)
-        if found:
-            self.db.commit()
+        with self._lock:
+            for pattern, key in FACT_PATTERNS:
+                match = pattern.search(text)
+                if match:
+                    value = match.group(1).strip()
+                    found[key] = value
+                    self.set_fact(key, value, commit=False)
+            if found:
+                self.db.commit()
         return found
 
     def set_fact(self, key: str, value: str, user_id: str = "default",
@@ -148,35 +158,39 @@ class MemoryStore:
         `key` alone as the primary key and kept working, which is why the bug
         stayed hidden in production while failing every test run.
         """
-        self.db.execute(
-            "INSERT INTO facts (key, value, user_id, ts) VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(key, user_id) DO UPDATE SET "
-            "value = excluded.value, ts = excluded.ts",
-            (key, value, user_id, time.time()),
-        )
-        if commit:
-            self.db.commit()
+        with self._lock:
+            self.db.execute(
+                "INSERT INTO facts (key, value, user_id, ts) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(key, user_id) DO UPDATE SET "
+                "value = excluded.value, ts = excluded.ts",
+                (key, value, user_id, time.time()),
+            )
+            if commit:
+                self.db.commit()
 
     # ----------------------------------------------------------- reading
     def get_fact(self, key: str, user_id: str = "default") -> str | None:
-        row = self.db.execute(
-            "SELECT value FROM facts WHERE key = ? AND user_id = ?", (key, user_id)
-        ).fetchone()
-        return row[0] if row else None
+        with self._lock:
+            row = self.db.execute(
+                "SELECT value FROM facts WHERE key = ? AND user_id = ?", (key, user_id)
+            ).fetchone()
+            return row[0] if row else None
 
     def all_facts(self, user_id: str = "default") -> dict[str, str]:
-        return dict(
-            self.db.execute(
-                "SELECT key, value FROM facts WHERE user_id = ?", (user_id,)
-            ).fetchall()
-        )
+        with self._lock:
+            return dict(
+                self.db.execute(
+                    "SELECT key, value FROM facts WHERE user_id = ?", (user_id,)
+                ).fetchall()
+            )
 
     def history(self, session_id: str, limit: int = 50) -> list[dict]:
-        rows = self.db.execute(
-            "SELECT id, role, content, ts FROM messages WHERE session_id = ? "
-            "ORDER BY id DESC LIMIT ?",
-            (session_id, limit),
-        ).fetchall()
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT id, role, content, ts FROM messages WHERE session_id = ? "
+                "ORDER BY id DESC LIMIT ?",
+                (session_id, limit),
+            ).fetchall()
         return [
             {"id": r[0], "role": r[1], "content": r[2], "ts": r[3]} for r in reversed(rows)
         ]
@@ -199,18 +213,19 @@ class MemoryStore:
         if not query_words:
             return []
 
-        total_msgs = self.db.execute("SELECT COUNT(*) FROM messages").fetchone()[0] or 1
-        placeholders = ",".join("?" for _ in query_words)
-        rows = self.db.execute(
-            f"""
-            SELECT k.word, m.id, m.session_id, m.content, m.ts
-            FROM keywords k JOIN messages m ON m.id = k.message_id
-            WHERE k.word IN ({placeholders})
-              AND m.role = 'user'
-              AND m.session_id != ?
-            """,
-            (*query_words, current_session),
-        ).fetchall()
+        with self._lock:
+            total_msgs = self.db.execute("SELECT COUNT(*) FROM messages").fetchone()[0] or 1
+            placeholders = ",".join("?" for _ in query_words)
+            rows = self.db.execute(
+                f"""
+                SELECT k.word, m.id, m.session_id, m.content, m.ts
+                FROM keywords k JOIN messages m ON m.id = k.message_id
+                WHERE k.word IN ({placeholders})
+                  AND m.role = 'user'
+                  AND m.session_id != ?
+                """,
+                (*query_words, current_session),
+            ).fetchall()
 
         # Document frequency per word (over all indexed messages).
         by_message: dict[int, dict] = {}
@@ -254,24 +269,24 @@ class MemoryStore:
         or "why?" had nothing to refer back to.
         """
         recent_turns = self.RECENT_TURNS if recent_turns is None else recent_turns
-        rows = self.db.execute(
-            "SELECT id, role, content, ts FROM messages WHERE session_id = ? "
-            "ORDER BY id DESC LIMIT ?",
-            (session_id, max(0, recent_turns) * 2),
-        ).fetchall()
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT id, role, content, ts FROM messages WHERE session_id = ? "
+                "ORDER BY id DESC LIMIT ?",
+                (session_id, max(0, recent_turns) * 2),
+            ).fetchall()
+            total = self.db.execute(
+                "SELECT COUNT(*) FROM messages WHERE session_id = ?", (session_id,)
+            ).fetchone()[0]
+
+            summary_row = self.db.execute(
+                "SELECT summary, message_count FROM session_summaries WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
         recent = [
             {"id": r[0], "role": r[1], "content": r[2], "ts": r[3]}
             for r in reversed(rows)
         ]
-
-        total = self.db.execute(
-            "SELECT COUNT(*) FROM messages WHERE session_id = ?", (session_id,)
-        ).fetchone()[0]
-
-        summary_row = self.db.execute(
-            "SELECT summary, message_count FROM session_summaries WHERE session_id = ?",
-            (session_id,),
-        ).fetchone()
 
         last_user = next(
             (m["content"] for m in reversed(recent) if m["role"] == "user"), ""
@@ -292,13 +307,14 @@ class MemoryStore:
         Ranked by how often a keyword appears across the session's messages,
         which is a decent proxy for what it has been about.
         """
-        rows = self.db.execute(
-            "SELECT k.word, COUNT(*) AS n FROM keywords k "
-            "JOIN messages m ON m.id = k.message_id "
-            "WHERE m.session_id = ? AND m.role = 'user' "
-            "GROUP BY k.word ORDER BY n DESC, k.word ASC LIMIT ?",
-            (session_id, limit),
-        ).fetchall()
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT k.word, COUNT(*) AS n FROM keywords k "
+                "JOIN messages m ON m.id = k.message_id "
+                "WHERE m.session_id = ? AND m.role = 'user' "
+                "GROUP BY k.word ORDER BY n DESC, k.word ASC LIMIT ?",
+                (session_id, limit),
+            ).fetchall()
         return [r[0] for r in rows]
 
     def compact_session(self, session_id: str, keep_recent: int | None = None) -> str:
@@ -314,36 +330,37 @@ class MemoryStore:
         """
         keep_recent = self.RECENT_TURNS * 2 if keep_recent is None else keep_recent
 
-        total = self.db.execute(
-            "SELECT COUNT(*) FROM messages WHERE session_id = ?", (session_id,)
-        ).fetchone()[0]
-        if total <= keep_recent:
-            return ""
+        with self._lock:
+            total = self.db.execute(
+                "SELECT COUNT(*) FROM messages WHERE session_id = ?", (session_id,)
+            ).fetchone()[0]
+            if total <= keep_recent:
+                return ""
 
-        cutoff_row = self.db.execute(
-            "SELECT id FROM messages WHERE session_id = ? ORDER BY id DESC "
-            "LIMIT 1 OFFSET ?",
-            (session_id, keep_recent - 1),
-        ).fetchone()
-        if not cutoff_row:
-            return ""
-        cutoff = cutoff_row[0]
+            cutoff_row = self.db.execute(
+                "SELECT id FROM messages WHERE session_id = ? ORDER BY id DESC "
+                "LIMIT 1 OFFSET ?",
+                (session_id, keep_recent - 1),
+            ).fetchone()
+            if not cutoff_row:
+                return ""
+            cutoff = cutoff_row[0]
 
-        existing = self.db.execute(
-            "SELECT summary, through_message_id FROM session_summaries "
-            "WHERE session_id = ?",
-            (session_id,),
-        ).fetchone()
-        if existing and existing[1] >= cutoff:
-            return existing[0]  # nothing new to fold in
+            existing = self.db.execute(
+                "SELECT summary, through_message_id FROM session_summaries "
+                "WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+            if existing and existing[1] >= cutoff:
+                return existing[0]  # nothing new to fold in
 
-        older = self.db.execute(
-            "SELECT role, content FROM messages WHERE session_id = ? AND id < ? "
-            "ORDER BY id ASC",
-            (session_id, cutoff),
-        ).fetchall()
-        if not older:
-            return existing[0] if existing else ""
+            older = self.db.execute(
+                "SELECT role, content FROM messages WHERE session_id = ? AND id < ? "
+                "ORDER BY id ASC",
+                (session_id, cutoff),
+            ).fetchall()
+            if not older:
+                return existing[0] if existing else ""
 
         questions = [c for role, c in older if role == "user"]
         counts: dict[str, int] = {}
@@ -370,24 +387,26 @@ class MemoryStore:
             )
         summary = " ".join(parts)
 
-        self.db.execute(
-            "INSERT INTO session_summaries "
-            "(session_id, summary, through_message_id, message_count, ts) "
-            "VALUES (?, ?, ?, ?, ?) "
-            "ON CONFLICT(session_id) DO UPDATE SET "
-            "summary = excluded.summary, "
-            "through_message_id = excluded.through_message_id, "
-            "message_count = excluded.message_count, ts = excluded.ts",
-            (session_id, summary, cutoff, len(older), time.time()),
-        )
-        self.db.commit()
+        with self._lock:
+            self.db.execute(
+                "INSERT INTO session_summaries "
+                "(session_id, summary, through_message_id, message_count, ts) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(session_id) DO UPDATE SET "
+                "summary = excluded.summary, "
+                "through_message_id = excluded.through_message_id, "
+                "message_count = excluded.message_count, ts = excluded.ts",
+                (session_id, summary, cutoff, len(older), time.time()),
+            )
+            self.db.commit()
         return summary
 
     def maybe_compact(self, session_id: str) -> str:
         """Compact only once a session is long enough to need it."""
-        total = self.db.execute(
-            "SELECT COUNT(*) FROM messages WHERE session_id = ?", (session_id,)
-        ).fetchone()[0]
+        with self._lock:
+            total = self.db.execute(
+                "SELECT COUNT(*) FROM messages WHERE session_id = ?", (session_id,)
+            ).fetchone()[0]
         if total < self.COMPACT_AFTER:
             return ""
         return self.compact_session(session_id)
@@ -400,13 +419,43 @@ class MemoryStore:
         Used by the proactive polling endpoint so the server doesn't access
         the SQLite connection directly.
         """
-        rows = self.db.execute(
-            "SELECT id, content, ts FROM messages "
-            "WHERE session_id = ? AND role = 'assistant' AND id > ? "
-            "ORDER BY id ASC LIMIT ?",
-            (session_id, since_id, limit),
-        ).fetchall()
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT id, content, ts FROM messages "
+                "WHERE session_id = ? AND role = 'assistant' AND id > ? "
+                "ORDER BY id ASC LIMIT ?",
+                (session_id, since_id, limit),
+            ).fetchall()
         return [{"id": r[0], "text": r[1], "ts": r[2]} for r in rows]
+
+    def recent_user_messages(self, limit: int) -> list[str]:
+        """Most recent distinct user message texts, newest first.
+
+        Locked accessor for callers (the critic loop) that previously reached
+        into ``self.db`` directly from a background thread -- unsynchronized
+        with request-handling threads on the same ``sqlite3.Connection``.
+        """
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT DISTINCT content FROM messages WHERE role = 'user' "
+                "ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [r[0] for r in rows]
+
+    def active_session_ids(self, since_ts: float) -> list[str]:
+        """Session ids with a user message after ``since_ts``, excluding system sessions.
+
+        Locked accessor for callers (the proactive-messaging loop) that
+        previously reached into ``self.db`` directly from a background thread.
+        """
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT DISTINCT session_id FROM messages "
+                "WHERE role = 'user' AND ts > ? AND session_id NOT IN ('default', 'deferred')",
+                (since_ts,),
+            ).fetchall()
+        return [r[0] for r in rows]
 
     def close(self) -> None:
         self.db.close()

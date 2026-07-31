@@ -372,12 +372,20 @@ class CuriosityEngine:
 
     def status(self) -> dict:
         ep = self._current_episode  # capture once; avoids TOCTOU with finishing threads
+        entries = self.knowledge.list_entries()
         return {
             "is_running": self._running,
             "current_episode": asdict(ep) if ep else None,
             "total_episodes": len(self._history),
             "last_episode": self._history[-1] if self._history else None,
-            "knowledge_entries": len(self.knowledge.list_entries()),
+            "knowledge_entries": len(entries),
+            # Actual corpus size. scraper_stats.total_words only counts pages
+            # that went through the generic web-scraper table -- Wikipedia
+            # ingestion (the dominant source of entries) writes straight to
+            # the knowledge base and never touches that table, so it made
+            # the dashboard's word count look stalled while entries kept
+            # growing.
+            "knowledge_total_words": sum(e["word_count"] for e in entries),
             "scraper_stats": self.scraper.stats(),
             "freshness": self.freshness.status(),
         }
