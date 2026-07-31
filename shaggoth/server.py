@@ -49,10 +49,15 @@ from .feedback import FeedbackStore
 from .notify import DeferredQuestions, PushSender
 from .quality import CriticLoop, build_teacher
 from .personality.engine import PersonalityEngine
+from .sites import DomainError, SiteRegistry, verify
+from .sites.crawl import MAX_DEPTH, MAX_PAGES, CrawlNotPermitted
+from .sites.jobs import CrawlAlreadyRunning, CrawlJobs
+from .sites.verification import dns_instructions, file_instructions
 
 STATIC_DIR = Path(__file__).parent / "static"
 API_KEY = os.environ.get("SHAGGOTH_API_KEY") or ""
 RATE_LIMITS: dict[str, list[float]] = {}
+_SITES_INIT_LOCK = threading.Lock()
 _RATE_LIMIT_LOCK = threading.Lock()
 PUSH_TOKENS: list[dict] = []
 
@@ -204,7 +209,31 @@ def _request_mode(body: dict):
     return None
 
 
-def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None, feedback: FeedbackStore | None = None, critic: CriticLoop | None = None, proactive=None):
+
+def _crawl_bounds(body: dict) -> dict:
+    """Caller-supplied crawl bounds, clamped to the module ceilings.
+
+    Only ever downward. A tenant asking for a smaller crawl of their own site
+    is reasonable; letting a request raise the limits would make the ceilings
+    decorative, and the ceilings are what stop this box being pointed at
+    something large.
+    """
+    floors = {"max_pages": 1, "max_depth": 0}
+    ceilings = {"max_pages": MAX_PAGES, "max_depth": MAX_DEPTH}
+    out: dict[str, int] = {}
+    for key in ("max_pages", "max_depth"):
+        raw = body.get(key)
+        if raw is None:
+            continue
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            continue
+        out[key] = max(floors[key], min(value, ceilings[key]))
+    return out
+
+
+def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None, feedback: FeedbackStore | None = None, critic: CriticLoop | None = None, proactive=None, sites: SiteRegistry | None = None, crawl_jobs: CrawlJobs | None = None):
     class Handler(BaseHTTPRequestHandler):
         server_version = f"Shaggoth/{__version__}"
 
@@ -305,6 +334,215 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             # that forwarded nothing. Fall back to the socket address.
             return peer
 
+        def _sites(self) -> SiteRegistry:
+            """The tenant registry, built at most once per server.
+
+            Lazy on purpose: ``make_handler(None, None)`` is how the tests get
+            at the handler's own helpers, and building a class should not
+            create directories on disk as a side effect.
+            """
+            nonlocal sites
+            with _SITES_INIT_LOCK:
+                if sites is None:
+                    sites = SiteRegistry()
+                return sites
+
+        def _crawl_jobs(self) -> CrawlJobs:
+            nonlocal crawl_jobs
+            with _SITES_INIT_LOCK:
+                if crawl_jobs is None:
+                    crawl_jobs = CrawlJobs()
+                return crawl_jobs
+
+        # ------------------------------------------------- tenant sites
+        #
+        # The registry, ownership verification and the crawl existed as
+        # library code with nothing able to reach them over the wire. This is
+        # that wire. Three rules hold across all of it:
+        #
+        # * A verification failure is data, not an error. The check ran and
+        #   answered "not yet", so it comes back 200 with the machine-readable
+        #   reason intact. ``nxdomain``, ``no_record`` and ``not_found`` need
+        #   three different actions from the owner; collapsing them into one
+        #   4xx throws away the only part that was worth computing.
+        # * Nothing here writes ``status``. There is no update route, and the
+        #   crawl route *reads* verification rather than accepting it, so no
+        #   request body can talk its way past the gate.
+        # * Caller-supplied bounds are clamped downward only.
+
+        def _site_payload(self, record) -> dict:
+            """Full view of one site, including how to prove ownership."""
+            data = record.public_dict()
+            data["verified"] = record.verified
+            data["verification"] = {
+                "dns": dns_instructions(record.domain, record.token),
+                "file": file_instructions(record.domain, record.token),
+            }
+            return data
+
+        def _site_summary(self, record) -> dict:
+            """Listing view -- deliberately narrower than ``_site_payload``.
+
+            ``GET /sites`` is reachable without auth while SHAGGOTH_API_KEY is
+            unset, so the listing carries no verification tokens and no
+            support contacts. A token is not a credential, but there is no
+            reason to hand every tenant's one to every caller either.
+            """
+            return {
+                "site_id": record.site_id,
+                "domain": record.domain,
+                "status": record.status,
+                "verified": record.verified,
+                "personality": record.personality,
+                "created_at": record.created_at,
+                "last_crawl_at": record.last_crawl_at or None,
+                "pages_indexed": record.pages_indexed,
+            }
+
+        def _lookup_site(self, site_id: str):
+            """The record, or None having already sent a 404."""
+            record = self._sites().get(site_id)
+            if record is None:
+                self._send_json(404, {
+                    "error": f"no site with id {site_id!r}",
+                    "reason": "unknown_site",
+                })
+                return None
+            return record
+
+        def _route_sites_get(self, path: str, url):
+            if path in ("/sites", "/sites/"):
+                return self._send_json(200, {
+                    "sites": [self._site_summary(r)
+                              for r in self._sites().list_sites()],
+                })
+
+            parts = [p for p in path.split("/") if p]
+            site_id = parts[1] if len(parts) > 1 else ""
+            tail = parts[2] if len(parts) > 2 else ""
+            if len(parts) > 3:
+                return self._send_json(404, {"error": "not found"})
+
+            record = self._lookup_site(site_id)
+            if record is None:
+                return
+
+            if not tail:
+                return self._send_json(200, self._site_payload(record))
+
+            if tail == "crawl":
+                job = self._crawl_jobs().get(site_id)
+                return self._send_json(200, {
+                    "site_id": site_id,
+                    "domain": record.domain,
+                    # "idle" rather than a 404: never crawled and finished
+                    # crawling are both "nothing running", and a poller should
+                    # not have to special-case the first one.
+                    "state": job.state if job else "idle",
+                    "job": job.as_dict() if job else None,
+                    "last_crawl_at": record.last_crawl_at or None,
+                    "pages_indexed": record.pages_indexed,
+                })
+
+            return self._send_json(404, {"error": "not found"})
+
+        def _route_sites_post(self, path: str, url):
+            registry = self._sites()
+
+            if path in ("/sites/register", "/sites/register/"):
+                # Every call can create a directory and a record, so this sits
+                # far below the global per-minute limit. Registering is also
+                # idempotent per domain, which caps the damage a loop can do.
+                if not self._rate_limit(
+                    f"register:{self._client_ip()}", limit=10, window=3600.0
+                ):
+                    return
+                body = self._read_json()
+                raw = (body.get("url") or body.get("domain") or "").strip()
+                if not raw:
+                    return self._send_json(400, {
+                        "error": "url is required",
+                        "reason": "missing_url",
+                    })
+                try:
+                    record = registry.register(raw)
+                except DomainError as exc:
+                    # DomainError messages are written for the site owner
+                    # ("Enter a domain name, not an IP address."), so they are
+                    # the response text rather than something generic.
+                    return self._send_json(400, {
+                        "error": str(exc),
+                        "reason": "invalid_domain",
+                    })
+                return self._send_json(200, self._site_payload(record))
+
+            parts = [p for p in path.split("/") if p]
+            site_id = parts[1] if len(parts) > 1 else ""
+            tail = parts[2] if len(parts) > 2 else ""
+            if len(parts) != 3:
+                return self._send_json(404, {"error": "not found"})
+
+            record = self._lookup_site(site_id)
+            if record is None:
+                return
+
+            if tail == "verify":
+                # A verify call makes the server talk to DNS and to the
+                # customer's own web server, so it is capped per site rather
+                # than per caller -- otherwise a rotating source IP turns the
+                # endpoint into a small amplifier aimed at their box.
+                if not self._rate_limit(f"verify:{site_id}", limit=12, window=600.0):
+                    return
+                body = self._read_json()
+                method = (body.get("method") or "any").strip().lower()
+                if method not in ("any", "dns", "file"):
+                    return self._send_json(400, {
+                        "error": "method must be one of: any, dns, file",
+                        "reason": "bad_method",
+                    })
+                result = verify(record.domain, record.token, method=method)
+                if result.verified and not record.verified:
+                    record = registry.mark_verified(site_id, result.method) or record
+                payload = result.as_dict()
+                payload.update({
+                    "site_id": site_id,
+                    "domain": record.domain,
+                    "status": record.status,
+                })
+                return self._send_json(200, payload)
+
+            if tail == "crawl":
+                if not self._rate_limit(f"crawl:{site_id}", limit=4, window=3600.0):
+                    return
+                body = self._read_json()
+                try:
+                    job = self._crawl_jobs().start(
+                        registry, site_id, **_crawl_bounds(body)
+                    )
+                except CrawlNotPermitted as exc:
+                    # 409 rather than 403: the request is well formed and the
+                    # caller may well own the site. The *state* is wrong, and
+                    # it is fixable by verifying.
+                    return self._send_json(409, {
+                        "error": str(exc),
+                        "reason": "not_verified",
+                        "status": record.status,
+                    })
+                except CrawlAlreadyRunning as exc:
+                    return self._send_json(409, {
+                        "error": str(exc),
+                        "reason": "already_running",
+                    })
+                # 202: the crawl is bounded at 25 pages paced 1s apart, which
+                # outlives some proxies in front of this box. Poll the GET.
+                return self._send_json(202, {
+                    "site_id": site_id,
+                    "domain": record.domain,
+                    "job": job.as_dict(),
+                })
+
+            return self._send_json(404, {"error": "not found"})
+
         def _rate_limit(self, key: str = "", limit: int = 60, window: float = 60.0) -> bool:
             """Cap requests per client IP per minute.
 
@@ -364,6 +602,9 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
 
             if not self._check_auth():
                 return
+
+            if path == "/sites" or path.startswith("/sites/"):
+                return self._route_sites_get(path, url)
 
             if path == "/history":
                 params = parse_qs(url.query)
@@ -542,6 +783,9 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             return self._send_json(404, {"error": "not found"})
 
         def _route_post(self, path: str, url):
+            if path.startswith("/sites/"):
+                return self._route_sites_post(path, url)
+
             if path == "/chat":
                 body = self._read_json()
                 message = (body.get("message") or "").strip()
@@ -1041,7 +1285,8 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
         (host, port),
         make_handler(
             engine, learner, api_key, curiosity, scheduler, push, deferred,
-            feedback, critic, proactive,
+            feedback, critic, proactive, sites=SiteRegistry(),
+            crawl_jobs=CrawlJobs(),
         ),
     )
     auth_status = "enabled" if api_key else "disabled"
