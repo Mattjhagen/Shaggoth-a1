@@ -51,11 +51,21 @@ CREATE TABLE IF NOT EXISTS messages (
     content TEXT NOT NULL,
     ts REAL NOT NULL
 );
+-- Every per-session read (history, conversation_context, session_topics,
+-- compact_session) filters on session_id, and session_topics also filters on
+-- role. Without this, those queries scan the whole messages table, which the
+-- long-running command-center sessions grow without bound.
+CREATE INDEX IF NOT EXISTS idx_messages_session_role ON messages(session_id, role);
 CREATE TABLE IF NOT EXISTS keywords (
     message_id INTEGER NOT NULL REFERENCES messages(id),
     word TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_keywords_word ON keywords(word);
+-- session_topics joins keywords back to messages by message_id. Indexed only
+-- on word, SQLite drove the join from keywords and scanned all ~1.2M rows,
+-- costing 4.5s per /chat. With both indexes it drives from messages instead
+-- and the same query takes ~0.1s.
+CREATE INDEX IF NOT EXISTS idx_keywords_message ON keywords(message_id);
 CREATE TABLE IF NOT EXISTS facts (
     key TEXT NOT NULL,
     value TEXT NOT NULL,
