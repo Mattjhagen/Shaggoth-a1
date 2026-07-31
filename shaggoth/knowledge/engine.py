@@ -36,6 +36,7 @@ class KnowledgeBase:
         self._index: dict[str, list[int]] = {}
         self._last_scan: float = 0
         self._last_check: float = 0
+        self._known_paths: set[str] = set()
         # _index holds positions into _entries, so the two must be swapped
         # together and read as one snapshot. Held only around the swap and the
         # snapshot read -- never around the scan itself, which does file I/O.
@@ -44,10 +45,21 @@ class KnowledgeBase:
 
     def _scan(self) -> None:
         entries: list[KnowledgeEntry] = []
+        # Every path this scan *considered*, including files skipped for being
+        # empty. maybe_reload() compares against this, so it has to record what
+        # was on disk rather than what produced an entry -- otherwise an empty
+        # file would look like a deletion on every check and rescan forever.
+        seen: set[str] = set()
         for fpath in sorted(self.directory.glob("*")):
             if fpath.suffix.lower() not in (".md", ".txt", ".text"):
                 continue
-            content = fpath.read_text(encoding="utf-8", errors="replace").strip()
+            seen.add(str(fpath))
+            try:
+                content = fpath.read_text(encoding="utf-8", errors="replace").strip()
+            except FileNotFoundError:
+                # Deleted between the glob and the read.
+                seen.discard(str(fpath))
+                continue
             if not content:
                 continue
             # Collapse runs of separators: "aeroponics---wikipedia" would
@@ -75,6 +87,9 @@ class KnowledgeBase:
         with self._swap_lock:
             self._entries = entries
             self._index = index
+        # Rebound, never mutated in place, so a concurrent maybe_reload() reads
+        # either the whole old set or the whole new one.
+        self._known_paths = seen
         self._last_scan = time.time()
 
     def _snapshot(self) -> tuple[list[KnowledgeEntry], dict[str, list[int]]]:
@@ -94,13 +109,26 @@ class KnowledgeBase:
         if now - self._last_check < self._RELOAD_CHECK_INTERVAL:
             return False
         self._last_check = now
-        needs_reload = False
+        # Compare the whole path set, not just mtimes. Iterating only the files
+        # that still exist can never observe a deletion, so a removed entry
+        # used to stay queryable until the process restarted -- and it only
+        # ever disappeared by accident, when some *other* file was written and
+        # forced a full rescan.
+        current: set[str] = set()
+        newest = 0.0
         for fpath in self.directory.glob("*"):
-            if fpath.suffix.lower() in (".md", ".txt", ".text"):
-                if fpath.stat().st_mtime > self._last_scan:
-                    needs_reload = True
-                    break
-        if needs_reload:
+            if fpath.suffix.lower() not in (".md", ".txt", ".text"):
+                continue
+            current.add(str(fpath))
+            try:
+                mtime = fpath.stat().st_mtime
+            except FileNotFoundError:
+                # Deleted underneath us; the set comparison catches it.
+                current.discard(str(fpath))
+                continue
+            if mtime > newest:
+                newest = mtime
+        if current != self._known_paths or newest > self._last_scan:
             self._scan()
             return True
         return False

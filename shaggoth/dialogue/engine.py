@@ -1166,6 +1166,22 @@ _DESCRIBE_FILTER = frozenset({
     "wow", "huh", "yikes", "oof", "oops", "rofl", "smh", "ikr",
 })
 
+# Words that survive keyword extraction but can never be the *subject* of a
+# question. Two classes hit this: meta-questions about Shaggoth itself ("how
+# many topics do you know so far" -> "topics far") and conversational filler
+# ("how does that sit with you" -> "sit"). Echoing them back produced replies
+# like "Never heard of topics far", which reads as broken in any voice -- and
+# will read far worse in a customer-facing one.
+_WEAK_SUBJECT = frozenset({
+    "topic", "topics", "subject", "subjects", "far", "sit", "sits",
+    "know", "knows", "knew", "learn", "learns", "learned", "learning",
+    "remember", "understand", "mean", "means", "meant", "think", "thinks",
+    "feel", "feels", "sound", "sounds", "seem", "seems", "guess", "wonder",
+    "everything", "anything", "something", "nothing", "someone", "anyone",
+    "everyone", "yourself", "myself", "opinion", "opinions", "thought",
+    "thoughts", "answer", "answers", "question", "questions",
+})
+
 
 def describe_unknown(text: str) -> str:
     """An in-character admission of ignorance that still names the subject.
@@ -1179,7 +1195,12 @@ def describe_unknown(text: str) -> str:
         w for w in extract_keywords(text)
         if len(w) > 2 and w.lower() not in _DESCRIBE_FILTER
     ]
-    subject = " ".join(words[:3]) if words else ""
+    # A "subject" made entirely of filler is not a subject. Drop to the generic
+    # line rather than reading fragments back to the user. A single strong word
+    # is still a fine subject ("photosynthesis"), so this filters by what the
+    # words are, not by how many of them there are.
+    substantive = [w for w in words if w.lower() not in _WEAK_SUBJECT]
+    subject = " ".join(substantive[:3]) if substantive else ""
 
     if not subject:
         blanks = [
