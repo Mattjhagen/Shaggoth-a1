@@ -9,6 +9,7 @@ import hashlib
 import json
 import re
 import sqlite3
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -31,6 +32,11 @@ USER_AGENT = (
 
 #: How long a parsed robots.txt is trusted before being re-fetched.
 ROBOTS_TTL_SECONDS = 3600
+
+#: Minimum gap between requests to the same origin. Applies to every fetch,
+#: not just crawl(), so no code path can hammer a host by accident. robots.txt
+#: may raise this via Crawl-delay; nothing lowers it.
+DEFAULT_CRAWL_DELAY = 1.0
 
 
 def _clean_text(text: str) -> str:
@@ -98,7 +104,55 @@ class ScraperEngine:
         #: Set by fetch_page() to the raw HTML of the last successfully fetched
         #: HTML page so crawl() can extract links without a second HTTP request.
         self._last_html: str = ""
+        #: origin -> monotonic time of the last request to it. crawl() used to
+        #: loop fetch_page() with no pause at all, which is fine against
+        #: Wikipedia and rude against a small customer site on shared hosting.
+        self._last_fetch: dict[str, float] = {}
+        self._pace_lock = threading.Lock()
         self._init_db()
+
+    def crawl_delay_for(self, url: str) -> float:
+        """Seconds to wait between requests to this URL's origin.
+
+        Honours ``Crawl-delay`` when robots.txt sets one, otherwise applies
+        :data:`DEFAULT_CRAWL_DELAY`. A site that asks for more politeness than
+        our default always gets it; one that asks for less does not, because
+        the default is about protecting the host, not obeying it.
+        """
+        try:
+            parts = urllib.parse.urlsplit(url)
+            origin = f"{parts.scheme}://{parts.netloc}"
+        except ValueError:
+            return DEFAULT_CRAWL_DELAY
+        cached = self._robots_cache.get(origin)
+        parser = cached[0] if cached else None
+        if parser is not None:
+            try:
+                declared = parser.crawl_delay(USER_AGENT)
+            except Exception:
+                declared = None
+            if declared:
+                return max(float(declared), DEFAULT_CRAWL_DELAY)
+        return DEFAULT_CRAWL_DELAY
+
+    def _pace(self, url: str) -> None:
+        """Block until enough time has passed since the last hit on this origin."""
+        try:
+            parts = urllib.parse.urlsplit(url)
+            origin = f"{parts.scheme}://{parts.netloc}"
+        except ValueError:
+            return
+        delay = self.crawl_delay_for(url)
+        with self._pace_lock:
+            previous = self._last_fetch.get(origin)
+            now = time.monotonic()
+            wait = 0.0 if previous is None else delay - (now - previous)
+            # Reserve the slot before releasing the lock, so two threads
+            # crawling the same origin queue behind each other instead of both
+            # deciding they may go now.
+            self._last_fetch[origin] = now + max(wait, 0.0)
+        if wait > 0:
+            time.sleep(wait)
 
     def _init_db(self) -> None:
         with self._conn() as conn:
@@ -214,6 +268,9 @@ class ScraperEngine:
         if self.respect_robots and not self.robots_allows(url):
             self._log(url, "error", "blocked by robots.txt")
             return None
+        # After the robots check, so a disallowed URL costs the host nothing
+        # and does not consume its own politeness slot.
+        self._pace(url)
         try:
             req = urllib.request.Request(
                 url,
