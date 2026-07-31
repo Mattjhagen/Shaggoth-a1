@@ -15,6 +15,8 @@ from __future__ import annotations
 import random
 import re
 
+from ..personality.voices import SHAGGOTH, get_voice
+
 # Pronoun/verb reflection map, applied to captured fragments.
 REFLECTIONS = {
     "i": "you", "me": "you", "my": "your", "mine": "yours",
@@ -173,13 +175,13 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
     ]),
 ]
 
-FALLBACKS = [
-    "Tell me more about that.",
-    "How does that make you feel?",
-    "What led you to that?",
-    "I see. Can you expand on that?",
-    "That's interesting — go on.",
-]
+#: Kept as a module-level name because it is part of this module's public
+#: surface, but it is now just Shaggoth's own pool -- see
+#: :mod:`shaggoth.personality.voices`. A PatternEngine built for a tenant
+#: draws from that tenant's voice instead. These lines are not rude, but
+#: "How does that make you feel?" is a therapist answering a question about
+#: pricing, which is its own kind of wrong on a customer's site.
+FALLBACKS = list(SHAGGOTH.fallbacks)
 
 # Used by PatternEngine.respond_no_subject_question() for question-shaped
 # messages with no content words that didn't match a specific rule above.
@@ -193,8 +195,9 @@ SOCIAL_QUESTION_RESPONSES = [
 
 
 class PatternEngine:
-    def __init__(self, seed: int | None = None):
+    def __init__(self, seed: int | None = None, voice=None):
         self.rng = random.Random(seed)
+        self.voice = get_voice(voice)
 
     def respond(self, text: str) -> str | None:
         """Return a pattern-based reply, or None if no rule matched."""
@@ -220,4 +223,4 @@ class PatternEngine:
         return None
 
     def fallback(self) -> str:
-        return self.rng.choice(FALLBACKS)
+        return self.rng.choice(self.voice.fallbacks)

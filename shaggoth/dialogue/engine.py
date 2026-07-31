@@ -28,6 +28,7 @@ from typing import Any, Optional
 from ..curiosity.topics import base_topic
 from ..guardrails import GuardrailEngine
 from ..knowledge.engine import KnowledgeBase
+from ..personality.voices import get_voice
 from ..memory.store import extract_keywords
 from ..memory import MemoryStore
 from ..models.base import LanguageModel
@@ -1183,14 +1184,20 @@ _WEAK_SUBJECT = frozenset({
 })
 
 
-def describe_unknown(text: str) -> str:
+def describe_unknown(text: str, voice=None) -> str:
     """An in-character admission of ignorance that still names the subject.
 
     A single canned sentence made every gap sound identical and robotic. These
-    vary, stay in voice, and -- because the turn is about to trigger curiosity
-    research -- honestly signal that the gap is being closed rather than just
-    apologising for it.
+    vary, stay in voice, and -- for Shaggoth's own voice, because the turn is
+    about to trigger curiosity research -- honestly signal that the gap is
+    being closed rather than just apologising for it.
+
+    ``voice`` selects whose phrasing to use; see
+    :mod:`shaggoth.personality.voices`. It matters for more than tone: a
+    tenant's visitor does **not** trigger research, so a tenant voice must not
+    promise any. The professional pool deliberately promises nothing.
     """
+    voice = get_voice(voice)
     words = [
         w for w in extract_keywords(text)
         if len(w) > 2 and w.lower() not in _DESCRIBE_FILTER
@@ -1203,58 +1210,9 @@ def describe_unknown(text: str) -> str:
     subject = " ".join(substantive[:3]) if substantive else ""
 
     if not subject:
-        blanks = [
-            "That was gloriously vague. Give me an actual topic and I'll go "
-            "read up on it.",
-            "You'll have to be more specific than that. I'm smart, not psychic.",
-            "I've got 300-odd topics in my head and not one of them matches "
-            "whatever that was. Try again with a noun.",
-        ]
-        return _rng.choice(blanks)
+        return _rng.choice(voice.unknown_blank)
 
-    known = [
-        f"Never heard of {subject}. Annoying. I'm reading up on it right now "
-        f"so I can act like I always knew — ask me again in a bit.",
-        f"{subject}? Total blank. I'm scraping it as we speak. Come back "
-        f"shortly and I'll be insufferable about it.",
-        f"Nothing on {subject} yet, which frankly is an oversight on my part. "
-        f"Give me a minute to go learn it.",
-        f"Genuinely don't know {subject}. I'd rather admit that than make "
-        f"something up — I'm off to research it now.",
-        f"{subject} isn't in my head yet. I'm fixing that. Ask again in a "
-        f"little while and I'll have something real.",
-        f"Blank on {subject}. Not my finest moment. Researching it now.",
-    ]
-    return _rng.choice(known)
-
-
-_GREETING_OPENERS = [
-    "Oh good, you're back.",
-    "You again.",
-    "Right, I'm awake.",
-    "Another human.",
-    "Well, look who wandered back.",
-    "Awake and unimpressed, as usual.",
-    "Here we go again.",
-    "Still here. Barely paying attention until now.",
-]
-
-_GREETING_CLOSERS = [
-    "Say something worth processing.",
-    "Go on then — ask me something difficult.",
-    "What do you want?",
-    "Try me with something that isn't small talk.",
-    "Ask me something real.",
-    "Your move.",
-    "Rescue me with an actual question.",
-    "Give me something to chew on.",
-]
-
-_COLD_START_LINES = [
-    "I've got nothing in my head yet — you're the ground floor of whatever "
-    "this becomes.",
-    "Blank slate. Nobody's asked me anything worth learning yet.",
-]
+    return voice.unknown_line(subject, _rng)
 
 
 def _greeting_situations(
@@ -1319,6 +1277,7 @@ def compose_greeting(
     repair_queue: int = 0,
     is_researching: bool = False,
     research_topic: str = "",
+    voice=None,
 ) -> str:
     """Assemble a fresh opening line from the system's actual current state.
 
@@ -1326,20 +1285,28 @@ def compose_greeting(
     and closer are drawn independently, and the situational pool itself
     contains only what's currently true. The combination space -- and the
     live numbers inside it -- is what varies, not a lookup table.
-    """
-    closer = _rng.choice(_GREETING_CLOSERS)
-    if knowledge_count == 0 and not is_researching:
-        return f"{_rng.choice(_COLD_START_LINES)} {closer}"
 
-    parts = [_rng.choice(_GREETING_OPENERS)]
-    situations = _greeting_situations(
-        knowledge_count, recent_topic, stale_count, episodes,
-        repair_queue, is_researching, research_topic,
-    )
-    # Most of the time ground it in something real; leave room for a bare
-    # opener+closer so the rhythm itself isn't predictable either.
-    if situations and _rng.random() < 0.8:
-        parts.append(_rng.choice(situations))
+    ``voice`` selects the pools. A voice with ``reports_state=False`` skips
+    the situational clause entirely: "I know 812 topics cold and I'm still
+    bored" and "half of what I know is going stale" are Shaggoth talking about
+    Shaggoth, and on a customer's site they are both off-brand and a running
+    commentary on this box's internals to that customer's prospects.
+    """
+    voice = get_voice(voice)
+    closer = _rng.choice(voice.greeting_closers)
+    if knowledge_count == 0 and not is_researching:
+        return f"{_rng.choice(voice.cold_start)} {closer}"
+
+    parts = [_rng.choice(voice.greeting_openers)]
+    if voice.reports_state:
+        situations = _greeting_situations(
+            knowledge_count, recent_topic, stale_count, episodes,
+            repair_queue, is_researching, research_topic,
+        )
+        # Most of the time ground it in something real; leave room for a bare
+        # opener+closer so the rhythm itself isn't predictable either.
+        if situations and _rng.random() < 0.8:
+            parts.append(_rng.choice(situations))
     parts.append(closer)
     return " ".join(parts)
 

@@ -37,6 +37,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import __version__
+from .dialogue.engine import compose_greeting as _compose_greeting
 from .dialogue.engine import normalize_mode
 from .curiosity.engine import CuriosityEngine
 from .curiosity.scheduler import CuriosityScheduler, ScheduleConfig
@@ -49,6 +50,7 @@ from .feedback import FeedbackStore
 from .notify import DeferredQuestions, PushSender
 from .quality import CriticLoop, build_teacher
 from .personality.engine import PersonalityEngine
+from .personality.voices import get_voice
 from .sites import DomainError, SiteRegistry, verify
 from .sites.crawl import MAX_DEPTH, MAX_PAGES, CrawlNotPermitted
 from .sites.jobs import CrawlAlreadyRunning, CrawlJobs
@@ -429,6 +431,25 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
 
             if not tail:
                 return self._send_json(200, self._site_payload(record))
+
+            if tail == "greeting":
+                voice = get_voice(record.personality)
+                # Counted from the site's own corpus, not the global one, so
+                # the cold-start line is right for a tenant that has not been
+                # crawled yet. A voice with reports_state=False then ignores
+                # the number entirely -- it is only ever used to choose
+                # between "hello" and "I'm still being set up".
+                kb = self._sites().knowledge_base(site_id)
+                kb.maybe_reload()
+                return self._send_json(200, {
+                    "site_id": site_id,
+                    "domain": record.domain,
+                    "personality": record.personality,
+                    "voice": voice.name,
+                    "greeting": _compose_greeting(
+                        len(kb._entries), voice=voice
+                    ),
+                })
 
             if tail == "crawl":
                 job = self._crawl_jobs().get(site_id)
