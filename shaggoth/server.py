@@ -23,6 +23,7 @@ routes (except /health, /, and static files) require
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import mimetypes
 import os
@@ -54,6 +55,41 @@ API_KEY = os.environ.get("SHAGGOTH_API_KEY") or ""
 RATE_LIMITS: dict[str, list[float]] = {}
 _RATE_LIMIT_LOCK = threading.Lock()
 PUSH_TOKENS: list[dict] = []
+
+# Peers whose forwarded-IP headers we believe. cloudflared runs on this host
+# and dials 127.0.0.1:8420, so the tunnel always shows up as loopback.
+#
+# This list is the whole security boundary of _client_ip(). Anyone allowed in
+# here can claim to be any IP and get a fresh rate-limit bucket per request,
+# which is a limiter bypass -- so it stays loopback-only. The server binds
+# 0.0.0.0, and a LAN client connecting directly is NOT trusted: its headers
+# are ignored and its real socket address is used.
+_TRUSTED_PROXIES = frozenset({"127.0.0.1", "::1"})
+
+# Cloudflare sends exactly one client IP here. Preferred over X-Forwarded-For,
+# which arrives as a comma-separated chain and needs picking apart.
+_REAL_IP_HEADERS = ("CF-Connecting-IP", "X-Real-IP")
+
+
+def _parse_ip(raw: str) -> str:
+    """Validate one forwarded-header value into a canonical IP, or "".
+
+    Validation is not cosmetic. The return value becomes a RATE_LIMITS key,
+    so an unvalidated header would let a caller push arbitrary -- and
+    arbitrarily long -- strings into a process-lifetime dict.
+    """
+    value = (raw or "").strip()
+    if not value or len(value) > 64:
+        return ""
+    # Some proxies append a source port: "1.2.3.4:5678" or "[::1]:443".
+    if value.startswith("["):
+        value = value.partition("]")[0].lstrip("[")
+    elif value.count(":") == 1:
+        value = value.partition(":")[0]
+    try:
+        return str(ipaddress.ip_address(value))
+    except ValueError:
+        return ""
 
 
 # A URL pasted into a chat message. Deliberately conservative: requires an
@@ -229,6 +265,45 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 return True
             self._send_json(401, {"error": "unauthorized"})
             return False
+
+        def _client_ip(self) -> str:
+            """The real caller's IP, seen through the Cloudflare tunnel.
+
+            Without this the limiter was effectively global. It keyed on the
+            socket address, but every public request arrives via cloudflared
+            over loopback, so the entire internet shared one "127.0.0.1"
+            bucket: 60 requests/minute total, not per visitor. One person
+            clicking fast locked out every other caller, the dashboard and the
+            command center's ambient dialogue included.
+
+            Headers are only believed when the immediate peer is a trusted
+            proxy -- otherwise anyone could mint a fresh bucket per request by
+            sending a made-up CF-Connecting-IP, which is a worse hole than the
+            one being closed.
+            """
+            peer = self.client_address[0] if self.client_address else ""
+            if peer not in _TRUSTED_PROXIES:
+                return peer
+
+            for header in _REAL_IP_HEADERS:
+                candidate = _parse_ip(self.headers.get(header, ""))
+                if candidate:
+                    return candidate
+
+            # X-Forwarded-For is "client, proxy1, proxy2...". The leftmost
+            # entry is the original client, but it is also the one a caller
+            # can forge; everything after it was appended by infrastructure.
+            # We only reach this line when the peer is trusted, so the chain
+            # itself is as trustworthy as that proxy -- take the leftmost.
+            forwarded = self.headers.get("X-Forwarded-For", "")
+            for part in forwarded.split(","):
+                candidate = _parse_ip(part)
+                if candidate:
+                    return candidate
+
+            # Direct loopback call (curl on the box, health checks) or a proxy
+            # that forwarded nothing. Fall back to the socket address.
+            return peer
 
         def _rate_limit(self, key: str = "", limit: int = 60, window: float = 60.0) -> bool:
             """Cap requests per client IP per minute.
@@ -830,7 +905,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             url = urlparse(self.path)
             if not self._check_auth():
                 return
-            if not self._rate_limit(self.client_address[0]):
+            if not self._rate_limit(self._client_ip()):
                 return
             self._guard(self._route_post, url.path, url)
 
