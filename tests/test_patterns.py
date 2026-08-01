@@ -73,6 +73,14 @@ class TestPatternEngine:
         assert self.engine.respond("I need a way to fix this") is None
         assert self.engine.respond("I need some information about gravity") is None
 
+    def test_i_need_help_with_trailing_punctuation_routes_to_help(self):
+        # Regression: the trailing period previously broke the negative lookahead,
+        # so "I need help." fell through to the generic "what do you need X for?"
+        # reply instead of the dedicated help-request rule.
+        result = self.engine.respond("I need help.")
+        assert result is not None
+        assert "knowledge base" in result.lower()
+
     def test_i_am_sad_matches(self):
         result = self.engine.respond("I am feeling sad")
         assert result is not None
@@ -96,6 +104,11 @@ class TestPatternEngine:
     def test_i_think_captures(self):
         result = self.engine.respond("I think this is wrong")
         assert result is not None
+
+    def test_i_think_skips_self_referential_intent(self):
+        assert self.engine.respond("I think I need to go") is None
+        assert self.engine.respond("I think I should leave") is None
+        assert self.engine.respond("I think I'm going to bed") is None
 
     def test_who_are_you_matches_self_awareness(self):
         result = self.engine.respond("Who are you?")
