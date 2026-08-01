@@ -1,6 +1,8 @@
 import React from 'react'
-import { View, Text, TouchableOpacity } from 'react-native'
+import { View, Text, TouchableOpacity, Platform, StatusBar } from 'react-native'
 import { colors, spacing, fontSize } from '../theme/colors'
+
+const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0
 
 export default function Header({ title, onBack, rightContent }) {
   return (
@@ -8,7 +10,8 @@ export default function Header({ title, onBack, rightContent }) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
+      paddingTop: spacing.md + STATUS_BAR_HEIGHT,
+      paddingBottom: spacing.md,
       backgroundColor: colors.background,
     }}>
       {onBack && (

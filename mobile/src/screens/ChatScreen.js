@@ -150,8 +150,8 @@ export default function ChatScreen({ onBack, assistMode }) {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 0}
     >
       <Header
         title="Comms"
@@ -222,7 +222,7 @@ export default function ChatScreen({ onBack, assistMode }) {
         ref={flatRef}
         data={messages}
         keyExtractor={m => m.id}
-        keyboardDismissMode="interactive"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
         keyboardShouldPersistTaps="handled"
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{ paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, flexGrow: 1 }}
