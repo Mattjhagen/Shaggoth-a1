@@ -54,7 +54,13 @@
         }
       ],
       "./plugins/withAndroidAssistant",
-      "./plugins/withSpeechPermissions"
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Shaggoth needs microphone access for voice input.",
+          "speechRecognitionPermission": "Shaggoth uses speech recognition so you can talk to it instead of typing."
+        }
+      ]
     ]
   }
 }

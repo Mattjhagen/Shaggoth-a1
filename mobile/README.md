@@ -81,12 +81,11 @@ mobile/
   app.json                      — Expo config (icons, plugins, permissions)
   plugins/
     withAndroidAssistant.js      — Config plugin: Android VoiceInteractionService
-    withSpeechPermissions.js     — Config plugin: mic + speech permissions
   src/
     api/
       shaggoth.js                — API client (chat, streaming, health, etc.)
     hooks/
-      useVoice.js                — TTS (expo-speech) + STT (react-native-voice)
+      useVoice.js                — TTS (expo-speech) + STT (expo-speech-recognition)
     components/
       Header.js                  — Reusable header with back button
       TabBar.js                  — Bottom tab bar (Home, Explore, Tools, Settings)
