@@ -1,52 +1,54 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { Platform } from 'react-native'
-import Voice from '@react-native-voice/voice'
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition'
 import * as Speech from 'expo-speech'
 
 export default function useVoice() {
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [transcript, setTranscript] = useState('')
-  const [available, setAvailable] = useState(false)
+  const [available, setAvailable] = useState(
+    () => ExpoSpeechRecognitionModule.isRecognitionAvailable()
+  )
   const onResultRef = useRef(null)
 
-  useEffect(() => {
-    Voice.isAvailable().then((yes) => setAvailable(!!yes)).catch(() => {})
-
-    Voice.onSpeechStart = () => setListening(true)
-    Voice.onSpeechEnd = () => setListening(false)
-    Voice.onSpeechResults = (e) => {
-      const text = e.value?.[0] || ''
-      setTranscript(text)
-      if (onResultRef.current) onResultRef.current(text)
+  useSpeechRecognitionEvent('start', () => setListening(true))
+  useSpeechRecognitionEvent('end', () => setListening(false))
+  useSpeechRecognitionEvent('error', () => setListening(false))
+  useSpeechRecognitionEvent('result', (event) => {
+    const text = event.results[0]?.transcript || ''
+    setTranscript(text)
+    if (event.isFinal && onResultRef.current) {
+      onResultRef.current(text)
     }
-    Voice.onSpeechPartialResults = (e) => {
-      setTranscript(e.value?.[0] || '')
-    }
-    Voice.onSpeechError = () => {
-      setListening(false)
-    }
-
-    return () => {
-      Voice.destroy().then(Voice.removeAllListeners).catch(() => {})
-    }
-  }, [])
+  })
 
   const startListening = useCallback(async (onResult) => {
     onResultRef.current = onResult || null
     setTranscript('')
     try {
-      await Voice.start('en-US')
+      const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
+      if (!granted) {
+        setAvailable(false)
+        return
+      }
+      ExpoSpeechRecognitionModule.start({
+        lang: 'en-US',
+        interimResults: true,
+        maxAlternatives: 1,
+      })
     } catch {
       setListening(false)
     }
   }, [])
 
-  const stopListening = useCallback(async () => {
+  const stopListening = useCallback(() => {
     try {
-      await Voice.stop()
+      ExpoSpeechRecognitionModule.stop()
     } catch {}
-    setListening(false)
   }, [])
 
   const speak = useCallback((text) => {
