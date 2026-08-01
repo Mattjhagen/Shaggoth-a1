@@ -1,41 +1,67 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Platform } from 'react-native'
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-} from 'expo-speech-recognition'
 import * as Speech from 'expo-speech'
+
+let SpeechRecognition = null
+try {
+  SpeechRecognition = require('expo-speech-recognition')
+} catch {}
+
+const noop = () => {}
 
 export default function useVoice() {
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [transcript, setTranscript] = useState('')
-  const [available, setAvailable] = useState(
-    () => ExpoSpeechRecognitionModule.isRecognitionAvailable()
-  )
+  const [available, setAvailable] = useState(false)
   const onResultRef = useRef(null)
+  const subscribedRef = useRef(false)
 
-  useSpeechRecognitionEvent('start', () => setListening(true))
-  useSpeechRecognitionEvent('end', () => setListening(false))
-  useSpeechRecognitionEvent('error', () => setListening(false))
-  useSpeechRecognitionEvent('result', (event) => {
-    const text = event.results[0]?.transcript || ''
-    setTranscript(text)
-    if (event.isFinal && onResultRef.current) {
-      onResultRef.current(text)
+  useEffect(() => {
+    if (!SpeechRecognition) return
+
+    const mod = SpeechRecognition.ExpoSpeechRecognitionModule
+    if (!mod) return
+
+    try {
+      setAvailable(mod.isRecognitionAvailable())
+    } catch {
+      return
     }
-  })
+
+    if (subscribedRef.current) return
+    subscribedRef.current = true
+
+    const subs = [
+      mod.addListener('start', () => setListening(true)),
+      mod.addListener('end', () => setListening(false)),
+      mod.addListener('error', () => setListening(false)),
+      mod.addListener('result', (event) => {
+        const text = event.results?.[0]?.transcript || ''
+        setTranscript(text)
+        if (event.isFinal && onResultRef.current) {
+          onResultRef.current(text)
+        }
+      }),
+    ]
+
+    return () => subs.forEach(s => s?.remove?.())
+  }, [])
 
   const startListening = useCallback(async (onResult) => {
+    if (!SpeechRecognition) return
+    const mod = SpeechRecognition.ExpoSpeechRecognitionModule
+    if (!mod) return
+
     onResultRef.current = onResult || null
     setTranscript('')
     try {
-      const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
+      const { granted } = await mod.requestPermissionsAsync()
       if (!granted) {
         setAvailable(false)
         return
       }
-      ExpoSpeechRecognitionModule.start({
+      mod.start({
         lang: 'en-US',
         interimResults: true,
         maxAlternatives: 1,
@@ -46,8 +72,9 @@ export default function useVoice() {
   }, [])
 
   const stopListening = useCallback(() => {
+    if (!SpeechRecognition) return
     try {
-      ExpoSpeechRecognitionModule.stop()
+      SpeechRecognition.ExpoSpeechRecognitionModule.stop()
     } catch {}
   }, [])
 
