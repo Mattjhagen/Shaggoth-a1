@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity,
-  Platform,
+  Platform, RefreshControl,
 } from 'react-native'
 import { colors, spacing, radius, fontSize } from '../theme/colors'
 import Header from '../components/Header'
@@ -45,28 +45,40 @@ function StatusDot({ connected, checking }) {
 }
 
 export default function SettingsScreen({ connected: initialConnected, onConnectionChange }) {
-  const [apiUrl, setApiUrl] = useState(api.getApiUrl())
   const [apiKey, setApiKey] = useState(api.getApiKey())
   const [guardrails, setGuardrails] = useState([])
   const [personality, setPersonality] = useState(null)
   const [connected, setConnected] = useState(initialConnected)
   const [checking, setChecking] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     setConnected(initialConnected)
   }, [initialConnected])
 
-  useEffect(() => {
-    if (connected) {
-      api.getGuardrails().then(d => setGuardrails(d.rules || [])).catch(() => {})
-      api.getPersonality().then(setPersonality).catch(() => {})
-    }
+  const loadData = useCallback(async () => {
+    if (!connected) return
+    try {
+      const [g, p] = await Promise.all([
+        api.getGuardrails().catch(() => ({ rules: [] })),
+        api.getPersonality().catch(() => null),
+      ])
+      setGuardrails(g.rules || [])
+      if (p) setPersonality(p)
+    } catch {}
   }, [connected])
+
+  useEffect(() => { loadData() }, [loadData])
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await loadData()
+    setRefreshing(false)
+  }, [loadData])
 
   const reconnect = useCallback(async () => {
     setChecking(true)
-    await api.saveApiUrl(apiUrl)
     await api.saveApiKey(apiKey)
     try {
       await api.health()
@@ -77,7 +89,7 @@ export default function SettingsScreen({ connected: initialConnected, onConnecti
       if (onConnectionChange) onConnectionChange(false)
     }
     setChecking(false)
-  }, [apiUrl, apiKey, onConnectionChange])
+  }, [apiKey, onConnectionChange])
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -90,6 +102,14 @@ export default function SettingsScreen({ connected: initialConnected, onConnecti
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         <SectionHeader title="Connection" />
 
@@ -112,7 +132,7 @@ export default function SettingsScreen({ connected: initialConnected, onConnecti
             </Text>
           </View>
           <Text style={{ color: colors.textDim, fontSize: fontSize.sm, marginBottom: spacing.md }}>
-            {apiUrl}
+            {api.getApiUrl()}
           </Text>
           {!connected && !checking && (
             <TouchableOpacity
@@ -144,26 +164,6 @@ export default function SettingsScreen({ connected: initialConnected, onConnecti
 
         {showAdvanced && (
           <View style={{ marginBottom: spacing.lg }}>
-            <Text style={{ color: colors.textDim, fontSize: fontSize.sm, marginBottom: spacing.xs }}>
-              API URL
-            </Text>
-            <TextInput
-              value={apiUrl}
-              onChangeText={setApiUrl}
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={{
-                backgroundColor: colors.surfaceCard,
-                color: colors.text,
-                borderRadius: radius.lg,
-                padding: spacing.lg,
-                fontSize: fontSize.md,
-                borderWidth: 1,
-                borderColor: colors.border,
-                marginBottom: spacing.lg,
-              }}
-            />
-
             <Text style={{ color: colors.textDim, fontSize: fontSize.sm, marginBottom: spacing.xs }}>
               API Key (optional)
             </Text>
@@ -208,9 +208,12 @@ export default function SettingsScreen({ connected: initialConnected, onConnecti
 
         <SectionHeader title="Guardrails" />
         {guardrails.length === 0 ? (
-          <Text style={{ color: colors.textDim, marginBottom: spacing.lg }}>
-            {connected ? 'No guardrail rules.' : 'Connect to view guardrails.'}
-          </Text>
+          <View style={{ alignItems: 'center', paddingVertical: spacing.xxl }}>
+            <Text style={{ fontSize: 32, marginBottom: spacing.sm }}>{'🛡'}</Text>
+            <Text style={{ color: colors.textDim, fontSize: fontSize.md }}>
+              {connected ? 'No guardrail rules' : 'Connect to view guardrails'}
+            </Text>
+          </View>
         ) : (
           guardrails.map(r => (
             <View key={r.id} style={{
