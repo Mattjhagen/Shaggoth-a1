@@ -127,3 +127,39 @@ export async function registerPushToken(token, platform) {
   })
 }
 
+export async function sendFeedback({ question, verdict, note, answer, source, entries_used, reasoning, session_id }) {
+  return fetchJson('/feedback', {
+    method: 'POST',
+    body: JSON.stringify({ question, verdict, note, answer, source, entries_used, reasoning, session_id }),
+  })
+}
+
+export async function getCuriosityStatus() {
+  return fetchJson('/curiosity/status')
+}
+
+export async function getCuriosityHistory() {
+  return fetchJson('/curiosity/history')
+}
+
+export async function triggerCuriosityResearch(topic) {
+  return fetchJson('/curiosity/research', {
+    method: 'POST',
+    body: JSON.stringify({ topic }),
+  })
+}
+
+export async function triggerCuriosityScheduler() {
+  return fetchJson('/curiosity/scheduler/trigger', {
+    method: 'POST',
+  })
+}
+
+export async function getLearnHistory() {
+  return fetchJson('/learn/history')
+}
+
+export async function getCriticStatus() {
+  return fetchJson('/critic')
+}
+

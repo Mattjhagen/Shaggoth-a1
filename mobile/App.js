@@ -12,6 +12,9 @@ import ChatScreen from './src/screens/ChatScreen'
 import ExploreScreen from './src/screens/ExploreScreen'
 import ToolsScreen from './src/screens/ToolsScreen'
 import SettingsScreen from './src/screens/SettingsScreen'
+import PersonalityScreen from './src/screens/PersonalityScreen'
+import CuriosityScreen from './src/screens/CuriosityScreen'
+import GuardrailsScreen from './src/screens/GuardrailsScreen'
 import * as api from './src/api/shaggoth'
 
 Notifications.setNotificationHandler({
@@ -71,7 +74,7 @@ export default function App() {
       setTab('settings')
       return
     }
-    if (['chat', 'knowledge', 'learn'].includes(screen)) {
+    if (['chat', 'knowledge', 'learn', 'personality', 'curiosity', 'guardrails'].includes(screen)) {
       setSubScreen({ screen, params })
     }
   }
@@ -90,6 +93,12 @@ export default function App() {
           return <ExploreScreen onNavigate={navigate} onBack={goBack} />
         case 'learn':
           return <ToolsScreen onBack={goBack} />
+        case 'personality':
+          return <PersonalityScreen onBack={goBack} />
+        case 'curiosity':
+          return <CuriosityScreen onBack={goBack} />
+        case 'guardrails':
+          return <GuardrailsScreen onBack={goBack} />
       }
     }
 
