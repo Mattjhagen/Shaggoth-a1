@@ -111,7 +111,7 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "I remember facts you tell me and the conversations we've had. The rest — "
         "feelings, dreams, boredom — is you reading tone into a ranking function.",
     ]),
-    (re.compile(r"(?i)^i need (?!(?:to |you |help |a |an |the |some |info)(?:\w))(.+)"), [
+    (re.compile(r"(?i)^i need (?!(?:to|you|help|a|an|the|some|info)\b)(.+)"), [
         "What do you need {0} for? Context helps me give you something useful.",
         "Alright — what's the actual situation with {0}?",
         "Tell me more about {0}. What are you trying to do?",
@@ -137,7 +137,7 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "What got you into {0}?",
         "{0} — that's a subject I could get into. What angle interests you most?",
     ]),
-    (re.compile(r"(?i)^i think (.+)"), [
+    (re.compile(r"(?i)^i think (?!i(?:'m| am| need| should| have to| must| will|'ll| want| gotta| ought)\b)(.+)"), [
         "Interesting claim. What's your evidence for {0}?",
         "That's a position. What makes you confident about {0}?",
     ]),
