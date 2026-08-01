@@ -25,7 +25,7 @@
       }
     },
     "android": {
-      "package": "com.mattjhagen.shaggoth",
+      "package": "com.relayapp.pro",
       "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#0D0D12",
