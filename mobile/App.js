@@ -39,7 +39,6 @@ export default function App() {
   useEffect(() => {
     api.initStorage().then(checkConnection)
     const interval = setInterval(checkConnection, 30000)
-    return () => clearInterval(interval)
 
     Linking.getInitialURL().then((url) => {
       if (url && url.includes('assistMode')) {
@@ -61,6 +60,8 @@ export default function App() {
       api.registerPushToken(tokenData.data, Platform.OS).catch(() => {})
     }
     setupPush()
+
+    return () => clearInterval(interval)
   }, [])
 
   const navigate = (screen, params) => {
