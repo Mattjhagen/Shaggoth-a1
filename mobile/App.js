@@ -27,9 +27,19 @@ export default function App() {
   const [connected, setConnected] = useState(false)
   const [assistMode, setAssistMode] = useState(false)
 
+  const checkConnection = async () => {
+    try {
+      await api.health()
+      setConnected(true)
+    } catch {
+      setConnected(false)
+    }
+  }
+
   useEffect(() => {
-    api.initStorage()
-    api.health().then(() => setConnected(true)).catch(() => {})
+    api.initStorage().then(checkConnection)
+    const interval = setInterval(checkConnection, 30000)
+    return () => clearInterval(interval)
 
     Linking.getInitialURL().then((url) => {
       if (url && url.includes('assistMode')) {
@@ -89,7 +99,7 @@ export default function App() {
       case 'tools':
         return <ToolsScreen />
       case 'settings':
-        return <SettingsScreen connected={connected} />
+        return <SettingsScreen connected={connected} onConnectionChange={setConnected} />
       default:
         return <HomeScreen onNavigate={navigate} connected={connected} />
     }

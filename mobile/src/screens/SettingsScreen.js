@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity,
-  Alert, Platform,
+  Platform,
 } from 'react-native'
 import { colors, spacing, radius, fontSize } from '../theme/colors'
 import Header from '../components/Header'
@@ -23,127 +23,194 @@ function SectionHeader({ title }) {
   )
 }
 
-export default function SettingsScreen({ connected }) {
+function StatusDot({ connected, checking }) {
+  const color = checking ? colors.yellow : connected ? colors.green : colors.red
+  const label = checking ? 'Connecting...' : connected ? 'Online' : 'Offline'
+  return (
+    <View style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.full,
+      backgroundColor: color + '15',
+    }}>
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+      <Text style={{ color, fontSize: fontSize.xs, fontWeight: '600' }}>
+        {label}
+      </Text>
+    </View>
+  )
+}
+
+export default function SettingsScreen({ connected: initialConnected, onConnectionChange }) {
   const [apiUrl, setApiUrl] = useState(api.getApiUrl())
   const [apiKey, setApiKey] = useState(api.getApiKey())
   const [guardrails, setGuardrails] = useState([])
   const [personality, setPersonality] = useState(null)
-  const [saving, setSaving] = useState(false)
+  const [connected, setConnected] = useState(initialConnected)
+  const [checking, setChecking] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   useEffect(() => {
-    api.getGuardrails().then(d => setGuardrails(d.rules || [])).catch(() => {})
-    api.getPersonality().then(setPersonality).catch(() => {})
-  }, [])
+    setConnected(initialConnected)
+  }, [initialConnected])
 
-  const save = async () => {
-    setSaving(true)
+  useEffect(() => {
+    if (connected) {
+      api.getGuardrails().then(d => setGuardrails(d.rules || [])).catch(() => {})
+      api.getPersonality().then(setPersonality).catch(() => {})
+    }
+  }, [connected])
+
+  const reconnect = useCallback(async () => {
+    setChecking(true)
     await api.saveApiUrl(apiUrl)
     await api.saveApiKey(apiKey)
-    Alert.alert('Saved', 'Uplink settings updated. Reconnect to apply.')
-    setSaving(false)
-  }
+    try {
+      await api.health()
+      setConnected(true)
+      if (onConnectionChange) onConnectionChange(true)
+    } catch {
+      setConnected(false)
+      if (onConnectionChange) onConnectionChange(false)
+    }
+    setChecking(false)
+  }, [apiUrl, apiKey, onConnectionChange])
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Header
         title="Settings"
-        rightContent={
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: spacing.xs,
-            paddingHorizontal: spacing.sm,
-            paddingVertical: spacing.xs,
-            borderRadius: radius.full,
-            backgroundColor: (connected ? colors.green : colors.red) + '15',
-          }}>
-            <View style={{
-              width: 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: connected ? colors.green : colors.red,
-            }} />
-            <Text style={{
-              color: connected ? colors.green : colors.red,
-              fontSize: fontSize.xs,
-              fontWeight: '600',
-            }}>
-              {connected ? 'Online' : 'Offline'}
-            </Text>
-          </View>
-        }
+        rightContent={<StatusDot connected={connected} checking={checking} />}
       />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <SectionHeader title="Uplink" />
+        <SectionHeader title="Connection" />
 
-        <Text style={{ color: colors.textDim, fontSize: fontSize.sm, marginBottom: spacing.xs }}>
-          API URL
-        </Text>
-        <TextInput
-          value={apiUrl}
-          onChangeText={setApiUrl}
-          autoCapitalize="none"
-          style={{
-            backgroundColor: colors.surfaceCard,
-            color: colors.text,
-            borderRadius: radius.lg,
-            padding: spacing.lg,
-            fontSize: fontSize.md,
-            borderWidth: 1,
-            borderColor: colors.border,
-            marginBottom: spacing.lg,
-          }}
-        />
-
-        <Text style={{ color: colors.textDim, fontSize: fontSize.sm, marginBottom: spacing.xs }}>
-          API Key
-        </Text>
-        <TextInput
-          value={apiKey}
-          onChangeText={setApiKey}
-          secureTextEntry
-          autoCapitalize="none"
-          style={{
-            backgroundColor: colors.surfaceCard,
-            color: colors.text,
-            borderRadius: radius.lg,
-            padding: spacing.lg,
-            fontSize: fontSize.md,
-            borderWidth: 1,
-            borderColor: colors.border,
-            marginBottom: spacing.lg,
-          }}
-        />
+        <View style={{
+          backgroundColor: colors.surfaceCard,
+          borderRadius: radius.xl,
+          padding: spacing.lg,
+          borderWidth: 1,
+          borderColor: connected ? colors.green + '40' : colors.border,
+          marginBottom: spacing.lg,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+            <View style={{
+              width: 10, height: 10, borderRadius: 5,
+              backgroundColor: checking ? colors.yellow : connected ? colors.green : colors.red,
+              marginRight: spacing.md,
+            }} />
+            <Text style={{ color: colors.text, fontSize: fontSize.lg, fontWeight: '600', flex: 1 }}>
+              {checking ? 'Connecting...' : connected ? 'Connected to Shaggoth' : 'Not connected'}
+            </Text>
+          </View>
+          <Text style={{ color: colors.textDim, fontSize: fontSize.sm, marginBottom: spacing.md }}>
+            {apiUrl}
+          </Text>
+          {!connected && !checking && (
+            <TouchableOpacity
+              onPress={reconnect}
+              activeOpacity={0.8}
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: radius.lg,
+                padding: spacing.md,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: colors.white, fontSize: fontSize.md, fontWeight: '600' }}>
+                Reconnect
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <TouchableOpacity
-          onPress={save}
-          disabled={saving}
-          activeOpacity={0.8}
-          style={{
-            backgroundColor: colors.primary,
-            borderRadius: radius.lg,
-            padding: spacing.lg,
-            alignItems: 'center',
-            opacity: saving ? 0.5 : 1,
-            marginBottom: spacing.xl,
-          }}
+          onPress={() => setShowAdvanced(v => !v)}
+          activeOpacity={0.7}
+          style={{ marginBottom: spacing.md }}
         >
-          <Text style={{
-            color: colors.white,
-            fontSize: fontSize.lg,
-            fontWeight: '600',
-          }}>
-            {saving ? 'Saving...' : 'Save Settings'}
+          <Text style={{ color: colors.textSecondary, fontSize: fontSize.sm }}>
+            {showAdvanced ? '▾ Hide advanced' : '▸ Advanced connection settings'}
           </Text>
         </TouchableOpacity>
 
+        {showAdvanced && (
+          <View style={{ marginBottom: spacing.lg }}>
+            <Text style={{ color: colors.textDim, fontSize: fontSize.sm, marginBottom: spacing.xs }}>
+              API URL
+            </Text>
+            <TextInput
+              value={apiUrl}
+              onChangeText={setApiUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={{
+                backgroundColor: colors.surfaceCard,
+                color: colors.text,
+                borderRadius: radius.lg,
+                padding: spacing.lg,
+                fontSize: fontSize.md,
+                borderWidth: 1,
+                borderColor: colors.border,
+                marginBottom: spacing.lg,
+              }}
+            />
+
+            <Text style={{ color: colors.textDim, fontSize: fontSize.sm, marginBottom: spacing.xs }}>
+              API Key (optional)
+            </Text>
+            <TextInput
+              value={apiKey}
+              onChangeText={setApiKey}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="None required for local network"
+              placeholderTextColor={colors.textMuted}
+              style={{
+                backgroundColor: colors.surfaceCard,
+                color: colors.text,
+                borderRadius: radius.lg,
+                padding: spacing.lg,
+                fontSize: fontSize.md,
+                borderWidth: 1,
+                borderColor: colors.border,
+                marginBottom: spacing.lg,
+              }}
+            />
+
+            <TouchableOpacity
+              onPress={reconnect}
+              disabled={checking}
+              activeOpacity={0.8}
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: radius.lg,
+                padding: spacing.lg,
+                alignItems: 'center',
+                opacity: checking ? 0.5 : 1,
+              }}
+            >
+              <Text style={{ color: colors.white, fontSize: fontSize.lg, fontWeight: '600' }}>
+                {checking ? 'Connecting...' : 'Save & Reconnect'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <SectionHeader title="Guardrails" />
         {guardrails.length === 0 ? (
-          <Text style={{ color: colors.textDim, marginBottom: spacing.lg }}>No guardrail rules.</Text>
+          <Text style={{ color: colors.textDim, marginBottom: spacing.lg }}>
+            {connected ? 'No guardrail rules.' : 'Connect to view guardrails.'}
+          </Text>
         ) : (
           guardrails.map(r => (
             <View key={r.id} style={{

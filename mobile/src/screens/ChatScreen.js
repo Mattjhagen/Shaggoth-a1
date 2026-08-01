@@ -150,7 +150,7 @@ export default function ChatScreen({ onBack, assistMode }) {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <Header
@@ -222,6 +222,8 @@ export default function ChatScreen({ onBack, assistMode }) {
         ref={flatRef}
         data={messages}
         keyExtractor={m => m.id}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{ paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, flexGrow: 1 }}
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
@@ -335,8 +337,7 @@ export default function ChatScreen({ onBack, assistMode }) {
             borderColor: colors.inputBorder,
             marginRight: spacing.sm,
           }}
-          onSubmitEditing={send}
-          blurOnSubmit
+          blurOnSubmit={false}
         />
         <TouchableOpacity
           onPress={send}
