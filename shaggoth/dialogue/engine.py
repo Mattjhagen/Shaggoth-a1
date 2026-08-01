@@ -316,8 +316,9 @@ class DialogueEngine:
         # GPT can follow the prompt and stay in character, so it works in both
         # drift and no_drift modes. It's tried whenever the pattern engine and
         # knowledge base haven't produced an answer yet.
-        from ..models.openai_model import OpenAIModel
-        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
+        # GPT-class models (OpenAI or a free-tier cloud backend) share the
+        # RAG-aware generate_chat() interface; duck-type rather than enumerate.
+        _gpt = self.model if hasattr(self.model, "generate_chat") else None
         if body is None and _gpt is not None and _gpt.configured:
             # Build recent conversation history for GPT context.
             history = [

@@ -15,9 +15,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import uuid
 from pathlib import Path
+
+# Installed-mode guard: `python -m shaggoth` imports .config directly, so the
+# console-script bootstrap (shaggoth._bootstrap) never runs. Without this, an
+# installed package would resolve ROOT to site-packages and write user data
+# (data/, config/) inside the install tree. Mirror the bootstrap's rule: when
+# the package is not in a repo checkout (no LICENSE above it), default the data
+# root to a per-user ~/.shaggoth.
+if not os.environ.get("SHAGGOTH_ROOT") and not (Path(__file__).resolve().parent.parent / "LICENSE").exists():
+    os.environ["SHAGGOTH_ROOT"] = str(Path.home() / ".shaggoth")
 
 from .config import ensure_dirs, load_settings, DATA_DIR, CONFIG_DIR
 from .dialogue import DialogueEngine
@@ -74,6 +84,15 @@ def build_engine(settings: dict) -> DialogueEngine:
         model = _load_tinygpt(settings)
     if model is None and model_choice in ("auto", "markov"):
         model = _load_markov(settings)
+    if model is None and model_choice in ("cloud", "gemini", "cloudflare"):
+        # Free-tier cloud backends (Gemini / Cloudflare Workers AI). No key
+        # configured -> build_cloud_model returns None and the engine runs
+        # knowledge/patterns only, exactly as before.
+        from .models.cloud import build_cloud_model
+
+        model = build_cloud_model(model_choice)
+        if model is not None:
+            print(f"[shaggoth] Using cloud model: {model.provider} ({model.model_name})")
 
     return DialogueEngine(
         guardrails=GuardrailEngine(settings["guardrails_path"]),
