@@ -133,7 +133,12 @@ export default function ChatScreen({ onBack, assistMode }) {
   const [expandedMsg, setExpandedMsg] = useState(null)
   const flatRef = useRef(null)
   const loadingRef = useRef(false)
+  const autoSpeakRef = useRef(false)
   const voice = useVoice()
+  const voiceRef = useRef(voice)
+  voiceRef.current = voice
+
+  useEffect(() => { autoSpeakRef.current = autoSpeak }, [autoSpeak])
 
   useEffect(() => {
     if (Platform.OS !== 'android') return
@@ -145,17 +150,6 @@ export default function ChatScreen({ onBack, assistMode }) {
     })
     return () => { showSub.remove(); hideSub.remove() }
   }, [])
-
-  useEffect(() => {
-    if (assistMode && voice.available) {
-      voice.startListening((text) => {
-        if (text) {
-          setInput(text)
-          setTimeout(() => sendWithText(text), 300)
-        }
-      })
-    }
-  }, [assistMode, voice.available])
 
   const sendWithText = useCallback(async (text) => {
     if (!text?.trim() || loadingRef.current) return
@@ -191,7 +185,7 @@ export default function ChatScreen({ onBack, assistMode }) {
         ))
         loadingRef.current = false
         setLoading(false)
-        if (autoSpeak && fullReply) voice.speak(fullReply)
+        if (autoSpeakRef.current && fullReply) voiceRef.current.speak(fullReply)
       },
       err => {
         setMessages(prev => prev.map(m =>
@@ -201,19 +195,30 @@ export default function ChatScreen({ onBack, assistMode }) {
         setLoading(false)
       }
     )
-  }, [autoSpeak, voice])
+  }, [])
+
+  useEffect(() => {
+    if (assistMode && voice.available) {
+      voice.startListening((text) => {
+        if (text) {
+          setInput(text)
+          setTimeout(() => sendWithText(text), 300)
+        }
+      })
+    }
+  }, [assistMode, voice.available, sendWithText])
 
   const send = useCallback(() => sendWithText(input), [input, sendWithText])
 
   const handleMicPress = useCallback(() => {
-    if (voice.listening) {
-      voice.stopListening()
+    if (voiceRef.current.listening) {
+      voiceRef.current.stopListening()
     } else {
-      voice.startListening((text) => {
+      voiceRef.current.startListening((text) => {
         if (text) setInput(text)
       })
     }
-  }, [voice])
+  }, [])
 
   const handleFeedback = useCallback(async (item, action) => {
     if (action === 'explain') {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity,
   ActivityIndicator, Alert, Modal, RefreshControl,
@@ -74,6 +74,11 @@ export default function ToolsScreen({ onBack }) {
   const [showAddKnowledge, setShowAddKnowledge] = useState(false)
   const [newTopic, setNewTopic] = useState('')
   const [newContent, setNewContent] = useState('')
+  const pollRef = useRef(null)
+
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [])
 
   const loadAll = useCallback(async () => {
     try {
@@ -111,11 +116,21 @@ export default function ToolsScreen({ onBack }) {
     setLearning(true)
     try {
       await api.startLearning(seeds, 1, 20, 500)
-      const iv = setInterval(async () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+      pollRef.current = setInterval(async () => {
         try {
           const s = await api.getLearnStatus()
-          if (!s.is_learning) { clearInterval(iv); setLearning(false); loadAll() }
-        } catch { clearInterval(iv); setLearning(false) }
+          if (!s.is_learning) {
+            clearInterval(pollRef.current)
+            pollRef.current = null
+            setLearning(false)
+            loadAll()
+          }
+        } catch {
+          clearInterval(pollRef.current)
+          pollRef.current = null
+          setLearning(false)
+        }
       }, 3000)
     } catch (e) {
       Alert.alert('Error', e.message)

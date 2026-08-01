@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { View, StatusBar, Platform } from 'react-native'
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
 import * as Linking from 'expo-linking'
