@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { View, StatusBar, SafeAreaView, Platform } from 'react-native'
+import { View, StatusBar, Platform } from 'react-native'
+import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
@@ -107,14 +108,16 @@ export default function App() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
-      <View style={{ flex: 1 }}>
-        {renderContent()}
-      </View>
-      {!subScreen && (
-        <TabBar tab={tab} onTab={(t) => { setSubScreen(null); setTab(t) }} />
-      )}
-    </SafeAreaView>
+    <SafeAreaProvider>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+        <View style={{ flex: 1 }}>
+          {renderContent()}
+        </View>
+        {!subScreen && (
+          <TabBar tab={tab} onTab={(t) => { setSubScreen(null); setTab(t) }} />
+        )}
+      </SafeAreaView>
+    </SafeAreaProvider>
   )
 }
