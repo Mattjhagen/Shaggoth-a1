@@ -22,7 +22,7 @@ REFLECTIONS = {
     "i'll": "you'll", "myself": "yourself",
     "you": "I", "your": "my", "yours": "mine",
     "you're": "I'm", "you are": "I am", "yourself": "myself",
-    "am": "are", "was": "were",
+    "am": "are", "are": "am", "was": "were", "were": "was",
 }
 
 
@@ -50,7 +50,7 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "{0} — got it. So what are we talking about?",
         "Good to meet you, {0}. I work better with a topic than with small talk.",
     ]),
-    (re.compile(r"(?i)\b(hello|hi|hey|howdy|yo)\b"), [
+    (re.compile(r"(?i)^(hello|hi|hey|howdy|yo)\b(?!.+\b(?:what|who|how|why|where|when|which|tell|explain|can)\b)"), [
         "Hey. What do you want to know?",
         "Hey. I've got a head full of research — pick a topic.",
         "What's on your mind?",
@@ -139,7 +139,7 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "Interesting claim. What's your evidence for {0}?",
         "That's a position. What makes you confident about {0}?",
     ]),
-    (re.compile(r"(?i)^can you (?!(?:explain|tell|describe|show|help|find|search|look|give|teach|write|code|build|create|make|calculate|solve|convert|summarize|define|clarify|elaborate|believe|imagine|compare|contrast|list|name)\b)(.+)\?*$"), [
+    (re.compile(r"(?i)^can you (?!(?:explain|tell|describe|show|help|find|search|look|give|teach|write|code|build|create|make|calculate|solve|convert|summarize|define|clarify|elaborate|believe|imagine|compare|contrast|list|name|recommend|translate|analyze|predict|remember|run|check|fix|read|play|draw|verify|suggest|generate|answer|research)\b)(.+)\?*$"), [
         "Maybe. Depends on what exactly you mean by {0}. Be specific and I'll tell you.",
         "Worth trying. What exactly did you have in mind with {0}?",
     ]),
