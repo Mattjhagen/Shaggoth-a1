@@ -45,7 +45,6 @@ function StatusDot({ connected, checking }) {
 }
 
 export default function SettingsScreen({ connected: initialConnected, onConnectionChange }) {
-  const [apiUrl, setApiUrl] = useState(api.getApiUrl())
   const [apiKey, setApiKey] = useState(api.getApiKey())
   const [guardrails, setGuardrails] = useState([])
   const [personality, setPersonality] = useState(null)
@@ -66,7 +65,6 @@ export default function SettingsScreen({ connected: initialConnected, onConnecti
 
   const reconnect = useCallback(async () => {
     setChecking(true)
-    await api.saveApiUrl(apiUrl)
     await api.saveApiKey(apiKey)
     try {
       await api.health()
@@ -77,7 +75,7 @@ export default function SettingsScreen({ connected: initialConnected, onConnecti
       if (onConnectionChange) onConnectionChange(false)
     }
     setChecking(false)
-  }, [apiUrl, apiKey, onConnectionChange])
+  }, [apiKey, onConnectionChange])
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -112,7 +110,7 @@ export default function SettingsScreen({ connected: initialConnected, onConnecti
             </Text>
           </View>
           <Text style={{ color: colors.textDim, fontSize: fontSize.sm, marginBottom: spacing.md }}>
-            {apiUrl}
+            {api.getApiUrl()}
           </Text>
           {!connected && !checking && (
             <TouchableOpacity
@@ -144,26 +142,6 @@ export default function SettingsScreen({ connected: initialConnected, onConnecti
 
         {showAdvanced && (
           <View style={{ marginBottom: spacing.lg }}>
-            <Text style={{ color: colors.textDim, fontSize: fontSize.sm, marginBottom: spacing.xs }}>
-              API URL
-            </Text>
-            <TextInput
-              value={apiUrl}
-              onChangeText={setApiUrl}
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={{
-                backgroundColor: colors.surfaceCard,
-                color: colors.text,
-                borderRadius: radius.lg,
-                padding: spacing.lg,
-                fontSize: fontSize.md,
-                borderWidth: 1,
-                borderColor: colors.border,
-                marginBottom: spacing.lg,
-              }}
-            />
-
             <Text style={{ color: colors.textDim, fontSize: fontSize.sm, marginBottom: spacing.xs }}>
               API Key (optional)
             </Text>

@@ -1,29 +1,12 @@
-const STORAGE_KEY_API = 'shaggoth_api_url'
-const STORAGE_KEY_TOKEN = 'shaggoth_api_token'
+const API_URL = 'https://shaggoth.relayapp.pro'
 
-const defaults = {
-  apiUrl: 'https://shaggoth.relayapp.pro',
-  apiKey: '',
-}
-
-let _apiUrl = defaults.apiUrl
-let _apiKey = defaults.apiKey
+let _apiKey = ''
 
 export async function initStorage() {
   try {
     const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default
-    const url = await AsyncStorage.getItem(STORAGE_KEY_API)
-    const key = await AsyncStorage.getItem(STORAGE_KEY_TOKEN)
-    if (url) _apiUrl = url
+    const key = await AsyncStorage.getItem('shaggoth_api_token')
     if (key) _apiKey = key
-  } catch {}
-}
-
-export async function saveApiUrl(url) {
-  _apiUrl = url.replace(/\/+$/, '')
-  try {
-    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default
-    await AsyncStorage.setItem(STORAGE_KEY_API, _apiUrl)
   } catch {}
 }
 
@@ -31,11 +14,11 @@ export async function saveApiKey(key) {
   _apiKey = key
   try {
     const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default
-    await AsyncStorage.setItem(STORAGE_KEY_TOKEN, key)
+    await AsyncStorage.setItem('shaggoth_api_token', key)
   } catch {}
 }
 
-export function getApiUrl() { return _apiUrl }
+export function getApiUrl() { return API_URL }
 export function getApiKey() { return _apiKey }
 
 function headers() {
@@ -45,7 +28,7 @@ function headers() {
 }
 
 async function fetchJson(path, options = {}) {
-  const url = `${_apiUrl}${path}`
+  const url = `${API_URL}${path}`
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 15000)
   try {
@@ -61,10 +44,10 @@ async function fetchJson(path, options = {}) {
     return res.json()
   } catch (err) {
     if (err.name === 'AbortError') {
-      throw new Error(`Connection timed out — is Shaggoth running at ${_apiUrl}?`)
+      throw new Error(`Connection timed out — is Shaggoth running at ${API_URL}?`)
     }
     if (err.message?.includes('Network request failed')) {
-      throw new Error(`Can't reach Shaggoth at ${_apiUrl} — check your network connection.`)
+      throw new Error(`Can't reach Shaggoth at ${API_URL} — check your network connection.`)
     }
     throw err
   } finally {

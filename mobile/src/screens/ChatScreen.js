@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   KeyboardAvoidingView, Platform, ActivityIndicator, Animated,
+  Keyboard,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { colors, spacing, radius, fontSize } from '../theme/colors'
@@ -79,8 +80,20 @@ export default function ChatScreen({ onBack, assistMode }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [autoSpeak, setAutoSpeak] = useState(false)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
   const flatRef = useRef(null)
   const voice = useVoice()
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height)
+    })
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0)
+    })
+    return () => { showSub.remove(); hideSub.remove() }
+  }, [])
 
   useEffect(() => {
     if (assistMode && voice.available) {
@@ -147,12 +160,13 @@ export default function ChatScreen({ onBack, assistMode }) {
     voice.stopSpeaking()
   }
 
+  const Wrapper = Platform.OS === 'ios' ? KeyboardAvoidingView : View
+  const wrapperProps = Platform.OS === 'ios'
+    ? { style: { flex: 1, backgroundColor: colors.background }, behavior: 'padding', keyboardVerticalOffset: 44 }
+    : { style: { flex: 1, backgroundColor: colors.background, paddingBottom: keyboardHeight } }
+
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      behavior="padding"
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 26}
-    >
+    <Wrapper {...wrapperProps}>
       <Header
         title="Comms"
         onBack={onBack}
@@ -364,6 +378,6 @@ export default function ChatScreen({ onBack, assistMode }) {
           }
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </Wrapper>
   )
 }
