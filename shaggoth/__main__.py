@@ -406,6 +406,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("facts", help="show remembered facts")
 
     sub.add_parser("freshness", help="show knowledge freshness status")
+    sub.add_parser("gui", help="launch the desktop chat window (Tkinter)")
+
+    p_agents = sub.add_parser("agents", help="show the onboard training crew")
+    p_agents.add_argument("--run", metavar="NAME", default=None, help="run one agent now and print the result")
 
     args = parser.parse_args(argv)
     settings = load_settings()
@@ -435,7 +439,63 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_facts(settings)
     if args.command == "freshness":
         return cmd_knowledge_freshness(settings)
+    if args.command == "gui":
+        return cmd_gui(settings)
+    if args.command == "agents":
+        return cmd_agents(settings, args.run)
     return 2
+
+
+def cmd_gui(settings: dict) -> int:
+    from .agents import agents_enabled, build_crew
+    from .gui.tk import run_tk_app
+
+    engine = build_engine(settings)
+
+    # The desktop app runs the crew in-process when it is enabled, so the
+    # local GUI is somewhere the model trains and not only somewhere it talks.
+    # No curiosity scheduler or critic is built here: those belong to `serve`,
+    # and the researcher and grader report a skip with the reason rather than
+    # pretending to work. The curator, gatherer and trainer are fully
+    # functional without a server.
+    supervisor = None
+    if agents_enabled(settings):
+        supervisor = build_crew(engine, settings=settings)
+        supervisor.start()
+    try:
+        return run_tk_app(engine, supervisor=supervisor)
+    finally:
+        if supervisor is not None:
+            supervisor.stop()
+
+
+def cmd_agents(settings: dict, run: str | None) -> int:
+    """Show the crew, or run one agent now and print what it did."""
+    from .agents import DEFAULT_AGENT_SETTINGS, agents_enabled, build_crew
+
+    engine = build_engine(settings)
+    supervisor = build_crew(engine, settings=settings)
+
+    if not agents_enabled(settings):
+        print("Agents are disabled. Enable them in config/settings.json:\n")
+        print('  "agents": ' + json.dumps(DEFAULT_AGENT_SETTINGS | {"enabled": True}, indent=2))
+        print("\nShowing the crew as it would be configured:\n")
+
+    if run:
+        agent = supervisor.get(run)
+        if agent is None:
+            print(f"No such agent: {run}")
+            print("Known: " + ", ".join(a.name for a in supervisor.agents))
+            return 2
+        report = agent.run()
+        print(json.dumps(report.as_dict(), indent=2, default=str))
+        return 0
+
+    for agent in supervisor.agents:
+        state = "enabled" if agent.enabled else "disabled"
+        cadence = agent.cadence_seconds / 60.0
+        print(f"{agent.name:<11} {state:<9} every {cadence:g}m  {agent.role}")
+    return 0
 
 
 if __name__ == "__main__":

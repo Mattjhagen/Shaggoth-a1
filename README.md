@@ -71,6 +71,10 @@ shaggoth learn --urls https://example.org
 
 # research a topic the knowledge-first way
 shaggoth research "quantum computing"
+
+# the onboard training crew: what it is, and running one by hand
+shaggoth agents
+shaggoth agents --run curator
 ```
 
 Run the test suite:
@@ -133,9 +137,43 @@ CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_WORKERS_AI_TOKEN=... shaggoth serve
    re-queues it ahead of everything else.
 5. The **curator** agent keeps the corpus clean (dedupes question-named
    duplicates, flags fragments).
-6. The **trainer** agent retrains the Markov model nightly behind a quality
-   gate (coherence + perplexity) — nothing bad is ever promoted to the live
-   path.
+6. The **trainer** agent retrains the Markov model nightly behind a coherence
+   gate — a candidate that generates non-words, or that scores worse than the
+   model already live, is not promoted. (The full coherence + perplexity gate
+   is the TinyGPT path in `scripts/retrain_tinygpt.py`; perplexity needs a
+   tokenizer and a block size, which a Markov chain has no equivalent for.)
+
+The crew is **off by default** — these agents spend the same CPU that answers
+chat. Turn it on in `config/settings.json`:
+
+```json
+"agents": {
+  "enabled": true,
+  "researcher": {"enabled": true, "cadence_minutes": 15},
+  "grader":     {"enabled": true, "cadence_minutes": 5},
+  "curator":    {"enabled": true, "cadence_minutes": 60, "apply": false},
+  "gatherer":   {"enabled": true, "cadence_minutes": 60, "max_pages": 5},
+  "trainer":    {"enabled": true, "cadence_minutes": 1440}
+}
+```
+
+A supervisor runs the crew on **one** thread and gives at most one agent a
+turn at a time, so cadences are a lower bound rather than a promise and the
+agents never compete with each other for the box. When agents are enabled they
+drive the curiosity scheduler and the critic directly, replacing those loops'
+own timer threads — enabling the crew does not double the work.
+
+`curator.apply` defaults to `false`: it reports the duplicate entries it would
+remove and moves nothing. With `apply: true` it *moves* losing entries to a
+quarantine directory beside the knowledge dir. Nothing is ever deleted.
+
+Watch it from the API:
+
+```bash
+curl localhost:8420/agents            # crew, cadences, run/failure/skip counts
+curl localhost:8420/agents/history    # what each recent turn actually did
+curl -X POST localhost:8420/agents/run -d '{"agent":"curator"}'
+```
 
 ## Configuration
 

@@ -15,6 +15,9 @@ Endpoints:
     GET  /learn/history              → past learning sessions
     POST /scrape/url                 → scrape a single URL
     GET  /scrape/stats               → scraper statistics
+    GET  /agents                     → onboard training crew + per-agent stats
+    GET  /agents/history             → what recent agent turns actually did
+    POST /agents/run                 → body {"agent": "curator"} (omit = all)
 
 Auth: If SHAGGOTH_API_KEY env var or api_key setting is set, all API
 routes (except /health, /, and static files) require
@@ -42,6 +45,9 @@ from .dialogue.engine import normalize_mode
 from .curiosity.engine import CuriosityEngine
 from .curiosity.scheduler import CuriosityScheduler, ScheduleConfig
 from .curiosity.topics import extract_topic_query
+from .agents import agents_enabled, build_crew
+from .agents.supervisor import Supervisor
+from .config import load_settings
 from .dialogue import DialogueEngine
 from .dialogue.proactive import ProactiveChatter, ProactiveConfig
 from .knowledge.engine import KnowledgeBase
@@ -235,7 +241,7 @@ def _crawl_bounds(body: dict) -> dict:
     return out
 
 
-def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None, feedback: FeedbackStore | None = None, critic: CriticLoop | None = None, proactive=None, sites: SiteRegistry | None = None, crawl_jobs: CrawlJobs | None = None):
+def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None, feedback: FeedbackStore | None = None, critic: CriticLoop | None = None, proactive=None, sites: SiteRegistry | None = None, crawl_jobs: CrawlJobs | None = None, supervisor: Supervisor | None = None):
     class Handler(BaseHTTPRequestHandler):
         server_version = f"Shaggoth/{__version__}"
 
@@ -754,6 +760,27 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     return self._send_json(501, {"error": "critic not initialized"})
                 return self._send_json(200, critic.status())
 
+            if path == "/agents":
+                # 200 with enabled:false rather than 501, because "the crew is
+                # switched off" is a normal configuration and a dashboard
+                # should be able to say so without treating it as an error.
+                if not supervisor:
+                    return self._send_json(200, {
+                        "enabled": False,
+                        "running": False,
+                        "agents": [],
+                        "reason": "agents disabled in settings",
+                    })
+                return self._send_json(200, {"enabled": True, **supervisor.status()})
+
+            if path == "/agents/history":
+                if not supervisor:
+                    return self._send_json(200, {"enabled": False, "history": []})
+                return self._send_json(200, {
+                    "enabled": True,
+                    "history": supervisor.history(50),
+                })
+
             if path == "/push/status":
                 return self._send_json(200, push.status() if push else {"available": False})
 
@@ -925,6 +952,26 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 body = self._read_json()
                 limit = max(1, min(int(body.get("limit") or 3), 50))
                 return self._send_json(200, critic.run_batch(limit))
+
+            if path == "/agents/run":
+                # Manual kick, for verifying without waiting for the cadence.
+                # Runs on the request thread, so a slow agent holds the
+                # connection -- that is the point: the caller wanted to watch
+                # it happen. The scheduled path never blocks a request.
+                if not supervisor:
+                    return self._send_json(501, {"error": "agents disabled in settings"})
+                body = self._read_json()
+                name = body.get("agent") or body.get("name")
+                try:
+                    reports = supervisor.run_now(name)
+                except KeyError:
+                    return self._send_json(404, {
+                        "error": f"no such agent: {name}",
+                        "agents": [a.name for a in supervisor.agents],
+                    })
+                return self._send_json(200, {
+                    "ran": [r.as_dict() for r in reports],
+                })
 
             if path == "/feedback":
                 if not feedback:
@@ -1298,16 +1345,34 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     # Proactive chatter — Shaggoth messages first, in character.
     proactive = ProactiveChatter(engine, push, slack=slack)
 
-    scheduler.start()
+    # The onboard crew, when settings["agents"]["enabled"] is true. It drives
+    # the curiosity scheduler and the critic *instead of* their own timer
+    # threads -- start both and every research cycle and grading batch would
+    # run twice, at twice the load, with /agents reporting half of it. Off by
+    # default, so an existing deployment is unchanged by this block.
+    settings = load_settings()
+    supervisor = None
+    if agents_enabled(settings):
+        supervisor = build_crew(
+            engine,
+            scheduler=scheduler,
+            critic=critic,
+            scraper=learner.scraper,
+            settings=settings,
+        )
+        supervisor.start()
+    else:
+        scheduler.start()
+        if critic.teacher.available():
+            critic.start()
+
     proactive.start()
-    if critic.teacher.available():
-        critic.start()
     httpd = ThreadingHTTPServer(
         (host, port),
         make_handler(
             engine, learner, api_key, curiosity, scheduler, push, deferred,
             feedback, critic, proactive, sites=SiteRegistry(),
-            crawl_jobs=CrawlJobs(),
+            crawl_jobs=CrawlJobs(), supervisor=supervisor,
         ),
     )
     auth_status = "enabled" if api_key else "disabled"
@@ -1324,12 +1389,20 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     print(f"  POST /push/subscribe  GET /push/status  GET /deferred")
     print(f"  POST /feedback        GET /feedback")
     print(f"  POST /critic/run      GET /critic")
+    print(f"  POST /agents/run      GET /agents   GET /agents/history")
     print(f"  Critic: {critic.teacher.model} "
           f"{'ready' if critic.teacher.available() else 'unavailable'}")
+    if supervisor is not None:
+        crew = ", ".join(a.name for a in supervisor.agents if a.enabled)
+        print(f"  Agents: {crew or 'none enabled'}")
+    else:
+        print(f"  Agents: off (set agents.enabled in config/settings.json)")
     print(f"  Push: {'ready' if push.available else 'not configured'}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nShutting down.")
         scheduler.stop()
+        if supervisor is not None:
+            supervisor.stop()
         httpd.server_close()

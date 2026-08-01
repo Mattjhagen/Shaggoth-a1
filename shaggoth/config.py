@@ -33,6 +33,11 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "dialogue_mode": "no_drift",
     "server_host": "127.0.0.1",
     "server_port": 8420,
+    # Onboard training agents. Off by default: they consume the same CPU that
+    # answers chat, so an existing deployment that picks up this key keeps
+    # behaving exactly as it did. See shaggoth/agents/__init__.py for the
+    # per-agent cadences this expands to.
+    "agents": {"enabled": False},
 }
 
 

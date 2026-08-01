@@ -118,6 +118,16 @@ class CuriosityScheduler:
                 # learning again.
                 print(f"[curiosity] cycle failed: {exc}")
 
+    def run_cycle(self) -> None:
+        """Run exactly one cycle, on the caller's thread.
+
+        The public entry point for anything that owns its own cadence -- the
+        researcher agent in :mod:`shaggoth.agents` drives the scheduler this
+        way instead of calling :meth:`start`, so the work happens once per
+        turn rather than once here and once on this class's own timer.
+        """
+        self._cycle()
+
     def _cycle(self) -> None:
         """Run one curiosity cycle: analyze buffered messages, research gaps."""
         if self.curiosity.is_running:
