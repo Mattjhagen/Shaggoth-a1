@@ -157,9 +157,22 @@ class TestMatching:
         assert len(matches) == 1
 
     def test_superset_topic_matches(self):
+        # A multi-word stored topic is a subset of the episode topic.
+        store = _store()
+        store.record("Q?", "aeroponic farming")
+        matches = store.matching("aeroponic farming systems overview")
+        assert len(matches) == 1
+
+    def test_single_word_subset_does_not_match(self):
+        # "farming" alone should not match "aeroponic farming" — too loose.
         store = _store()
         store.record("Q?", "farming")
-        matches = store.matching("aeroponic farming")
+        assert store.matching("aeroponic farming") == []
+
+    def test_single_word_exact_still_matches(self):
+        store = _store()
+        store.record("Q?", "aeroponics")
+        matches = store.matching("aeroponics")
         assert len(matches) == 1
 
     def test_no_overlap_no_match(self):
@@ -379,3 +392,30 @@ class TestThreadSafety:
         assert total_resolved == 1, (
             f"Expected exactly one thread to resolve the item, got {total_resolved}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Overflow handling
+# ---------------------------------------------------------------------------
+
+class TestOverflow:
+    def test_overflow_preserves_answered_undelivered(self):
+        """When the queue hits MAX_PENDING, answered-but-undelivered items
+        must not be discarded — the user hasn't seen them yet."""
+        from shaggoth.notify.deferred import MAX_PENDING
+
+        store = _store()
+        # Create an answered-but-undelivered item
+        early = store.record("Early question?", "early_topic", now=1.0)
+        early.answered_at = 2.0
+        early.answer = "The answer."
+        early.delivered = False
+
+        # Fill past the limit with unanswered items
+        for i in range(MAX_PENDING + 5):
+            store.record(f"Question {i}?", f"topic_{i}", now=float(10 + i))
+
+        # The answered-but-undelivered item must survive
+        answered = store.answered()
+        assert len(answered) == 1
+        assert answered[0].answer == "The answer."

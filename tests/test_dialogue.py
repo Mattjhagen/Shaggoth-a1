@@ -226,6 +226,239 @@ class ConversationFlowTests(unittest.TestCase):
         self.assertNotIn("lol fell", result)
         self.assertNotIn("Blank on lol", result)
 
+    def test_what_about_that_is_follow_up(self):
+        self.assertTrue(is_follow_up("what about that"))
+        self.assertTrue(is_follow_up("what about this?"))
+        self.assertTrue(is_follow_up("what about it"))
+
+    def test_what_about_new_topic_is_not_follow_up(self):
+        self.assertFalse(is_follow_up("what about quantum computing"))
+        self.assertFalse(is_follow_up("what about the new telescope?"))
+
+    def test_social_prefix_with_real_topic_is_not_follow_up(self):
+        """'lol what is quantum computing' should reach the knowledge pipeline."""
+        self.assertFalse(is_follow_up("lol what is quantum computing"))
+        self.assertFalse(is_follow_up("wtf is photosynthesis"))
+        self.assertFalse(is_follow_up("omg tell me about DNA"))
+
+    def test_describe_unknown_no_research_promise_when_flag_false(self):
+        for _ in range(20):
+            result = describe_unknown("what is quantum computing", researching=False)
+            self.assertNotIn("research", result.lower())
+            self.assertNotIn("looking into", result.lower())
+            self.assertNotIn("reading up", result.lower())
+            self.assertNotIn("pulling information", result.lower())
+
+    def test_describe_unknown_promises_research_by_default(self):
+        found_research = False
+        for _ in range(50):
+            result = describe_unknown("what is quantum computing")
+            if "research" in result.lower() or "looking into" in result.lower():
+                found_research = True
+                break
+        self.assertTrue(found_research)
+
+    def test_engine_without_curiosity_does_not_promise_research(self):
+        """When curiosity_available is False, the fallback reply must not
+        promise research that will never happen."""
+        engine = make_engine()
+        # Default: curiosity_available is False
+        self.assertFalse(engine.curiosity_available)
+        for _ in range(20):
+            reply = engine.respond("what is quantum computing", session_id="t1")
+            if reply.source == "fallback":
+                self.assertNotIn("research", reply.text.lower())
+                self.assertNotIn("looking into", reply.text.lower())
+                self.assertNotIn("reading up", reply.text.lower())
+
+    def test_engine_with_curiosity_flag_promises_research(self):
+        """When curiosity_available is True, describe_unknown receives
+        researching=True so fallback replies can promise research."""
+        import tempfile
+        from unittest.mock import patch
+        from shaggoth.knowledge.engine import KnowledgeBase
+        with tempfile.TemporaryDirectory() as td:
+            engine = make_engine(knowledge=KnowledgeBase(td))
+            engine.curiosity_available = True
+            with patch("shaggoth.dialogue.engine.describe_unknown",
+                       return_value="Researching zymurgy now.") as mock_du:
+                reply = engine.respond("what is zymurgy", session_id="t2")
+        self.assertEqual(reply.source, "fallback")
+        mock_du.assert_called_once()
+        _args, kwargs = mock_du.call_args
+        self.assertTrue(kwargs.get("researching", _args[1] if len(_args) > 1 else False))
+
+
+    def test_who_is_recognized_as_definition_query(self):
+        from shaggoth.dialogue.engine import _DEFINITION_QUERY
+        m = _DEFINITION_QUERY.match("who is Albert Einstein")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1).strip(), "Albert Einstein")
+
+    def test_who_was_recognized_as_definition_query(self):
+        from shaggoth.dialogue.engine import _DEFINITION_QUERY
+        m = _DEFINITION_QUERY.match("who was Marie Curie?")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1).strip(), "Marie Curie")
+
+
+class GPTConversationTests(unittest.TestCase):
+    """Tests for the GPT-as-primary-conversationalist architecture.
+
+    When GPT is configured, it should handle all turns — not just
+    knowledge-grounded ones. The old behavior dumped definitions from
+    the knowledge base and used canned templates for everything else.
+    """
+
+    def _make_gpt_engine(self, generate_return="Test GPT response."):
+        from unittest.mock import MagicMock, PropertyMock
+        from shaggoth.models.openai_model import OpenAIModel
+        engine = make_engine()
+        mock_gpt = MagicMock(spec=OpenAIModel)
+        type(mock_gpt).configured = PropertyMock(return_value=True)
+        mock_gpt.is_trained.return_value = True
+        mock_gpt.generate_chat.return_value = generate_return
+        engine.model = mock_gpt
+        return engine, mock_gpt
+
+    def test_gpt_handles_greeting_instead_of_pattern(self):
+        """With GPT configured, greetings get GPT responses, not canned patterns."""
+        engine, mock_gpt = self._make_gpt_engine("Hey. What's on your mind?")
+        reply = engine.respond("hello", session_id="s1")
+        self.assertEqual(reply.text, "Hey. What's on your mind?")
+        mock_gpt.generate_chat.assert_called()
+
+    def test_gpt_handles_self_awareness_question(self):
+        """'are you an LLM?' should get a GPT response and NOT trigger research."""
+        engine, mock_gpt = self._make_gpt_engine(
+            "I'm a knowledge base with a retrieval engine. Not an LLM in the usual sense."
+        )
+        reply = engine.respond("are you an LLM?", session_id="s1")
+        self.assertIn("knowledge base", reply.text)
+        self.assertNotEqual(reply.source, "fallback")
+        mock_gpt.generate_chat.assert_called()
+
+    def test_gpt_synthesizes_knowledge_instead_of_extracting(self):
+        """With GPT configured, knowledge questions go through GPT for
+        natural synthesis rather than the old extract-and-quote pipeline."""
+        import tempfile
+        from shaggoth.knowledge.engine import KnowledgeBase
+        with tempfile.TemporaryDirectory() as td:
+            engine, mock_gpt = self._make_gpt_engine(
+                "Photosynthesis is how plants convert sunlight into energy — "
+                "pretty fundamental to life on Earth."
+            )
+            kb = KnowledgeBase(td)
+            kb.add_entry("Photosynthesis",
+                         "Photosynthesis is the process by which plants convert light. " * 20)
+            engine.knowledge = kb
+            reply = engine.respond("what is photosynthesis", session_id="s1")
+            # GPT should have been called with knowledge context
+            mock_gpt.generate_chat.assert_called()
+            call_kwargs = mock_gpt.generate_chat.call_args
+            self.assertIn("Photosynthesis", call_kwargs.kwargs.get("knowledge_context", ""))
+            # The reply should be the GPT output, not extracted text
+            self.assertIn("pretty fundamental", reply.text)
+
+    def test_gpt_question_without_knowledge_is_fallback(self):
+        """A question GPT can't ground in knowledge should still source='fallback'
+        so curiosity research triggers."""
+        import tempfile
+        from shaggoth.knowledge.engine import KnowledgeBase
+        with tempfile.TemporaryDirectory() as td:
+            engine, mock_gpt = self._make_gpt_engine(
+                "Haven't looked into quantum computing yet."
+            )
+            engine.knowledge = KnowledgeBase(td)
+            reply = engine.respond("what is quantum computing", session_id="s1")
+            mock_gpt.generate_chat.assert_called()
+            self.assertEqual(reply.source, "fallback")
+
+    def test_gpt_statement_without_knowledge_is_model(self):
+        """A statement (not a question) should get source='model', not 'fallback'."""
+        import tempfile
+        from shaggoth.knowledge.engine import KnowledgeBase
+        with tempfile.TemporaryDirectory() as td:
+            engine, mock_gpt = self._make_gpt_engine(
+                "Fair point about the weather."
+            )
+            engine.knowledge = KnowledgeBase(td)
+            reply = engine.respond("the weather is nice today", session_id="s1")
+            mock_gpt.generate_chat.assert_called()
+            self.assertNotEqual(reply.source, "fallback")
+
+    def test_no_gpt_falls_back_to_patterns(self):
+        """Without GPT, the pattern engine still handles greetings."""
+        engine = make_engine()
+        reply = engine.respond("hello", session_id="s1")
+        self.assertEqual(reply.source, "pattern")
+        self.assertTrue(reply.text)
+
+    def test_gpt_chitchat_no_subject(self):
+        """No-subject messages go through GPT for natural conversation."""
+        engine, mock_gpt = self._make_gpt_engine("Quiet day? I'm here.")
+        reply = engine.respond("hey", session_id="s1")
+        self.assertEqual(reply.text, "Quiet day? I'm here.")
+        mock_gpt.generate_chat.assert_called()
+
+    def test_is_about_self_catches_self_referential_questions(self):
+        from shaggoth.dialogue.engine import _is_about_self
+        self.assertTrue(_is_about_self("are you an LLM?"))
+        self.assertTrue(_is_about_self("what are you?"))
+        self.assertTrue(_is_about_self("who are you"))
+        self.assertTrue(_is_about_self("can you help me"))
+        self.assertTrue(_is_about_self("how old are you"))
+        self.assertFalse(_is_about_self("what is photosynthesis"))
+        self.assertFalse(_is_about_self("who is Albert Einstein"))
+        self.assertFalse(_is_about_self("how does gravity work"))
+
+
+class NameInjectionTests(unittest.TestCase):
+    """Name personalization edge cases."""
+
+    def test_name_injection_preserves_all_trailing_punctuation(self):
+        body = "Sure thing?!"
+        name = "Alice"
+        stripped = body.rstrip(".!? ")
+        tail = body[len(stripped):].strip()
+        if tail:
+            result = f"{stripped}, {name}{tail}"
+        else:
+            result = f"{stripped}, {name}."
+        self.assertEqual(result, "Sure thing, Alice?!")
+
+    def test_name_injection_trailing_whitespace_only(self):
+        body = "Sure thing   "
+        name = "Test"
+        stripped = body.rstrip(".!? ")
+        tail = body[len(stripped):].strip()
+        if tail:
+            result = f"{stripped}, {name}{tail}"
+        else:
+            result = f"{stripped}, {name}."
+        self.assertEqual(result, "Sure thing, Test.")
+
+
+class RecallQualityGateTests(unittest.TestCase):
+    """Recall callbacks should only fire on lightweight replies."""
+
+    def _make_gpt_engine_with_recall(self):
+        from unittest.mock import MagicMock, PropertyMock
+        from shaggoth.models.openai_model import OpenAIModel
+        engine = make_engine()
+        mock_gpt = MagicMock(spec=OpenAIModel)
+        type(mock_gpt).configured = PropertyMock(return_value=True)
+        mock_gpt.is_trained.return_value = True
+        mock_gpt.generate_chat.return_value = "Here's what I know about photosynthesis."
+        engine.model = mock_gpt
+        return engine
+
+    def test_recall_does_not_inject_into_gpt_responses(self):
+        engine = self._make_gpt_engine_with_recall()
+        engine.memory.add_message("s1", "user", "I am building an LLM")
+        reply = engine.respond("tell me about photosynthesis", session_id="s1")
+        self.assertNotIn("you mentioned", reply.text)
+
 
 if __name__ == "__main__":
     unittest.main()

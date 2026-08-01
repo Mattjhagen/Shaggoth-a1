@@ -77,6 +77,7 @@ class CuriosityEngine:
         self._running = False
         self._current_episode: CuriosityEpisode | None = None
         self._lock = threading.Lock()
+        self._queue: list[tuple[CuriosityEpisode, int, int]] = []
         self._history: list[dict] = self._load_history()
         self._completion_hooks: list = []
 
@@ -126,7 +127,7 @@ class CuriosityEngine:
     def knows_topic(self, topic: str) -> bool:
         """True when an entry actually *about* ``topic`` already exists."""
         wanted = {
-            w for w in extract_keywords_from_topic(topic) if len(w) > 2
+            w for w in extract_keywords_from_topic(topic) if len(w) > 1
         }
         if not wanted:
             return False
@@ -193,78 +194,97 @@ class CuriosityEngine:
     ) -> None:
         with self._lock:
             if self._running:
-                episode.status = "failed"
-                episode.error = "Already researching"
+                if len(self._queue) < 5:
+                    self._queue.append((episode, max_results, max_pages))
+                    episode.status = "queued"
+                else:
+                    episode.status = "failed"
+                    episode.error = "Research queue full"
                 return
             self._running = True
             self._current_episode = episode
 
-        try:
-            scraped_text_parts: list[str] = []
+        while True:
+            try:
+                self._do_research(episode, max_results, max_pages)
+            except Exception as exc:
+                episode.status = "failed"
+                episode.error = str(exc)[:500]
+            finally:
+                episode.ended_at = time.time()
+                self._history.append(asdict(episode))
+                self._save_history()
+                self._fire_completion(episode)
 
-            # 0. Try Wikipedia first (more reliable, structured content)
-            if self.use_wikipedia:
-                try:
-                    wiki_articles = learn_topic_from_wikipedia(episode.topic, max_articles=2)
-                    for article in wiki_articles:
-                        if article.word_count >= 50:
-                            scraped_text_parts.append(article.extract)
-                            episode.pages_scraped += 1
-                            episode.urls_found += 1
-                except Exception:
-                    pass  # Wikipedia is optional, fall through to web search
+            with self._lock:
+                if self._queue:
+                    episode, max_results, max_pages = self._queue.pop(0)
+                    episode.status = "running"
+                    self._current_episode = episode
+                else:
+                    self._running = False
+                    self._current_episode = None
+                    break
 
-            # 1. Search the web for each query
-            all_results: list[SearchResult] = []
-            for query in episode.queries:
-                results = search_web(query, max_results=max_results)
-                all_results.extend(results)
-                episode.urls_found += len(results)
+    def _do_research(
+        self,
+        episode: CuriosityEpisode,
+        max_results: int,
+        max_pages: int,
+    ) -> None:
+        scraped_text_parts: list[str] = []
 
-            # Deduplicate by URL
-            seen_urls: set[str] = set()
-            unique_results: list[SearchResult] = []
-            for r in all_results:
-                if r.url not in seen_urls:
-                    seen_urls.add(r.url)
-                    unique_results.append(r)
+        # 0. Try Wikipedia first (more reliable, structured content)
+        if self.use_wikipedia:
+            try:
+                wiki_articles = learn_topic_from_wikipedia(episode.topic, max_articles=2)
+                for article in wiki_articles:
+                    if article.word_count >= 50:
+                        scraped_text_parts.append(article.extract)
+                        episode.pages_scraped += 1
+                        episode.urls_found += 1
+            except Exception:
+                pass  # Wikipedia is optional, fall through to web search
 
-            # 2. Scrape top pages
-            for result in unique_results[:max_pages]:
-                page = self.scraper.fetch_page(result.url)
-                if page and page.word_count >= 50:
-                    scraped_text_parts.append(page.text)
-                    episode.pages_scraped += 1
+        # 1. Search the web for each query
+        all_results: list[SearchResult] = []
+        for query in episode.queries:
+            results = search_web(query, max_results=max_results)
+            all_results.extend(results)
+            episode.urls_found += len(results)
 
-            if not scraped_text_parts:
-                episode.status = "completed"
-                episode.error = "No usable content found"
-                return
+        # Deduplicate by URL
+        seen_urls: set[str] = set()
+        unique_results: list[SearchResult] = []
+        for r in all_results:
+            if r.url not in seen_urls:
+                seen_urls.add(r.url)
+                unique_results.append(r)
 
-            # 3. Combine and store in knowledge base
-            combined = "\n\n".join(scraped_text_parts)
-            episode.words_learned = len(combined.split())
+        # 2. Scrape top pages
+        for result in unique_results[:max_pages]:
+            page = self.scraper.fetch_page(result.url)
+            if page and page.word_count >= 50:
+                scraped_text_parts.append(page.text)
+                episode.pages_scraped += 1
 
-            # Chunk into knowledge entries if very long
-            entries = self._chunk_and_store(episode.topic, combined)
-            episode.knowledge_entries = len(entries)
-
-            # 4. Record freshness
-            self.freshness.record_update(episode.topic)
-
+        if not scraped_text_parts:
             episode.status = "completed"
+            episode.error = "No usable content found"
+            return
 
-        except Exception as exc:
-            episode.status = "failed"
-            episode.error = str(exc)[:500]
+        # 3. Combine and store in knowledge base
+        combined = "\n\n".join(scraped_text_parts)
+        episode.words_learned = len(combined.split())
 
-        finally:
-            episode.ended_at = time.time()
-            self._history.append(asdict(episode))
-            self._save_history()
-            self._running = False
-            self._current_episode = None
-            self._fire_completion(episode)
+        # Chunk into knowledge entries if very long
+        entries = self._chunk_and_store(episode.topic, combined)
+        episode.knowledge_entries = len(entries)
+
+        # 4. Record freshness
+        self.freshness.record_update(episode.topic)
+
+        episode.status = "completed"
 
     def on_episode_complete(self, callback) -> None:
         """Register a callback fired after each research episode ends.

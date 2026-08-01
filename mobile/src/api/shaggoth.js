@@ -2,7 +2,7 @@ const STORAGE_KEY_API = 'shaggoth_api_url'
 const STORAGE_KEY_TOKEN = 'shaggoth_api_token'
 
 const defaults = {
-  apiUrl: 'http://100.103.3.35:8420',
+  apiUrl: 'https://shaggoth.relayapp.pro',
   apiKey: '',
 }
 
@@ -46,12 +46,30 @@ function headers() {
 
 async function fetchJson(path, options = {}) {
   const url = `${_apiUrl}${path}`
-  const res = await fetch(url, { ...options, headers: { ...headers(), ...options.headers } })
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(body || `HTTP ${res.status}`)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15000)
+  try {
+    const res = await fetch(url, {
+      ...options,
+      headers: { ...headers(), ...options.headers },
+      signal: controller.signal,
+    })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(body || `HTTP ${res.status}`)
+    }
+    return res.json()
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error(`Connection timed out — is Shaggoth running at ${_apiUrl}?`)
+    }
+    if (err.message?.includes('Network request failed')) {
+      throw new Error(`Can't reach Shaggoth at ${_apiUrl} — check your network connection.`)
+    }
+    throw err
+  } finally {
+    clearTimeout(timeout)
   }
-  return res.json()
 }
 
 export async function health() {
@@ -66,18 +84,19 @@ export async function chat(message, sessionId) {
 }
 
 export async function chatStream(message, sessionId, onToken, onDone, onError) {
-  // React Native fetch doesn't support ReadableStream, so use
-  // the standard JSON endpoint and deliver the full reply at once.
   try {
     const data = await chat(message, sessionId)
-    if (data.reply) {
-      const words = data.reply.split(/(?<=\s)/)
+    const reply = data.reply || data.response || ''
+    if (reply) {
+      const words = reply.split(/(?<=\s)/)
       for (let i = 0; i < words.length; i++) {
         onToken(words[i])
         await new Promise(r => setTimeout(r, 20))
       }
-      onDone(data)
+    } else {
+      onToken('No response from Shaggoth.')
     }
+    onDone(data)
   } catch (err) {
     onError(err.message)
   }

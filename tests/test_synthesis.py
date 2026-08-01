@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from shaggoth.dialogue.engine import (
     _is_list_debris,
+    _stem_match,
     _synthesize,
     _topic_tokens_for,
     pull_cross_entry_fact,
@@ -138,3 +139,144 @@ def test_summarize_entry_scored_still_returns_definition_flag():
     summary, is_definition = summarize_entry_scored(content, "Aeroponics")
     assert is_definition
     assert summary.startswith("Aeroponics is the process")
+
+
+def test_synthesize_preserves_acronyms():
+    result = _synthesize([
+        "DNA is deoxyribonucleic acid.",
+        "DNA carries the genetic instructions for life.",
+    ])
+    assert "DNA" in result
+    assert "dNA" not in result
+
+
+def test_synthesize_preserves_proper_nouns():
+    result = _synthesize([
+        "Gravity was first described mathematically.",
+        "Einstein proposed general relativity in 1915.",
+    ])
+    assert "Einstein" in result
+    assert "einstein" not in result
+
+
+def test_stem_match_rejects_photosynthesis_photography():
+    assert not _stem_match("photosynthesis", "photography")
+
+
+def test_stem_match_rejects_gravity_gravel():
+    assert not _stem_match("gravity", "gravel")
+
+
+def test_stem_match_accepts_gravity_gravitational():
+    assert _stem_match("gravity", "gravitational")
+
+
+def test_stem_match_accepts_computing_computer():
+    assert _stem_match("computing", "computer")
+
+
+def test_summarizer_keeps_pronoun_continuation():
+    content = (
+        "Photosynthesis is the process by which plants convert light energy "
+        "into chemical energy. It occurs primarily in the chloroplasts of "
+        "plant cells. Photosynthesis requires carbon dioxide and water."
+    )
+    summary, _ = summarize_entry_scored(content, "Photosynthesis")
+    assert "chloroplasts" in summary or "chemical energy" in summary
+
+
+def test_clean_sentences_accepts_long_encyclopedia_leads():
+    from shaggoth.dialogue.engine import _clean_sentences
+    long_lead = (
+        "Photosynthesis is a system of biological processes by which "
+        "photosynthetic organisms convert light energy into chemical energy "
+        "that can later be released to fuel the organism's activities, and "
+        "involves a complex set of reactions that include the absorption of "
+        "light by proteins containing chlorophylls, the transfer of that energy "
+        "to molecular reaction centers, the production of adenosine triphosphate "
+        "and the reduction of carbon dioxide to organic compounds by a sequence "
+        "of chemical reactions known collectively as the Calvin cycle, which "
+        "takes place in the stroma of the chloroplast and represents the "
+        "primary pathway by which inorganic carbon enters the biological world."
+    )
+    assert len(long_lead) > 400
+    sentences = _clean_sentences(long_lead)
+    assert sentences, "long encyclopedia lead should not be rejected"
+
+
+def test_clean_sentences_still_rejects_very_long_garbage():
+    from shaggoth.dialogue.engine import _clean_sentences
+    garbage = "word " * 200
+    sentences = _clean_sentences(garbage)
+    assert not sentences, "900-char wall of noise should be rejected"
+
+
+# -- _DEFINING_VERB expansion tests ------------------------------------------
+
+def test_defining_verb_recognises_comprised_of():
+    from shaggoth.dialogue.engine import _DEFINING_VERB
+    assert _DEFINING_VERB.search("An atom is comprised of protons and neutrons.")
+
+
+def test_defining_verb_recognises_includes():
+    from shaggoth.dialogue.engine import _DEFINING_VERB
+    assert _DEFINING_VERB.search("The solar system includes eight major planets.")
+
+
+def test_defining_verb_recognises_contains():
+    from shaggoth.dialogue.engine import _DEFINING_VERB
+    assert _DEFINING_VERB.search("A cell contains a nucleus and cytoplasm.")
+
+
+# -- _stem_match short-word inflection tests ----------------------------------
+
+def test_stem_match_gene_genes():
+    assert _stem_match("gene", "genes")
+
+
+def test_stem_match_gene_genetic_rejects():
+    assert not _stem_match("gene", "genetic")
+
+
+def test_stem_match_cell_cells():
+    assert _stem_match("cell", "cells")
+
+
+def test_stem_match_ice_iced():
+    assert _stem_match("ice", "iced")
+
+
+def test_stem_match_short_unrelated_rejects():
+    assert not _stem_match("ice", "idea")
+
+
+# -- Abbreviation-aware sentence splitting tests -----------------------------
+
+def test_clean_sentences_preserves_dr_abbreviation():
+    from shaggoth.dialogue.engine import _clean_sentences
+    text = "Dr. Smith discovered the element. It was a breakthrough."
+    sentences = _clean_sentences(text)
+    assert any("Dr." in s and "Smith" in s for s in sentences), \
+        f"Dr. Smith should stay in one sentence, got: {sentences}"
+
+
+def test_clean_sentences_preserves_jan_abbreviation():
+    from shaggoth.dialogue.engine import _clean_sentences
+    text = "The event took place on Jan. 15 in the city hall. It was well attended."
+    sentences = _clean_sentences(text)
+    assert any("Jan." in s and "15" in s for s in sentences), \
+        f"Jan. should not split the sentence, got: {sentences}"
+
+
+def test_body_discusses_abbreviation_no_false_split():
+    from shaggoth.dialogue.engine import _body_discusses
+    text = "Dr. Watson assisted Holmes in solving the mystery of the missing jewels."
+    assert _body_discusses(text, {"watson", "holmes"}), \
+        "Co-occurrence should work across abbreviation dots"
+
+
+def test_body_discusses_still_splits_real_sentences():
+    from shaggoth.dialogue.engine import _body_discusses
+    text = "Gravity pulls objects down. Light travels in straight lines."
+    assert not _body_discusses(text, {"gravity", "light"}), \
+        "Words in different sentences should not co-occur"

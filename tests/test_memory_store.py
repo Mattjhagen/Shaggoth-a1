@@ -238,3 +238,24 @@ class TestExtractAndStoreFacts:
         store.extract_and_store_facts("my name is Alice")
         store.extract_and_store_facts("call me Ali")
         assert store.get_fact("name") == "Ali"
+
+    def test_abstract_location_is_rejected(self, store):
+        facts = store.extract_and_store_facts("I live in fear")
+        assert "location" not in facts
+        assert store.get_fact("location") is None
+
+    def test_real_location_is_accepted(self, store):
+        facts = store.extract_and_store_facts("I live in Denver")
+        assert facts.get("location") == "Denver"
+
+    def test_abstract_locations_exhaustive(self, store):
+        for word in ("pain", "denial", "chaos", "silence", "hope"):
+            facts = store.extract_and_store_facts(f"I live in {word}")
+            assert "location" not in facts, f"'{word}' should be rejected as a location"
+
+    def test_likes_not_too_greedy(self, store):
+        facts = store.extract_and_store_facts(
+            "I like building small side projects on weekends with my friends"
+        )
+        if "likes" in facts:
+            assert len(facts["likes"]) <= 25

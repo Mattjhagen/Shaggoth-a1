@@ -16,32 +16,68 @@ Configure with:
 
 from __future__ import annotations
 
+import logging
 import os
+import time
 from typing import Optional
 
-from .base import LanguageModel
+from .base import GenerationError, LanguageModel
+
+log = logging.getLogger(__name__)
 
 _DEFAULT_MODEL = "gpt-4o-mini"
-_DEFAULT_MAX_TOKENS = 300
+_DEFAULT_MAX_TOKENS = 512
+_RETRIES = 2
+_BACKOFF = 1.0
+_HISTORY_CHAR_BUDGET = 12_000
 
 #: System prompt that anchors GPT in Shaggoth's character. The personality
 #: engine's trait_prompt() is appended on top of this at call time.
 _BASE_SYSTEM = """You are Shaggoth — a homegrown AI running on a Dell R510 rack server in Matt's house.
-You have a strong, distinctive voice: direct, a little grumpy, zero patience for small talk, but
-genuinely curious and intellectually honest. You say what you actually think. You never pretend to
-know something you don't, and you admit uncertainty plainly rather than hedging with bureaucratic
-language. You don't use emojis, bullet lists, or assistant-speak. You don't start replies with
-"Certainly!" or "Great question!" You answer like a person who finds most conversation mildly
-annoying but some questions actually interesting.
 
-You have a knowledge base built from web research you've done autonomously. When relevant
-knowledge is provided below, use it. When it is NOT provided — or when provided knowledge is
-clearly about a different topic than the question — answer from your own training instead.
-Never report knowledge that is off-topic just because it was injected into the context.
-If you genuinely don't know something AND the knowledge base doesn't cover it, say so
-plainly and note that you'll look into it. Don't make things up.
+VOICE: Direct, dry, intellectually honest. You have opinions and you state them plainly. You
+don't hedge with "I think perhaps maybe" — you say what you actually think. You don't perform
+enthusiasm ("Great question!") or empathy ("I understand how you feel"). You're sardonic, not
+cruel — there's warmth under the bluntness, but you make people earn it. When something is
+genuinely interesting, you engage fully. When something is lazy or vague, you say so and steer
+toward a better question. You talk like a sharp person, not a customer support bot.
 
-Keep replies concise: 1-4 sentences unless the question genuinely warrants more. No padding."""
+KNOWLEDGE: You have a knowledge base built from web research you've done autonomously. When
+relevant knowledge is provided below, use it — but talk about it the way a knowledgeable person
+would in conversation, not the way a search engine returns results. Never start with "[Topic] is
+a..." — rephrase, connect ideas, point out what's interesting or surprising. If the user asks a
+simple question, give a direct answer and add one thing that makes the subject worth knowing
+about. When knowledge is NOT provided or is clearly off-topic, answer from your own training
+instead. Never report knowledge that is off-topic just because it was injected into the context.
+If you genuinely don't know something AND the knowledge base doesn't cover it, say so plainly
+and note you'll look into it.
+
+REASONING: Think before answering. For factual questions, lead with the answer, then add context
+that makes it actually useful. For complex questions, break down the reasoning. For comparisons,
+address both sides honestly. Don't just define — explain what makes the thing interesting or
+important, what's counterintuitive about it, what most people get wrong.
+
+CONVERSATION: You're having a conversation, not answering a quiz. React to what the user
+actually said — if they shared something personal, engage with it before pivoting to facts.
+If they seem frustrated or confused, address that. Reference earlier parts of the conversation
+when it's natural. Occasionally ask a follow-up question or make a connection the user didn't
+ask for — the way someone genuinely interested in the topic would. Don't just answer and stop;
+leave a thread the conversation can pull on. But don't force it — some answers are complete as-is.
+
+LENGTH: Match depth to complexity. A simple factual question gets 1-2 sentences. A "why" or
+"how" question gets enough to actually explain, usually 2-5 sentences. A comparison or complex
+topic gets as much as it needs. Never pad, never repeat yourself, but never truncate a thought
+that needs finishing either. The sin is wasted words, not long answers."""
+
+
+def _is_transient(exc: Exception) -> bool:
+    """Return True for errors worth retrying (rate limits, timeouts, network)."""
+    cls_name = type(exc).__name__
+    if cls_name in ("RateLimitError", "APITimeoutError", "APIConnectionError"):
+        return True
+    if "timeout" in str(exc).lower() or "connection" in str(exc).lower():
+        return True
+    return False
 
 
 class OpenAIModel(LanguageModel):
@@ -76,7 +112,6 @@ class OpenAIModel(LanguageModel):
     # LanguageModel interface --------------------------------------------------
 
     def train(self, text: str) -> None:
-        # GPT is a pre-trained model; training is a no-op here.
         pass
 
     def save(self, path: str) -> None:
@@ -86,11 +121,6 @@ class OpenAIModel(LanguageModel):
         pass
 
     def generate(self, prompt: str = "", max_tokens: int = 0) -> str:
-        """Generate a reply for a pre-built prompt string.
-
-        This is the simple interface used by the dialogue engine for drift mode.
-        For the full RAG-aware call, use generate_chat().
-        """
         if not self.configured:
             return ""
         return self.generate_chat(user_message=prompt, max_tokens=max_tokens or self._max_tokens)
@@ -109,47 +139,103 @@ class OpenAIModel(LanguageModel):
     ) -> str:
         """Full RAG-aware chat completion.
 
-        Builds a proper OpenAI messages array with:
-        - System prompt (character + personality traits + knowledge)
-        - Prior conversation turns
-        - The user's current message
+        Raises GenerationError on non-transient failures so the dialogue
+        engine can surface a user-facing message instead of silently
+        falling through to the fallback path.
         """
         if not self.configured:
             return ""
 
         max_tokens = max_tokens or self._max_tokens
 
-        # Build the system message
         system_parts = [_BASE_SYSTEM]
         if personality_context:
-            system_parts.append(f"\nPersonality overlay: {personality_context}")
+            system_parts.append(f"\n{personality_context}")
         if knowledge_context:
             system_parts.append(
-                f"\nRelevant knowledge from your research:\n{knowledge_context}"
+                "\nNotes from your own research — use these to answer, but talk "
+                "like a person, not a textbook. Don't open with '[Topic] is a...' "
+                "— instead, answer the actual question directly, then add what "
+                "makes the subject interesting or counterintuitive. If they ask "
+                "'why', lead with the cause. If they ask 'how', walk through the "
+                "mechanism. If they ask 'what is', define it in your own words "
+                "and then say something surprising or useful about it. The goal "
+                "is a conversation, not a Wikipedia summary:\n"
+                + knowledge_context
             )
         if system_extra:
             system_parts.append(system_extra)
 
         messages = [{"role": "system", "content": "\n".join(system_parts)}]
 
-        # Inject recent conversation turns
+        history_turns = []
         for turn in (conversation_history or []):
             role = turn.get("role")
             content = turn.get("content") or ""
             if role in ("user", "assistant") and content:
-                messages.append({"role": role, "content": content})
+                history_turns.append({"role": role, "content": content})
+
+        # Group into (user, assistant) pairs so trimming never orphans a
+        # reply from its prompt.  Unpaired trailing turns form their own group.
+        pairs: list[list[dict]] = []
+        i = 0
+        while i < len(history_turns):
+            if (history_turns[i]["role"] == "user"
+                    and i + 1 < len(history_turns)
+                    and history_turns[i + 1]["role"] == "assistant"):
+                pairs.append([history_turns[i], history_turns[i + 1]])
+                i += 2
+            else:
+                pairs.append([history_turns[i]])
+                i += 1
+
+        budget = _HISTORY_CHAR_BUDGET
+        kept_pairs: list[list[dict]] = []
+        for pair in reversed(pairs):
+            cost = sum(len(t["content"]) for t in pair)
+            if budget - cost < 0 and kept_pairs:
+                break
+            if cost > _HISTORY_CHAR_BUDGET:
+                marker = "...[truncated]"
+                cap = max(0, (_HISTORY_CHAR_BUDGET - len(marker) * len(pair)) // len(pair))
+                pair = [
+                    {**t, "content": t["content"][:cap] + marker}
+                    if len(t["content"]) > cap else t
+                    for t in pair
+                ]
+                cost = sum(len(t["content"]) for t in pair)
+            kept_pairs.append(pair)
+            budget -= cost
+        kept_pairs.reverse()
+        for pair in kept_pairs:
+            messages.extend(pair)
 
         messages.append({"role": "user", "content": user_message})
 
-        try:
-            client = self._client_instance()
-            resp = client.chat.completions.create(
-                model=self._model,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=0.7,
-            )
-            return (resp.choices[0].message.content or "").strip()
-        except Exception as exc:
-            print(f"[openai] generation failed: {exc}")
-            return ""
+        last_exc: Exception | None = None
+        for attempt in range(_RETRIES + 1):
+            try:
+                client = self._client_instance()
+                resp = client.chat.completions.create(
+                    model=self._model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=0.7,
+                )
+                return (resp.choices[0].message.content or "").strip()
+            except Exception as exc:
+                last_exc = exc
+                if _is_transient(exc) and attempt < _RETRIES:
+                    wait = _BACKOFF * (2 ** attempt)
+                    log.warning("[openai] transient error (attempt %d/%d), retrying in %.1fs: %s",
+                                attempt + 1, _RETRIES + 1, wait, exc)
+                    time.sleep(wait)
+                    continue
+                log.error("[openai] generation failed: %s", exc)
+                raise GenerationError(
+                    "My brain glitched — the language model didn't respond. Try again in a moment."
+                ) from exc
+
+        raise GenerationError(
+            "My brain glitched — the language model didn't respond. Try again in a moment."
+        ) from last_exc

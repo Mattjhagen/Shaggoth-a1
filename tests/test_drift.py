@@ -83,9 +83,11 @@ class LoudModel:
 def engine_factory(tmp_path):
     def build(mode=DEFAULT_MODE, model=None):
         from shaggoth.memory import MemoryStore
+        from shaggoth.knowledge.engine import KnowledgeBase
 
         return DialogueEngine(
             memory=MemoryStore(str(tmp_path / f"mem-{mode}-{id(model)}.db")),
+            knowledge=KnowledgeBase(tmp_path / f"kb-{mode}-{id(model)}"),
             model=model,
             mode=mode,
         )
@@ -201,6 +203,14 @@ def test_markov_gate_accepts_a_relevant_coherent_sentence():
     assert markov_is_usable(
         "Photosynthesis is the process plants use to turn light into sugar.",
         "what is photosynthesis",
+    )
+
+
+def test_markov_gate_accepts_short_acronym_topics():
+    """Prompts like 'what is DNA' should not be rejected for having no content word."""
+    assert markov_is_usable(
+        "DNA is a molecule that carries the genetic instructions for life.",
+        "what is DNA",
     )
 
 

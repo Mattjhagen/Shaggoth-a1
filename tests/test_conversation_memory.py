@@ -141,7 +141,26 @@ def test_follow_up_reply_names_the_subject():
 
 
 def test_follow_up_reply_without_context_says_so():
-    assert follow_up_reply({}) 
+    assert follow_up_reply({})
+
+
+def test_chitchat_pool_has_variety():
+    """At least 5 unique replies across 30 draws — proves the pool is large."""
+    seen = {chitchat_reply("hey", {}) for _ in range(60)}
+    assert len(seen) >= 5
+
+
+def test_follow_up_pool_has_variety():
+    """Multiple unique follow-up replies for the subject branch."""
+    ctx = {"recent": [{"role": "user", "content": "tell me about aeroponics"}]}
+    seen = {follow_up_reply(ctx) for _ in range(40)}
+    assert len(seen) >= 2
+
+
+def test_follow_up_no_context_returns_a_reply():
+    """A follow-up with no prior context still produces a response."""
+    reply = follow_up_reply({})
+    assert reply and len(reply) > 10
 
 
 # --------------------------------------------------------------------------
@@ -266,6 +285,29 @@ def test_more_conversational_phrasings_are_not_lookups(text):
     assert not has_subject(text)
 
 
+def test_last_user_question_returns_full_text():
+    from shaggoth.dialogue.engine import _last_user_question
+
+    context = {"recent": [
+        {"role": "user", "content": "why does photosynthesis need light"},
+        {"role": "assistant", "content": "Because chlorophyll absorbs photons."},
+        {"role": "user", "content": "why?"},
+    ]}
+    result = _last_user_question(context)
+    assert result == "why does photosynthesis need light"
+
+
+def test_last_user_question_empty_when_no_subject():
+    from shaggoth.dialogue.engine import _last_user_question
+
+    context = {"recent": [
+        {"role": "user", "content": "hey"},
+        {"role": "user", "content": "ok"},
+    ]}
+    assert _last_user_question(context) == ""
+    assert _last_user_question({}) == ""
+
+
 @pytest.mark.parametrize("text", [
     "why does that matter",
     "what does this mean",
@@ -293,6 +335,17 @@ def test_a_real_question_containing_that_is_still_a_lookup():
     assert not is_follow_up("what is the thing that plants use to make sugar")
 
 
+@pytest.mark.parametrize("text", [
+    "what does this protein do",
+    "how does this engine work",
+    "what is this chemical",
+    "why does that algorithm fail",
+])
+def test_determiner_this_that_is_not_follow_up(text):
+    """'this/that' + noun is a determiner, not an anaphoric pronoun."""
+    assert not is_follow_up(text), text
+
+
 def test_fact_statements_do_not_become_the_conversation_subject():
     from shaggoth.dialogue.engine import last_subject
 
@@ -301,3 +354,241 @@ def test_fact_statements_do_not_become_the_conversation_subject():
         {"role": "user", "content": "my name is Matt"},
     ]}
     assert "aeroponics" in last_subject(context)
+
+
+# --------------------------------------------------------------------------
+# Conversational messages that must never reach knowledge retrieval
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text", [
+    "thank you", "thanks", "thanks a lot", "thx",
+    "sorry", "my bad",
+    "goodbye", "see you later", "bye",
+    "help", "help me",
+    "never mind", "forget it", "whatever", "idc",
+    "bruh", "dude", "ugh", "meh", "sigh",
+    "damn", "dang", "hold on", "wait",
+    "for real", "same", "true", "not really",
+    "not much", "nothing much",
+    "youre dumb", "youre awesome", "youre smart",
+    "thats cool", "thats crazy", "thats wild",
+    "I dont know", "I dont care",
+    "whats up",
+    "tell me something interesting",
+    "I changed my mind", "forget about it",
+    "that was fun", "nice one", "good job", "well done",
+    "I agree", "I disagree", "fair enough", "fair point",
+    "you make me laugh", "you crack me up", "good call",
+    "my bad", "good point", "nice work",
+])
+def test_social_and_reactive_messages_have_no_subject(text):
+    assert not has_subject(text), f"{text!r} should not be treated as a lookup"
+
+
+@pytest.mark.parametrize("text", [
+    "what is photosynthesis",
+    "tell me about aeroponics",
+    "who is Albert Einstein",
+    "explain quantum mechanics",
+    "gravity",
+    "what is DNA",
+    "how does evolution work",
+    "tell me about machine learning",
+])
+def test_real_knowledge_questions_still_have_subjects(text):
+    assert has_subject(text), f"{text!r} should be treated as a lookup"
+
+
+def test_social_messages_never_trigger_fallback(engine):
+    """None of these should produce source='fallback', which triggers research."""
+    for text in ("thank you", "sorry", "goodbye", "never mind", "ugh",
+                 "thats cool", "youre awesome", "whats up", "hold on"):
+        reply = engine.respond(text, session_id="s1")
+        assert reply.source != "fallback", f"{text!r} produced fallback: {reply.text}"
+
+
+def test_bare_noun_answers_from_knowledge_when_available(tmp_path):
+    """Typing just 'gravity' should answer from the KB, not claim ignorance."""
+    from shaggoth.memory import MemoryStore
+
+    engine = DialogueEngine(memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
+    engine.knowledge.add_entry(
+        "Gravity",
+        "Gravity is a fundamental force of nature. " * 20,
+    )
+    reply = engine.respond("gravity", session_id="s1")
+    assert reply.source == "knowledge", f"expected knowledge, got {reply.source}: {reply.text}"
+
+
+def test_bare_noun_not_in_kb_still_falls_through(tmp_path):
+    from shaggoth.memory import MemoryStore
+
+    engine = DialogueEngine(memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
+    reply = engine.respond("zorbulon", session_id="s1")
+    assert reply.source == "fallback"
+
+
+# --------------------------------------------------------------------------
+# Conversational pushback — must not become research topics
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text", [
+    "you're lying", "you are lying", "that's wrong", "thats wrong",
+    "no way", "bull", "not true", "nope", "nah",
+])
+def test_conversational_pushback_has_no_subject(text):
+    assert not has_subject(text), f"{text!r} should not have a subject"
+
+
+@pytest.mark.parametrize("text", [
+    "can you elaborate", "please clarify", "repeat that",
+    "summarize what you said", "rephrase that",
+])
+def test_meta_requests_have_no_subject(text):
+    assert not has_subject(text), f"{text!r} should not be a lookup"
+
+
+@pytest.mark.parametrize("text", [
+    "what is work",
+    "what is matter",
+    "what is the mind",
+    "what are ideas",
+    "define point",
+    "explain sense",
+    "what was the change",
+    "tell me about work",
+    "tell me what matter is",
+    "describe the mind",
+    "teach me about change",
+    "talk about sense",
+])
+def test_definition_queries_bypass_no_subject(text):
+    """Explicit definition queries should always be treated as lookups."""
+    assert has_subject(text), f"{text!r} should be treated as a lookup"
+
+
+@pytest.mark.parametrize("text", [
+    "does that work",
+    "what do you think",
+    "that doesn't matter",
+    "I changed my mind",
+])
+def test_conversational_uses_still_blocked(text):
+    """Non-definition uses of dual-use words should still be chitchat."""
+    assert not has_subject(text), f"{text!r} should not be treated as a lookup"
+
+
+def test_describe_unknown_filters_filler_words():
+    """describe_unknown should not include common words in the subject."""
+    from shaggoth.dialogue.engine import describe_unknown
+    reply = describe_unknown("can you elaborate on that interesting perspective")
+    assert "elaborate" not in reply.lower()
+    assert "perspective" not in reply.lower()
+
+
+def test_short_definitional_article_not_repeated(tmp_path):
+    """A short article should produce one sentence, not the same one 4x."""
+    from shaggoth.memory import MemoryStore
+
+    engine = DialogueEngine(memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
+    engine.knowledge.add_entry(
+        "Gravity",
+        "Gravity is a fundamental force of nature. " * 20,
+    )
+    reply = engine.respond("what is gravity", session_id="s1")
+    count = reply.text.lower().count("fundamental force")
+    assert count <= 1, f"Repeated {count} times: {reply.text}"
+
+
+def test_gpt_follow_up_routes_through_model(tmp_path):
+    """When GPT is configured, follow-ups should go through the model."""
+    from unittest.mock import MagicMock, patch
+    from shaggoth.memory import MemoryStore
+    from shaggoth.models.openai_model import OpenAIModel
+
+    mock_model = MagicMock(spec=OpenAIModel)
+    mock_model.configured = True
+    mock_model.is_trained.return_value = True
+    mock_model.generate_chat.return_value = "Because gravity warps spacetime."
+
+    engine = DialogueEngine(
+        memory=MemoryStore(str(tmp_path / "m.db")),
+        model=mock_model,
+        seed=1,
+    )
+    engine.respond("what is gravity", session_id="s1")
+    reply = engine.respond("why?", session_id="s1")
+    assert reply.source == "model"
+    assert "spacetime" in reply.text.lower()
+    mock_model.generate_chat.assert_called()
+
+
+def test_gpt_follow_up_falls_back_without_model(tmp_path):
+    """Without GPT, follow-ups still get canned replies."""
+    from shaggoth.memory import MemoryStore
+
+    engine = DialogueEngine(
+        memory=MemoryStore(str(tmp_path / "m.db")),
+        seed=1,
+    )
+    engine.respond("what is gravity", session_id="s1")
+    reply = engine.respond("why?", session_id="s1")
+    assert reply.source == "pattern"
+
+
+def test_polish_if_gpt_rewrites_raw_answer(tmp_path):
+    """_polish_if_gpt should rewrite extractive prose through GPT."""
+    from unittest.mock import MagicMock
+    from shaggoth.memory import MemoryStore
+    from shaggoth.models.openai_model import OpenAIModel
+
+    mock_model = MagicMock(spec=OpenAIModel)
+    mock_model.configured = True
+    mock_model.is_trained.return_value = True
+    mock_model.generate_chat.return_value = "Polished answer about gravity."
+
+    engine = DialogueEngine(
+        memory=MemoryStore(str(tmp_path / "m.db")),
+        model=mock_model,
+        seed=1,
+    )
+    result = engine._polish_if_gpt(
+        "Raw extractive sentences from articles.",
+        "what is gravity",
+    )
+    assert result == "Polished answer about gravity."
+    mock_model.generate_chat.assert_called_once()
+
+
+def test_polish_if_gpt_returns_raw_without_model(tmp_path):
+    """Without GPT, _polish_if_gpt returns the raw answer unchanged."""
+    from shaggoth.memory import MemoryStore
+
+    engine = DialogueEngine(
+        memory=MemoryStore(str(tmp_path / "m.db")),
+        seed=1,
+    )
+    raw = "Raw extractive sentences from articles."
+    result = engine._polish_if_gpt(raw, "what is gravity")
+    assert result == raw
+
+
+def test_polish_if_gpt_rejects_severe_truncation(tmp_path):
+    """GPT output that drops too many facts should be rejected."""
+    from unittest.mock import MagicMock
+    from shaggoth.memory import MemoryStore
+    from shaggoth.models.openai_model import OpenAIModel
+
+    raw = "A" * 300
+    mock_model = MagicMock(spec=OpenAIModel)
+    mock_model.configured = True
+    mock_model.is_trained.return_value = True
+    mock_model.generate_chat.return_value = "Short."
+
+    engine = DialogueEngine(
+        memory=MemoryStore(str(tmp_path / "m.db")),
+        model=mock_model,
+        seed=1,
+    )
+    result = engine._polish_if_gpt(raw, "what is gravity")
+    assert result == raw, "severely truncated GPT output should be rejected"

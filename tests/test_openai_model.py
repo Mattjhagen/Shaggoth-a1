@@ -60,9 +60,9 @@ class TestConfiguration:
         m = OpenAIModel(api_key="sk-x")
         assert m._model == "gpt-3.5-turbo"
 
-    def test_max_tokens_defaults_to_300(self):
+    def test_max_tokens_defaults_to_512(self):
         m = _model()
-        assert m._max_tokens == 300
+        assert m._max_tokens == 512
 
     def test_max_tokens_override(self):
         m = OpenAIModel(api_key="sk-x", max_tokens=500)
@@ -248,15 +248,34 @@ class TestExceptionHandling:
         self.mock_client = MagicMock()
         self.m._client = self.mock_client
 
-    def test_api_exception_returns_empty_string(self):
-        self.mock_client.chat.completions.create.side_effect = RuntimeError("Connection refused")
-        result = self.m.generate_chat("q")
-        assert result == ""
+    def test_api_exception_raises_generation_error(self):
+        from shaggoth.models.base import GenerationError
+        self.mock_client.chat.completions.create.side_effect = ValueError("Bad model")
+        with pytest.raises(GenerationError):
+            self.m.generate_chat("q")
 
-    def test_exception_does_not_propagate(self):
-        self.mock_client.chat.completions.create.side_effect = Exception("Some error")
-        # Should not raise
-        self.m.generate_chat("q")
+    def test_transient_error_retries_then_raises(self, monkeypatch):
+        import shaggoth.models.openai_model as omod
+        from shaggoth.models.base import GenerationError
+        monkeypatch.setattr(omod, "_BACKOFF", 0.0)
+        self.mock_client.chat.completions.create.side_effect = RuntimeError("connection reset")
+        with pytest.raises(GenerationError):
+            self.m.generate_chat("q")
+        assert self.mock_client.chat.completions.create.call_count == 3
+
+    def test_transient_error_succeeds_on_retry(self, monkeypatch):
+        import shaggoth.models.openai_model as omod
+        monkeypatch.setattr(omod, "_BACKOFF", 0.0)
+        mock_resp = MagicMock()
+        mock_resp.choices = [MagicMock()]
+        mock_resp.choices[0].message.content = "recovered"
+        self.mock_client.chat.completions.create.side_effect = [
+            RuntimeError("connection reset"),
+            mock_resp,
+        ]
+        result = self.m.generate_chat("q")
+        assert result == "recovered"
+        assert self.mock_client.chat.completions.create.call_count == 2
 
 
 # ---------------------------------------------------------------------------

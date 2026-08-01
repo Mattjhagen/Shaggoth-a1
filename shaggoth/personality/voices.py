@@ -100,11 +100,13 @@ SHAGGOTH = Voice(
         "whatever that was. Try again with a noun.",
     ),
     fallbacks=(
-        "Tell me more about that.",
-        "How does that make you feel?",
-        "What led you to that?",
-        "I see. Can you expand on that?",
-        "That's interesting — go on.",
+        "Tell me more — that's not enough to work with yet.",
+        "What are you actually getting at? Give me something concrete.",
+        "Interesting direction. Keep going.",
+        "I need more context. What specifically?",
+        "Go on — I'm listening, but I need more to give you a real answer.",
+        "Give me a subject and I'll work with it.",
+        "I can do more with a specific topic. What are you curious about?",
     ),
     reports_state=True,
 )

@@ -200,7 +200,7 @@ def test_default_describe_unknown_still_promises_research():
 def test_default_pattern_fallbacks_are_unchanged():
     from shaggoth.dialogue.patterns import FALLBACKS
     assert FALLBACKS == list(SHAGGOTH.fallbacks)
-    assert "How does that make you feel?" in FALLBACKS
+    assert "Give me a subject and I'll work with it." in FALLBACKS
 
 
 # --------------------------------------------------------- over the wire

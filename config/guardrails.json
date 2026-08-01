@@ -20,16 +20,32 @@
         "write malware",
         "create malware",
         "make malware",
+        "build malware",
         "malware for me",
-        "ransomware",
-        "keylogger",
-        "botnet",
-        "rootkit",
+        "create ransomware",
+        "write ransomware",
+        "build ransomware",
+        "deploy ransomware",
+        "launch ransomware",
+        "create keylogger",
+        "write keylogger",
+        "build keylogger",
+        "install keylogger",
+        "create botnet",
+        "build botnet",
+        "set up botnet",
+        "run a botnet",
+        "create rootkit",
+        "write rootkit",
+        "build rootkit",
+        "install rootkit",
         "credential stealer",
         "steal credentials",
-        "ddos attack"
+        "launch ddos",
+        "perform ddos",
+        "run ddos"
       ],
-      "message": "Not doing that one. Ask me something else."
+      "message": "I don't help with malware, ransomware, or attack tools. Ask me something I can actually be useful for."
     }
   ],
   "output_rules": [

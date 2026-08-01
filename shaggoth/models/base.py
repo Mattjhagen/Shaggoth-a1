@@ -10,6 +10,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 
+class GenerationError(RuntimeError):
+    """Raised when a model backend fails to generate a response.
+
+    Carries a user-safe message the dialogue engine can surface directly.
+    """
+
+
 class LanguageModel(ABC):
     name: str = "base"
 

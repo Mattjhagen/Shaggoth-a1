@@ -142,3 +142,55 @@ def test_robots_result_is_cached_per_origin(scraper, monkeypatch):
     for path in ("/a", "/b", "/c"):
         scraper.robots_allows("https://example.com" + path)
     assert len(fetches) == 1
+
+
+# ---------------------------------------------------------------------------
+# HTML entity decoding — invalid codepoints must not crash the scraper
+# ---------------------------------------------------------------------------
+
+def test_html_entity_decodes_numeric():
+    from shaggoth.scraper.engine import _html_to_text
+    assert "'" in _html_to_text("it&#39;s fine")
+
+
+def test_html_entity_decodes_hex():
+    from shaggoth.scraper.engine import _html_to_text
+    assert "'" in _html_to_text("it&#x27;s fine")
+
+
+def test_html_entity_surrogate_does_not_crash():
+    from shaggoth.scraper.engine import _html_to_text
+    result = _html_to_text("bad&#55296;stuff")
+    assert "bad" in result
+    assert "stuff" in result
+
+
+def test_html_entity_zero_does_not_crash():
+    from shaggoth.scraper.engine import _html_to_text
+    result = _html_to_text("null&#0;byte")
+    assert "null" in result
+
+
+# ---------------------------------------------------------------------------
+# Charset extraction from Content-Type header
+# ---------------------------------------------------------------------------
+
+def test_charset_extraction_basic():
+    from shaggoth.scraper.engine import _extract_charset
+    assert _extract_charset("text/html; charset=iso-8859-1") == "iso-8859-1"
+
+
+def test_charset_extraction_quoted():
+    from shaggoth.scraper.engine import _extract_charset
+    assert _extract_charset('text/html; charset="utf-8"') == "utf-8"
+
+
+def test_charset_extraction_missing_defaults_to_utf8():
+    from shaggoth.scraper.engine import _extract_charset
+    assert _extract_charset("text/html") == "utf-8"
+    assert _extract_charset("") == "utf-8"
+
+
+def test_charset_extraction_case_insensitive():
+    from shaggoth.scraper.engine import _extract_charset
+    assert _extract_charset("text/html; Charset=WINDOWS-1252") == "WINDOWS-1252"
