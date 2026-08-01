@@ -257,14 +257,17 @@ def _pick(sentences, marker, topic_words, limit, min_len=40, focus=None):
         if not marker.search(sentence):
             continue
         lowered = sentence.lower()
+        # Word-tokenized, not substring: a raw `word in lowered` check let a
+        # focus word like "light" also match inside "highlighted" or "flight".
+        sentence_words = _topic_words(lowered)
         on_topic = (
             not topic_words
-            or any(w in lowered for w in topic_words)
+            or bool(topic_words & sentence_words)
             or _REFERRING.match(sentence)
         )
         if not on_topic:
             continue
-        hits = sum(1 for word in focus if word in lowered)
+        hits = len(focus & sentence_words)
         # Focus hits dominate. Explanatory quality only breaks ties -- but it
         # is the whole ranking when the question has no focus term, which is
         # when this previously degenerated to document order.
