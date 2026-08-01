@@ -128,6 +128,24 @@ def test_body_route_is_off_without_content():
     assert not knowledge_is_relevant("Chapter 23", "who is Ellie Finch")
 
 
+def test_body_discusses_cleans_citations():
+    from shaggoth.dialogue.engine import _body_discusses
+
+    content = "Ellie Finch [1] published a [citation needed] seminal paper."
+    assert _body_discusses(content, {"ellie", "finch"})
+
+
+def test_body_discusses_ignores_noise_sentences():
+    from shaggoth.dialogue.engine import _body_discusses
+
+    content = "This article has multiple issues. Ellie Finch is a character."
+    assert _body_discusses(content, {"ellie", "finch"})
+    assert not _body_discusses(
+        "This article has multiple issues with Ellie Finch references.",
+        {"ellie", "finch"},
+    )
+
+
 # --------------------------------------------------------------------------
 # Slugs: the filename stem IS the topic, so a bad slug is a permanent bad topic
 # --------------------------------------------------------------------------
@@ -175,7 +193,6 @@ def test_exact_match_still_preferred_over_fuzzy(tmp_path):
     kb.add_entry("Evaluation", "Evaluation is the process of assessing something. " * 20)
     results = kb.query("evolution", limit=3, min_score=0.0)
     assert results[0][0].topic == "Evolution"
-    assert KnowledgeBase.slug_for("C++") == "c"
 
 
 def test_acronym_query_finds_article(tmp_path):
@@ -198,6 +215,14 @@ def test_acronym_keyword_extraction():
 def test_slug_never_returns_empty():
     assert KnowledgeBase.slug_for("!!!") == "untitled"
     assert KnowledgeBase.slug_for("") == "untitled"
+
+
+def test_slug_distinguishes_c_variants():
+    assert KnowledgeBase.slug_for("C++") != KnowledgeBase.slug_for("C")
+    assert KnowledgeBase.slug_for("C#") != KnowledgeBase.slug_for("C")
+    assert KnowledgeBase.slug_for("C++") != KnowledgeBase.slug_for("C#")
+    assert KnowledgeBase.slug_for("C#") == "c-sharp"
+    assert KnowledgeBase.slug_for("C++") == "c-plus-plus"
 
 
 def test_added_topic_round_trips_cleanly(tmp_path):
@@ -258,3 +283,50 @@ def test_chunk_title_tokens_exclude_part_suffix(tmp_path):
     kb.add_entry("Gravity Part 2", "Gravity is a force. " + ("gravity " * 200))
     tokens = kb._topic_tokens(kb._entries[0])
     assert "part" not in tokens
+
+
+# --------------------------------------------------------------------------
+# Relevance: 2-letter acronyms must not be dropped
+# --------------------------------------------------------------------------
+
+
+def test_two_letter_acronym_is_relevant():
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    assert knowledge_is_relevant("AI", "what is AI")
+
+
+def test_two_letter_acronym_topic_tokens():
+    from shaggoth.dialogue.engine import _topic_tokens_for
+
+    tokens = _topic_tokens_for("AI")
+    assert "ai" in tokens
+
+
+def test_short_stopwords_excluded_from_topic_tokens():
+    from shaggoth.dialogue.engine import _topic_tokens_for
+
+    tokens = _topic_tokens_for("History of Art")
+    assert "of" not in tokens
+    assert "history" in tokens
+    assert "art" in tokens
+
+
+def test_relevance_stem_matches_title():
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    assert knowledge_is_relevant(
+        "Gravity",
+        "what is gravitational force",
+        "Gravity is a fundamental interaction.",
+    )
+
+
+def test_relevance_stem_match_rejects_unrelated():
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    assert not knowledge_is_relevant(
+        "Gravel",
+        "what is gravitational force",
+        "Gravel is a type of rock fragment.",
+    )

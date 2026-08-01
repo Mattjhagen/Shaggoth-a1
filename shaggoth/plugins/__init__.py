@@ -40,8 +40,12 @@ class PluginRegistry:
         return [name for name, _ in self._plugins]
 
     def dispatch(self, text: str, **context) -> Optional[str]:
-        for _, func in self._plugins:
-            result = func(text, **context)
+        for name, func in self._plugins:
+            try:
+                result = func(text, **context)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[plugin:{name}] dispatch failed: {exc}")
+                continue
             if result is not None:
                 return result
         return None

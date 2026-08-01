@@ -19,6 +19,7 @@ LanguageModel, PersonalityEngine, or KnowledgeBase.
 
 from __future__ import annotations
 
+import logging
 import random
 import re
 import time
@@ -36,6 +37,8 @@ from ..plugins import PluginRegistry, default_registry
 from .patterns import PatternEngine
 from .reasoning import Reasoner
 from ..curiosity.search import search_web
+
+log = logging.getLogger(__name__)
 
 
 def _normalize_quotes(text: str) -> str:
@@ -149,6 +152,7 @@ class DialogueEngine:
         self._recalled: dict[str, set[int]] = {}
         self.deferred_questions = deferred_questions
         self.push_sender = push_sender
+        self.curiosity_available = False
 
     def respond(self, text: str, session_id: str = "default", mode=None) -> Reply:
         """Answer ``text``.
@@ -184,33 +188,30 @@ class DialogueEngine:
         # "Never heard of it".
         try:
             context = self.memory.conversation_context(session_id)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            log.warning("[dialogue] conversation_context failed: %s", exc)
             context = {}
 
         # 3. Knowledge: find relevant entries.
         knowledge_hits = self.knowledge.query(text, limit=6, min_score=0.25)
         knowledge_context = ""
         if knowledge_hits and self.model and self.model.is_trained():
-            snippets = []
-            for entry, score in knowledge_hits:
-                if not knowledge_is_relevant(entry.topic, text, entry.content):
-                    continue
-                snippet = summarize_entry(
-                    entry.content, entry.topic,
-                    max_sentences=3, max_chars=600,
-                )
-                if not snippet:
-                    snippet = entry.content[:600].strip()
-                snippets.append(f"[{entry.topic}]\n{snippet}")
-            if snippets:
-                knowledge_context = "\n\n".join(snippets) + "\n"
+            knowledge_context = self._build_knowledge_context(text, knowledge_hits)
 
         # 3. Plugins.
-        plugin_response = self.plugins.dispatch(text, memory=self.memory)
+        plugin_response = self.plugins.dispatch(
+            text, memory=self.memory, knowledge=self.knowledge,
+        )
         if plugin_response is not None:
             reply = self._finish(Reply(plugin_response, source="plugin", mode=mode))
             self._persist(session_id, text, reply)
             return reply
+
+        # Personality context is needed by multiple downstream paths (follow-ups,
+        # GPT generation, reasoner polishing), so compute it once here. Skip
+        # the backstory — _BASE_SYSTEM already describes Shaggoth's identity.
+        self.personality.maybe_reload()
+        personality_context = self.personality.trait_prompt(include_backstory=False)
 
         # A turn with no subject is conversation, not a lookup. Answering it
         # from the knowledge base produced "Never heard of wanted chat" and,
@@ -221,15 +222,14 @@ class DialogueEngine:
         # about me?" are made entirely of filler words but are real commands.
         if not has_subject(text):
             if is_follow_up(text):
-                body = follow_up_reply(context)
+                body, source = self._gpt_follow_up(
+                    text, context, personality_context=personality_context,
+                )
             else:
-                # Try specific patterns first (greetings, opinion requests, etc.),
-                # then a question-shaped catch-all, then generic chitchat.
-                body = self.patterns.respond(text)
-                if body is None:
-                    body = (self.patterns.respond_no_subject_question(text)
-                            or chitchat_reply(text, context))
-            reply = self._finish(Reply(body, source="pattern", mode=mode))
+                body, source = self._gpt_chitchat(
+                    text, context, personality_context=personality_context,
+                )
+            reply = self._finish(Reply(body, source=source, mode=mode))
             self._persist(session_id, text, reply)
             return reply
 
@@ -247,9 +247,6 @@ class DialogueEngine:
         )
 
         # 5. Generation (with personality + knowledge context).
-        self.personality.maybe_reload()
-        personality_context = self.personality.trait_prompt()
-
         body = None
         source = "pattern"
 
@@ -268,7 +265,7 @@ class DialogueEngine:
             try:
                 reasoned = self.reasoner.reason(text)
             except Exception as exc:  # noqa: BLE001
-                print(f"[reasoning] failed on {text!r}: {exc}")
+                log.warning("[reasoning] failed on %r: %s", text, exc)
                 reasoned = None
             if reasoned and len(reasoned.answer) >= 40:
                 body = reasoned.answer
@@ -276,19 +273,48 @@ class DialogueEngine:
                 answered_from_knowledge = True
                 reasoning_steps = reasoned.trace
                 entries_used = reasoned.entries_used
+                body = self._polish_if_gpt(body, text, personality_context)
 
+        # 5b. GPT generation — the primary conversational engine when
+        # available. GPT handles everything: greetings, self-awareness,
+        # chitchat, AND knowledge questions. When knowledge_context is
+        # present, GPT synthesizes a natural answer from it rather than
+        # the old extract-and-quote pipeline.
+        from ..models.openai_model import OpenAIModel
+        from ..models.base import GenerationError
+        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
+        if body is None and _gpt is not None and _gpt.configured:
+            history, summary_extra = self._build_history_context(context)
+            try:
+                generated = _gpt.generate_chat(
+                    user_message=text,
+                    knowledge_context=knowledge_context,
+                    conversation_history=history,
+                    personality_context=personality_context,
+                    system_extra=summary_extra,
+                ).strip()
+                if generated:
+                    body = generated
+                    if knowledge_context:
+                        source = "model"
+                        answered_from_knowledge = True
+                        entries_used = [
+                            e.topic for e, _ in knowledge_hits
+                            if knowledge_is_relevant(e.topic, text, e.content)
+                        ]
+                    elif _looks_like_question(text) and not _is_about_self(text):
+                        source = "fallback"
+                    else:
+                        source = "model"
+                else:
+                    log.debug("GPT returned empty for: %s", text[:80])
+            except GenerationError as exc:
+                log.warning("GPT generation failed: %s", exc)
+
+        # 5b-fallback. Knowledge extraction without GPT — walks the ranked
+        # hits and extracts a definition or summary sentence directly.
+        # Only runs when GPT is absent or failed.
         if body is None and knowledge_hits and _looks_like_question(text) and not is_follow_up(text):
-            # Walk the ranked hits and take the first whose *title* actually
-            # matches the question. Rank alone is not evidence of relevance:
-            # scores are normalized, so the top hit is always 1.0 even when
-            # every candidate is off-topic.
-            #
-            # Two passes, and the order matters. Several articles can share a
-            # title -- "DNA" the molecule and "DNA²" the manga both match the
-            # word "dna" -- so a first pass takes only a candidate that yields
-            # an actual *definition*, and the lenient pass runs only if no
-            # candidate defines anything. Without the split, whichever
-            # off-subject article happened to rank highest answered first.
             best_loose = None
             best_loose_topic = None
             for candidate, _score in knowledge_hits:
@@ -300,7 +326,7 @@ class DialogueEngine:
                 if len(summary) < 15:
                     continue
                 if is_definition:
-                    body = summary
+                    body = _frame_knowledge(summary)
                     source = "knowledge"
                     answered_from_knowledge = True
                     entries_used = [candidate.topic]
@@ -325,7 +351,7 @@ class DialogueEngine:
                     best_loose = summary
                     best_loose_topic = candidate.topic
             if body is None and best_loose is not None:
-                body = best_loose
+                body = _frame_knowledge(best_loose)
                 source = "knowledge"
                 answered_from_knowledge = True
                 entries_used = [best_loose_topic]
@@ -335,85 +361,43 @@ class DialogueEngine:
                     "select: best non-definitional sentence",
                 ]
 
-        if body is None:
-            body = self.patterns.respond(text)
-
-        # 5b. GPT generation — preferred over Markov when available.
-        # GPT can follow the prompt and stay in character, so it works in both
-        # drift and no_drift modes. It's tried whenever the pattern engine and
-        # knowledge base haven't produced an answer yet.
-        #
-        # Only when knowledge_context is non-empty: without grounding, GPT
-        # answers from training data and the source becomes "model", which
-        # never triggers curiosity research. The chatbot appears to know the
-        # answer when it actually doesn't — and the corpus never grows.
-        # Letting the turn fall through to "fallback" instead produces the
-        # honest "I haven't looked into that" and kicks off research.
-        from ..models.openai_model import OpenAIModel
-        from ..models.base import GenerationError
-        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
-        if body is None and _gpt is not None and _gpt.configured and knowledge_context:
-            history = [
-                {"role": m["role"], "content": m["content"]}
-                for m in context.get("recent", [])
-            ]
-            conv_summary = context.get("summary", "")
-            summary_extra = ""
-            if conv_summary:
-                summary_extra = (
-                    f"\nConversation summary (older turns):\n{conv_summary}"
-                )
-            try:
-                generated = _gpt.generate_chat(
-                    user_message=text,
-                    knowledge_context=knowledge_context,
-                    conversation_history=history,
-                    personality_context=personality_context,
-                    system_extra=summary_extra,
-                ).strip()
-                if generated:
-                    body, source = generated, "model"
-            except GenerationError as exc:
-                body, source = str(exc), "error"
-
         # 5c. Markov generation is DRIFT-only and runs only when GPT is absent.
-        # The model stitches fragments from unrelated articles and cannot hold a
-        # topic, so in NO_DRIFT it is skipped entirely — the turn falls through
-        # to "fallback", which is the signal server.py uses to kick off curiosity
-        # research on the topic.
         if drift and body is None and self.model is not None and self.model.is_trained() and _gpt is None:
             prompt = text
             if knowledge_context or personality_context:
                 prompt = f"{personality_context}\n{knowledge_context}User: {text}\nAssistant:"
             generated = self.model.generate(prompt=prompt, max_tokens=40).strip()
-            # Only accept generation that reads as a single coherent thought.
             if generated and markov_is_usable(generated, text):
                 body, source = generated, "model"
 
         if body is None:
-            if is_follow_up(text):
-                body = follow_up_reply(context)
-                source = "pattern"
+            # No GPT, no knowledge, no reasoning — fall back to patterns.
+            pattern_body = self.patterns.respond(text)
+            if pattern_body:
+                body, source = pattern_body, "pattern"
+            elif is_follow_up(text):
+                body, source = self._gpt_follow_up(text, context, personality_context)
             elif _looks_like_question(text):
-                body = describe_unknown(text)
+                body = describe_unknown(text, researching=self.curiosity_available)
                 source = "fallback"
             else:
-                # A statement ("the sky is blue", "dogs are better than
-                # cats") is conversation, not a lookup. Routing it to
-                # describe_unknown produced "Never heard of dogs cats".
                 body = chitchat_reply(text, context)
                 source = "pattern"
 
-        # Personalize with remembered name and knowledge.
+        # Personalize with remembered name — but only for lightweight replies
+        # (patterns, chitchat). Adding ", Matt." to a knowledge answer reads
+        # as bizarre robotic filler.
         name = self.memory.get_fact("name")
-        if name and name.lower() not in body.lower() and len(body) < 80:
+        if (name and name.lower() not in body.lower() and len(body) < 80
+                and source in ("pattern", "fallback", "model")
+                and not answered_from_knowledge):
             if hash(text) % 4 == 0:
                 stripped = body.rstrip(".!? ")
-                tail = body[len(stripped):]
+                tail = body[len(stripped):].strip()
                 if tail:
-                    body = f"{stripped}, {name}{tail.lstrip()[0]}"
+                    body = f"{stripped}, {name}{tail}"
                 else:
-                    body = f"{body}, {name}."
+                    body = f"{stripped}, {name}."
 
         # Inject knowledge quirk if the top hit is actually on-topic.
         # DRIFT-only: offering a tangent instead of answering is precisely
@@ -425,20 +409,30 @@ class DialogueEngine:
                 body += f" I just read something about {top_entry.topic.lower()} — want me to tell you about it?"
 
         # 6. Topic callback from a past conversation.
+        # Only inject when the current reply is lightweight (pattern/chitchat).
+        # A knowledge or GPT answer is already complete — appending "by the way
+        # you mentioned X" onto a grounded answer is distracting, and single-word
+        # overlaps produce noisy false matches.
         triggers: list[str] = []
-        seen = self._recalled.setdefault(session_id, set())
-        for recall in recalls:
-            if recall.message_id in seen:
-                continue
-            seen.add(recall.message_id)
-            topic = ", ".join(recall.shared_words[:3])
-            when = _humanize_age(time.time() - recall.ts)
-            body += (
-                f" By the way — {when} you mentioned something related "
-                f"({topic}): \"{_snippet(recall.content)}\". "
-                "Has anything changed there?"
-            )
-            triggers.append(topic)
+        if source in ("pattern", "fallback") and not answered_from_knowledge:
+            seen = self._recalled.setdefault(session_id, set())
+            for recall in recalls:
+                if recall.message_id in seen:
+                    continue
+                if len(recall.shared_words) < 2:
+                    continue
+                snippet = _snippet(recall.content)
+                if len(snippet) < 20:
+                    continue
+                seen.add(recall.message_id)
+                topic = ", ".join(recall.shared_words[:3])
+                when = _humanize_age(time.time() - recall.ts)
+                body += (
+                    f" By the way — {when} you mentioned something related "
+                    f"({topic}): \"{snippet}\". "
+                    "Has anything changed there?"
+                )
+                triggers.append(topic)
 
         reply = self._finish(
             Reply(body, source=source, memory_triggers=triggers,
@@ -463,10 +457,170 @@ class DialogueEngine:
                         body=f"Looking into: {text[:60]}{'...' if len(text) > 60 else ''}",
                         tag="research_started",
                     )
-                except Exception:
-                    pass  # Push notification is optional
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("[dialogue] research-started notification failed: %s", exc)
 
         return reply
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _build_history_context(context: dict) -> tuple[list[dict], str]:
+        """Extract chat history and summary from conversation context.
+
+        Returns (history_turns, summary_extra) ready for generate_chat().
+        """
+        history = [
+            {"role": m["role"], "content": m["content"]}
+            for m in context.get("recent", [])
+        ]
+        conv_summary = context.get("summary", "")
+        summary_extra = ""
+        if conv_summary:
+            summary_extra = (
+                f"\nConversation summary (older turns):\n{conv_summary}"
+            )
+        return history, summary_extra
+
+    @staticmethod
+    def _build_knowledge_context(query: str, hits) -> str:
+        """Format knowledge hits into a context string for GPT.
+
+        Passes more content for explanatory questions (how/why) so GPT has
+        richer material to construct a real answer rather than just
+        parroting a definition.
+        """
+        is_explanatory = bool(re.search(
+            r"(?i)^\s*(?:why|how)\b|"
+            r"\bwhat (?:causes|makes|happens|leads)\b",
+            query,
+        ))
+        max_sents = 5 if is_explanatory else 4
+        max_ch = 900 if is_explanatory else 800
+
+        snippets = []
+        for entry, _score in hits:
+            if not knowledge_is_relevant(entry.topic, query, entry.content):
+                continue
+            snippet = summarize_entry(
+                entry.content, entry.topic,
+                max_sentences=max_sents, max_chars=max_ch,
+            )
+            if not snippet:
+                snippet = entry.content[:max_ch].strip()
+            snippets.append(f"On {entry.topic}: {snippet}")
+        return "\n\n".join(snippets) + "\n" if snippets else ""
+
+    # ------------------------------------------------------------------
+    def _polish_if_gpt(
+        self,
+        raw_answer: str,
+        question: str,
+        personality_context: str = "",
+    ) -> str:
+        """Rewrite extractive prose through GPT so it reads naturally.
+
+        Returns the original ``raw_answer`` unchanged when no GPT model is
+        configured or the rewrite call fails.
+        """
+        from ..models.openai_model import OpenAIModel
+        from ..models.base import GenerationError
+
+        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
+        if not (_gpt and _gpt.configured):
+            return raw_answer
+        try:
+            raw_len = len(raw_answer)
+            polished = _gpt.generate_chat(
+                user_message=(
+                    f"Rewrite these facts as a direct conversational answer. "
+                    f"Don't start with '[Topic] is...' — answer the question "
+                    f"first, then add what's interesting. Keep every fact but "
+                    f"make it sound like you're telling someone about something "
+                    f"you genuinely know, not reading notes aloud.\n\n"
+                    f"Question: {question}\n\n"
+                    f"Facts:\n{raw_answer}"
+                ),
+                personality_context=personality_context,
+                max_tokens=max(400, raw_len // 3),
+            ).strip()
+            if polished and len(polished) >= max(30, raw_len * 2 // 3):
+                return polished
+        except GenerationError as exc:
+            log.warning("GPT polish failed: %s", exc)
+        return raw_answer
+
+    # ------------------------------------------------------------------
+    def _gpt_follow_up(
+        self,
+        text: str,
+        context: dict,
+        personality_context: str = "",
+    ) -> tuple[str, str]:
+        """Try to answer a follow-up ("why?", "go on") via GPT.
+
+        Returns (body, source).  Falls back to the canned follow_up_reply
+        when no GPT model is configured or the call fails.
+        """
+        from ..models.openai_model import OpenAIModel
+        from ..models.base import GenerationError
+
+        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
+        history, summary_extra = self._build_history_context(context)
+        if _gpt and _gpt.configured and history:
+            subject = last_subject(context)
+            knowledge_context = ""
+            if subject and self.knowledge:
+                prior_text = _last_user_question(context) or subject
+                hits = self.knowledge.query(prior_text, limit=2)
+                knowledge_context = self._build_knowledge_context(prior_text, hits)
+            try:
+                generated = _gpt.generate_chat(
+                    user_message=text,
+                    knowledge_context=knowledge_context,
+                    conversation_history=history,
+                    personality_context=personality_context,
+                    system_extra=summary_extra,
+                ).strip()
+                if generated:
+                    return generated, "model"
+            except GenerationError:
+                pass
+        return follow_up_reply(context), "pattern"
+
+    # ------------------------------------------------------------------
+    def _gpt_chitchat(
+        self,
+        text: str,
+        context: dict,
+        personality_context: str = "",
+    ) -> tuple[str, str]:
+        """Handle no-subject messages (greetings, chitchat, opinions) via GPT.
+
+        Falls back to pattern engine / canned chitchat when GPT is absent.
+        """
+        from ..models.openai_model import OpenAIModel
+        from ..models.base import GenerationError
+
+        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
+        if _gpt and _gpt.configured:
+            history, summary_extra = self._build_history_context(context)
+            try:
+                generated = _gpt.generate_chat(
+                    user_message=text,
+                    conversation_history=history,
+                    personality_context=personality_context,
+                    system_extra=summary_extra,
+                    max_tokens=200,
+                ).strip()
+                if generated:
+                    return generated, "model"
+            except GenerationError:
+                pass
+        body = self.patterns.respond(text)
+        if body is None:
+            body = (self.patterns.respond_no_subject_question(text)
+                    or chitchat_reply(text, context))
+        return body, "pattern"
 
     # ------------------------------------------------------------------
     def _finish(self, reply: Reply) -> Reply:
@@ -481,12 +635,17 @@ class DialogueEngine:
         try:
             self.memory.maybe_compact(session_id)
         except Exception as exc:  # noqa: BLE001
-            print(f"[memory] compaction failed: {exc}")
+            log.warning("[memory] compaction failed: %s", exc)
 
 
 _rng = random.Random()
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+_ABBREV_DOT = re.compile(
+    r"\b(Dr|Mr|Mrs|Ms|Prof|Jr|Sr|St|vs|etc|approx|Vol|No|Gen|Lt|Sgt|Capt|Col"
+    r"|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec"
+    r"|Ph|[A-Z])\. ",
+)
 
 # Wikipedia-derived articles open with navigation cruft and pipe tables; a
 # usable sentence has real prose shape and no leftover markup.
@@ -507,12 +666,12 @@ _NOISE = re.compile(
     r"displaystyle|^\W*$"
     # Editorial boilerplate aimed at Wikipedia editors -- noise ANYWHERE in the
     # sentence, which is why these must not sit inside the anchored group.
-    r"|this article has|please help improve|learn how and when|"
-    r"contains promotional|talk page|needs additional citation|"
-    r"unsourced material|citations for verification|is a stub|"
-    r"you can help|this section does not|verify the claims|"
-    r"scam warning|advice if the article is about you|"
-    r"improve it by removing|add citations to reliable",
+    r"|\bthis article\b|\bplease help improve\b|\blearn how and when\b|"
+    r"\bcontains promotional\b|\btalk page\b|\bneeds additional citation\b|"
+    r"\bunsourced material\b|\bcitations for verification\b|\bis a stub\b|"
+    r"\byou can help\b.*\bexpand(ing)?\b|\bthis section does not\b|\bverify the claims\b|"
+    r"\bscam warning\b|\badvice if the article is about you\b|"
+    r"\bimprove it by removing\b|\badd citations to reliable\b",
     re.I,
 )
 
@@ -526,6 +685,11 @@ _FILLER = {
     "want", "need", "like", "make", "let", "get", "one", "some", "any",
     "more", "much", "many", "good", "bad", "new", "old", "now", "then",
 }
+
+_SHORT_STOPWORDS = frozenset({
+    "an", "as", "at", "be", "by", "do", "go", "he", "if", "in", "is",
+    "it", "me", "my", "no", "of", "on", "or", "so", "to", "up", "us", "we",
+})
 
 _QUESTION_HINT = re.compile(
     r"\b(what|who|when|where|why|how|which|does|did|can you|could you|"
@@ -550,6 +714,19 @@ _ARTIFACTS = re.compile(
 )
 
 
+_ABOUT_SELF = re.compile(
+    r"(?i)^(?:are you|what are you|who are you|do you|can you|"
+    r"how do you|how are you|what do you|what can you|"
+    r"tell me about yourself|what should i (?:call|ask) you|"
+    r"how old are you|where (?:do you|are you) (?:run|live|come from))",
+)
+
+
+def _is_about_self(text: str) -> bool:
+    """True when the question is about the bot itself, not a knowledge topic."""
+    return bool(_ABOUT_SELF.match(text.strip()))
+
+
 def _looks_like_question(text: str) -> bool:
     """True when the user is asking for information rather than chatting."""
     stripped = text.strip()
@@ -559,13 +736,13 @@ def _looks_like_question(text: str) -> bool:
         return True
     if _QUESTION_HINT.search(stripped):
         return True
-    # A bare noun or short noun phrase ("gravity", "quantum mechanics") is an
-    # implicit lookup even though it lacks question scaffolding. Without this,
-    # typing "gravity" hit fallback despite a matching knowledge entry.
-    # Capped at 2 words: 3-word statements like "its raining outside" are
-    # conversation, not topic lookups.
+    # A bare noun or short noun phrase ("gravity", "quantum field theory") is
+    # an implicit lookup even though it lacks question scaffolding. Without
+    # this, typing "gravity" hit fallback despite a matching knowledge entry.
+    # Capped at 4 words so multi-word topics work but full sentences like
+    # "its raining outside today" don't accidentally trigger lookups.
     words = stripped.split()
-    if len(words) <= 2 and has_subject(stripped):
+    if len(words) <= 4 and has_subject(stripped):
         return True
     return False
 
@@ -616,6 +793,15 @@ def _break_navboxes(content: str) -> str:
     return _DEFINITION_RESTART.sub(". ", content)
 
 
+def _protect_abbrevs(text: str) -> str:
+    """Replace abbreviation dots with a placeholder so they survive sentence splitting."""
+    return _ABBREV_DOT.sub(lambda m: m.group(1) + "\x00 ", text)
+
+
+def _restore_abbrevs(text: str) -> str:
+    return text.replace("\x00", ".")
+
+
 def _clean_sentences(content: str) -> list[str]:
     """Split article text into usable prose sentences, dropping markup noise.
 
@@ -624,9 +810,17 @@ def _clean_sentences(content: str) -> list[str]:
     away the single most useful line in every article.
     """
     out: list[str] = []
-    for raw in _SENTENCE_SPLIT.split(_break_navboxes(content.replace("\n", " "))):
-        s = _scrub(" ".join(raw.split()))
-        if len(s) < 15 or len(s) > 400:
+    protected = _protect_abbrevs(_break_navboxes(content.replace("\n", " ")))
+    for raw in _SENTENCE_SPLIT.split(protected):
+        s = _restore_abbrevs(_scrub(" ".join(raw.split())))
+        if len(s) < 15:
+            continue
+        if len(s) > 800:
+            s = _truncate_at_clause(s, 800)
+            if not s or len(s) < 15:
+                continue
+        words = s.split()
+        if len(words) >= 10 and len(set(words)) / len(words) < 0.3:
             continue
         if _NOISE.search(s):
             continue
@@ -636,6 +830,16 @@ def _clean_sentences(content: str) -> list[str]:
     return out
 
 
+def _truncate_at_clause(text: str, limit: int) -> str:
+    """Cut a long sentence at the last clause boundary before *limit*."""
+    chunk = text[:limit]
+    for sep in ("; ", ", which ", ", and ", ", "):
+        pos = chunk.rfind(sep)
+        if pos > limit // 3:
+            return chunk[:pos].rstrip(" ,;") + "."
+    return chunk.rstrip(" ,;") + "."
+
+
 # A defining construction: "X is ...", "X refers to ...", "X was ...".
 _DEFINING_VERB = re.compile(
     r"\b(is|are|was|were|refers? to|denotes?|describes?|means|"
@@ -643,7 +847,8 @@ _DEFINING_VERB = re.compile(
     # Compositional definitions. "An atom consists of a nucleus of protons..."
     # is the lead sentence of the Atom article and was not recognised, so the
     # answer fell back to an image caption further up the page.
-    r"consists? of|consist of|comprises?|comprise|is composed of|"
+    r"consists? of|comprise[sd]?|is comprised of|is composed of|"
+    r"includes?|contains?|"
     r"is made up of|is made of|comprising|consisting of)\b",
     re.I,
 )
@@ -660,17 +865,31 @@ def _topic_tokens_for(topic: str) -> set[str]:
     """Meaningful words from an article title."""
     return {
         t for t in re.split(r"[^a-z0-9]+", (topic or "").lower())
-        if len(t) > 2 and t not in _FILLER
+        if len(t) > 1 and t not in _FILLER and t not in _SHORT_STOPWORDS
     }
 
 
-def _stem_match(a: str, b: str, min_stem: int = 4) -> bool:
-    """True when two words share a stem (aeroponic/aeroponics, learn/learning)."""
+def _stem_match(a: str, b: str, min_stem: int = 5) -> bool:
+    """True when two words share a stem (aeroponic/aeroponics, learn/learning).
+
+    Requires the shared prefix to cover at least 60% of the shorter word,
+    preventing false matches like "photo" conflating "photosynthesis" and
+    "photography".
+    """
     if a == b:
         return True
     if len(a) < min_stem or len(b) < min_stem:
+        short, long = (a, b) if len(a) < len(b) else (b, a)
+        if long.startswith(short) and long[len(short):] in ("s", "es", "ed", "d", "ing", "ly"):
+            return True
         return False
-    return a.startswith(b[:min_stem]) or b.startswith(a[:min_stem])
+    short, long = (a, b) if len(a) <= len(b) else (b, a)
+    prefix_len = min_stem
+    if not long.startswith(short[:prefix_len]):
+        return False
+    while prefix_len < len(short) and prefix_len < len(long) and short[prefix_len] == long[prefix_len]:
+        prefix_len += 1
+    return prefix_len >= len(short) * 0.6
 
 
 def _words_of(sentence: str) -> set[str]:
@@ -797,20 +1016,13 @@ def _is_definitional(sentence: str, topic_words: set[str]) -> bool:
     return any(_stem_match(t, w) for t in topic_words for w in head_set)
 
 
-def _lower_first(s: str) -> str:
-    return s[:1].lower() + s[1:] if s else s
-
-
-# Transitions used to stitch supporting sentences onto the lead definition.
-# Plain concatenation read as pasted-together encyclopedia lines; varying the
-# join -- chosen per call, so the same entry doesn't always read identically
-# -- is what makes a multi-sentence answer feel assembled rather than copied.
 _SYNTHESIS_JOINERS = [
     lambda s: s,
-    lambda s: f"Also, {_lower_first(s)}",
-    lambda s: f"Relatedly, {_lower_first(s)}",
-    lambda s: f"And {_lower_first(s)}",
-    lambda s: f"Plus, {_lower_first(s)}",
+    lambda s: f"Also, {s}",
+    lambda s: f"Beyond that, {s}",
+    lambda s: f"And {s}",
+    lambda s: f"Worth noting — {s}",
+    lambda s: f"On top of that, {s}",
 ]
 
 
@@ -828,6 +1040,25 @@ def _synthesize(sentences: list[str]) -> str:
     for s in sentences[1:]:
         parts.append(_rng.choice(_SYNTHESIS_JOINERS)(s))
     return " ".join(parts).strip()
+
+
+_KNOWLEDGE_FRAMES = [
+    "From what I've read — {body}",
+    "Here's what I've got: {body}",
+    "{body}",
+    "{body}",
+    "Based on my research — {body}",
+]
+
+
+def _frame_knowledge(body: str) -> str:
+    """Add a light conversational frame to extracted knowledge.
+
+    Without this, non-GPT responses read like dictionary lookups. The frame
+    is applied randomly (with a bias toward no frame) so the pattern
+    doesn't become its own crutch.
+    """
+    return _rng.choice(_KNOWLEDGE_FRAMES).format(body=body)
 
 
 def summarize_entry(
@@ -890,14 +1121,17 @@ def summarize_entry_scored(
 
     # Append supporting sentences, but only ones still on subject -- this is
     # what stops the answer drifting into unrelated trivia further down the page.
-    for s in sentences[start_idx + 1:]:
+    # The sentence immediately after the lead gets a free pass on the topic-word
+    # check because well-written prose defines the subject once and then uses
+    # pronouns ("Gravity is a force. It was first described by Newton.").
+    for offset, s in enumerate(sentences[start_idx + 1:], 1):
         if len(picked) >= max_sentences:
             break
         if total + len(s) + 1 > max_chars:
             break
         if s in seen:
             continue
-        if topic_words and not _mentions_topic(s, topic_words):
+        if offset > 1 and (not topic_words or not _mentions_topic(s, topic_words)):
             continue
         if _is_list_debris(s):
             continue
@@ -996,7 +1230,7 @@ def markov_is_usable(generated: str, prompt_text: str) -> bool:
     if digit_tokens > 1 or digit_tokens / len(words) > 0.1:
         return False
 
-    asked = {w.lower().strip(".,;:!?") for w in prompt_text.split()}
+    asked = {w.lower().strip(".,;:!?()") for w in prompt_text.split()}
     foreign = [p for p in _proper_nouns(text) if p and p.lower() not in asked]
     # More than one unrequested proper noun is the signature of stitched-together
     # fragments rather than a single coherent thought.
@@ -1009,7 +1243,7 @@ def markov_is_usable(generated: str, prompt_text: str) -> bool:
     # "fallback" is what triggers curiosity research in server.py. Leaking
     # nonsense through as source="model" silently suppressed that research and
     # is why total_episodes sat at 0.
-    content = {w for w in asked if len(w) > 3} - _FILLER
+    content = {w for w in asked if len(w) > 1 and w not in _SHORT_STOPWORDS} - _FILLER
     if not content:
         # The prompt carried no content word at all ("you", "hi", "ofjds").
         # There is nothing for the output to be *about*, so relevance cannot
@@ -1117,6 +1351,12 @@ _NO_SUBJECT = _FILLER | {
     # Abstract conversational nouns — "interesting perspective" is a reaction.
     "perspective", "opinion", "thought", "thoughts", "view", "views",
     "take", "stance", "side", "question", "answer", "response",
+    # 2-letter noise: function words, interjections, and fillers that are
+    # never topics on their own. Acronyms like AI, UK, EU are NOT listed
+    # because they ARE legitimate subjects.
+    "go", "ha", "ah", "oh", "um", "uh", "hm", "sh", "aw", "ew",
+    "if", "at", "as", "by", "so", "or", "to", "in", "on", "up",
+    "an", "of", "we", "us", "he",
 }
 
 # Turns that only make sense against what was just said.
@@ -1134,8 +1374,9 @@ _FOLLOW_UP = re.compile(
     r"^(?:and |but |so |ok(?:ay)?[,. ]*)?"
     r"(?:(?:why|how come|really|and|go on|more|then what|prove it|"
     r"keep going|continue|say more|tell me more)[?.!]*$"
-    r"|(?:why not|what about (?:it|that|this)|says who|since when|has it|"
-    r"have you|did you|do you|are you sure|explain that)\b)",
+    r"|(?:why not|says who|since when|has it|"
+    r"have you|did you|do you|are you sure|explain that)\b"
+    r"|what about (?:it|that|this)\s*[?.!]*$)",
     re.I,
 )
 
@@ -1184,6 +1425,7 @@ _REACTION = re.compile(
 _DEFINITION_QUERY = re.compile(
     r"(?i)^(?:"
     r"what (?:is|are|was|were) (?:a |an |the )?"
+    r"|who (?:is|are|was|were) (?:a |an |the )?"
     r"|define "
     r"|explain "
     r"|(?:tell|teach) me (?:about |what )(?:a |an |the )?"
@@ -1210,7 +1452,7 @@ def has_subject(text: str) -> bool:
         w.strip(".,;:!?’\"’‘“”").lower()
         for w in stripped.split()
     }
-    return bool({w for w in words if len(w) > 2} - _NO_SUBJECT)
+    return bool({w for w in words if len(w) > 1} - _NO_SUBJECT)
 
 
 # A message opening with a social reaction word ("lol", "haha") is a reaction
@@ -1230,13 +1472,19 @@ def is_follow_up(text: str) -> bool:
     a pronoun pointing at the previous turn. Treating those as lookups sent
     "why does that matter" to an article about *matter*.
 
-    Also covers social-reaction prefixes: "lol what fell over?" is a reaction
-    to the bot's error message, not a request to research "falling over".
+    Also covers social-reaction prefixes: "lol that's wild" is a reaction
+    to the bot's previous turn — but "lol what is quantum computing" has a
+    real subject, so it passes through to the knowledge pipeline.
     """
     text = (text or "").strip()
     if _FOLLOW_UP.search(text) or _ANAPHORIC.search(text):
         return True
-    return bool(_SOCIAL_PREFIX_RE.match(text))
+    m = _SOCIAL_PREFIX_RE.match(text)
+    if m:
+        remainder = text[m.end():].strip()
+        from ..curiosity.topics import extract_topic_query
+        return extract_topic_query(remainder) is None
+    return False
 
 
 _CHITCHAT_REPLIES = (
@@ -1274,7 +1522,7 @@ def chitchat_reply(text: str, context: dict | None = None) -> str:
     if not subject:
         topics = [t for t in (context or {}).get("topics", []) if len(t) > 3][:1]
         subject = topics[0] if topics else ""
-    if subject and _rng.random() < 0.6:
+    if subject and _rng.random() < 0.85:
         return _rng.choice((
             f"We were talking about {subject}. Want to go deeper on that, or "
             f"switch to something new?",
@@ -1286,6 +1534,17 @@ def chitchat_reply(text: str, context: dict | None = None) -> str:
     return _rng.choice(_CHITCHAT_REPLIES)
 
 
+def _last_user_question(context: dict | None = None) -> str:
+    """The full text of the most recent user message that has a subject."""
+    for message in reversed((context or {}).get("recent", [])):
+        if message.get("role") != "user":
+            continue
+        text = message.get("content", "")
+        if has_subject(text):
+            return text
+    return ""
+
+
 def last_subject(context: dict | None = None) -> str:
     """The most recent thing the user actually raised.
 
@@ -1294,17 +1553,21 @@ def last_subject(context: dict | None = None) -> str:
     "chat" three times in passing and "photosynthesis" once on purpose --
     the follow-up belongs to the last real subject, not the most repeated word.
     """
+    from ..curiosity.topics import extract_topic_query
     for message in reversed((context or {}).get("recent", [])):
         if message.get("role") != "user":
             continue
         text = message.get("content", "")
         if not has_subject(text) or _FACT_STATEMENT.match(text.strip()):
             continue
+        topic = extract_topic_query(text)
+        if topic:
+            return topic
         words = [
             w.strip(".,;:!?'\"").lower()
             for w in text.split()
         ]
-        subject = [w for w in words if len(w) > 3 and w not in _NO_SUBJECT]
+        subject = [w for w in words if len(w) > 1 and w not in _NO_SUBJECT]
         if subject:
             return " ".join(subject[:3])
     return ""
@@ -1346,13 +1609,12 @@ def follow_up_reply(context: dict | None = None) -> str:
     return "Follow up on what? Give me a starting point."
 
 
-def describe_unknown(text: str) -> str:
+def describe_unknown(text: str, researching: bool = True) -> str:
     """An in-character admission of ignorance that still names the subject.
 
-    A single canned sentence made every gap sound identical and robotic. These
-    vary, stay in voice, and -- because the turn is about to trigger curiosity
-    research -- honestly signal that the gap is being closed rather than just
-    apologising for it.
+    When *researching* is True (the default), the reply promises that
+    curiosity research is underway. When False, it admits the gap without
+    making a promise the system cannot keep.
     """
     defn_match = _DEFINITION_QUERY.match((text or "").strip())
     if defn_match:
@@ -1360,7 +1622,7 @@ def describe_unknown(text: str) -> str:
     else:
         words = [
             w for w in extract_keywords(text)
-            if len(w) > 2 and w.lower() not in _NO_SUBJECT
+            if len(w) > 1 and w.lower() not in _NO_SUBJECT
         ]
         subject = " ".join(words[:3]) if words else ""
 
@@ -1374,20 +1636,30 @@ def describe_unknown(text: str) -> str:
         ]
         return _rng.choice(blanks)
 
-    known = [
-        f"I don't have anything on {subject} yet. I'm going to research it "
-        f"now — ask me again in a bit and I'll have a real answer.",
-        f"{subject} — that's a gap in my knowledge. I'm looking into it right "
-        f"now. Come back shortly.",
-        f"Nothing on {subject} yet. I'd rather admit that than make something "
-        f"up. Researching it now.",
-        f"Don't know {subject} well enough to answer honestly. I'm reading up "
-        f"on it — give me a minute.",
-        f"{subject} isn't in my knowledge base yet, but it will be soon. "
-        f"I'm pulling information on it now.",
-        f"Blank on {subject}. Fixing that — I'm researching it as we speak.",
-    ]
-    return _rng.choice(known)
+    if researching:
+        pool = [
+            f"I don't have anything on {subject} yet. I'm going to research it "
+            f"now — ask me again in a bit and I'll have a real answer.",
+            f"{subject} — that's a gap in my knowledge. I'm looking into it right "
+            f"now. Come back shortly.",
+            f"Nothing on {subject} yet. I'd rather admit that than make something "
+            f"up. Researching it now.",
+            f"Don't know {subject} well enough to answer honestly. I'm reading up "
+            f"on it — give me a minute.",
+            f"{subject} isn't in my knowledge base yet, but it will be soon. "
+            f"I'm pulling information on it now.",
+            f"Blank on {subject}. Fixing that — I'm researching it as we speak.",
+        ]
+    else:
+        pool = [
+            f"I don't have anything on {subject} right now.",
+            f"{subject} — that's a gap in what I know.",
+            f"Nothing on {subject} yet. I'd rather admit that than make "
+            f"something up.",
+            f"Don't know {subject} well enough to answer honestly.",
+            f"Blank on {subject}. That's all I've got.",
+        ]
+    return _rng.choice(pool)
 
 
 _GREETING_OPENERS = [
@@ -1512,12 +1784,15 @@ def _content_words(text: str) -> set[str]:
     return {
         w.lower()
         for w in extract_keywords(text)
-        if len(w) > 2 and w.lower() not in _FILLER
+        if len(w) > 1 and w.lower() not in _FILLER
     }
 
 
 def _topic_words(topic: str) -> set[str]:
-    return {t for t in re.split(r"[^a-z0-9]+", topic.lower()) if len(t) > 2}
+    return {
+        t for t in re.split(r"[^a-z0-9]+", topic.lower())
+        if len(t) > 1 and t not in _SHORT_STOPWORDS
+    }
 
 
 def knowledge_is_relevant(topic: str, text: str, content: str = "") -> bool:
@@ -1543,7 +1818,10 @@ def knowledge_is_relevant(topic: str, text: str, content: str = "") -> bool:
     asked = _content_words(text)
     if not asked:
         return False
-    if asked & _topic_words(topic):
+    title_words = _topic_words(topic)
+    if asked & title_words:
+        return True
+    if any(_stem_match(a, t) for a in asked for t in title_words):
         return True
     if len(asked) < 2 or not content:
         return False
@@ -1563,7 +1841,11 @@ def _body_discusses(content: str, asked: set[str]) -> bool:
     Appearing in the same sentence is what distinguishes "this document
     discusses the subject" from "these words happen to be in here".
     """
-    for sentence in _SENTENCE_SPLIT.split(content):
+    cleaned = _protect_abbrevs(_break_navboxes(content.replace("\n", " ")))
+    for sentence in _SENTENCE_SPLIT.split(cleaned):
+        sentence = _restore_abbrevs(_scrub(" ".join(sentence.split())))
+        if len(sentence) < 15 or _NOISE.search(sentence):
+            continue
         tokens = set(re.findall(r"[a-z0-9]+", sentence.lower()))
         if not tokens:
             continue

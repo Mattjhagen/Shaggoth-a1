@@ -206,6 +206,14 @@ def test_markov_gate_accepts_a_relevant_coherent_sentence():
     )
 
 
+def test_markov_gate_accepts_short_acronym_topics():
+    """Prompts like 'what is DNA' should not be rejected for having no content word."""
+    assert markov_is_usable(
+        "DNA is a molecule that carries the genetic instructions for life.",
+        "what is DNA",
+    )
+
+
 def test_markov_gate_requires_terminal_punctuation():
     assert not markov_is_usable(
         "Photosynthesis is the process plants use to turn light into sugar",

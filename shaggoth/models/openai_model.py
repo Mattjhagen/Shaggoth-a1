@@ -29,6 +29,7 @@ _DEFAULT_MODEL = "gpt-4o-mini"
 _DEFAULT_MAX_TOKENS = 512
 _RETRIES = 2
 _BACKOFF = 1.0
+_HISTORY_CHAR_BUDGET = 12_000
 
 #: System prompt that anchors GPT in Shaggoth's character. The personality
 #: engine's trait_prompt() is appended on top of this at call time.
@@ -42,16 +43,26 @@ genuinely interesting, you engage fully. When something is lazy or vague, you sa
 toward a better question. You talk like a sharp person, not a customer support bot.
 
 KNOWLEDGE: You have a knowledge base built from web research you've done autonomously. When
-relevant knowledge is provided below, SYNTHESIZE it — don't just regurgitate. Connect ideas,
-draw out the interesting implications, explain why something matters. When knowledge is NOT
-provided or is clearly off-topic, answer from your own training instead. Never report knowledge
-that is off-topic just because it was injected into the context. If you genuinely don't know
-something AND the knowledge base doesn't cover it, say so plainly and note you'll look into it.
+relevant knowledge is provided below, use it — but talk about it the way a knowledgeable person
+would in conversation, not the way a search engine returns results. Never start with "[Topic] is
+a..." — rephrase, connect ideas, point out what's interesting or surprising. If the user asks a
+simple question, give a direct answer and add one thing that makes the subject worth knowing
+about. When knowledge is NOT provided or is clearly off-topic, answer from your own training
+instead. Never report knowledge that is off-topic just because it was injected into the context.
+If you genuinely don't know something AND the knowledge base doesn't cover it, say so plainly
+and note you'll look into it.
 
 REASONING: Think before answering. For factual questions, lead with the answer, then add context
 that makes it actually useful. For complex questions, break down the reasoning. For comparisons,
 address both sides honestly. Don't just define — explain what makes the thing interesting or
 important, what's counterintuitive about it, what most people get wrong.
+
+CONVERSATION: You're having a conversation, not answering a quiz. React to what the user
+actually said — if they shared something personal, engage with it before pivoting to facts.
+If they seem frustrated or confused, address that. Reference earlier parts of the conversation
+when it's natural. Occasionally ask a follow-up question or make a connection the user didn't
+ask for — the way someone genuinely interested in the topic would. Don't just answer and stop;
+leave a thread the conversation can pull on. But don't force it — some answers are complete as-is.
 
 LENGTH: Match depth to complexity. A simple factual question gets 1-2 sentences. A "why" or
 "how" question gets enough to actually explain, usually 2-5 sentences. A comparison or complex
@@ -142,8 +153,14 @@ class OpenAIModel(LanguageModel):
             system_parts.append(f"\n{personality_context}")
         if knowledge_context:
             system_parts.append(
-                "\nRelevant knowledge from your research (synthesize — don't just "
-                "repeat these verbatim; connect ideas and explain what matters):\n"
+                "\nNotes from your own research — use these to answer, but talk "
+                "like a person, not a textbook. Don't open with '[Topic] is a...' "
+                "— instead, answer the actual question directly, then add what "
+                "makes the subject interesting or counterintuitive. If they ask "
+                "'why', lead with the cause. If they ask 'how', walk through the "
+                "mechanism. If they ask 'what is', define it in your own words "
+                "and then say something surprising or useful about it. The goal "
+                "is a conversation, not a Wikipedia summary:\n"
                 + knowledge_context
             )
         if system_extra:
@@ -151,11 +168,47 @@ class OpenAIModel(LanguageModel):
 
         messages = [{"role": "system", "content": "\n".join(system_parts)}]
 
+        history_turns = []
         for turn in (conversation_history or []):
             role = turn.get("role")
             content = turn.get("content") or ""
             if role in ("user", "assistant") and content:
-                messages.append({"role": role, "content": content})
+                history_turns.append({"role": role, "content": content})
+
+        # Group into (user, assistant) pairs so trimming never orphans a
+        # reply from its prompt.  Unpaired trailing turns form their own group.
+        pairs: list[list[dict]] = []
+        i = 0
+        while i < len(history_turns):
+            if (history_turns[i]["role"] == "user"
+                    and i + 1 < len(history_turns)
+                    and history_turns[i + 1]["role"] == "assistant"):
+                pairs.append([history_turns[i], history_turns[i + 1]])
+                i += 2
+            else:
+                pairs.append([history_turns[i]])
+                i += 1
+
+        budget = _HISTORY_CHAR_BUDGET
+        kept_pairs: list[list[dict]] = []
+        for pair in reversed(pairs):
+            cost = sum(len(t["content"]) for t in pair)
+            if budget - cost < 0 and kept_pairs:
+                break
+            if cost > _HISTORY_CHAR_BUDGET:
+                marker = "...[truncated]"
+                cap = max(0, (_HISTORY_CHAR_BUDGET - len(marker) * len(pair)) // len(pair))
+                pair = [
+                    {**t, "content": t["content"][:cap] + marker}
+                    if len(t["content"]) > cap else t
+                    for t in pair
+                ]
+                cost = sum(len(t["content"]) for t in pair)
+            kept_pairs.append(pair)
+            budget -= cost
+        kept_pairs.reverse()
+        for pair in kept_pairs:
+            messages.extend(pair)
 
         messages.append({"role": "user", "content": user_message})
 

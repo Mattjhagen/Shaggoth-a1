@@ -27,7 +27,7 @@ from typing import Any, Optional
 
 _IDLE_OPENERS = [
     "Still here. Barely paying attention until now.",
-    "I know {count} topics cold and I'm still bored.",
+    "I know {count} topic{s} cold and I'm still bored.",
     "You know what I was just thinking about?",
     "Something I read earlier won't leave me alone.",
     "I don't need you to be here for me to have opinions.",
@@ -55,7 +55,7 @@ _FOLLOW_UPS = [
 _QUESTION_ENDINGS = [
     "What do you actually know about it?",
     "Did you already know that?",
-    "Anything to add, or are you useless on this one too?",
+    "Anything to add?",
     "Say something interesting about it.",
     "Ask me something while it's fresh.",
     "I could go deeper if you want. Or not.",
@@ -63,7 +63,7 @@ _QUESTION_ENDINGS = [
 ]
 
 _PURE_IDLE = [
-    "I know {count} things. Most of them are useless right now. Ask anyway.",
+    "I know {count} thing{s}. Most of them are useless right now. Ask anyway.",
     "Been quiet. Doesn't mean I stopped thinking.",
     "I've been reading. Nothing I'm ready to talk about yet. Just so you know.",
     "If you had a question earlier and forgot it — now's a good time.",
@@ -72,8 +72,8 @@ _PURE_IDLE = [
 ]
 
 
-def _pick(options: list[str]) -> str:
-    return random.choice(options)
+def _pick(options: list[str], rng: random.Random | None = None) -> str:
+    return (rng or random).choice(options)
 
 
 def _snippet(content: str, max_chars: int = 120) -> str:
@@ -101,9 +101,10 @@ def compose_proactive_message(
     """
     rng = rng or random.Random()
     count = knowledge_count or len(knowledge_entries)
+    plural = "s" if count != 1 else ""
 
     if not knowledge_entries:
-        return _pick(_PURE_IDLE).format(count=count)
+        return _pick(_PURE_IDLE, rng).format(count=count, s=plural)
 
     entry = rng.choice(knowledge_entries)
     topic = getattr(entry, "topic", "") or ""
@@ -114,17 +115,17 @@ def compose_proactive_message(
 
     # Opener — sometimes idle, sometimes topic-specific
     if rng.random() < 0.4:
-        parts.append(_pick(_IDLE_OPENERS).format(count=count))
+        parts.append(_pick(_IDLE_OPENERS, rng).format(count=count, s=plural))
     else:
-        parts.append(_pick(_TOPIC_OPENERS).format(topic=topic))
+        parts.append(_pick(_TOPIC_OPENERS, rng).format(topic=topic))
 
     # Middle — what was actually learned
     if snip:
-        parts.append(_pick(_FOLLOW_UPS).format(snippet=snip, topic=topic))
+        parts.append(_pick(_FOLLOW_UPS, rng).format(snippet=snip, topic=topic))
 
     # Ending — question or observation
     if rng.random() < 0.65:
-        parts.append(_pick(_QUESTION_ENDINGS))
+        parts.append(_pick(_QUESTION_ENDINGS, rng))
 
     return " ".join(parts)
 

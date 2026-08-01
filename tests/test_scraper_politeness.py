@@ -169,3 +169,28 @@ def test_html_entity_zero_does_not_crash():
     from shaggoth.scraper.engine import _html_to_text
     result = _html_to_text("null&#0;byte")
     assert "null" in result
+
+
+# ---------------------------------------------------------------------------
+# Charset extraction from Content-Type header
+# ---------------------------------------------------------------------------
+
+def test_charset_extraction_basic():
+    from shaggoth.scraper.engine import _extract_charset
+    assert _extract_charset("text/html; charset=iso-8859-1") == "iso-8859-1"
+
+
+def test_charset_extraction_quoted():
+    from shaggoth.scraper.engine import _extract_charset
+    assert _extract_charset('text/html; charset="utf-8"') == "utf-8"
+
+
+def test_charset_extraction_missing_defaults_to_utf8():
+    from shaggoth.scraper.engine import _extract_charset
+    assert _extract_charset("text/html") == "utf-8"
+    assert _extract_charset("") == "utf-8"
+
+
+def test_charset_extraction_case_insensitive():
+    from shaggoth.scraper.engine import _extract_charset
+    assert _extract_charset("text/html; Charset=WINDOWS-1252") == "WINDOWS-1252"

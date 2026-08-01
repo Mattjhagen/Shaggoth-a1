@@ -11,7 +11,7 @@ class TestReflect:
         assert reflect("i am happy") == "you are happy"
 
     def test_second_person_to_first(self):
-        assert reflect("you are right") == "I are right"
+        assert reflect("you are right") == "I am right"
 
     def test_my_to_your(self):
         assert reflect("my name") == "your name"
@@ -35,6 +35,13 @@ class TestReflect:
     def test_mixed_case_preserved_for_unknown(self):
         result = reflect("Shaggoth knows")
         assert "Shaggoth" in result
+
+    def test_bigram_you_are_becomes_i_am(self):
+        assert reflect("you are wrong") == "I am wrong"
+        assert reflect("you are the best") == "I am the best"
+
+    def test_bigram_i_am_becomes_you_are(self):
+        assert reflect("i am tired") == "you are tired"
 
 
 class TestPatternEngine:
@@ -223,4 +230,23 @@ class TestPatternEngine:
         for text in ("that was fun", "nice one", "good job", "well done",
                       "I agree", "fair enough", "good point", "my bad",
                       "you make me laugh"):
+            assert self.engine.respond(text) is not None, text
+
+    def test_i_need_you_to_does_not_match(self):
+        result = self.engine.respond("I need you to tell me about Python")
+        assert result is None
+
+    def test_confusion_matches(self):
+        for text in ("I don't know", "i have no idea", "no clue", "beats me",
+                      "i'm not sure", "i'm confused"):
+            assert self.engine.respond(text) is not None, text
+
+    def test_joke_story_requests_match(self):
+        for text in ("tell me a joke", "tell me a story", "make me laugh",
+                      "tell me a fun fact"):
+            assert self.engine.respond(text) is not None, text
+
+    def test_insult_matches(self):
+        for text in ("you suck", "you're stupid", "you're useless",
+                      "you are terrible", "shut up"):
             assert self.engine.respond(text) is not None, text

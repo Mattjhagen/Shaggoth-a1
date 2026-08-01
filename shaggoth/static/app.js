@@ -373,6 +373,8 @@ async function loadGreeting() {
 }
 loadGreeting();
 
+let _awaitingResponse = false;
+
 inputBar.addEventListener('submit', async (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
@@ -380,6 +382,7 @@ inputBar.addEventListener('submit', async (e) => {
   appendMsg('user', text);
   chatInput.value = '';
   sendBtn.disabled = true;
+  _awaitingResponse = true;
   const thinking = appendThinking();
   try {
     const r = await fetch(API + '/chat', {
@@ -394,6 +397,7 @@ inputBar.addEventListener('submit', async (e) => {
     thinking.remove();
     appendMsg('assistant', 'Error: ' + err.message, 'error');
   }
+  _awaitingResponse = false;
   sendBtn.disabled = false;
   chatInput.focus();
 });
@@ -413,9 +417,10 @@ function appendThinking() {
 function appendMsg(role, text, source, flag, meta) {
   const div = document.createElement('div');
   div.className = 'msg ' + role;
-  let html = '<div class="msg-content">' + esc(text || '') + '</div>';
+  const rendered = role === 'assistant' ? renderMd(text || '') : esc(text || '');
+  let html = '<div class="msg-content">' + rendered + '</div>';
   const tags = [];
-  if (source && source !== 'pattern') tags.push(source);
+  if (source && source !== 'pattern' && source !== 'model') tags.push(source);
   if (flag && flag !== 'green') tags.push(flag.toUpperCase());
   if (tags.length) html += '<div class="msg-source">' + tags.join(' · ') + '</div>';
 
@@ -487,6 +492,25 @@ function esc(t) {
   const d = document.createElement('div');
   d.textContent = t;
   return d.innerHTML;
+}
+
+function renderMd(raw) {
+  let t = esc(raw);
+  // Inline code (before bold/italic so backtick content is not styled)
+  t = t.replace(/`([^`]+?)`/g, '<code>$1</code>');
+  // Bold
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic (single asterisk, but not inside a word like file*name)
+  t = t.replace(/(?<!\w)\*([^*]+?)\*(?!\w)/g, '<em>$1</em>');
+  // Unordered list items: lines starting with "- " or "* "
+  t = t.replace(/^([*\-])\s+(.+)$/gm, '<li class="ul">$2</li>');
+  // Numbered list items: "1. ", "2. " etc.
+  t = t.replace(/^\d+\.\s+(.+)$/gm, '<li class="ol">$1</li>');
+  // Wrap consecutive same-type <li> into <ul> or <ol>
+  t = t.replace(/((?:<li class="ol">.*?<\/li>\n?)+)/g, '<ol>$1</ol>');
+  t = t.replace(/((?:<li class="ul">.*?<\/li>\n?)+)/g, '<ul>$1</ul>');
+  t = t.replace(/ class="[uo]l"/g, '');
+  return t;
 }
 
 // Personality
@@ -784,6 +808,8 @@ setInterval(checkDeferred, 120000);
  */
 let _lastProactiveId = 0;
 
+let _deferredProactive = [];
+
 async function checkProactive() {
   try {
     const r = await fetch(
@@ -793,17 +819,25 @@ async function checkProactive() {
     );
     const d = await readJson(r);
     for (const msg of d.messages || []) {
-      // Skip messages from before the page loaded (they're already in history).
       if (_lastProactiveId === 0) {
         _lastProactiveId = msg.id;
         continue;
       }
-      appendMsg('assistant', msg.text, 'proactive');
+      if (_awaitingResponse) {
+        _deferredProactive.push(msg);
+      } else {
+        appendMsg('assistant', msg.text, 'proactive');
+      }
       _lastProactiveId = msg.id;
     }
-    // After first pass just advance the watermark without showing old messages.
     if (_lastProactiveId === 0 && (d.messages || []).length) {
       _lastProactiveId = d.messages[d.messages.length - 1].id;
+    }
+    if (!_awaitingResponse && _deferredProactive.length) {
+      for (const dm of _deferredProactive) {
+        appendMsg('assistant', dm.text, 'proactive');
+      }
+      _deferredProactive = [];
     }
   } catch {
     // Background nicety — never block anything.

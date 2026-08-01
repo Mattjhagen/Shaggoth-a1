@@ -30,7 +30,23 @@ class TopicExtractionTests(unittest.TestCase):
 
     def test_extracts_explain(self):
         topic = extract_topic_query("explain how DNS works")
-        self.assertEqual(topic, "how DNS works")
+        self.assertEqual(topic, "DNS")
+
+    def test_extracts_contraction_whats(self):
+        topic = extract_topic_query("what's the capital of France")
+        self.assertEqual(topic, "the capital of France")
+
+    def test_extracts_contraction_whos(self):
+        topic = extract_topic_query("who's Elon Musk")
+        self.assertEqual(topic, "Elon Musk")
+
+    def test_strips_trailing_verb(self):
+        topic = extract_topic_query("how does DNA replication work")
+        self.assertEqual(topic, "DNA replication")
+
+    def test_strips_trailing_verb_photosynthesis(self):
+        topic = extract_topic_query("why does photosynthesis need light")
+        self.assertEqual(topic, "photosynthesis")
 
     def test_returns_none_for_greeting(self):
         topic = extract_topic_query("hello there")
@@ -76,7 +92,7 @@ class SearchQueryTests(unittest.TestCase):
         queries = build_search_queries("quantum computing")
         self.assertEqual(len(queries), 3)
         self.assertIn("quantum computing", queries)
-        self.assertIn("quantum computing explained", queries)
+        self.assertIn("quantum computing Wikipedia", queries)
 
     def test_max_queries(self):
         queries = build_search_queries("rust", max_queries=1)
@@ -228,6 +244,81 @@ class WikipediaTests(unittest.TestCase):
         result = _html_to_text(html)
         self.assertIn("visible", result)
         self.assertNotIn("invisible", result)
+
+
+class ResearchQueueTests(unittest.TestCase):
+    """Research queue: concurrent requests queue instead of failing."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.knowledge = KnowledgeBase(directory=Path(self.tmpdir) / "knowledge")
+        self.scraper = ScraperEngine(db_path=str(Path(self.tmpdir) / "scraper.db"))
+        self.engine = CuriosityEngine(
+            knowledge=self.knowledge,
+            scraper=self.scraper,
+            history_path=Path(self.tmpdir) / "curiosity_history.json",
+            use_wikipedia=False,
+        )
+
+    def test_queue_when_busy(self):
+        """A second research request while one is running should be queued."""
+        with self.engine._lock:
+            self.engine._running = True
+        episode = self.engine.research_topic("test topic", background=False)
+        self.assertEqual(episode.status, "queued")
+        self.assertEqual(len(self.engine._queue), 1)
+        with self.engine._lock:
+            self.engine._running = False
+            self.engine._queue.clear()
+
+    def test_queue_full_fails(self):
+        """When the queue has 5 items, new requests should fail."""
+        with self.engine._lock:
+            self.engine._running = True
+            for i in range(5):
+                self.engine._queue.append(("dummy", 5, 3))
+        episode = self.engine.research_topic("overflow topic", background=False)
+        self.assertEqual(episode.status, "failed")
+        self.assertEqual(episode.error, "Research queue full")
+        with self.engine._lock:
+            self.engine._running = False
+            self.engine._queue.clear()
+
+    def test_queue_starts_empty(self):
+        """Queue should be empty on construction."""
+        self.assertEqual(self.engine._queue, [])
+
+    def test_queued_item_runs_without_releasing_running(self):
+        """_running must stay True while draining the queue (no race window)."""
+        from shaggoth.curiosity.engine import CuriosityEpisode
+        import uuid
+
+        observed_running = []
+
+        original_do = self.engine._do_research
+
+        def spy_do(episode, max_results, max_pages):
+            observed_running.append(self.engine._running)
+            episode.status = "completed"
+
+        self.engine._do_research = spy_do
+
+        ep1 = CuriosityEpisode(
+            episode_id=f"test-{uuid.uuid4().hex[:8]}",
+            started_at=0, topic="first", queries=["first"],
+        )
+        ep2 = CuriosityEpisode(
+            episode_id=f"test-{uuid.uuid4().hex[:8]}",
+            started_at=0, topic="second", queries=["second"],
+        )
+
+        # Pre-load the queue so ep2 runs after ep1
+        self.engine._queue.append((ep2, 5, 3))
+        self.engine._run_research(ep1, 5, 3)
+
+        # Both should have seen _running == True
+        self.assertEqual(observed_running, [True, True])
+        self.assertFalse(self.engine._running)
 
 
 class PluginTests(unittest.TestCase):

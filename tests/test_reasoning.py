@@ -28,6 +28,10 @@ from shaggoth.dialogue.reasoning import (
     "aeroponics versus hydroponics",
     "aeroponics vs hydroponics",
     "compare aeroponics to hydroponics",
+    "compare cats and dogs",
+    "how does X relate to Y",
+    "how does X hold up against Y",
+    "how does X stack up against Y",
 ])
 def test_comparison_questions(question):
     assert classify(question) == Intent.COMPARE
@@ -46,6 +50,14 @@ def test_contrast_questions(question):
     "why does photosynthesis need light",
     "what causes gravity",
     "how does a river work",
+    "how is steel made",
+    "how are vaccines produced",
+    "how do earthquakes happen",
+    "how can I fix a leaky faucet",
+    "what is the process of photosynthesis",
+    "what happens when water boils",
+    "what is the cause of inflation",
+    "how can I protect against phishing",
 ])
 def test_causal_questions(question):
     assert classify(question) == Intent.CAUSAL
@@ -100,12 +112,30 @@ def test_split_subjects_refuses_to_guess_at_one():
     assert split_subjects("") == []
 
 
+def test_split_subjects_short_acronyms():
+    """Two-letter acronyms like AI and ML should be valid comparison subjects."""
+    assert split_subjects("AI vs ML") == ["AI", "ML"]
+
+
 def test_subject_of_drops_the_trailing_verb_phrase():
     """The subject is what to look up; the rest is what to look for."""
     assert subject_of("why does photosynthesis need light") == "photosynthesis"
     assert subject_of("what causes gravity") == "gravity"
     assert subject_of("what are the types of cryptography") == "cryptography"
     assert subject_of("how does a river work") == "a river"
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("how is steel made", "steel"),
+    ("how are vaccines produced", "vaccines"),
+    ("how do earthquakes happen", "earthquakes"),
+    ("how can I fix a leaky faucet", "I fix a leaky faucet"),
+    ("what is the process of photosynthesis", "photosynthesis"),
+    ("what is the cause of inflation", "inflation"),
+    ("what happens when water boils", "when water boils"),
+])
+def test_subject_of_new_causal_patterns(question, expected):
+    assert subject_of(question) == expected
 
 
 # --------------------------------------------------------------------------
@@ -202,6 +232,13 @@ def test_enumerating_questions_get_the_list_sentence():
     assert result.intent == Intent.ENUMERATE
 
 
+def test_topic_words_includes_3_char_terms():
+    from shaggoth.dialogue.reasoning import _topic_words
+    words = _topic_words("DNA and RNA sequencing")
+    assert "dna" in words
+    assert "rna" in words
+
+
 def test_reasoner_declines_plain_definitions():
     """Retrieval already handles these; reasoning must not intercept them."""
     assert _reasoner([PHOTO]).reason("what is photosynthesis") is None
@@ -219,3 +256,24 @@ def test_comparison_will_not_build_on_the_wrong_article():
         "difference between aeroponics and hydroponics"
     )
     assert result is None or "Brokeback" not in result.answer
+
+
+def test_pick_uses_word_boundaries_not_substrings():
+    """'art' should not match inside 'particle' or 'starting'."""
+    from shaggoth.dialogue.reasoning import _pick, _CAUSAL_MARKER
+    sentences = [
+        "Because particle physics involves starting with quantum fields.",
+        "Because art requires creativity and imagination to produce.",
+    ]
+    picked = _pick(sentences, _CAUSAL_MARKER, {"art"}, limit=5, min_len=10)
+    assert len(picked) == 1
+    assert "creativity" in picked[0]
+
+
+def test_comparison_drops_redundant_topic_label():
+    result = _reasoner([AERO, HYDRO]).reason(
+        "what is the difference between aeroponics and hydroponics"
+    )
+    assert result is not None
+    assert "Aeroponics:" not in result.answer
+    assert "Hydroponics:" not in result.answer

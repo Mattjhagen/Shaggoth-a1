@@ -13,17 +13,38 @@ from ..memory.store import extract_keywords, STOPWORDS
 # Patterns that indicate the user is asking about something specific
 # we might not know yet. Groups capture the topic phrase.
 TOPIC_PATTERNS: list[re.Pattern] = [
-    re.compile(r"(?i)\bwhat (?:is|are|do you know about|can you tell me about)\s+(.+?)[?.!]*$"),
+    re.compile(r"(?i)\bwhat(?:'s| is| are| do you know about| can you tell me about)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\btell me about\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\bexplain\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\bhow (?:does|do|did|is|are|was|were)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\bwhy (?:is|are|do|does|did|was|were)\s+(.+?)[?.!]*$"),
-    re.compile(r"(?i)\bwho (?:is|are|was|were)\s+(.+?)[?.!]*$"),
+    re.compile(r"(?i)\bwho(?:'s| is| are| was| were)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\b(?:define|definition of)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\b(?:difference between|versus|vs\.?)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\b(?:movies|films|shows?|books?|articles?|news|updates?|information) (?:with|on|about|for|by)\s+(.+?)[?.!]*$"),
     re.compile(r"(?i)\bany (?:news|updates?|information) (?:on|about)\s+(.+?)[?.!]*$"),
 ]
+
+# Verbs that commonly trail the subject in question captures and should
+# be stripped: "how does DNA replication work" -> "DNA replication"
+_TRAILING_VERB = re.compile(
+    r"\s+\b(?:works?|functions?|happens?|occurs?|operates?|runs?|go(?:es)?|"
+    r"does|looks?|means?|needs?|requires?|causes?|affects?|helps?|feels?|"
+    r"sounds?|tastes?|smells?|starts?|begins?|ends?|stops?|changes?|"
+    r"grows?|moves?|lives?|dies?|costs?|gets?|makes?|comes?|takes?|"
+    r"gives?|finds?|keeps?|holds?|turns?|becomes?|"
+    r"look like|sound like|differs?|compares?)\b.*$",
+    re.I,
+)
+
+
+_CONVERSATIONAL = frozenset(
+    "hello hi hey howdy yo sup greetings bye goodbye cya seeya "
+    "lol lmao haha hah heh wow omg wtf nah yep nope ok okay sure "
+    "please thanks stop quit help "
+    "seriously really truly actually honestly literally basically "
+    "anyway anyways whatever nevermind".split()
+)
 
 
 def extract_topic_query(text: str) -> str | None:
@@ -31,6 +52,12 @@ def extract_topic_query(text: str) -> str | None:
 
     Returns a clean query string suitable for web search, or None if
     the message doesn't look like a knowledge request.
+
+    Bare nouns and short noun phrases ("photosynthesis", "quantum mechanics")
+    are implicit lookups even though they lack question scaffolding.  Without
+    this fallback, typing a bare topic hit ``describe_unknown`` in the dialogue
+    engine but curiosity research was never triggered -- the knowledge gap was
+    announced but never closed.
     """
     text = text.strip()
     if not text:
@@ -40,10 +67,32 @@ def extract_topic_query(text: str) -> str | None:
         match = pattern.search(text)
         if match:
             topic = match.group(1).strip()
-            # Clean up the topic — remove trailing punctuation, pronouns
             topic = re.sub(r"[?.!,;:]+$", "", topic).strip()
             topic = re.sub(r"\b(?:please|thanks|thank you)\b", "", topic, flags=re.IGNORECASE).strip()
-            if len(topic) > 3:
+            topic = re.sub(
+                r"^(?:how|why|what|where|when)\s+", "", topic, flags=re.IGNORECASE,
+            ).strip() or topic
+            cleaned = _TRAILING_VERB.sub("", topic).strip()
+            if cleaned and len(cleaned) > 1:
+                topic = cleaned
+            if len(topic) > 1:
+                return topic
+
+    # Bare noun fallback: a short phrase whose words are all content words is
+    # an implicit lookup.  Capped at 4 words so "I went to the store" does not
+    # match, and every word must carry topical signal (not a stopword).
+    words = text.split()
+    if 1 <= len(words) <= 4:
+        content = []
+        for word in words:
+            normalized = word.lower().rstrip("?.!,;:")
+            if (normalized not in STOPWORDS
+                    and normalized not in _CONVERSATIONAL
+                    and len(normalized) > 1):
+                content.append(word)
+        if content and len(content) == len(words):
+            topic = re.sub(r"[?.!,;:]+$", "", text).strip()
+            if len(topic) > 1:
                 return topic
 
     return None
@@ -144,15 +193,14 @@ def is_known_topic(topic: str, known_keywords: set[str], min_overlap: float = 0.
 def build_search_queries(topic: str, max_queries: int = 3) -> list[str]:
     """Generate search queries from a topic to maximize coverage.
 
-    For a topic like "machine learning neural networks", generates:
-    - "machine learning neural networks"
-    - "machine learning neural networks explained"
-    - "machine learning neural networks tutorial"
+    Uses Wikipedia-style and definitional queries rather than always
+    appending "explained"/"tutorial", which produces bad results for
+    people, places, and events ("Albert Einstein tutorial").
     """
     queries = [topic]
     if len(queries) < max_queries:
-        queries.append(f"{topic} explained")
+        queries.append(f"{topic} Wikipedia")
     if len(queries) < max_queries:
-        queries.append(f"{topic} tutorial")
+        queries.append(f"what is {topic}")
 
     return queries[:max_queries]

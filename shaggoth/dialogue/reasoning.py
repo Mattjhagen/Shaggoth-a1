@@ -69,8 +69,9 @@ _COMPARE = re.compile(
     r"\b(?:difference|differences|differ|distinguish|distinction)\b"
     # "compare X to Y" puts the subject between the verb and the preposition,
     # so this cannot require them to be adjacent.
-    r"|\bcompare[ds]?\b.*\b(?:to|with|against)\b|^\s*compare\b"
-    r"|\bversus\b|\bvs\.?\b|\bagainst\b"
+    r"|\bcompare[ds]?\b.*\b(?:to|with|against)\b|\bcompare[ds]?\b"
+    r"|\bversus\b|\bvs\.?\b"
+    r"|\b(?:relate|hold[s]?\s+up|stack[s]?\s+up)\b.*\b(?:to|against|next to)\b"
     # "why is X different from Y" is a comparison that happens to open with
     # "why"; classify() checks COMPARE first precisely so it lands here.
     r"|\b(?:how|why|in what way(?:s)?) (?:is|are|does|do) .+ different\b",
@@ -82,8 +83,10 @@ _CONTRAST = re.compile(
     re.I,
 )
 _CAUSAL = re.compile(
-    r"^\s*(?:and |but |so )?why\b|\bwhat causes\b|\bhow does .+ work\b"
-    r"|\bwhat makes\b|\breason (?:for|why)\b",
+    r"^\s*(?:and |but |so )?why\b|\bwhat causes\b"
+    r"|\bhow (?:is|are|do|does|did|can|could|would|should) .+"
+    r"|\bwhat (?:is|are) the (?:cause|process|mechanism|effect|result|purpose)s? (?:of|behind)\b"
+    r"|\bwhat happens\b|\bwhat makes\b|\breason (?:for|why)\b",
     re.I,
 )
 _ENUMERATE = re.compile(
@@ -150,7 +153,7 @@ def split_subjects(question: str) -> list:
         parts = re.split(joiner, text, maxsplit=1, flags=re.I)
         if len(parts) == 2:
             left, right = (p.strip(" ?.,") for p in parts)
-            if left and right and len(left) > 2 and len(right) > 2:
+            if left and right and len(left) > 1 and len(right) > 1:
                 return [left, right]
     return []
 
@@ -160,19 +163,23 @@ def subject_of(question: str) -> str:
     text = (question or "").strip(" ?.")
     text = re.sub(
         r"^(?:and |but |so )?(?:why|what|how)\s+"
-        r"(?:is|are|was|were|does|do|did|causes?|makes?)?\s*", "", text, flags=re.I
+        r"(?:is|are|was|were|does|do|did|can|could|would|should|causes?|makes?|happens?)?\s*",
+        "", text, flags=re.I,
     )
     text = re.sub(
         r"^(?:the\s+)?(?:types?|kinds?|sorts?|categories|examples?|forms?|list)"
         r"\s+of\s+", "", text, flags=re.I
     )
+    text = re.sub(
+        r"^(?:the\s+)?(?:cause|process|mechanism|effect|result|purpose)s?"
+        r"\s+(?:of|behind)\s+", "", text, flags=re.I,
+    )
     text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
-    # Trailing verb phrase: "photosynthesis need light" -> "photosynthesis".
-    # The subject is what to look up; the rest is what to look *for*, and
-    # carrying it into retrieval only dilutes the query.
     text = re.sub(
         r"\s+(?:need|needs|require|requires|use|uses|produce|produces|"
-        r"happen|happens|occur|occurs|exist|exists|matter|matters)\b.*$",
+        r"happen|happens|occur|occurs|exist|exists|matter|matters|"
+        r"made|created|formed|produced|prevented|caused|built|done|"
+        r"get\s+\w+ed|become|start|begin)\b.*$",
         "", text, flags=re.I,
     )
     return text.strip(" ?.,")
@@ -257,14 +264,15 @@ def _pick(sentences, marker, topic_words, limit, min_len=40, focus=None):
         if not marker.search(sentence):
             continue
         lowered = sentence.lower()
+        tokens = set(re.findall(r"[a-z0-9]+", lowered))
         on_topic = (
             not topic_words
-            or any(w in lowered for w in topic_words)
+            or bool(topic_words & tokens)
             or _REFERRING.match(sentence)
         )
         if not on_topic:
             continue
-        hits = sum(1 for word in focus if word in lowered)
+        hits = sum(1 for word in focus if word in tokens)
         # Focus hits dominate. Explanatory quality only breaks ties -- but it
         # is the whole ranking when the question has no focus term, which is
         # when this previously degenerated to document order.
@@ -288,8 +296,17 @@ _QUESTION_WORDS = {
 }
 
 
+_TOPIC_STOPWORDS = frozenset({
+    "an", "as", "at", "be", "by", "do", "go", "he", "if", "in", "is",
+    "it", "me", "my", "no", "of", "on", "or", "so", "to", "up", "us", "we",
+})
+
+
 def _topic_words(text: str) -> set:
-    return {w for w in re.split(r"[^a-z0-9]+", (text or "").lower()) if len(w) > 3}
+    return {
+        w for w in re.split(r"[^a-z0-9]+", (text or "").lower())
+        if len(w) > 1 and w not in _TOPIC_STOPWORDS
+    }
 
 
 # -- the reasoner ----------------------------------------------------------
@@ -516,13 +533,21 @@ class Reasoner:
                 entries_used=found,
             )
 
-        joiner = (
-            "That's how they differ."
-            if intent == Intent.COMPARE
-            else "That's what they have in common."
-        )
+        import random
+        if intent == Intent.COMPARE:
+            joiner = random.choice([
+                "That's the core difference.",
+                "So they're different approaches to similar territory.",
+                "Different mechanisms, different trade-offs.",
+            ])
+        else:
+            joiner = random.choice([
+                "That's what they have in common.",
+                "So they're connected at the root.",
+                "Different angles on the same idea.",
+            ])
         steps.append(Step("combine", f"contrasted {len(definitions)} definitions"))
-        body = " ".join(f"{t}: {d}" for t, d in definitions)
+        body = " ".join(d for _, d in definitions)
         return Reasoned(
             answer=f"{body} {joiner}",
             intent=intent,
@@ -534,7 +559,7 @@ class Reasoner:
 
     def _causal(self, question: str) -> Optional[Reasoned]:
         subject = subject_of(question)
-        if len(subject) < 3:
+        if len(subject) < 2:
             return None
         steps = [Step("intent", "causal -- looking for explanation, not definition")]
         steps.append(Step("subject", subject))
@@ -596,7 +621,7 @@ class Reasoner:
 
     def _enumerate(self, question: str) -> Optional[Reasoned]:
         subject = subject_of(question)
-        if len(subject) < 3:
+        if len(subject) < 2:
             return None
         steps = [Step("intent", "enumerate -- looking for a list, not a definition")]
         steps.append(Step("subject", subject))

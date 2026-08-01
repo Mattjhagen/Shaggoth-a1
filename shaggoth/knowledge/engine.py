@@ -241,9 +241,11 @@ class KnowledgeBase:
         if not results:
             return []
 
+        best_raw = max(s for _, s in results)
+
         # Normalize to 0..1 against the best hit so min_score is a stable
         # confidence threshold rather than a corpus-size-dependent magnitude.
-        best = max(s for _, s in results) or 1.0
+        best = best_raw or 1.0
         normalized = [(e, s / best) for e, s in results if (s / best) >= min_score]
         # Tie-break toward the SHORTER, more focused article -- the opposite of
         # the previous behaviour, which surfaced sprawling omnibus pages.
@@ -267,6 +269,7 @@ class KnowledgeBase:
         "aeroponics---wikipedia" and came back as "Aeroponics   Wikipedia".
         Both broke title matching in retrieval.
         """
+        topic = topic.replace("++", "-plus-plus").replace("#", "-sharp")
         slug = re.sub(r"[^a-zA-Z0-9\s-]", " ", topic).lower()
         slug = re.sub(r"[\s-]+", "-", slug).strip("-")
         return slug or "untitled"
