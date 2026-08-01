@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity,
-  ActivityIndicator, Alert, Modal,
+  ActivityIndicator, Alert, Modal, RefreshControl,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { colors, spacing, radius, fontSize } from '../theme/colors'
@@ -69,23 +69,17 @@ export default function ToolsScreen({ onBack }) {
   const [history, setHistory] = useState([])
   const [urls, setUrls] = useState('')
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [learning, setLearning] = useState(false)
   const [showAddKnowledge, setShowAddKnowledge] = useState(false)
   const [newTopic, setNewTopic] = useState('')
   const [newContent, setNewContent] = useState('')
 
-  useEffect(() => {
-    loadAll()
-  }, [])
-
-  const loadAll = async () => {
-    setLoading(true)
+  const loadAll = useCallback(async () => {
     try {
       const [status, histResp, factsResp, memResp] = await Promise.all([
         api.getLearnStatus().catch(() => null),
-        fetch(api.getApiUrl() + '/learn/history', {
-          headers: api.getApiKey() ? { 'Authorization': 'Bearer ' + api.getApiKey() } : {},
-        }).then(r => r.json()).catch(() => ({ sessions: [] })),
+        api.getLearnSessions().catch(() => ({ sessions: [] })),
         api.getFacts().catch(() => ({ facts: {} })),
         (async () => {
           let sid = await AsyncStorage.getItem('shaggoth_session')
@@ -97,8 +91,19 @@ export default function ToolsScreen({ onBack }) {
       setLearnHistory(histResp.sessions || [])
       setFacts(factsResp.facts || {})
       setHistory(memResp.messages || [])
-    } catch {} finally { setLoading(false) }
-  }
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    setLoading(true)
+    loadAll().finally(() => setLoading(false))
+  }, [loadAll])
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await loadAll()
+    setRefreshing(false)
+  }, [loadAll])
 
   const startLearning = async () => {
     const seeds = urls.split('\n').map(u => u.trim()).filter(Boolean)
@@ -107,26 +112,24 @@ export default function ToolsScreen({ onBack }) {
     try {
       await api.startLearning(seeds, 1, 20, 500)
       const iv = setInterval(async () => {
-        const s = await api.getLearnStatus()
-        if (!s.is_learning) { clearInterval(iv); setLearning(false); loadAll() }
+        try {
+          const s = await api.getLearnStatus()
+          if (!s.is_learning) { clearInterval(iv); setLearning(false); loadAll() }
+        } catch { clearInterval(iv); setLearning(false) }
       }, 3000)
-    } catch { setLearning(false) }
+    } catch (e) {
+      Alert.alert('Error', e.message)
+      setLearning(false)
+    }
   }
 
-  const addKnowledge = async () => {
+  const addKnowledgeEntry = async () => {
     if (!newTopic.trim() || !newContent.trim()) {
       Alert.alert('Error', 'Topic and content required')
       return
     }
     try {
-      await fetch(api.getApiUrl() + '/knowledge/add', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(api.getApiKey() ? { 'Authorization': 'Bearer ' + api.getApiKey() } : {}),
-        },
-        body: JSON.stringify({ topic: newTopic, content: newContent }),
-      })
+      await api.addKnowledge(newTopic.trim(), newContent.trim())
       setShowAddKnowledge(false)
       setNewTopic('')
       setNewContent('')
@@ -196,6 +199,14 @@ export default function ToolsScreen({ onBack }) {
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: spacing.lg }}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
         >
           {section === 'learn' && (
             <>
@@ -224,6 +235,7 @@ export default function ToolsScreen({ onBack }) {
                   borderColor: colors.border,
                   minHeight: 100,
                   marginBottom: spacing.md,
+                  textAlignVertical: 'top',
                 }}
               />
 
@@ -251,7 +263,10 @@ export default function ToolsScreen({ onBack }) {
 
               <SectionHeader title="History" />
               {learnHistory.length === 0 ? (
-                <Text style={{ color: colors.textDim }}>No sessions yet.</Text>
+                <View style={{ alignItems: 'center', paddingVertical: spacing.xxl }}>
+                  <Text style={{ fontSize: 32, marginBottom: spacing.sm }}>{'📚'}</Text>
+                  <Text style={{ color: colors.textDim, fontSize: fontSize.md }}>No learning sessions yet</Text>
+                </View>
               ) : (
                 [...learnHistory].reverse().map((s, i) => (
                   <View key={i} style={{
@@ -270,10 +285,10 @@ export default function ToolsScreen({ onBack }) {
                         fontSize: fontSize.sm,
                         fontWeight: '600',
                       }}>
-                        {s.status.toUpperCase()}
+                        {(s.status || 'unknown').toUpperCase()}
                       </Text>
                       <Text style={{ color: colors.textDim, fontSize: fontSize.xs }}>
-                        {s.pages_scraped}p · {fmt(s.words_learned)}w
+                        {s.pages_scraped || 0}p · {fmt(s.words_learned || 0)}w
                       </Text>
                     </View>
                     {s.error && (
@@ -291,7 +306,10 @@ export default function ToolsScreen({ onBack }) {
             <>
               <SectionHeader title="Facts" />
               {Object.keys(facts).length === 0 ? (
-                <Text style={{ color: colors.textDim, marginBottom: spacing.xl }}>No facts stored.</Text>
+                <View style={{ alignItems: 'center', paddingVertical: spacing.xxl }}>
+                  <Text style={{ fontSize: 32, marginBottom: spacing.sm }}>{'🛰'}</Text>
+                  <Text style={{ color: colors.textDim, fontSize: fontSize.md }}>No facts stored</Text>
+                </View>
               ) : (
                 Object.entries(facts).map(([k, v]) => (
                   <View key={k} style={{
@@ -312,7 +330,10 @@ export default function ToolsScreen({ onBack }) {
 
               <SectionHeader title="Recent Messages" />
               {history.length === 0 ? (
-                <Text style={{ color: colors.textDim }}>No messages yet.</Text>
+                <View style={{ alignItems: 'center', paddingVertical: spacing.xxl }}>
+                  <Text style={{ fontSize: 32, marginBottom: spacing.sm }}>{'💬'}</Text>
+                  <Text style={{ color: colors.textDim, fontSize: fontSize.md }}>No messages yet</Text>
+                </View>
               ) : (
                 history.slice(-20).map(m => (
                   <View key={m.id} style={{
@@ -397,6 +418,7 @@ export default function ToolsScreen({ onBack }) {
                 borderColor: colors.inputBorder,
                 marginBottom: spacing.lg,
                 minHeight: 120,
+                textAlignVertical: 'top',
               }}
             />
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
@@ -414,7 +436,7 @@ export default function ToolsScreen({ onBack }) {
                 <Text style={{ color: colors.textSecondary }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={addKnowledge}
+                onPress={addKnowledgeEntry}
                 style={{
                   flex: 1,
                   padding: spacing.md,

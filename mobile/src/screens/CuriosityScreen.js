@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, RefreshControl,
 } from 'react-native'
 import { colors, spacing, radius, fontSize } from '../theme/colors'
 import Header from '../components/Header'
@@ -42,11 +42,11 @@ export default function CuriosityScreen({ onBack }) {
   const [status, setStatus] = useState(null)
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [topic, setTopic] = useState('')
   const [researching, setResearching] = useState(false)
 
   const load = useCallback(async () => {
-    setLoading(true)
     try {
       const [s, h] = await Promise.all([
         api.getCuriosityStatus().catch(() => null),
@@ -55,10 +55,18 @@ export default function CuriosityScreen({ onBack }) {
       if (s) setStatus(s)
       setHistory(h.sessions || h.history || [])
     } catch {}
-    setLoading(false)
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    setLoading(true)
+    load().finally(() => setLoading(false))
+  }, [load])
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await load()
+    setRefreshing(false)
+  }, [load])
 
   const startResearch = async () => {
     if (!topic.trim()) { Alert.alert('Error', 'Enter a topic to research'); return }
@@ -101,12 +109,20 @@ export default function CuriosityScreen({ onBack }) {
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         {status && (
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
             <StatCard label="Topics" value={status.topics_researched || 0} />
             <StatCard label="Sources" value={status.sources_found || 0} color={colors.green} />
-            <StatCard label="Active" value={status.is_active ? 'Yes' : 'No'} color={colors.blue} />
+            <StatCard label="Active" value={status.is_active ? 'Yes' : 'No'} color={status.is_active ? colors.blue : colors.textDim} />
           </View>
         )}
 
@@ -136,6 +152,8 @@ export default function CuriosityScreen({ onBack }) {
             borderColor: colors.border,
             marginBottom: spacing.md,
           }}
+          returnKeyType="go"
+          onSubmitEditing={startResearch}
         />
 
         <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xxl }}>
@@ -188,7 +206,13 @@ export default function CuriosityScreen({ onBack }) {
         </Text>
 
         {history.length === 0 ? (
-          <Text style={{ color: colors.textDim }}>No research sessions yet.</Text>
+          <View style={{ alignItems: 'center', paddingVertical: spacing.xxl }}>
+            <Text style={{ fontSize: 48, marginBottom: spacing.md }}>{'🔭'}</Text>
+            <Text style={{ color: colors.textDim, fontSize: fontSize.lg }}>No research sessions yet</Text>
+            <Text style={{ color: colors.textMuted, fontSize: fontSize.sm, marginTop: spacing.xs }}>
+              Enter a topic above to start exploring
+            </Text>
+          </View>
         ) : (
           [...history].reverse().slice(0, 20).map((s, i) => (
             <View key={i} style={{

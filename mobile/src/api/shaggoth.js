@@ -163,3 +163,14 @@ export async function getCriticStatus() {
   return fetchJson('/critic')
 }
 
+export async function addKnowledge(topic, content) {
+  return fetchJson('/knowledge/add', {
+    method: 'POST',
+    body: JSON.stringify({ topic, content }),
+  })
+}
+
+export async function getLearnSessions() {
+  return fetchJson('/learn/history')
+}
+

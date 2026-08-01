@@ -51,9 +51,9 @@ function MicButton({ listening, onPress, available }) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <Animated.View style={{
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         backgroundColor: listening ? colors.red : colors.surfaceCard,
         alignItems: 'center',
         justifyContent: 'center',
@@ -62,7 +62,7 @@ function MicButton({ listening, onPress, available }) {
         marginRight: spacing.sm,
         transform: [{ scale: pulseAnim }],
       }}>
-        <Text style={{ fontSize: 20 }}>{listening ? '⏹' : '🎙'}</Text>
+        <Text style={{ fontSize: 18 }}>{listening ? '⏹' : '🎙'}</Text>
       </Animated.View>
     </TouchableOpacity>
   )
@@ -84,7 +84,7 @@ function FeedbackBar({ item, onFeedback }) {
         }}
       >
         <Text style={{
-          fontSize: 16,
+          fontSize: 14,
           opacity: item.verdict === 'bad' ? 0.3 : 1,
         }}>{'👍'}</Text>
       </TouchableOpacity>
@@ -99,7 +99,7 @@ function FeedbackBar({ item, onFeedback }) {
         }}
       >
         <Text style={{
-          fontSize: 16,
+          fontSize: 14,
           opacity: item.verdict === 'good' ? 0.3 : 1,
         }}>{'👎'}</Text>
       </TouchableOpacity>
@@ -111,9 +111,11 @@ function FeedbackBar({ item, onFeedback }) {
             paddingHorizontal: spacing.sm,
             paddingVertical: spacing.xs,
             marginLeft: spacing.xs,
+            borderRadius: radius.sm,
+            backgroundColor: colors.surfaceLight,
           }}
         >
-          <Text style={{ fontSize: fontSize.xs, color: colors.textDim }}>How?</Text>
+          <Text style={{ fontSize: fontSize.xs, color: colors.textSecondary, fontWeight: '600' }}>How?</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -130,6 +132,7 @@ export default function ChatScreen({ onBack, assistMode }) {
   const [feedbackNote, setFeedbackNote] = useState('')
   const [expandedMsg, setExpandedMsg] = useState(null)
   const flatRef = useRef(null)
+  const loadingRef = useRef(false)
   const voice = useVoice()
 
   useEffect(() => {
@@ -155,7 +158,9 @@ export default function ChatScreen({ onBack, assistMode }) {
   }, [assistMode, voice.available])
 
   const sendWithText = useCallback(async (text) => {
-    if (!text?.trim() || loading) return
+    if (!text?.trim() || loadingRef.current) return
+    loadingRef.current = true
+    setLoading(true)
     setInput('')
     const sid = await getSessionId()
 
@@ -164,7 +169,6 @@ export default function ChatScreen({ onBack, assistMode }) {
 
     const botId = (Date.now() + 1).toString()
     setMessages(prev => [...prev, { id: botId, role: 'assistant', text: '', source: 'streaming', question: text.trim() }])
-    setLoading(true)
 
     let fullReply = ''
     api.chatStream(text.trim(), sid,
@@ -185,6 +189,7 @@ export default function ChatScreen({ onBack, assistMode }) {
             mode: meta.mode,
           } : m
         ))
+        loadingRef.current = false
         setLoading(false)
         if (autoSpeak && fullReply) voice.speak(fullReply)
       },
@@ -192,10 +197,11 @@ export default function ChatScreen({ onBack, assistMode }) {
         setMessages(prev => prev.map(m =>
           m.id === botId ? { ...m, text: 'Error: ' + err, source: 'error' } : m
         ))
+        loadingRef.current = false
         setLoading(false)
       }
     )
-  }, [loading, autoSpeak, voice])
+  }, [autoSpeak, voice])
 
   const send = useCallback(() => sendWithText(input), [input, sendWithText])
 
@@ -275,7 +281,7 @@ export default function ChatScreen({ onBack, assistMode }) {
                 fontSize: fontSize.sm,
                 fontWeight: '600',
               }}>
-                {autoSpeak ? '🔊 Voice' : '🔇 Mute'}
+                {autoSpeak ? '🔊' : '🔇'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={newChat} activeOpacity={0.7}>
@@ -288,7 +294,7 @@ export default function ChatScreen({ onBack, assistMode }) {
                 borderColor: colors.primaryBorder,
               }}>
                 <Text style={{ color: colors.primary, fontSize: fontSize.sm, fontWeight: '600' }}>
-                  New Chat
+                  New
                 </Text>
               </View>
             </TouchableOpacity>
@@ -321,31 +327,35 @@ export default function ChatScreen({ onBack, assistMode }) {
         ref={flatRef}
         data={messages}
         keyExtractor={m => m.id}
-        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         keyboardShouldPersistTaps="handled"
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{ paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, flexGrow: 1 }}
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
         ListEmptyComponent={
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ fontSize: 48, marginBottom: spacing.md }}>{'👽'}</Text>
+            <Text style={{ fontSize: 56, marginBottom: spacing.md }}>{'👽'}</Text>
+            <Text style={{
+              color: colors.text,
+              fontSize: fontSize.xl,
+              fontWeight: '600',
+              textAlign: 'center',
+              marginBottom: spacing.xs,
+            }}>
+              Open a channel
+            </Text>
             <Text style={{
               color: colors.textDim,
-              fontSize: fontSize.lg,
+              fontSize: fontSize.sm,
               textAlign: 'center',
+              maxWidth: 220,
+              lineHeight: 18,
             }}>
-              Open a channel to Shaggoth
+              {voice.available
+                ? 'Type a message or tap the mic to speak'
+                : 'Type a message to start a conversation'
+              }
             </Text>
-            {voice.available && (
-              <Text style={{
-                color: colors.textDim,
-                fontSize: fontSize.sm,
-                textAlign: 'center',
-                marginTop: spacing.sm,
-              }}>
-                Tap the mic to speak
-              </Text>
-            )}
           </View>
         }
         renderItem={({ item }) => {
@@ -467,7 +477,7 @@ export default function ChatScreen({ onBack, assistMode }) {
 
       <View style={{
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-end',
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm,
         backgroundColor: colors.background,
@@ -497,6 +507,7 @@ export default function ChatScreen({ onBack, assistMode }) {
             borderWidth: 1,
             borderColor: colors.inputBorder,
             marginRight: spacing.sm,
+            textAlignVertical: 'center',
           }}
           blurOnSubmit={false}
         />
@@ -505,9 +516,9 @@ export default function ChatScreen({ onBack, assistMode }) {
           disabled={loading || !input.trim()}
           activeOpacity={0.7}
           style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
+            width: 44,
+            height: 44,
+            borderRadius: 22,
             backgroundColor: colors.primary,
             alignItems: 'center',
             justifyContent: 'center',
@@ -521,7 +532,7 @@ export default function ChatScreen({ onBack, assistMode }) {
         >
           {loading
             ? <ActivityIndicator size="small" color={colors.white} />
-            : <Text style={{ color: colors.white, fontSize: 20, transform: [{ rotate: '45deg' }] }}>{'➤'}</Text>
+            : <Text style={{ color: colors.white, fontSize: 18, transform: [{ rotate: '45deg' }] }}>{'➤'}</Text>
           }
         </TouchableOpacity>
       </View>
@@ -571,6 +582,7 @@ export default function ChatScreen({ onBack, assistMode }) {
                 borderColor: colors.inputBorder,
                 marginBottom: spacing.lg,
                 minHeight: 80,
+                textAlignVertical: 'top',
               }}
             />
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>

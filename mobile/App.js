@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
 import * as Linking from 'expo-linking'
+import Constants from 'expo-constants'
 import { colors } from './src/theme/colors'
 import TabBar from './src/components/TabBar'
 import HomeScreen from './src/screens/HomeScreen'
@@ -52,16 +53,22 @@ export default function App() {
     })
 
     async function setupPush() {
-      if (!Device.isDevice) return
-      const { status: existing } = await Notifications.getPermissionsAsync()
-      let final = existing
-      if (existing !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync()
-        final = status
-      }
-      if (final !== 'granted') return
-      const tokenData = await Notifications.getExpoPushTokenAsync()
-      api.registerPushToken(tokenData.data, Platform.OS).catch(() => {})
+      try {
+        if (!Device.isDevice) return
+        const { status: existing } = await Notifications.getPermissionsAsync()
+        let final = existing
+        if (existing !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync()
+          final = status
+        }
+        if (final !== 'granted') return
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId
+          ?? Constants.easConfig?.projectId
+        const tokenData = await Notifications.getExpoPushTokenAsync(
+          projectId ? { projectId } : undefined
+        )
+        api.registerPushToken(tokenData.data, Platform.OS).catch(() => {})
+      } catch {}
     }
     setupPush()
 
