@@ -2,7 +2,7 @@ const STORAGE_KEY_API = 'shaggoth_api_url'
 const STORAGE_KEY_TOKEN = 'shaggoth_api_token'
 
 const defaults = {
-  apiUrl: 'http://100.103.3.35:8420',
+  apiUrl: 'https://shaggoth.relayapp.pro',
   apiKey: '',
 }
 
