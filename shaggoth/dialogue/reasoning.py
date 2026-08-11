@@ -290,9 +290,10 @@ def _pick(sentences, marker, topic_words, limit, min_len=40, focus=None):
 
 #: Interrogative scaffolding: present in the question, never the answer.
 _QUESTION_WORDS = {
-    "what", "when", "where", "which", "does", "did", "do", "is", "are",
-    "was", "were", "the", "types", "kinds", "sorts", "forms", "examples",
-    "categories", "list", "there", "many", "much", "need", "needs",
+    "what", "when", "where", "which", "why", "how", "does", "did", "do",
+    "is", "are", "was", "were", "the", "types", "kinds", "sorts", "forms",
+    "examples", "categories", "list", "there", "many", "much", "need",
+    "needs",
 }
 
 

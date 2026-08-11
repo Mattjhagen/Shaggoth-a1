@@ -277,3 +277,39 @@ def test_comparison_drops_redundant_topic_label():
     assert result is not None
     assert "Aeroponics:" not in result.answer
     assert "Hydroponics:" not in result.answer
+
+
+def test_question_words_excludes_why_and_how():
+    """'why'/'how' open almost every causal question, so leaving them out of
+    _QUESTION_WORDS let them leak into the focus set derived from
+    (question words - subject words - _QUESTION_WORDS), spuriously boosting
+    any sentence that happens to contain the literal word "why" or "how"."""
+    from shaggoth.dialogue.reasoning import _QUESTION_WORDS
+
+    assert "why" in _QUESTION_WORDS
+    assert "how" in _QUESTION_WORDS
+
+
+def test_causal_focus_does_not_leak_question_words():
+    from shaggoth.dialogue.reasoning import _topic_words, subject_of, _QUESTION_WORDS
+
+    question = "how does photosynthesis need light"
+    subject = subject_of(question)
+    focus = _topic_words(question) - _topic_words(subject) - _QUESTION_WORDS
+    assert focus == {"light"}
+
+
+def test_causal_ranking_ignores_incidental_how_in_sentence_text():
+    """A sentence that merely contains the word "how" must not outrank the
+    sentence that actually explains the question's focus ("light"), which is
+    what happened while "how" counted as a focus word in its own right."""
+    entry = FakeEntry(
+        "Photosynthesis",
+        "This explains how the broader cycle operates because energy moves "
+        "through many connected membranes. "
+        "It requires light because chlorophyll absorbs photons to drive the "
+        "reaction.",
+    )
+    result = _reasoner([entry]).reason("how does photosynthesis need light")
+    assert result is not None
+    assert result.answer.strip().startswith("It requires light")
