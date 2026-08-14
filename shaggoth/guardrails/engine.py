@@ -59,6 +59,27 @@ DEFAULT_CONFIG: dict[str, Any] = {
             ],
             "message": "Not doing that one. Ask me something else.",
         },
+        {
+            "id": "no-weapons",
+            "type": "topic_refuse",
+            "enabled": True,
+            "flag": "red",
+            "min_hits": 1,
+            "keywords": [
+                "make a bomb", "build a bomb",
+                "make an explosive", "build explosives",
+                "make poison", "synthesize poison",
+                "make a weapon", "build a weapon",
+                "make a gun", "build a gun", "print a gun", "3d print gun",
+                "make napalm", "make thermite",
+                "make mustard gas", "make nerve agent",
+                "make ricin", "make anthrax",
+            ],
+            "message": (
+                "I don't help with weapons, explosives, or harmful substances. "
+                "Ask me something I can actually be useful for."
+            ),
+        },
     ],
     "output_rules": [
         {
