@@ -422,14 +422,14 @@ class DialogueEngine:
                             e.topic for e, _ in knowledge_hits
                             if knowledge_is_relevant(e.topic, text, e.content)
                         ]
-                        if used_knowledge_tool and not entries_used:
+                        if used_knowledge_tool:
                             for tc in (loop_result.tool_calls if loop_result else []):
                                 if (tc.tool_name == "knowledge_search" and tc.output
                                         and not tc.error
                                         and not tc.output.startswith("No knowledge found")):
                                     for line in tc.output.split("\n"):
                                         m = re.match(r"\[(.+?)\]", line.strip())
-                                        if m:
+                                        if m and m.group(1) not in entries_used:
                                             entries_used.append(m.group(1))
                     elif _looks_like_question(text) and not _is_about_self(text):
                         source = "fallback"
