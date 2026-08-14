@@ -74,6 +74,26 @@ def test_chunk_single_word():
     assert chunk_content("hello") == ["hello"]
 
 
+def test_chunk_overlap_equal_to_size_no_infinite_loop():
+    """chunk_size == overlap used to cause an infinite loop."""
+    words = ["word"] * 1200
+    text = " ".join(words)
+    chunks = chunk_content(text, chunk_size=100, overlap=100, threshold=800)
+    assert len(chunks) >= 1
+    all_words = set()
+    for c in chunks:
+        all_words.update(c.split())
+    assert "word" in all_words
+
+
+def test_chunk_overlap_greater_than_size_no_infinite_loop():
+    """chunk_size < overlap must not cause negative step / infinite loop."""
+    words = ["word"] * 1200
+    text = " ".join(words)
+    chunks = chunk_content(text, chunk_size=50, overlap=100, threshold=800)
+    assert len(chunks) >= 1
+
+
 # ---------------------------------------------------------------------------
 # KnowledgeEntry with chunks
 # ---------------------------------------------------------------------------

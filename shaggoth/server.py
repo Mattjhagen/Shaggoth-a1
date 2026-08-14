@@ -26,6 +26,7 @@ routes (except /health, /, and static files) require
 
 from __future__ import annotations
 
+import hmac
 import ipaddress
 import json
 import mimetypes
@@ -68,6 +69,7 @@ RATE_LIMITS: dict[str, list[float]] = {}
 _SITES_INIT_LOCK = threading.Lock()
 _RATE_LIMIT_LOCK = threading.Lock()
 PUSH_TOKENS: list[dict] = []
+_PUSH_LOCK = threading.Lock()
 _MAX_PUSH_TOKENS = 100
 
 # Peers whose forwarded-IP headers we believe. cloudflared runs on this host
@@ -269,9 +271,16 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
         def _send_json(self, status: int, payload: dict) -> None:
             self._send(status, payload)
 
+        _MAX_BODY = 1_048_576  # 1 MiB
+
         def _read_json(self) -> dict:
-            length = int(self.headers.get("Content-Length") or 0)
-            if length == 0:
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except (ValueError, TypeError):
+                return {}
+            if length <= 0:
+                return {}
+            if length > self._MAX_BODY:
                 return {}
             try:
                 return json.loads(self.rfile.read(length))
@@ -299,7 +308,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             if not api_key:
                 return True
             auth = self.headers.get("Authorization", "")
-            if auth == f"Bearer {api_key}":
+            if hmac.compare_digest(auth, f"Bearer {api_key}"):
                 return True
             self._send_json(401, {"error": "unauthorized"})
             return False
@@ -1097,10 +1106,12 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 platform = body.get("platform", "unknown")
                 if not token:
                     return self._send_json(400, {"error": "token is required"})
-                if len(PUSH_TOKENS) >= _MAX_PUSH_TOKENS:
-                    return self._send_json(429, {"error": "too many tokens registered"})
-                PUSH_TOKENS.append({"token": token, "platform": platform, "time": time.time()})
-                return self._send_json(200, {"ok": True, "tokens_registered": len(PUSH_TOKENS)})
+                with _PUSH_LOCK:
+                    if len(PUSH_TOKENS) >= _MAX_PUSH_TOKENS:
+                        return self._send_json(429, {"error": "too many tokens registered"})
+                    PUSH_TOKENS.append({"token": token, "platform": platform, "time": time.time()})
+                    count = len(PUSH_TOKENS)
+                return self._send_json(200, {"ok": True, "tokens_registered": count})
 
             if path == "/push/tokens":
                 return self._send_json(200, {"tokens": PUSH_TOKENS})
@@ -1260,6 +1271,8 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
         def do_DELETE(self):
             url = urlparse(self.path)
             if not self._check_auth():
+                return
+            if not self._rate_limit(self._client_ip()):
                 return
             self._guard(self._route_delete, url.path, url)
 

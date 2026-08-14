@@ -341,6 +341,7 @@ class DialogueEngine:
                     summary_extra = f"{summary_extra}\n{project_ctx}"
             except Exception:  # noqa: BLE001
                 pass
+            loop_result = None
             try:
                 use_tools = self.tools if len(self.tools) > 0 else None
                 if use_tools is not None:
@@ -369,8 +370,11 @@ class DialogueEngine:
                 if generated:
                     body = generated
                     used_knowledge_tool = any(
-                        tc.tool_name == "knowledge_search" and tc.output and not tc.error
-                        for tc in (loop_result.tool_calls if use_tools and loop_result.tool_calls else [])
+                        tc.tool_name == "knowledge_search"
+                        and tc.output
+                        and not tc.error
+                        and not tc.output.startswith("No knowledge found")
+                        for tc in (loop_result.tool_calls if loop_result and loop_result.tool_calls else [])
                     )
                     if knowledge_context or used_knowledge_tool:
                         source = "model"

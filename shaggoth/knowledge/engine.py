@@ -37,6 +37,10 @@ def chunk_content(
     if len(words) <= threshold:
         return [text]
 
+    step = chunk_size - overlap
+    if step <= 0:
+        step = max(chunk_size, 1)
+
     chunks: list[str] = []
     start = 0
     while start < len(words):
@@ -44,7 +48,7 @@ def chunk_content(
         chunks.append(" ".join(words[start:end]))
         if end >= len(words):
             break
-        start += chunk_size - overlap
+        start += step
     return chunks
 
 
@@ -155,9 +159,7 @@ class KnowledgeBase:
         with self._swap_lock:
             self._entries = entries
             self._index = index
-        # Rebound, never mutated in place, so a concurrent maybe_reload() reads
-        # either the whole old set or the whole new one.
-        self._known_paths = seen
+            self._known_paths = seen
         self._last_scan = time.time()
 
     def _snapshot(self) -> tuple[list[KnowledgeEntry], dict[str, list[int]]]:
@@ -283,13 +285,13 @@ class KnowledgeBase:
         # Fuzzy fallback: if exact index matching found nothing, try to
         # match misspelled query words to known index keywords.
         if not candidates:
-            index_keys = list(self._index.keys())
+            index_keys = list(index.keys())
             fuzzy_words: set[str] = set()
             for qw in query_words:
                 close = difflib.get_close_matches(qw, index_keys, n=1, cutoff=0.8)
                 if close:
                     fuzzy_words.add(close[0])
-                    candidates.update(self._index.get(close[0], ()))
+                    candidates.update(index.get(close[0], ()))
             if fuzzy_words:
                 query_words = query_words | fuzzy_words
 
