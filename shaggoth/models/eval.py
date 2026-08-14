@@ -25,7 +25,7 @@ def perplexity(model, text: str, tokenizer, block_size: int = 256) -> dict:
         total_tokens += block_size
 
     avg_loss = sum(losses) / len(losses)
-    ppl = math.exp(avg_loss)
+    ppl = math.exp(min(avg_loss, 709.0))
 
     return {
         "perplexity": round(ppl, 2),

@@ -43,7 +43,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
 
 def load_settings(path: str | os.PathLike | None = None) -> dict[str, Any]:
     """Load settings.json, falling back to defaults for missing keys."""
-    settings = dict(DEFAULT_SETTINGS)
+    settings = json.loads(json.dumps(DEFAULT_SETTINGS))
     candidate = Path(path) if path else CONFIG_DIR / "settings.json"
     if candidate.exists():
         with open(candidate, encoding="utf-8") as fh:

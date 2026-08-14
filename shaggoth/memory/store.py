@@ -315,6 +315,7 @@ class MemoryStore:
                 WHERE k.word IN ({placeholders})
                   AND m.role = 'user'
                   AND m.session_id != ?
+                LIMIT 5000
                 """,
                 (*query_words, current_session),
             ).fetchall()

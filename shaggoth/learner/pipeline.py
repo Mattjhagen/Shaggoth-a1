@@ -175,10 +175,11 @@ class LearnerPipeline:
 
         finally:
             session.ended_at = time.time()
-            self._history.append(asdict(session))
-            self._save_history()
-            self._learning = False
-            self._current_session = None
+            with self._lock:
+                self._history.append(asdict(session))
+                self._save_history()
+                self._learning = False
+                self._current_session = None
 
     def active_model(self) -> tuple[str, str]:
         """The model actually on disk, as ``(kind, path)``.
