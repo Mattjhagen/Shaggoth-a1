@@ -37,6 +37,7 @@ class PersonalityEngine:
 
     def _load(self) -> None:
         try:
+            mtime = self.path.stat().st_mtime
             with open(self.path, encoding="utf-8") as fh:
                 loaded = json.load(fh)
                 if not isinstance(loaded, dict):
@@ -44,17 +45,18 @@ class PersonalityEngine:
                     self._mtime = None
                     return
                 self.config = {**DEFAULT_PERSONALITY, **loaded}
-            self._mtime = self.path.stat().st_mtime
+            self._mtime = mtime
         except (json.JSONDecodeError, OSError) as exc:
             log.warning("[personality] failed to load %s: %s", self.path, exc)
             self._mtime = None
 
     def save(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.path, "w", encoding="utf-8") as fh:
-            json.dump(self.config, fh, indent=2)
-            fh.write("\n")
-        self._mtime = self.path.stat().st_mtime
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.path, "w", encoding="utf-8") as fh:
+                json.dump(self.config, fh, indent=2)
+                fh.write("\n")
+            self._mtime = self.path.stat().st_mtime
 
     def maybe_reload(self) -> bool:
         if not self.path.exists():
