@@ -330,3 +330,47 @@ def test_relevance_stem_match_rejects_unrelated():
         "what is gravitational force",
         "Gravel is a type of rock fragment.",
     )
+
+
+# --------------------------------------------------------------------------
+# Write serialization: concurrent add/remove must not interleave
+# --------------------------------------------------------------------------
+
+
+def test_knowledge_engine_has_write_lock(tmp_path):
+    """The write lock must exist and serialize add/remove operations."""
+    kb = KnowledgeBase(tmp_path)
+    assert hasattr(kb, "_write_lock"), "KnowledgeBase must have _write_lock"
+    kb.add_entry("Alpha", "Alpha content. " * 20)
+    kb.add_entry("Beta", "Beta content. " * 20)
+    topics = [e["topic"] for e in kb.list_entries()]
+    assert "Alpha" in topics
+    assert "Beta" in topics
+    kb.remove_entry("Alpha")
+    topics_after = [e["topic"] for e in kb.list_entries()]
+    assert "Alpha" not in topics_after
+    assert "Beta" in topics_after
+
+
+def test_concurrent_add_entries_dont_lose_data(tmp_path):
+    """Two threads adding entries simultaneously must both succeed."""
+    import threading
+    kb = KnowledgeBase(tmp_path)
+    errors = []
+
+    def add_entry(name, content):
+        try:
+            kb.add_entry(name, content)
+        except Exception as e:
+            errors.append(e)
+
+    t1 = threading.Thread(target=add_entry, args=("Topic1", "Content one. " * 20))
+    t2 = threading.Thread(target=add_entry, args=("Topic2", "Content two. " * 20))
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+    assert not errors
+    topics = {e["topic"] for e in kb.list_entries()}
+    assert "Topic1" in topics
+    assert "Topic2" in topics

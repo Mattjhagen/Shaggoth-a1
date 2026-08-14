@@ -120,6 +120,14 @@ class TestBuiltinTools:
         with pytest.raises((ValueError, SyntaxError)):
             _calculator("import os")
 
+    def test_calculator_nested_exponent_dos(self):
+        with pytest.raises(ValueError, match="too deeply nested|too large"):
+            _calculator("(((2**999)**999)**999)")
+
+    def test_calculator_intermediate_too_large(self):
+        with pytest.raises(ValueError, match="too large"):
+            _calculator("2 ** 10000")
+
     def test_get_current_time_returns_string(self):
         result = _get_current_time()
         assert isinstance(result, str)

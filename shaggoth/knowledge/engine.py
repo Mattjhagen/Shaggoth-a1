@@ -105,6 +105,9 @@ class KnowledgeBase:
         # together and read as one snapshot. Held only around the swap and the
         # snapshot read -- never around the scan itself, which does file I/O.
         self._swap_lock = threading.Lock()
+        # Serialise add_entry/remove_entry so concurrent callers cannot
+        # interleave file writes with _scan() calls.
+        self._write_lock = threading.Lock()
         self._scan()
 
     def _scan(self) -> None:
@@ -442,9 +445,10 @@ class KnowledgeBase:
         return "\n\n".join(entry.chunks[i] for i in best_indices)
 
     def add_entry(self, topic: str, content: str) -> Path:
-        fpath = self.directory / f"{self.slug_for(topic)}.md"
-        fpath.write_text(content, encoding="utf-8")
-        self._scan()
+        with self._write_lock:
+            fpath = self.directory / f"{self.slug_for(topic)}.md"
+            fpath.write_text(content, encoding="utf-8")
+            self._scan()
         return fpath
 
     @staticmethod
@@ -464,11 +468,12 @@ class KnowledgeBase:
         return slug or "untitled"
 
     def remove_entry(self, topic: str) -> bool:
-        fpath = self.directory / f"{self.slug_for(topic)}.md"
-        if fpath.exists():
-            fpath.unlink()
-            self._scan()
-            return True
+        with self._write_lock:
+            fpath = self.directory / f"{self.slug_for(topic)}.md"
+            if fpath.exists():
+                fpath.unlink()
+                self._scan()
+                return True
         return False
 
     def list_entries(self) -> list[dict[str, Any]]:

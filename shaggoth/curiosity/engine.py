@@ -96,11 +96,13 @@ class CuriosityEngine:
 
     @property
     def is_running(self) -> bool:
-        return self._running
+        with self._lock:
+            return self._running
 
     @property
     def current_episode(self) -> CuriosityEpisode | None:
-        return self._current_episode
+        with self._lock:
+            return self._current_episode
 
     # --------------------------------------------------------- core logic
 
@@ -378,7 +380,7 @@ class CuriosityEngine:
 
         refreshed = 0
         for subject in subjects[:max_topics]:
-            if self._running:
+            if self.is_running:
                 break
             self.research_topic(subject, background=False)
             refreshed += 1
@@ -391,10 +393,12 @@ class CuriosityEngine:
     # -------------------------------------------------------- status
 
     def status(self) -> dict:
-        ep = self._current_episode  # capture once; avoids TOCTOU with finishing threads
+        with self._lock:
+            running = self._running
+            ep = self._current_episode
         entries = self.knowledge.list_entries()
         return {
-            "is_running": self._running,
+            "is_running": running,
             "current_episode": asdict(ep) if ep else None,
             "total_episodes": len(self._history),
             "last_episode": self._history[-1] if self._history else None,

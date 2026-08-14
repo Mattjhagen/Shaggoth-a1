@@ -151,10 +151,12 @@ class RecordingEngine:
     """Minimal stand-in exercising the real refresh_stale/research_topic."""
 
     def __init__(self, stale):
+        import threading
         from shaggoth.curiosity.engine import CuriosityEngine
 
         self.researched = []
         self._engine = CuriosityEngine.__new__(CuriosityEngine)
+        self._engine._lock = threading.Lock()
         self._engine._running = False
         self._engine.freshness = FakeFreshness(stale)
         self._engine.research_topic = lambda topic, **kw: self.researched.append(topic)

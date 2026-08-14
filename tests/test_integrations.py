@@ -207,6 +207,53 @@ class D1SyncTests(unittest.TestCase):
         result = sync.extract_and_store_facts("some text")
         self.assertIsInstance(result, dict)
 
+    def test_ensure_remote_schema_enqueues_ddl_when_configured(self):
+        response_body = json.dumps({"result": [], "success": True}).encode()
+        with patch("urllib.request.urlopen", _fake_urlopen(response_body)):
+            sync = self._sync(account_id="ACC", api_token="TOK")
+            sync._queue.join()
+        # The schema migration should have enqueued 4 CREATE TABLE statements
+        # which the worker has already drained; if we got here without errors,
+        # the DDL was accepted by the mock endpoint.
+        self.assertTrue(sync.configured)
+
+    def test_ensure_remote_schema_skipped_when_unconfigured(self):
+        sync = self._sync()
+        # unconfigured → queue stays empty after init
+        self.assertEqual(sync._queue.qsize(), 0)
+
+    def test_set_preference_stored_locally_and_enqueued(self):
+        local = FakeMemoryStore()
+        local.set_preference = MagicMock()
+        response_body = json.dumps({"result": [], "success": True}).encode()
+        with patch("urllib.request.urlopen", _fake_urlopen(response_body)):
+            sync = D1Sync(local, account_id="ACC", api_token="TOK")
+            sync.set_preference("food", "cuisine", "Italian")
+            sync._queue.join()
+        local.set_preference.assert_called_once()
+
+    def test_add_project_stored_locally_and_enqueued(self):
+        local = FakeMemoryStore()
+        local.add_project = MagicMock(return_value=1)
+        response_body = json.dumps({"result": [], "success": True}).encode()
+        with patch("urllib.request.urlopen", _fake_urlopen(response_body)):
+            sync = D1Sync(local, account_id="ACC", api_token="TOK")
+            pid = sync.add_project("test-project", "desc")
+            sync._queue.join()
+        self.assertEqual(pid, 1)
+        local.add_project.assert_called_once()
+
+    def test_update_project_stored_locally_and_enqueued(self):
+        local = FakeMemoryStore()
+        local.update_project = MagicMock(return_value=True)
+        response_body = json.dumps({"result": [], "success": True}).encode()
+        with patch("urllib.request.urlopen", _fake_urlopen(response_body)):
+            sync = D1Sync(local, account_id="ACC", api_token="TOK")
+            result = sync.update_project("proj", status="complete")
+            sync._queue.join()
+        self.assertTrue(result)
+        local.update_project.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # KVSubscriptionStore

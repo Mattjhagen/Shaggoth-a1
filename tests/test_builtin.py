@@ -59,6 +59,24 @@ class TestSafeEval:
         with pytest.raises(ZeroDivisionError):
             _safe_eval("1 / 0")
 
+    def test_nested_exponent_dos_blocked(self):
+        with pytest.raises(ValueError, match="too deeply nested|too large"):
+            _safe_eval("(((2**999)**999)**999)")
+
+    def test_intermediate_result_too_large(self):
+        with pytest.raises(ValueError, match="too large"):
+            _safe_eval("2 ** 10000")
+
+    def test_safe_exponent_still_works(self):
+        assert _safe_eval("2 ** 10") == 1024
+
+    def test_depth_limit_rejects_deep_nesting(self):
+        # Build a deeply nested binary expression: 1+1+1+1+...
+        # Python AST nests BinOps left-to-right, so 25 additions = 25 depth
+        expr = "+".join(["1"] * 25)
+        with pytest.raises(ValueError, match="too deeply nested"):
+            _safe_eval(expr)
+
 
 # ---------------------------------------------------------------------------
 # PluginRegistry

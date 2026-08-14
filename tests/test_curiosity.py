@@ -331,6 +331,45 @@ class ResearchQueueTests(unittest.TestCase):
         self.assertFalse(self.engine._running)
 
 
+class CuriosityLockingTests(unittest.TestCase):
+    """Tests for thread-safe property access on CuriosityEngine."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.knowledge = KnowledgeBase(directory=Path(self.tmpdir) / "knowledge")
+        self.scraper = ScraperEngine(db_path=str(Path(self.tmpdir) / "scraper.db"))
+        self.engine = CuriosityEngine(
+            knowledge=self.knowledge,
+            scraper=self.scraper,
+            history_path=Path(self.tmpdir) / "curiosity_history.json",
+            use_wikipedia=False,
+        )
+
+    def test_is_running_property_acquires_lock(self):
+        self.assertFalse(self.engine.is_running)
+        with self.engine._lock:
+            self.engine._running = True
+        self.assertTrue(self.engine.is_running)
+        with self.engine._lock:
+            self.engine._running = False
+
+    def test_current_episode_property_acquires_lock(self):
+        self.assertIsNone(self.engine.current_episode)
+
+    def test_status_returns_consistent_snapshot(self):
+        status = self.engine.status()
+        self.assertIn("is_running", status)
+        self.assertFalse(status["is_running"])
+
+    def test_refresh_stale_skips_when_running(self):
+        with self.engine._lock:
+            self.engine._running = True
+        result = self.engine.refresh_stale()
+        self.assertEqual(result.get("refreshed", 0), 0)
+        with self.engine._lock:
+            self.engine._running = False
+
+
 class PluginTests(unittest.TestCase):
     def test_teach_plugin_parses_topic_and_content(self):
         from shaggoth.plugins.builtin import build_registry

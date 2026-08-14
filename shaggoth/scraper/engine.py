@@ -284,7 +284,7 @@ class ScraperEngine:
                 },
             )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                raw = resp.read()
+                raw = resp.read(10_485_760)  # 10 MiB cap
                 content_type = resp.headers.get("Content-Type", "")
                 charset = _extract_charset(content_type)
                 media_type = content_type.split(";", 1)[0].strip().lower()

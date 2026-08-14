@@ -337,8 +337,8 @@ def cmd_benchmark(settings: dict, benchmark: str | None, output: str | None) -> 
     engine = build_engine(settings)
     harness = Harness(engine, session_id="eval-bench")
 
-    benchmark_path = benchmark or str(DATA_DIR / "eval" / "benchmarks" / "default.jsonl")
-    print(f"Loading benchmark from {benchmark_path}")
+    benchmark_path = benchmark or None
+    print(f"Loading benchmark from {benchmark_path or 'bundled default'}")
 
     t0 = _time.monotonic()
     results = harness.run(benchmark_path=benchmark_path)

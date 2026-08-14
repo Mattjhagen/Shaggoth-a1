@@ -32,22 +32,29 @@ _OPS = {
 }
 
 _MAX_EXPONENT = 1000
+_MAX_AST_DEPTH = 20
+_MAX_RESULT_BITS = 10_000
 
 
 def _safe_eval(expr: str) -> float:
-    def walk(node):
+    def walk(node, depth=0):
+        if depth > _MAX_AST_DEPTH:
+            raise ValueError("expression too deeply nested")
         if isinstance(node, ast.Expression):
-            return walk(node.body)
+            return walk(node.body, depth + 1)
         if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
             return node.value
         if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
-            left = walk(node.left)
-            right = walk(node.right)
+            left = walk(node.left, depth + 1)
+            right = walk(node.right, depth + 1)
             if isinstance(node.op, ast.Pow) and abs(right) > _MAX_EXPONENT:
                 raise ValueError(f"exponent too large (max {_MAX_EXPONENT})")
-            return _OPS[type(node.op)](left, right)
+            result = _OPS[type(node.op)](left, right)
+            if isinstance(result, int) and result.bit_length() > _MAX_RESULT_BITS:
+                raise ValueError("intermediate result too large")
+            return result
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
-            return _OPS[type(node.op)](walk(node.operand))
+            return _OPS[type(node.op)](walk(node.operand, depth + 1))
         raise ValueError("unsupported expression")
     return walk(ast.parse(expr, mode="eval"))
 

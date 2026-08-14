@@ -56,6 +56,7 @@ class D1Sync:
             target=self._worker, name="shaggoth-d1-sync", daemon=True
         )
         self._thread.start()
+        self._ensure_remote_schema()
 
     @property
     def configured(self) -> bool:
@@ -93,6 +94,44 @@ class D1Sync:
                 self._queue.put_nowait((sql, params))
             except queue.Empty:
                 pass
+
+    def _ensure_remote_schema(self) -> None:
+        """Enqueue idempotent DDL so the remote D1 schema matches local."""
+        if not self.configured:
+            return
+        migrations = [
+            "CREATE TABLE IF NOT EXISTS messages ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "session_id TEXT NOT NULL, role TEXT NOT NULL, "
+            "content TEXT NOT NULL, ts REAL NOT NULL)",
+
+            "CREATE TABLE IF NOT EXISTS facts ("
+            "key TEXT NOT NULL, value TEXT NOT NULL, "
+            "user_id TEXT NOT NULL DEFAULT 'default', "
+            "ts REAL NOT NULL, "
+            "confidence REAL NOT NULL DEFAULT 0.5, "
+            "source TEXT NOT NULL DEFAULT 'pattern', "
+            "PRIMARY KEY (key, user_id))",
+
+            "CREATE TABLE IF NOT EXISTS preferences ("
+            "user_id TEXT NOT NULL DEFAULT 'default', "
+            "category TEXT NOT NULL, key TEXT NOT NULL, "
+            "value TEXT NOT NULL, "
+            "confidence REAL NOT NULL DEFAULT 0.5, "
+            "source TEXT NOT NULL DEFAULT 'inferred', "
+            "ts REAL NOT NULL, "
+            "PRIMARY KEY (user_id, category, key))",
+
+            "CREATE TABLE IF NOT EXISTS projects ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "user_id TEXT NOT NULL DEFAULT 'default', "
+            "name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', "
+            "status TEXT NOT NULL DEFAULT 'active', "
+            "ts_created REAL NOT NULL, ts_updated REAL NOT NULL, "
+            "UNIQUE(user_id, name))",
+        ]
+        for ddl in migrations:
+            self._enqueue(ddl)
 
     def _worker(self) -> None:
         while True:

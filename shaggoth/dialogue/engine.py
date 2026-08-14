@@ -300,6 +300,7 @@ class DialogueEngine:
         answered_from_knowledge = False
         reasoning_steps: list = []
         entries_used: list = []
+        loop_result = None
 
         # 5a. Reasoning first, for questions a single entry cannot answer.
         # "what is the difference between aeroponics and hydroponics" used to
@@ -383,6 +384,13 @@ class DialogueEngine:
                             e.topic for e, _ in knowledge_hits
                             if knowledge_is_relevant(e.topic, text, e.content)
                         ]
+                        if used_knowledge_tool and not entries_used:
+                            for tc in (loop_result.tool_calls if loop_result else []):
+                                if tc.tool_name == "knowledge_search" and tc.output and not tc.error:
+                                    for line in tc.output.split("\n"):
+                                        m = re.match(r"\[(.+?)\]", line.strip())
+                                        if m:
+                                            entries_used.append(m.group(1))
                     elif _looks_like_question(text) and not _is_about_self(text):
                         source = "fallback"
                     else:
@@ -540,12 +548,20 @@ class DialogueEngine:
                 )
                 triggers.append(topic)
 
+        tools_used_list = []
+        if loop_result and loop_result.tool_calls:
+            tools_used_list = [
+                {"tool_name": tc.tool_name, "arguments": tc.arguments,
+                 "output": tc.output[:200] if tc.output else ""}
+                for tc in loop_result.tool_calls
+            ]
+
         citations = self._build_citations(text, knowledge_hits, entries_used)
         reply = self._finish(
             Reply(body, source=source, memory_triggers=triggers,
                   new_facts=new_facts, mode=mode,
                   reasoning=reasoning_steps, entries_used=entries_used,
-                  citations=citations)
+                  citations=citations, tools_used=tools_used_list)
         )
         self._persist(session_id, text, reply)
 
@@ -861,7 +877,14 @@ _ABOUT_SELF = re.compile(
     r"(?i)^(?:are you|what are you|who are you|do you|can you|"
     r"how do you|how are you|what do you|what can you|"
     r"tell me about yourself|what should i (?:call|ask) you|"
-    r"how old are you|where (?:do you|are you) (?:run|live|come from))",
+    r"how old are you|where (?:do you|are you) (?:run|live|come from)|"
+    r"what(?:'s| is) your (?:name|purpose|goal|favorite|favourite)|"
+    r"what (?:model|version|language model|ai|llm) are you|"
+    r"do you have (?:feelings|emotions|opinions|a name|consciousness)|"
+    r"are you (?:sentient|conscious|alive|real|an? (?:ai|bot|robot|machine|program))|"
+    r"who (?:made|built|created|programmed|trained) you|"
+    r"what (?:were you|are you) (?:made|built|trained) (?:with|on|from|for)|"
+    r"how were you (?:made|built|created|trained))",
 )
 
 

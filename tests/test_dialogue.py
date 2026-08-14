@@ -414,6 +414,29 @@ class GPTConversationTests(unittest.TestCase):
         self.assertFalse(_is_about_self("who is Albert Einstein"))
         self.assertFalse(_is_about_self("how does gravity work"))
 
+    def test_is_about_self_expanded_patterns(self):
+        from shaggoth.dialogue.engine import _is_about_self
+        self.assertTrue(_is_about_self("what model are you"))
+        self.assertTrue(_is_about_self("what language model are you"))
+        self.assertTrue(_is_about_self("what ai are you"))
+        self.assertTrue(_is_about_self("what's your name"))
+        self.assertTrue(_is_about_self("what is your purpose"))
+        self.assertTrue(_is_about_self("do you have feelings"))
+        self.assertTrue(_is_about_self("do you have consciousness"))
+        self.assertTrue(_is_about_self("are you sentient"))
+        self.assertTrue(_is_about_self("are you an ai"))
+        self.assertTrue(_is_about_self("are you a bot"))
+        self.assertTrue(_is_about_self("are you a robot"))
+        self.assertTrue(_is_about_self("who made you"))
+        self.assertTrue(_is_about_self("who built you"))
+        self.assertTrue(_is_about_self("who created you"))
+        self.assertTrue(_is_about_self("what were you built with"))
+        self.assertTrue(_is_about_self("how were you trained"))
+        self.assertTrue(_is_about_self("where do you come from"))
+        self.assertTrue(_is_about_self("tell me about yourself"))
+        self.assertFalse(_is_about_self("tell me about quantum physics"))
+        self.assertFalse(_is_about_self("what is DNA"))
+
 
 class NameInjectionTests(unittest.TestCase):
     """Name personalization edge cases."""

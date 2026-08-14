@@ -27,8 +27,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run Shaggoth eval benchmark")
     parser.add_argument(
         "--benchmark",
-        default=str(DATA_DIR / "eval" / "benchmarks" / "default.jsonl"),
-        help="path to benchmark JSONL",
+        default=None,
+        help="path to benchmark JSONL (default: bundled benchmark)",
     )
     parser.add_argument(
         "--output",
@@ -40,7 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     settings = load_settings()
     engine = build_engine(settings)
 
-    print(f"Loading benchmark from {args.benchmark}")
+    print(f"Loading benchmark from {args.benchmark or 'bundled default'}")
     harness = Harness(engine, session_id="eval-bench")
 
     t0 = time.monotonic()
