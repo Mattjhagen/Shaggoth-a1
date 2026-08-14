@@ -138,7 +138,7 @@ class ChatRESTModel(LanguageModel):
             text = self._chat(messages, max_tokens)
             self._last_error = None
             return text.strip()
-        except Exception as exc:  # noqa: BLE001 — a dead phone must not break a chat turn
+        except (OSError, RuntimeError, ValueError) as exc:
             self._last_error = f"{self.provider}: {exc}"
             print(f"[{self.provider}] generation failed: {exc}")
             return ""

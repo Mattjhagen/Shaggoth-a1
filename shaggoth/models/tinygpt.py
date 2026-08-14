@@ -165,7 +165,7 @@ class TinyGPTModel(LanguageModel):
         opt = torch.optim.AdamW(self.model.parameters(), lr=lr)
         self.model.train()
         for step in range(steps):
-            ix = torch.randint(len(data) - self.cfg.block_size - 1, (batch_size,))
+            ix = torch.randint(len(data) - self.cfg.block_size, (batch_size,))
             x = torch.stack([data[i : i + self.cfg.block_size] for i in ix]).to(device)
             y = torch.stack(
                 [data[i + 1 : i + self.cfg.block_size + 1] for i in ix]

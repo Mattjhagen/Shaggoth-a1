@@ -139,6 +139,22 @@ def test_a_repair_is_marked_before_research_not_after(store):
     assert store.repair_queue(now=0) == []
 
 
+def test_repaired_dict_is_evicted_when_oversized(tmp_path):
+    path = tmp_path / "feedback.json"
+    store = FeedbackStore(path, cooldown=100.0)
+    from shaggoth.feedback.store import MAX_ENTRIES
+    for i in range(MAX_ENTRIES + 50):
+        store.mark_repaired(f"topic-{i}", now=float(i))
+    assert len(store._repaired) <= MAX_ENTRIES
+
+
+def test_status_repair_queue_consistent_with_items(store):
+    store.record("q", "bad", entries_used=["A"])
+    s = store.status()
+    assert s["bad"] == 1
+    assert s["repair_queue"] == 1
+
+
 def test_a_scheduler_without_feedback_still_works(tmp_path):
     from shaggoth.curiosity.scheduler import CuriosityScheduler, ScheduleConfig
 

@@ -308,13 +308,13 @@ def test_reasoner_has_seeded_rng():
 
 
 def test_search_cache_eviction():
-    """The _search_cache set must not grow without bound."""
+    """The _search_cache dict must not grow without bound."""
     r = _reasoner([AERO])
     for i in range(600):
-        r._search_cache.add(f"query-{i}")
+        r._search_cache[f"query-{i}"] = None
         if len(r._search_cache) > r._search_cache_max:
-            to_drop = list(r._search_cache)[:len(r._search_cache) // 2]
-            r._search_cache -= set(to_drop)
+            for _ in range(len(r._search_cache) // 2):
+                r._search_cache.pop(next(iter(r._search_cache)))
     assert len(r._search_cache) <= r._search_cache_max
 
 

@@ -258,6 +258,44 @@ class TestProactiveChatter:
         assert len(self.chatter._sent) <= 10
 
 
+class TestCurlyBracesInTopic:
+    """Topics containing curly braces must not crash str.format()."""
+
+    def _entry(self, topic, content=""):
+        return SimpleNamespace(topic=topic, content=content)
+
+    def test_topic_with_braces_does_not_crash(self):
+        entry = self._entry("Python {dict}", "The dict type uses curly braces like {key: value} for mapping.")
+        for seed in range(20):
+            rng = random.Random(seed)
+            msg = compose_proactive_message([entry], rng=rng)
+            assert isinstance(msg, str)
+
+    def test_snippet_with_braces_does_not_crash(self):
+        entry = self._entry("templates", "C++ templates use angle brackets but {braces} in specializations.")
+        for seed in range(20):
+            rng = random.Random(seed)
+            msg = compose_proactive_message([entry], rng=rng)
+            assert isinstance(msg, str)
+
+
+class TestSentDictFIFO:
+    """_sent dict evicts oldest entries (FIFO), not arbitrary ones."""
+
+    def test_eviction_drops_oldest(self):
+        engine = _FakeEngine()
+        push = MagicMock()
+        chatter = ProactiveChatter(engine=engine, push=push, rng_seed=0)
+        chatter._sent_max = 10
+        for i in range(1, 16):
+            chatter._sent[i] = None
+            if len(chatter._sent) > chatter._sent_max:
+                for _ in range(len(chatter._sent) // 2):
+                    chatter._sent.pop(next(iter(chatter._sent)))
+        remaining = list(chatter._sent.keys())
+        assert all(r > 5 for r in remaining), f"Expected recent ids, got {remaining}"
+
+
 class TestEmptyTopicMessage:
     def test_empty_topic_never_garbled(self):
         entry = SimpleNamespace(topic="", content="", mtime=1)

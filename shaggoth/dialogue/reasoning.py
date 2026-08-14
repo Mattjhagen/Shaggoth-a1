@@ -336,7 +336,7 @@ class Reasoner:
         self.sentences = sentences
         self.relevant = relevant
         self.search = search
-        self._search_cache: set[str] = set()
+        self._search_cache: dict[str, None] = {}
         self._search_cache_max = 500
         self._rng = random.Random()
 
@@ -354,10 +354,10 @@ class Reasoner:
         # Skip if we've already added this query
         if query in self._search_cache:
             return
-        self._search_cache.add(query)
+        self._search_cache[query] = None
         if len(self._search_cache) > self._search_cache_max:
-            to_drop = list(self._search_cache)[:len(self._search_cache) // 2]
-            self._search_cache -= set(to_drop)
+            for _ in range(len(self._search_cache) // 2):
+                self._search_cache.pop(next(iter(self._search_cache)))
 
         # Format results as a knowledge entry
         formatted_results = []

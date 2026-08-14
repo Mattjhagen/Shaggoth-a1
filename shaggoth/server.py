@@ -1298,12 +1298,21 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             text/html -- which is actively misleading when you are debugging
             cache headers, and wrong for any client that HEADs before GET.
             """
-            if not self._rate_limit(self._client_ip(), limit=120):
-                return
+            url = urlparse(self.path)
+            path = url.path
+            if path not in ("/", "/health", ""):
+                _candidate_path = STATIC_DIR / path.lstrip("/")
+                try:
+                    _candidate_path.resolve().relative_to(STATIC_DIR.resolve())
+                    is_static = _candidate_path.is_file()
+                except (ValueError, OSError):
+                    is_static = False
+                if not is_static:
+                    if not self._rate_limit(self._client_ip(), limit=120):
+                        return
             self._suppress_body = True
             try:
-                url = urlparse(self.path)
-                self._guard(self._route_get, url.path, url)
+                self._guard(self._route_get, path, url)
             finally:
                 self._suppress_body = False
 
