@@ -67,6 +67,10 @@ class TestSafeEval:
         with pytest.raises(ValueError, match="too large"):
             _safe_eval("2 ** 10000")
 
+    def test_exponent_at_boundary_is_rejected(self):
+        with pytest.raises(ValueError, match="too large"):
+            _safe_eval("2 ** 1000")
+
     def test_safe_exponent_still_works(self):
         assert _safe_eval("2 ** 10") == 1024
 

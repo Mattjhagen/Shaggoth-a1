@@ -179,8 +179,10 @@ class GeminiModel(ChatRESTModel):
 
     def _chat(self, messages: list[dict], max_tokens: int) -> str:
         system = "\n".join(m["content"] for m in messages if m["role"] == "system")
+        _ROLE_MAP = {"assistant": "model"}
         contents = [
-            {"role": m["role"], "parts": [{"text": m["content"]}]}
+            {"role": _ROLE_MAP.get(m["role"], m["role"]),
+             "parts": [{"text": m["content"]}]}
             for m in messages
             if m["role"] != "system"
         ]

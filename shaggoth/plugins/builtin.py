@@ -48,7 +48,7 @@ def _safe_eval(expr: str) -> float:
         if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
             left = walk(node.left, depth + 1)
             right = walk(node.right, depth + 1)
-            if isinstance(node.op, ast.Pow) and abs(right) > _MAX_EXPONENT:
+            if isinstance(node.op, ast.Pow) and abs(right) >= _MAX_EXPONENT:
                 raise ValueError(f"exponent too large (max {_MAX_EXPONENT})")
             result = _OPS[type(node.op)](left, right)
             if isinstance(result, int) and result.bit_length() > _MAX_RESULT_BITS:

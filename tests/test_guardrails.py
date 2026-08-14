@@ -222,6 +222,11 @@ class GuardrailTests(unittest.TestCase):
         verdict = self.engine.check_input("this is a test")
         self.assertFalse(verdict.allowed)
 
+    def test_add_rule_rejects_oversized_pattern(self):
+        long_pat = r"\b" + "a" * 1001
+        with self.assertRaises(ValueError, msg="too long"):
+            self.engine.add_rule({"id": "huge", "type": "regex_block", "pattern": long_pat})
+
     def test_add_redact_rule_rejects_missing_pattern(self):
         with self.assertRaises(ValueError, msg="requires a 'pattern'"):
             self.engine.add_rule({"id": "bad-redact", "type": "redact"})

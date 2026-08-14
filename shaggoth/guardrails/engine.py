@@ -185,6 +185,8 @@ class GuardrailEngine:
             pattern = rule.get("pattern")
             if not pattern or not isinstance(pattern, str):
                 raise ValueError(f"rule type {rtype!r} requires a 'pattern' string")
+            if len(pattern) > 1000:
+                raise ValueError("pattern too long (max 1000 characters)")
             try:
                 re.compile(pattern)
             except re.error as exc:

@@ -140,6 +140,8 @@ class D1Sync:
         alters = [
             "ALTER TABLE facts ADD COLUMN confidence REAL NOT NULL DEFAULT 0.5",
             "ALTER TABLE facts ADD COLUMN source TEXT NOT NULL DEFAULT 'pattern'",
+            "ALTER TABLE preferences ADD COLUMN confidence REAL NOT NULL DEFAULT 0.5",
+            "ALTER TABLE preferences ADD COLUMN source TEXT NOT NULL DEFAULT 'inferred'",
         ]
         for ddl in alters:
             self._enqueue(ddl)
