@@ -150,7 +150,10 @@ class D1Sync:
             try:
                 self._d1_query(sql, params)
             except Exception as exc:
-                print(f"[d1] sync failed: {exc}")
+                msg = str(exc)
+                if self._api_token:
+                    msg = msg.replace(self._api_token, "[REDACTED]")
+                print(f"[d1] sync failed: {type(exc).__name__}: {msg}")
             finally:
                 self._queue.task_done()
 

@@ -979,11 +979,14 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
 
             if path == "/learn/start":
                 body = self._read_json()
+                crawl_depth = max(0, min(int(body.get("crawl_depth", 1)), MAX_DEPTH))
+                max_pages = max(1, min(int(body.get("max_pages", 20)), MAX_PAGES))
+                training_steps = max(0, min(int(body.get("training_steps", 1000)), 10_000))
                 session = learner.learn(
                     urls=body.get("urls"),
-                    crawl_depth=body.get("crawl_depth", 1),
-                    max_pages=body.get("max_pages", 20),
-                    training_steps=body.get("training_steps", 1000),
+                    crawl_depth=crawl_depth,
+                    max_pages=max_pages,
+                    training_steps=training_steps,
                     background=True,
                 )
                 return self._send_json(202, {"ok": True, "session_id": session.session_id})
