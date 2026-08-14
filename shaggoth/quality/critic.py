@@ -102,6 +102,7 @@ class CriticLoop:
 
         self.stats = CriticStats()
         self._seen: set = set()
+        self._seen_max = 5000
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
@@ -168,6 +169,8 @@ class CriticLoop:
 
         self.stats.seconds_spent += verdict.seconds
         self._seen.add(question.lower())
+        if len(self._seen) > self._seen_max:
+            self._seen.clear()
 
         if not verdict.usable:
             self.stats.unusable += 1
