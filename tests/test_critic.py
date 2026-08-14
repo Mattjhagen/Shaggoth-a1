@@ -127,7 +127,7 @@ def test_an_unavailable_teacher_degrades_quietly(tmp_path):
 
 
 def test_machine_busy_reads_load():
-    assert machine_busy(max_load=0.0) is True
+    assert machine_busy(max_load=-1.0) is True
     assert machine_busy(max_load=10_000.0) is False
 
 

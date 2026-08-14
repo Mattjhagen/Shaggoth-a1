@@ -341,7 +341,7 @@ class DialogueEngine:
                 if project_ctx:
                     summary_extra = f"{summary_extra}\n{project_ctx}"
             except Exception:  # noqa: BLE001
-                pass
+                log.warning("Failed to load user profile/project context", exc_info=True)
             loop_result = None
             try:
                 use_tools = self.tools if len(self.tools) > 0 else None

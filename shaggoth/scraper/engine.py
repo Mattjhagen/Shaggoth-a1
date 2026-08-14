@@ -312,7 +312,7 @@ class ScraperEngine:
         try:
             return parser.can_fetch(USER_AGENT, url)
         except Exception:
-            return True
+            return False
 
     @staticmethod
     def _is_private_url(url: str) -> bool:

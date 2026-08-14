@@ -1124,13 +1124,15 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 return self._send_json(200, {"ok": True, "tokens_registered": count})
 
             if path == "/push/tokens":
-                safe_tokens = [
-                    {"platform": t.get("platform", "unknown"),
-                     "token_prefix": t["token"][:8] + "...",
-                     "registered": t.get("time", 0)}
-                    for t in PUSH_TOKENS
-                ]
-                return self._send_json(200, {"count": len(PUSH_TOKENS), "tokens": safe_tokens})
+                with _PUSH_LOCK:
+                    safe_tokens = [
+                        {"platform": t.get("platform", "unknown"),
+                         "token_prefix": t["token"][:8] + "...",
+                         "registered": t.get("time", 0)}
+                        for t in PUSH_TOKENS
+                    ]
+                    count = len(PUSH_TOKENS)
+                return self._send_json(200, {"count": count, "tokens": safe_tokens})
 
             if path == "/scrape/seed":
                 body = self._read_json()
@@ -1267,8 +1269,9 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             if path not in ("/", "/health", ""):
                 _candidate_path = STATIC_DIR / path.lstrip("/")
                 try:
+                    _candidate_path.resolve().relative_to(STATIC_DIR.resolve())
                     is_static = _candidate_path.is_file()
-                except OSError:
+                except (ValueError, OSError):
                     is_static = False
                 if not is_static:
                     if not self._rate_limit(self._client_ip(), limit=120):

@@ -8,11 +8,14 @@ thread or on-demand via API/CLI.
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 from ..config import DATA_DIR
 from ..knowledge.engine import KnowledgeBase
@@ -246,7 +249,7 @@ class CuriosityEngine:
                         episode.pages_scraped += 1
                         episode.urls_found += 1
             except Exception:
-                pass  # Wikipedia is optional, fall through to web search
+                log.debug("Wikipedia lookup failed for %s", episode.topic, exc_info=True)
 
         # 1. Search the web for each query
         all_results: list[SearchResult] = []
