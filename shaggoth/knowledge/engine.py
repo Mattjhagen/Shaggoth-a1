@@ -129,6 +129,11 @@ class KnowledgeBase:
                 continue
             if not content:
                 continue
+            try:
+                mtime = fpath.stat().st_mtime
+            except FileNotFoundError:
+                seen.discard(str(fpath))
+                continue
             # Collapse runs of separators: "aeroponics---wikipedia" would
             # otherwise become the topic "Aeroponics   Wikipedia", whose
             # extra blanks break title matching.
@@ -148,7 +153,7 @@ class KnowledgeBase:
                 path=str(fpath),
                 word_count=len(content.split()),
                 keywords=keywords,
-                mtime=fpath.stat().st_mtime,
+                mtime=mtime,
                 chunks=chunks,
                 chunk_keywords=chunk_kw,
             ))
@@ -478,15 +483,17 @@ class KnowledgeBase:
 
     def list_entries(self) -> list[dict[str, Any]]:
         self.maybe_reload()
+        entries, _ = self._snapshot()
         return [
             {"topic": e.topic, "word_count": e.word_count, "path": e.path,
              "mtime": e.mtime}
-            for e in self._entries
+            for e in entries
         ]
 
     def get_entry(self, topic: str) -> KnowledgeEntry | None:
         self.maybe_reload()
-        for e in self._entries:
+        entries, _ = self._snapshot()
+        for e in entries:
             if e.topic.lower() == topic.lower():
                 return e
         return None

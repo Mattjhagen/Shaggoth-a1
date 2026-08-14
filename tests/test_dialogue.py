@@ -117,6 +117,32 @@ class DialogueTests(unittest.TestCase):
         reply = engine.respond("I think bob@example.com is the contact", session_id="s1")
         self.assertNotIn("bob@example.com", reply.text)
 
+    def test_output_redaction_applies_to_citations(self):
+        from shaggoth.dialogue.engine import Reply
+        engine = make_engine()
+        reply = Reply(
+            text="clean text",
+            source="knowledge",
+            citations=[
+                {"topic": "Contacts", "snippet": "Email bob@example.com for info", "score": 0.9},
+            ],
+        )
+        reply = engine._finish(reply)
+        self.assertNotIn("bob@example.com", reply.citations[0]["snippet"])
+
+    def test_output_redaction_applies_to_tool_output(self):
+        from shaggoth.dialogue.engine import Reply
+        engine = make_engine()
+        reply = Reply(
+            text="clean text",
+            source="model",
+            tools_used=[
+                {"tool_name": "search", "arguments": {}, "output": "token ghp_AABBCCDDEE1234567890 found"},
+            ],
+        )
+        reply = engine._finish(reply)
+        self.assertNotIn("ghp_AABBCCDDEE1234567890", reply.tools_used[0]["output"])
+
     def test_conversation_is_persisted(self):
         engine = make_engine()
         engine.respond("hello", session_id="s1")

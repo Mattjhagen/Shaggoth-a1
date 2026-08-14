@@ -595,15 +595,15 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             now = time.time()
             with _RATE_LIMIT_LOCK:
                 if len(RATE_LIMITS) > 4096:
-                    # Evict buckets idle for longer than the longest window any
-                    # call site uses (3600s for site registration). Using the
-                    # *caller's* window here would evict long-window buckets
-                    # when a short-window call triggers cleanup.
                     _max_window = 3600.0
                     for stale_key in [
                         k for k, v in RATE_LIMITS.items() if not v or v[-1] < now - _max_window
                     ]:
                         RATE_LIMITS.pop(stale_key, None)
+                    if len(RATE_LIMITS) > 4096:
+                        by_recency = sorted(RATE_LIMITS, key=lambda k: RATE_LIMITS[k][-1] if RATE_LIMITS[k] else 0)
+                        for stale_key in by_recency[: len(RATE_LIMITS) - 4096]:
+                            RATE_LIMITS.pop(stale_key, None)
                 bucket = RATE_LIMITS.setdefault(key, [])
                 bucket[:] = [t for t in bucket if t > now - window]
                 if len(bucket) >= limit:
@@ -1084,7 +1084,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if not topic or not content:
                     return self._send_json(400, {"error": "topic and content required"})
                 fpath = engine.knowledge.add_entry(topic, content)
-                return self._send_json(201, {"ok": True, "topic": topic, "path": str(fpath)})
+                return self._send_json(201, {"ok": True, "topic": topic})
 
             if path == "/knowledge/remove":
                 body = self._read_json()
@@ -1233,21 +1233,25 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             """
             try:
                 return route(*args)
+            except BrokenPipeError:
+                pass
             except Exception:
                 traceback.print_exc()
                 try:
-                    return self._send_json(500, {
-                        "error": "internal error",
-                        "reply": "Something in my head just fell over. It's logged.",
-                        "source": "error",
-                    })
+                    if not self._headers_buffer:
+                        return self._send_json(500, {
+                            "error": "internal error",
+                            "reply": "Something in my head just fell over. It's logged.",
+                            "source": "error",
+                        })
                 except Exception:
-                    return None
+                    pass
+                return None
 
         def do_GET(self):
             url = urlparse(self.path)
             path = url.path
-            if path not in ("/", "/health", "") and not path.startswith("/sites/"):
+            if path not in ("/", "/health", ""):
                 _candidate_path = STATIC_DIR / path.lstrip("/")
                 try:
                     is_static = _candidate_path.is_file()

@@ -786,6 +786,12 @@ class DialogueEngine:
     # ------------------------------------------------------------------
     def _finish(self, reply: Reply) -> Reply:
         reply.text, reply.output_rules_applied = self.guardrails.filter_output(reply.text)
+        for cit in reply.citations:
+            if "snippet" in cit:
+                cit["snippet"], _ = self.guardrails.filter_output(cit["snippet"])
+        for tu in reply.tools_used:
+            if tu.get("output"):
+                tu["output"], _ = self.guardrails.filter_output(tu["output"])
         return reply
 
     def _persist(self, session_id: str, user_text: str, reply: Reply) -> None:
