@@ -191,6 +191,8 @@ class GuardrailEngine:
                 re.compile(pattern)
             except re.error as exc:
                 raise ValueError(f"invalid regex pattern: {exc}") from exc
+            if re.search(r"\([^)]*[+*][^)]*\)[+*?{]", pattern):
+                raise ValueError("pattern contains nested quantifiers (potential ReDoS)")
         rule.setdefault("enabled", True)
         bucket = "output_rules" if rtype in ("redact", "max_length") else "input_rules"
         with self._lock:

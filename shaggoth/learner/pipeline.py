@@ -10,6 +10,8 @@ Orchestrates:
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import time
 import threading
 from dataclasses import dataclass, asdict
@@ -65,8 +67,20 @@ class LearnerPipeline:
             self._history = []
 
     def _save_history(self) -> None:
-        Path(self.history_path).parent.mkdir(parents=True, exist_ok=True)
-        Path(self.history_path).write_text(json.dumps(self._history, indent=2), encoding="utf-8")
+        parent = Path(self.history_path).parent
+        parent.mkdir(parents=True, exist_ok=True)
+        data = json.dumps(self._history, indent=2)
+        fd, tmp = tempfile.mkstemp(dir=str(parent), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(data)
+            os.replace(tmp, self.history_path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
 
     @property
     def is_learning(self) -> bool:

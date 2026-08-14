@@ -233,6 +233,10 @@ class FeedbackStore:
                 stale = [k for k, v in self._repaired.items() if v < cutoff]
                 for k in stale:
                     del self._repaired[k]
+                if len(self._repaired) > MAX_ENTRIES:
+                    by_time = sorted(self._repaired.items(), key=lambda kv: kv[1])
+                    for k, _ in by_time[:len(self._repaired) - MAX_ENTRIES]:
+                        del self._repaired[k]
             self._save()
 
     # -- reading ----------------------------------------------------------

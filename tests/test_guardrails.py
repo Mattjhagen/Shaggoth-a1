@@ -227,6 +227,12 @@ class GuardrailTests(unittest.TestCase):
         with self.assertRaises(ValueError, msg="too long"):
             self.engine.add_rule({"id": "huge", "type": "regex_block", "pattern": long_pat})
 
+    def test_add_rule_rejects_nested_quantifiers(self):
+        with self.assertRaises(ValueError, msg="nested quantifiers"):
+            self.engine.add_rule({"id": "redos", "type": "regex_block", "pattern": r"(a+)+"})
+        with self.assertRaises(ValueError, msg="nested quantifiers"):
+            self.engine.add_rule({"id": "redos2", "type": "redact", "pattern": r"(\w+)*"})
+
     def test_add_redact_rule_rejects_missing_pattern(self):
         with self.assertRaises(ValueError, msg="requires a 'pattern'"):
             self.engine.add_rule({"id": "bad-redact", "type": "redact"})

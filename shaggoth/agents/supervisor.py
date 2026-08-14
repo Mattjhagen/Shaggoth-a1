@@ -46,7 +46,9 @@ class Supervisor:
             self.agents.append(agent)
 
     def get(self, name: str):
-        for agent in self.agents:
+        with self._lock:
+            agents = list(self.agents)
+        for agent in agents:
             if agent.name == name:
                 return agent
         return None
@@ -76,7 +78,9 @@ class Supervisor:
 
     def due_agents(self, now: float | None = None) -> list:
         now = self._clock() if now is None else now
-        return [a for a in self.agents if a.due(now)]
+        with self._lock:
+            agents = list(self.agents)
+        return [a for a in agents if a.due(now)]
 
     def tick(self) -> list:
         """Run at most one due agent. Returns the reports it produced.
@@ -107,8 +111,10 @@ class Supervisor:
             self._record(report)
             return [report]
 
+        with self._lock:
+            agents = list(self.agents)
         reports = []
-        for agent in self.agents:
+        for agent in agents:
             if not agent.enabled:
                 continue
             report = agent.run()
@@ -140,13 +146,15 @@ class Supervisor:
             return list(self._history[-limit:])
 
     def status(self) -> dict:
+        with self._lock:
+            agents = list(self.agents)
         return {
             "running": self.running,
             "started_at": self.started_at,
             "uptime_seconds": (
                 round(self._clock() - self.started_at, 1) if self.started_at else 0.0
             ),
-            "agents": [a.status() for a in self.agents],
-            "enabled_count": sum(1 for a in self.agents if a.enabled),
+            "agents": [a.status() for a in agents],
+            "enabled_count": sum(1 for a in agents if a.enabled),
             "recent": self.history(10),
         }

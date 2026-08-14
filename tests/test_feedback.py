@@ -148,6 +148,18 @@ def test_repaired_dict_is_evicted_when_oversized(tmp_path):
     assert len(store._repaired) <= MAX_ENTRIES
 
 
+def test_repaired_dict_hard_cap_when_nothing_stale(tmp_path):
+    """When all entries are recent (nothing stale to evict), the hard cap
+    must still enforce MAX_ENTRIES by evicting the oldest entries."""
+    path = tmp_path / "feedback.json"
+    store = FeedbackStore(path, cooldown=100_000.0)
+    from shaggoth.feedback.store import MAX_ENTRIES
+    base = 1_000_000.0
+    for i in range(MAX_ENTRIES + 50):
+        store.mark_repaired(f"topic-{i}", now=base + i)
+    assert len(store._repaired) <= MAX_ENTRIES
+
+
 def test_status_repair_queue_consistent_with_items(store):
     store.record("q", "bad", entries_used=["A"])
     s = store.status()
