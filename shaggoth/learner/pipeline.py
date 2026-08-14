@@ -202,10 +202,14 @@ class LearnerPipeline:
         """Return current learning status."""
         model_kind, active_path = self.active_model()
         model_exists = bool(active_path)
-        model_size = Path(active_path).stat().st_size if model_exists else 0
+        try:
+            model_size = Path(active_path).stat().st_size if model_exists else 0
+        except (FileNotFoundError, OSError):
+            model_size = 0
+        session = self._current_session
         return {
             "is_learning": self._learning,
-            "current_session": asdict(self._current_session) if self._current_session else None,
+            "current_session": asdict(session) if session else None,
             "model_exists": model_exists,
             "model_kind": model_kind,
             "model_size_bytes": model_size,

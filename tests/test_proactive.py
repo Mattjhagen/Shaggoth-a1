@@ -249,3 +249,24 @@ class TestProactiveChatter:
         thread_after = self.chatter._thread
         assert thread_before is thread_after
         self.chatter.stop()
+
+    def test_sent_set_bounded(self):
+        self.chatter._sent_max = 10
+        self.chatter._active_sessions = lambda: ["s1"]
+        for _ in range(20):
+            self.chatter._cycle()
+        assert len(self.chatter._sent) <= 10
+
+
+class TestEmptyTopicMessage:
+    def test_empty_topic_never_garbled(self):
+        entry = SimpleNamespace(topic="", content="", mtime=1)
+        for seed in range(50):
+            rng = random.Random(seed)
+            msg = compose_proactive_message([entry], knowledge_count=5, rng=rng)
+            assert "about ." not in msg
+            assert "my head is." not in msg.replace("my head is.", "") or "my head is." not in msg
+            for bad in ["I just read about .", "I spent the last while on .",
+                        ". That's where my head is.", "Dug into  while",
+                        "New thing I know: ."]:
+                assert bad not in msg
