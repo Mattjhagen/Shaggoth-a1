@@ -35,6 +35,8 @@ from ..memory import MemoryStore
 from ..models.base import LanguageModel
 from ..personality.engine import PersonalityEngine
 from ..plugins import PluginRegistry, default_registry
+from ..tools import ToolRegistry
+from ..tools.builtin import build_tool_registry
 from .patterns import PatternEngine
 from .reasoning import Reasoner
 from ..curiosity.search import search_web
@@ -117,6 +119,8 @@ class Reply:
     entries_used: list = field(default_factory=list)
     #: Structured citations: [{topic, snippet, score}].
     citations: list = field(default_factory=list)
+    #: Tools invoked during generation: [{tool_name, arguments, output}].
+    tools_used: list = field(default_factory=list)
 
 
 class DialogueEngine:
@@ -128,6 +132,7 @@ class DialogueEngine:
         plugins: PluginRegistry | None = None,
         personality: PersonalityEngine | None = None,
         knowledge: KnowledgeBase | None = None,
+        tools: ToolRegistry | None = None,
         bot_name: str = "Shaggoth",
         recall_threshold: float = 0.35,
         seed: int | None = None,
@@ -142,6 +147,10 @@ class DialogueEngine:
         self.plugins = plugins if plugins is not None else default_registry()
         self.personality = personality or PersonalityEngine()
         self.knowledge = knowledge or KnowledgeBase()
+        self.tools = tools if tools is not None else build_tool_registry(
+            knowledge_base=self.knowledge,
+            memory_store=self.memory,
+        )
         self.patterns = PatternEngine(seed=seed)
         self.reasoner = Reasoner(
             self.knowledge,
@@ -314,6 +323,10 @@ class DialogueEngine:
         # chitchat, AND knowledge questions. When knowledge_context is
         # present, GPT synthesizes a natural answer from it rather than
         # the old extract-and-quote pipeline.
+        #
+        # When tools are available, GPT can invoke them mid-generation
+        # (calculator, knowledge_search, memory_lookup, etc.) via the
+        # plan→act→verify tool loop.
         from ..models.openai_model import OpenAIModel
         from ..models.base import GenerationError
         _gpt = self.model if isinstance(self.model, OpenAIModel) else None
@@ -329,13 +342,30 @@ class DialogueEngine:
             except Exception:  # noqa: BLE001
                 pass
             try:
-                generated = _gpt.generate_chat(
-                    user_message=text,
-                    knowledge_context=knowledge_context,
-                    conversation_history=history,
-                    personality_context=personality_context,
-                    system_extra=summary_extra,
-                ).strip()
+                use_tools = self.tools if len(self.tools) > 0 else None
+                if use_tools is not None:
+                    loop_result = _gpt.generate_with_tools(
+                        user_message=text,
+                        tools=use_tools,
+                        knowledge_context=knowledge_context,
+                        conversation_history=history,
+                        personality_context=personality_context,
+                        system_extra=summary_extra,
+                    )
+                    generated = loop_result.text.strip()
+                    if loop_result.tool_calls:
+                        reasoning_steps.extend(
+                            f"tool: {tc.tool_name}({tc.arguments})"
+                            for tc in loop_result.tool_calls
+                        )
+                else:
+                    generated = _gpt.generate_chat(
+                        user_message=text,
+                        knowledge_context=knowledge_context,
+                        conversation_history=history,
+                        personality_context=personality_context,
+                        system_extra=summary_extra,
+                    ).strip()
                 if generated:
                     body = generated
                     if knowledge_context:

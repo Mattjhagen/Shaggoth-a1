@@ -504,12 +504,15 @@ def test_gpt_follow_up_routes_through_model(tmp_path):
     """When GPT is configured, follow-ups should go through the model."""
     from unittest.mock import MagicMock, patch
     from shaggoth.memory import MemoryStore
-    from shaggoth.models.openai_model import OpenAIModel
+    from shaggoth.models.openai_model import OpenAIModel, ToolLoopResult
 
     mock_model = MagicMock(spec=OpenAIModel)
     mock_model.configured = True
     mock_model.is_trained.return_value = True
     mock_model.generate_chat.return_value = "Because gravity warps spacetime."
+    mock_model.generate_with_tools.return_value = ToolLoopResult(
+        text="Because gravity warps spacetime.", tool_calls=[], iterations=1,
+    )
 
     engine = DialogueEngine(
         memory=MemoryStore(str(tmp_path / "m.db")),
@@ -520,7 +523,6 @@ def test_gpt_follow_up_routes_through_model(tmp_path):
     reply = engine.respond("why?", session_id="s1")
     assert reply.source == "model"
     assert "spacetime" in reply.text.lower()
-    mock_model.generate_chat.assert_called()
 
 
 def test_gpt_follow_up_falls_back_without_model(tmp_path):

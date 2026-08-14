@@ -16,10 +16,12 @@ Configure with:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Any, Optional
 
 from .base import GenerationError, LanguageModel
 
@@ -239,3 +241,150 @@ class OpenAIModel(LanguageModel):
         raise GenerationError(
             "My brain glitched — the language model didn't respond. Try again in a moment."
         ) from last_exc
+
+    # Tool-use loop -----------------------------------------------------------
+
+    def generate_with_tools(
+        self,
+        user_message: str,
+        *,
+        tools: "Any | None" = None,
+        knowledge_context: str = "",
+        conversation_history: list[dict] | None = None,
+        personality_context: str = "",
+        system_extra: str = "",
+        max_tokens: int = 0,
+        max_iterations: int = 5,
+    ) -> "ToolLoopResult":
+        """Chat completion with a plan-act-verify tool loop.
+
+        When the model requests tool calls, the harness executes them and
+        feeds the results back until the model produces a final text reply
+        or the iteration cap is hit.
+
+        Returns a ``ToolLoopResult`` with the final text, tool call log,
+        and iteration count.
+        """
+        from ..tools import ToolRegistry, ToolResult
+
+        if not self.configured:
+            return ToolLoopResult(text="", tool_calls=[], iterations=0)
+
+        if tools is None or not isinstance(tools, ToolRegistry) or len(tools) == 0:
+            text = self.generate_chat(
+                user_message=user_message,
+                knowledge_context=knowledge_context,
+                conversation_history=conversation_history,
+                personality_context=personality_context,
+                system_extra=system_extra,
+                max_tokens=max_tokens,
+            )
+            return ToolLoopResult(text=text, tool_calls=[], iterations=1)
+
+        max_tokens = max_tokens or self._max_tokens
+        openai_tools = tools.to_openai_tools()
+
+        system_parts = [_BASE_SYSTEM]
+        if personality_context:
+            system_parts.append(f"\n{personality_context}")
+        if knowledge_context:
+            system_parts.append(
+                "\nNotes from your own research — use these to answer, but talk "
+                "like a person, not a textbook:\n" + knowledge_context
+            )
+        system_parts.append(
+            "\nYou have tools available. Use them when the question requires "
+            "calculation, a time check, or a lookup you can't answer from the "
+            "context above. Don't use tools for things you already know."
+        )
+        if system_extra:
+            system_parts.append(system_extra)
+
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": "\n".join(system_parts)},
+        ]
+
+        for turn in (conversation_history or []):
+            role = turn.get("role")
+            content = turn.get("content") or ""
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
+
+        messages.append({"role": "user", "content": user_message})
+
+        all_tool_calls: list[ToolResult] = []
+        for iteration in range(1, max_iterations + 1):
+            try:
+                client = self._client_instance()
+                resp = client.chat.completions.create(
+                    model=self._model,
+                    messages=messages,
+                    tools=openai_tools,
+                    max_tokens=max_tokens,
+                    temperature=0.7,
+                )
+            except Exception as exc:
+                log.error("[openai] tool-loop generation failed: %s", exc)
+                raise GenerationError(
+                    "My brain glitched — the language model didn't respond."
+                ) from exc
+
+            choice = resp.choices[0]
+
+            if choice.finish_reason == "tool_calls" or (
+                choice.message.tool_calls and len(choice.message.tool_calls) > 0
+            ):
+                messages.append(choice.message)
+
+                for tc in choice.message.tool_calls:
+                    raw_args = tc.function.arguments or "{}"
+                    try:
+                        args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+                    except json.JSONDecodeError:
+                        args = {}
+
+                    result = tools.execute(tc.function.name, args)
+                    all_tool_calls.append(result)
+
+                    tool_content = result.output if not result.error else f"Error: {result.error}"
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": tool_content,
+                    })
+                continue
+
+            text = (choice.message.content or "").strip()
+            return ToolLoopResult(
+                text=text,
+                tool_calls=all_tool_calls,
+                iterations=iteration,
+            )
+
+        last_text = ""
+        if messages and messages[-1].get("role") == "tool":
+            try:
+                client = self._client_instance()
+                resp = client.chat.completions.create(
+                    model=self._model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=0.7,
+                )
+                last_text = (resp.choices[0].message.content or "").strip()
+            except Exception:  # noqa: BLE001
+                pass
+
+        return ToolLoopResult(
+            text=last_text,
+            tool_calls=all_tool_calls,
+            iterations=max_iterations,
+        )
+
+
+@dataclass
+class ToolLoopResult:
+    """Outcome of a tool-use generation loop."""
+    text: str
+    tool_calls: list = field(default_factory=list)
+    iterations: int = 1

@@ -312,12 +312,15 @@ class GPTConversationTests(unittest.TestCase):
 
     def _make_gpt_engine(self, generate_return="Test GPT response."):
         from unittest.mock import MagicMock, PropertyMock
-        from shaggoth.models.openai_model import OpenAIModel
+        from shaggoth.models.openai_model import OpenAIModel, ToolLoopResult
         engine = make_engine()
         mock_gpt = MagicMock(spec=OpenAIModel)
         type(mock_gpt).configured = PropertyMock(return_value=True)
         mock_gpt.is_trained.return_value = True
         mock_gpt.generate_chat.return_value = generate_return
+        mock_gpt.generate_with_tools.return_value = ToolLoopResult(
+            text=generate_return, tool_calls=[], iterations=1,
+        )
         engine.model = mock_gpt
         return engine, mock_gpt
 
@@ -336,7 +339,7 @@ class GPTConversationTests(unittest.TestCase):
         reply = engine.respond("are you an LLM?", session_id="s1")
         self.assertIn("knowledge base", reply.text)
         self.assertNotEqual(reply.source, "fallback")
-        mock_gpt.generate_chat.assert_called()
+        mock_gpt.generate_with_tools.assert_called()
 
     def test_gpt_synthesizes_knowledge_instead_of_extracting(self):
         """With GPT configured, knowledge questions go through GPT for
@@ -353,9 +356,8 @@ class GPTConversationTests(unittest.TestCase):
                          "Photosynthesis is the process by which plants convert light. " * 20)
             engine.knowledge = kb
             reply = engine.respond("what is photosynthesis", session_id="s1")
-            # GPT should have been called with knowledge context
-            mock_gpt.generate_chat.assert_called()
-            call_kwargs = mock_gpt.generate_chat.call_args
+            mock_gpt.generate_with_tools.assert_called()
+            call_kwargs = mock_gpt.generate_with_tools.call_args
             self.assertIn("Photosynthesis", call_kwargs.kwargs.get("knowledge_context", ""))
             # The reply should be the GPT output, not extracted text
             self.assertIn("pretty fundamental", reply.text)
@@ -371,7 +373,7 @@ class GPTConversationTests(unittest.TestCase):
             )
             engine.knowledge = KnowledgeBase(td)
             reply = engine.respond("what is quantum computing", session_id="s1")
-            mock_gpt.generate_chat.assert_called()
+            mock_gpt.generate_with_tools.assert_called()
             self.assertEqual(reply.source, "fallback")
 
     def test_gpt_statement_without_knowledge_is_model(self):
@@ -384,7 +386,7 @@ class GPTConversationTests(unittest.TestCase):
             )
             engine.knowledge = KnowledgeBase(td)
             reply = engine.respond("the weather is nice today", session_id="s1")
-            mock_gpt.generate_chat.assert_called()
+            mock_gpt.generate_with_tools.assert_called()
             self.assertNotEqual(reply.source, "fallback")
 
     def test_no_gpt_falls_back_to_patterns(self):
@@ -444,12 +446,16 @@ class RecallQualityGateTests(unittest.TestCase):
 
     def _make_gpt_engine_with_recall(self):
         from unittest.mock import MagicMock, PropertyMock
-        from shaggoth.models.openai_model import OpenAIModel
+        from shaggoth.models.openai_model import OpenAIModel, ToolLoopResult
         engine = make_engine()
         mock_gpt = MagicMock(spec=OpenAIModel)
         type(mock_gpt).configured = PropertyMock(return_value=True)
         mock_gpt.is_trained.return_value = True
-        mock_gpt.generate_chat.return_value = "Here's what I know about photosynthesis."
+        text = "Here's what I know about photosynthesis."
+        mock_gpt.generate_chat.return_value = text
+        mock_gpt.generate_with_tools.return_value = ToolLoopResult(
+            text=text, tool_calls=[], iterations=1,
+        )
         engine.model = mock_gpt
         return engine
 
