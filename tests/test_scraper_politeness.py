@@ -139,7 +139,7 @@ def test_robots_result_is_cached_per_origin(scraper, monkeypatch):
         fetches.append(getattr(request, "full_url", request))
         return FakeResponse()
 
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setattr("shaggoth.scraper.engine._safe_opener", type("FakeOpener", (), {"open": staticmethod(fake_urlopen)})())
 
     for path in ("/a", "/b", "/c"):
         scraper.robots_allows("https://example.com" + path)

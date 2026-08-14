@@ -279,7 +279,7 @@ class ScraperEngine:
                 request = urllib.request.Request(
                     origin + "/robots.txt", headers={"User-Agent": USER_AGENT}
                 )
-                with urllib.request.urlopen(request, timeout=timeout) as response:
+                with _safe_opener.open(request, timeout=timeout) as response:
                     parser.parse(
                         response.read().decode("utf-8", errors="replace").splitlines()
                     )

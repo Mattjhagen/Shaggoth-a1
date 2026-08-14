@@ -82,15 +82,20 @@ def _make_knowledge_search(knowledge_base):
     def _knowledge_search(query: str) -> str:
         if knowledge_base is None:
             return "No knowledge base available."
+        from ..dialogue.engine import knowledge_is_relevant
         hits = knowledge_base.query(query, limit=3, min_score=0.2)
         if not hits:
             return f"No knowledge found for: {query}"
         parts = []
         for entry, score in hits:
+            if not knowledge_is_relevant(entry.topic, query, entry.content):
+                continue
             snippet = knowledge_base.best_chunks(entry, query)
             if len(snippet) > 400:
                 snippet = snippet[:400].rstrip() + "..."
             parts.append(f"[{entry.topic}] (score {score:.2f}): {snippet}")
+        if not parts:
+            return f"No knowledge found for: {query}"
         return "\n\n".join(parts)
     return _knowledge_search
 

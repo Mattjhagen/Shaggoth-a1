@@ -181,13 +181,14 @@ class D1Sync:
     def extract_and_store_facts(self, text: str) -> dict:
         found = self._local.extract_and_store_facts(text)
         for key, value in found.items():
+            confidence = 0.9 if key == "name" else 0.7
             self._enqueue(
                 "INSERT INTO facts (key, value, user_id, ts, confidence, source) "
                 "VALUES (?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(key, user_id) DO UPDATE SET "
                 "value = excluded.value, ts = excluded.ts, "
                 "confidence = excluded.confidence, source = excluded.source",
-                [key, value, "default", time.time(), 0.5, "pattern"],
+                [key, value, "default", time.time(), confidence, "pattern"],
             )
         return found
 
