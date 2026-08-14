@@ -595,10 +595,13 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             now = time.time()
             with _RATE_LIMIT_LOCK:
                 if len(RATE_LIMITS) > 4096:
-                    # An open endpoint sees a lot of distinct IPs; without this the
-                    # bucket map is an unbounded memory leak.
+                    # Evict buckets idle for longer than the longest window any
+                    # call site uses (3600s for site registration). Using the
+                    # *caller's* window here would evict long-window buckets
+                    # when a short-window call triggers cleanup.
+                    _max_window = 3600.0
                     for stale_key in [
-                        k for k, v in RATE_LIMITS.items() if not v or v[-1] < now - window
+                        k for k, v in RATE_LIMITS.items() if not v or v[-1] < now - _max_window
                     ]:
                         RATE_LIMITS.pop(stale_key, None)
                 bucket = RATE_LIMITS.setdefault(key, [])
@@ -1243,7 +1246,17 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
 
         def do_GET(self):
             url = urlparse(self.path)
-            self._guard(self._route_get, url.path, url)
+            path = url.path
+            if path not in ("/", "/health", "") and not path.startswith("/sites/"):
+                _candidate_path = STATIC_DIR / path.lstrip("/")
+                try:
+                    is_static = _candidate_path.is_file()
+                except OSError:
+                    is_static = False
+                if not is_static:
+                    if not self._rate_limit(self._client_ip(), limit=120):
+                        return
+            self._guard(self._route_get, path, url)
 
         def do_HEAD(self):
             """Serve HEAD as GET with the body suppressed.

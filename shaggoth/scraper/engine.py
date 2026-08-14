@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import hashlib
 import html as html_mod
+import ipaddress
 import json
 import re
+import socket
 import sqlite3
 import threading
 import time
@@ -18,6 +20,39 @@ import urllib.request
 import urllib.robotparser
 from dataclasses import dataclass, asdict
 from pathlib import Path
+
+
+class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Reject redirects to private/internal addresses (SSRF protection)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urllib.parse.urlparse(newurl)
+        if parsed.scheme not in ("http", "https"):
+            raise urllib.error.URLError(f"redirect to non-HTTP scheme: {parsed.scheme}")
+        hostname = parsed.hostname or ""
+        if not hostname:
+            raise urllib.error.URLError("redirect to URL with no hostname")
+        if hostname in ("localhost", "metadata.google.internal"):
+            raise urllib.error.URLError(f"redirect to blocked host: {hostname}")
+        try:
+            addr = ipaddress.ip_address(hostname)
+            if not addr.is_global:
+                raise urllib.error.URLError(f"redirect to non-global address: {hostname}")
+        except ValueError:
+            pass
+        try:
+            for info in socket.getaddrinfo(hostname, None, socket.AF_UNSPEC):
+                addr = ipaddress.ip_address(info[4][0])
+                if not addr.is_global:
+                    raise urllib.error.URLError(
+                        f"redirect to non-global address: {hostname} -> {addr}"
+                    )
+        except (socket.gaierror, OSError):
+            pass
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_safe_opener = urllib.request.build_opener(_SafeRedirectHandler)
 
 #: Sent on every request the scraper makes.
 #:
@@ -265,8 +300,6 @@ class ScraperEngine:
     @staticmethod
     def _is_private_url(url: str) -> bool:
         """Block URLs targeting private/internal network addresses."""
-        import ipaddress
-        import socket
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme not in ("http", "https"):
             return True
@@ -277,13 +310,14 @@ class ScraperEngine:
             return True
         try:
             addr = ipaddress.ip_address(hostname)
-            return addr.is_private or addr.is_loopback or addr.is_link_local
+            if not addr.is_global:
+                return True
         except ValueError:
             pass
         try:
             for info in socket.getaddrinfo(hostname, None, socket.AF_UNSPEC):
                 addr = ipaddress.ip_address(info[4][0])
-                if addr.is_private or addr.is_loopback or addr.is_link_local:
+                if not addr.is_global:
                     return True
         except (socket.gaierror, OSError):
             pass
@@ -313,7 +347,7 @@ class ScraperEngine:
                     "Accept": "text/html,application/xhtml+xml,text/plain,application/json",
                 },
             )
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with _safe_opener.open(req, timeout=timeout) as resp:
                 raw = resp.read(10_485_760)  # 10 MiB cap
                 content_type = resp.headers.get("Content-Type", "")
                 charset = _extract_charset(content_type)

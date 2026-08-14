@@ -99,7 +99,7 @@ class D1Sync:
         """Enqueue idempotent DDL so the remote D1 schema matches local."""
         if not self.configured:
             return
-        migrations = [
+        creates = [
             "CREATE TABLE IF NOT EXISTS messages ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT, "
             "session_id TEXT NOT NULL, role TEXT NOT NULL, "
@@ -130,7 +130,18 @@ class D1Sync:
             "ts_created REAL NOT NULL, ts_updated REAL NOT NULL, "
             "UNIQUE(user_id, name))",
         ]
-        for ddl in migrations:
+        for ddl in creates:
+            self._enqueue(ddl)
+
+        # If facts table existed before confidence/source were added,
+        # CREATE TABLE IF NOT EXISTS is a no-op and the columns are missing.
+        # D1 has no IF NOT EXISTS for ALTER TABLE, so the worker silently
+        # drops the "duplicate column" error on the second run.
+        alters = [
+            "ALTER TABLE facts ADD COLUMN confidence REAL NOT NULL DEFAULT 0.5",
+            "ALTER TABLE facts ADD COLUMN source TEXT NOT NULL DEFAULT 'pattern'",
+        ]
+        for ddl in alters:
             self._enqueue(ddl)
 
     def _worker(self) -> None:

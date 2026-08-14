@@ -125,6 +125,27 @@ class GuardrailTests(unittest.TestCase):
         )
 
 
+    def test_add_rule_rejects_missing_pattern(self):
+        with self.assertRaises(ValueError, msg="requires a 'pattern'"):
+            self.engine.add_rule({"id": "broken", "type": "regex_block"})
+
+    def test_add_rule_rejects_invalid_regex(self):
+        with self.assertRaises(ValueError, msg="invalid regex"):
+            self.engine.add_rule({"id": "bad-re", "type": "regex_block", "pattern": "["})
+
+    def test_add_rule_accepts_valid_regex(self):
+        self.engine.add_rule(
+            {"id": "test-re", "type": "regex_block", "pattern": r"\btest\b",
+             "message": "blocked"}
+        )
+        verdict = self.engine.check_input("this is a test")
+        self.assertFalse(verdict.allowed)
+
+    def test_add_redact_rule_rejects_missing_pattern(self):
+        with self.assertRaises(ValueError, msg="requires a 'pattern'"):
+            self.engine.add_rule({"id": "bad-redact", "type": "redact"})
+
+
 class DeployedConfigTests(unittest.TestCase):
     """Validate the deployed config/guardrails.json has correct values."""
 

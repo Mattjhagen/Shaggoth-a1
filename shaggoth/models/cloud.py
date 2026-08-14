@@ -52,7 +52,7 @@ def _post_json(url: str, payload: dict, headers: dict, timeout: float = _TIMEOUT
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        return json.loads(resp.read(10_485_760).decode("utf-8"))
 
 
 class ChatRESTModel(LanguageModel):

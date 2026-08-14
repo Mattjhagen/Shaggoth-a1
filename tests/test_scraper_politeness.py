@@ -108,8 +108,10 @@ def test_robots_can_be_disabled_for_tests(tmp_path, monkeypatch):
     )
     calls = []
     monkeypatch.setattr(
-        "urllib.request.urlopen",
-        lambda *a, **k: calls.append(1) or (_ for _ in ()).throw(OSError("stop")),
+        "shaggoth.scraper.engine._safe_opener",
+        type("FakeOpener", (), {
+            "open": lambda self, *a, **k: calls.append(1) or (_ for _ in ()).throw(OSError("stop")),
+        })(),
     )
     scraper.fetch_page("https://example.com/page")
     assert calls, "robots gate should have been skipped"
@@ -224,6 +226,9 @@ def test_private_url_ftp_scheme_blocked():
 def test_private_url_metadata_blocked():
     assert ScraperEngine._is_private_url("http://metadata.google.internal/computeMetadata/v1/")
 
+def test_private_url_cgnat_blocked():
+    assert ScraperEngine._is_private_url("http://100.64.0.1/internal")
+
 def test_public_url_allowed():
     assert not ScraperEngine._is_private_url("https://example.com/page")
 
@@ -237,3 +242,23 @@ def test_fetch_page_blocks_private_url(scraper, monkeypatch):
     assert scraper.fetch_page("http://127.0.0.1/admin") is None
     logs = scraper.recent_logs(limit=5)
     assert any("private" in (entry.get("message") or "") for entry in logs)
+
+
+def test_redirect_to_private_is_blocked(scraper, monkeypatch):
+    """A public URL that redirects to a private address must be blocked."""
+    from shaggoth.scraper.engine import _SafeRedirectHandler
+    import urllib.request
+    handler = _SafeRedirectHandler()
+    req = urllib.request.Request("http://evil.example.com/redir")
+    with pytest.raises(urllib.error.URLError, match="non-global"):
+        handler.redirect_request(req, None, 302, "Found", {}, "http://127.0.0.1/secret")
+
+
+def test_redirect_to_metadata_is_blocked(scraper, monkeypatch):
+    """Redirect to cloud metadata endpoint must be blocked."""
+    from shaggoth.scraper.engine import _SafeRedirectHandler
+    import urllib.request
+    handler = _SafeRedirectHandler()
+    req = urllib.request.Request("http://evil.example.com/redir")
+    with pytest.raises(urllib.error.URLError, match="blocked host"):
+        handler.redirect_request(req, None, 302, "Found", {}, "http://metadata.google.internal/v1/")

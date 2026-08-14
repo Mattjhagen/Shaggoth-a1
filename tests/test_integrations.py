@@ -194,7 +194,8 @@ class D1SyncTests(unittest.TestCase):
     def test_queue_overflow_drops_oldest_not_newest(self):
         from shaggoth.memory.d1_sync import _MAX_QUEUE
         sync = self._sync(account_id="ACC", api_token="TOK")
-        # Pause the worker so items stack up
+        # Wait for schema DDL to drain before resizing the queue
+        sync._queue.join()
         sync._queue.maxsize = 5
         # We manually test _enqueue overflow by filling beyond maxsize
         for i in range(6):
@@ -212,9 +213,9 @@ class D1SyncTests(unittest.TestCase):
         with patch("urllib.request.urlopen", _fake_urlopen(response_body)):
             sync = self._sync(account_id="ACC", api_token="TOK")
             sync._queue.join()
-        # The schema migration should have enqueued 4 CREATE TABLE statements
-        # which the worker has already drained; if we got here without errors,
-        # the DDL was accepted by the mock endpoint.
+        # The schema migration should have enqueued 4 CREATE TABLE + 2 ALTER
+        # TABLE statements which the worker has already drained; if we got here
+        # without errors, the DDL was accepted by the mock endpoint.
         self.assertTrue(sync.configured)
 
     def test_ensure_remote_schema_skipped_when_unconfigured(self):

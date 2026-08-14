@@ -149,8 +149,17 @@ class GuardrailEngine:
             raise ValueError("rule needs 'id' and 'type'")
         if any(r["id"] == rule["id"] for r in self.rules()):
             raise ValueError(f"rule id already exists: {rule['id']}")
+        rtype = rule.get("type")
+        if rtype in ("regex_block", "redact"):
+            pattern = rule.get("pattern")
+            if not pattern or not isinstance(pattern, str):
+                raise ValueError(f"rule type {rtype!r} requires a 'pattern' string")
+            try:
+                re.compile(pattern)
+            except re.error as exc:
+                raise ValueError(f"invalid regex pattern: {exc}") from exc
         rule.setdefault("enabled", True)
-        bucket = "output_rules" if rule["type"] in ("redact", "max_length") else "input_rules"
+        bucket = "output_rules" if rtype in ("redact", "max_length") else "input_rules"
         with self._lock:
             self.config.setdefault(bucket, []).append(rule)
             self.save()
