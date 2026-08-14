@@ -21,6 +21,7 @@ from shaggoth.config import load_settings, DATA_DIR
 from shaggoth.__main__ import build_engine
 from shaggoth.eval.harness import Harness
 from shaggoth.eval.scorer import score_run
+from shaggoth.memory import MemoryStore
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -39,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
 
     settings = load_settings()
     engine = build_engine(settings)
+    engine.memory = MemoryStore(":memory:")
 
     print(f"Loading benchmark from {args.benchmark or 'bundled default'}")
     harness = Harness(engine, session_id="eval-bench")

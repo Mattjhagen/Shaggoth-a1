@@ -111,7 +111,7 @@ class RunLogger:
                 blocked=blocked,
                 entries_used=entries_used or [],
                 reasoning=[str(s) for s in (reasoning or [])],
-                new_facts=new_facts or {},
+                new_facts={k: _redact_for_log(str(v)) for k, v in (new_facts or {}).items()},
                 memory_triggers=memory_triggers or [],
                 flag=flag,
                 latency_ms=round(latency_ms, 2),

@@ -573,6 +573,12 @@ class MemoryStore:
         return result
 
     _PROFILE_MAX_CHARS = 2000
+    _CREDENTIAL_RE = re.compile(
+        r"\bsk-[A-Za-z0-9_-]{16,}\b|"
+        r"\beyJ[A-Za-z0-9._-]{20,}\b|"
+        r"\bgh[pousr]_[A-Za-z0-9]{20,}\b|"
+        r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
+    )
 
     def user_profile_context(self, user_id: str = "default") -> str:
         """Build a natural-language summary of what we know about the user."""
@@ -580,12 +586,16 @@ class MemoryStore:
         prefs = self.all_preferences(user_id)
         if not facts and not prefs:
             return ""
+
+        def _safe(v: str) -> str:
+            return self._CREDENTIAL_RE.sub("[redacted]", v)
+
         parts = []
         if facts:
-            items = [f"{k.replace('_', ' ')}: {v}" for k, v in facts.items()]
+            items = [f"{k.replace('_', ' ')}: {_safe(v)}" for k, v in facts.items()]
             parts.append("Known facts — " + "; ".join(items) + ".")
         for cat, entries in prefs.items():
-            items = [f"{k}: {v}" for k, v in entries.items()]
+            items = [f"{k}: {_safe(v)}" for k, v in entries.items()]
             parts.append(f"{cat.title()} — " + "; ".join(items) + ".")
         text = " ".join(parts)
         if len(text) > self._PROFILE_MAX_CHARS:

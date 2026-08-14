@@ -439,6 +439,21 @@ def test_run_logger_redacts_sk_key_in_input(tmp_path):
     assert "[redacted-secret]" in record.user_input
 
 
+def test_run_logger_redacts_new_facts(tmp_path):
+    logger = RunLogger(directory=tmp_path)
+    record = logger.log(
+        session_id="redact",
+        user_input="remember my token",
+        reply_text="ok",
+        source="plugin",
+        mode="no_drift",
+        new_facts={"api_key": "sk-1234567890abcdef1234"},
+    )
+    assert record is not None
+    assert "sk-1234567890abcdef1234" not in record.new_facts.get("api_key", "")
+    assert "[redacted-secret]" in record.new_facts.get("api_key", "")
+
+
 def test_engine_without_run_logger():
     """No crash when run_logger is None (the default)."""
     from shaggoth.dialogue import DialogueEngine

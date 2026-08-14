@@ -221,6 +221,17 @@ def test_user_profile_context_capped(mem):
     assert ctx.endswith("…")
 
 
+def test_profile_context_redacts_credentials(mem):
+    mem.set_fact("api_key", "sk-1234567890abcdef1234", confidence=1.0, source="user")
+    mem.set_fact("email", "alice@example.com", confidence=1.0, source="user")
+    mem.set_preference("auth", "token", "ghp_Abc1234567890xyzABCDx")
+    ctx = mem.user_profile_context()
+    assert "sk-1234567890abcdef1234" not in ctx
+    assert "alice@example.com" not in ctx
+    assert "ghp_" not in ctx
+    assert "[redacted]" in ctx
+
+
 def test_add_project_upsert_returns_correct_id(mem):
     pid1 = mem.add_project("Alpha", description="v1")
     pid2 = mem.add_project("Alpha", description="v2")
