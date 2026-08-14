@@ -131,6 +131,7 @@ class DialogueEngine:
         mode: str = DEFAULT_MODE,
         deferred_questions: Optional[Any] = None,
         push_sender: Optional[Any] = None,
+        run_logger: Optional[Any] = None,
     ):
         self.guardrails = guardrails or GuardrailEngine()
         self.memory = memory or MemoryStore()
@@ -153,6 +154,30 @@ class DialogueEngine:
         self.deferred_questions = deferred_questions
         self.push_sender = push_sender
         self.curiosity_available = False
+        self.run_logger = run_logger
+
+    def _log_run(
+        self, t0: float, session_id: str, user_input: str, reply: "Reply",
+    ) -> None:
+        if not self.run_logger:
+            return
+        try:
+            self.run_logger.log(
+                session_id=session_id,
+                user_input=user_input,
+                reply_text=reply.text,
+                source=reply.source,
+                mode=reply.mode,
+                blocked=reply.blocked,
+                entries_used=list(reply.entries_used),
+                reasoning=list(reply.reasoning),
+                new_facts=reply.new_facts,
+                memory_triggers=list(reply.memory_triggers),
+                flag=reply.flag,
+                latency_ms=(time.monotonic() - t0) * 1000,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.debug("[eval] run logging failed: %s", exc)
 
     def respond(self, text: str, session_id: str = "default", mode=None) -> Reply:
         """Answer ``text``.
@@ -161,12 +186,15 @@ class DialogueEngine:
         only, falling back to the engine's configured default. See the
         module constants for what each mode allows.
         """
+        _t0 = time.monotonic()
         mode = normalize_mode(mode, default=self.mode)
         drift = mode == DRIFT
 
         text = _normalize_quotes(text.strip())
         if not text:
-            return Reply("Say something and I'll do my best.", source="fallback", mode=mode)
+            reply = Reply("Say something and I'll do my best.", source="fallback", mode=mode)
+            self._log_run(_t0, session_id, text, reply)
+            return reply
 
         # 1. Guardrails: input check.
         verdict = self.guardrails.check_input(text)
@@ -179,6 +207,7 @@ class DialogueEngine:
                 mode=mode,
             )
             self._persist(session_id, text, reply)
+            self._log_run(_t0, session_id, text, reply)
             return reply
 
         # 2. Conversation context: what has already been said here.
@@ -205,6 +234,7 @@ class DialogueEngine:
         if plugin_response is not None:
             reply = self._finish(Reply(plugin_response, source="plugin", mode=mode))
             self._persist(session_id, text, reply)
+            self._log_run(_t0, session_id, text, reply)
             return reply
 
         # Personality context is needed by multiple downstream paths (follow-ups,
@@ -231,6 +261,7 @@ class DialogueEngine:
                 )
             reply = self._finish(Reply(body, source=source, mode=mode))
             self._persist(session_id, text, reply)
+            self._log_run(_t0, session_id, text, reply)
             return reply
 
         # 4. Memory: facts always; topic recall only when drifting. A
@@ -460,6 +491,7 @@ class DialogueEngine:
                 except Exception as exc:  # noqa: BLE001
                     log.warning("[dialogue] research-started notification failed: %s", exc)
 
+        self._log_run(_t0, session_id, text, reply)
         return reply
 
     # ------------------------------------------------------------------

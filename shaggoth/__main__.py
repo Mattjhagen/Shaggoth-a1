@@ -310,6 +310,37 @@ def cmd_wiki(settings: dict, query: str) -> int:
     return 0
 
 
+def cmd_benchmark(settings: dict, benchmark: str | None, output: str | None) -> int:
+    import time as _time
+    from .eval.harness import Harness
+    from .eval.scorer import score_run
+
+    engine = build_engine(settings)
+    harness = Harness(engine, session_id="eval-bench")
+
+    benchmark_path = benchmark or str(DATA_DIR / "eval" / "benchmarks" / "default.jsonl")
+    print(f"Loading benchmark from {benchmark_path}")
+
+    t0 = _time.monotonic()
+    results = harness.run(benchmark_path=benchmark_path)
+    elapsed = _time.monotonic() - t0
+
+    if not results:
+        print("No tasks found.")
+        return 1
+
+    out = output or str(
+        DATA_DIR / "eval" / "runs" / f"eval-{_time.strftime('%Y%m%d-%H%M%S')}.jsonl"
+    )
+    harness.save_results(results, out)
+    print(f"Results written to {out}")
+
+    card = score_run(results)
+    print(f"\n{card.summary()}")
+    print(f"\nCompleted {card.total} tasks in {elapsed:.1f}s")
+    return 0 if card.failed == 0 else 1
+
+
 def cmd_knowledge_freshness(settings: dict) -> int:
     from .curiosity.freshness import FreshnessTracker
     from .knowledge.engine import KnowledgeBase
@@ -388,6 +419,10 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("freshness", help="show knowledge freshness status")
 
+    p_bench = sub.add_parser("benchmark", help="run eval benchmark and score results")
+    p_bench.add_argument("--benchmark", default=None, help="path to benchmark JSONL")
+    p_bench.add_argument("--output", default=None, help="path for results JSONL")
+
     args = parser.parse_args(argv)
     settings = load_settings()
 
@@ -416,6 +451,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_facts(settings)
     if args.command == "freshness":
         return cmd_knowledge_freshness(settings)
+    if args.command == "benchmark":
+        return cmd_benchmark(settings, args.benchmark, args.output)
     return 2
 
 
