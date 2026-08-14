@@ -33,6 +33,58 @@ _RETRIES = 2
 _BACKOFF = 1.0
 _HISTORY_CHAR_BUDGET = 12_000
 
+
+def _trim_history(conversation_history: list[dict] | None) -> list[dict]:
+    """Pair-aware history trimming that fits within the character budget.
+
+    Groups turns into (user, assistant) pairs so trimming never orphans a
+    reply from its prompt. Keeps the most recent pairs first, truncating
+    oversized turns with a marker.
+    """
+    history_turns = []
+    for turn in (conversation_history or []):
+        role = turn.get("role")
+        content = turn.get("content") or ""
+        if role in ("user", "assistant") and content:
+            history_turns.append({"role": role, "content": content})
+
+    pairs: list[list[dict]] = []
+    i = 0
+    while i < len(history_turns):
+        if (history_turns[i]["role"] == "user"
+                and i + 1 < len(history_turns)
+                and history_turns[i + 1]["role"] == "assistant"):
+            pairs.append([history_turns[i], history_turns[i + 1]])
+            i += 2
+        else:
+            pairs.append([history_turns[i]])
+            i += 1
+
+    budget = _HISTORY_CHAR_BUDGET
+    kept_pairs: list[list[dict]] = []
+    for pair in reversed(pairs):
+        cost = sum(len(t["content"]) for t in pair)
+        if budget - cost < 0 and kept_pairs:
+            break
+        if cost > _HISTORY_CHAR_BUDGET:
+            marker = "...[truncated]"
+            cap = max(0, (_HISTORY_CHAR_BUDGET - len(marker) * len(pair)) // len(pair))
+            pair = [
+                {**t, "content": t["content"][:cap] + marker}
+                if len(t["content"]) > cap else t
+                for t in pair
+            ]
+            cost = sum(len(t["content"]) for t in pair)
+        kept_pairs.append(pair)
+        budget -= cost
+    kept_pairs.reverse()
+
+    result: list[dict] = []
+    for pair in kept_pairs:
+        result.extend(pair)
+    return result
+
+
 #: System prompt that anchors GPT in Shaggoth's character. The personality
 #: engine's trait_prompt() is appended on top of this at call time.
 _BASE_SYSTEM = """You are Shaggoth — a homegrown AI running on a Dell R510 rack server in Matt's house.
@@ -169,49 +221,7 @@ class OpenAIModel(LanguageModel):
             system_parts.append(system_extra)
 
         messages = [{"role": "system", "content": "\n".join(system_parts)}]
-
-        history_turns = []
-        for turn in (conversation_history or []):
-            role = turn.get("role")
-            content = turn.get("content") or ""
-            if role in ("user", "assistant") and content:
-                history_turns.append({"role": role, "content": content})
-
-        # Group into (user, assistant) pairs so trimming never orphans a
-        # reply from its prompt.  Unpaired trailing turns form their own group.
-        pairs: list[list[dict]] = []
-        i = 0
-        while i < len(history_turns):
-            if (history_turns[i]["role"] == "user"
-                    and i + 1 < len(history_turns)
-                    and history_turns[i + 1]["role"] == "assistant"):
-                pairs.append([history_turns[i], history_turns[i + 1]])
-                i += 2
-            else:
-                pairs.append([history_turns[i]])
-                i += 1
-
-        budget = _HISTORY_CHAR_BUDGET
-        kept_pairs: list[list[dict]] = []
-        for pair in reversed(pairs):
-            cost = sum(len(t["content"]) for t in pair)
-            if budget - cost < 0 and kept_pairs:
-                break
-            if cost > _HISTORY_CHAR_BUDGET:
-                marker = "...[truncated]"
-                cap = max(0, (_HISTORY_CHAR_BUDGET - len(marker) * len(pair)) // len(pair))
-                pair = [
-                    {**t, "content": t["content"][:cap] + marker}
-                    if len(t["content"]) > cap else t
-                    for t in pair
-                ]
-                cost = sum(len(t["content"]) for t in pair)
-            kept_pairs.append(pair)
-            budget -= cost
-        kept_pairs.reverse()
-        for pair in kept_pairs:
-            messages.extend(pair)
-
+        messages.extend(_trim_history(conversation_history))
         messages.append({"role": "user", "content": user_message})
 
         last_exc: Exception | None = None
@@ -303,47 +313,7 @@ class OpenAIModel(LanguageModel):
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": "\n".join(system_parts)},
         ]
-
-        history_turns = []
-        for turn in (conversation_history or []):
-            role = turn.get("role")
-            content = turn.get("content") or ""
-            if role in ("user", "assistant") and content:
-                history_turns.append({"role": role, "content": content})
-
-        pairs: list[list[dict]] = []
-        i = 0
-        while i < len(history_turns):
-            if (history_turns[i]["role"] == "user"
-                    and i + 1 < len(history_turns)
-                    and history_turns[i + 1]["role"] == "assistant"):
-                pairs.append([history_turns[i], history_turns[i + 1]])
-                i += 2
-            else:
-                pairs.append([history_turns[i]])
-                i += 1
-
-        budget = _HISTORY_CHAR_BUDGET
-        kept_pairs: list[list[dict]] = []
-        for pair in reversed(pairs):
-            cost = sum(len(t["content"]) for t in pair)
-            if budget - cost < 0 and kept_pairs:
-                break
-            if cost > _HISTORY_CHAR_BUDGET:
-                marker = "...[truncated]"
-                cap = max(0, (_HISTORY_CHAR_BUDGET - len(marker) * len(pair)) // len(pair))
-                pair = [
-                    {**t, "content": t["content"][:cap] + marker}
-                    if len(t["content"]) > cap else t
-                    for t in pair
-                ]
-                cost = sum(len(t["content"]) for t in pair)
-            kept_pairs.append(pair)
-            budget -= cost
-        kept_pairs.reverse()
-        for pair in kept_pairs:
-            messages.extend(pair)
-
+        messages.extend(_trim_history(conversation_history))
         messages.append({"role": "user", "content": user_message})
 
         all_tool_calls: list[ToolResult] = []
@@ -410,6 +380,8 @@ class OpenAIModel(LanguageModel):
                 iterations=iteration,
             )
 
+        log.warning("[openai] tool loop hit iteration cap (%d); attempting final summary",
+                    max_iterations)
         last_text = ""
         if messages and messages[-1].get("role") == "tool":
             for attempt in range(_RETRIES + 1):
@@ -429,6 +401,10 @@ class OpenAIModel(LanguageModel):
                         continue
                     log.warning("[openai] tool-loop fallback failed: %s", exc)
                     break
+
+        if not last_text and all_tool_calls:
+            log.warning("[openai] tool loop produced %d tool results but no final text",
+                        len(all_tool_calls))
 
         return ToolLoopResult(
             text=last_text,

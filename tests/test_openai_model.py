@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from shaggoth.models.openai_model import OpenAIModel, _BASE_SYSTEM
+from shaggoth.models.openai_model import OpenAIModel, _BASE_SYSTEM, _trim_history
 
 
 # ---------------------------------------------------------------------------
@@ -299,3 +299,57 @@ class TestGenerateDelegates:
         m.generate("test", max_tokens=123)
         call_kwargs = mock_client.chat.completions.create.call_args.kwargs
         assert call_kwargs["max_tokens"] == 123
+
+
+# ---------------------------------------------------------------------------
+# _trim_history helper
+# ---------------------------------------------------------------------------
+
+class TestTrimHistory:
+    def test_none_returns_empty(self):
+        assert _trim_history(None) == []
+
+    def test_empty_returns_empty(self):
+        assert _trim_history([]) == []
+
+    def test_filters_system_role(self):
+        result = _trim_history([
+            {"role": "system", "content": "ignored"},
+            {"role": "user", "content": "kept"},
+        ])
+        assert len(result) == 1
+        assert result[0]["role"] == "user"
+
+    def test_filters_empty_content(self):
+        result = _trim_history([{"role": "user", "content": ""}])
+        assert result == []
+
+    def test_pairs_user_assistant(self):
+        history = [
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+            {"role": "user", "content": "q2"},
+            {"role": "assistant", "content": "a2"},
+        ]
+        result = _trim_history(history)
+        assert len(result) == 4
+        assert result[0]["content"] == "q1"
+
+    def test_keeps_recent_pairs_within_budget(self):
+        big = "x" * 6000
+        history = [
+            {"role": "user", "content": big},
+            {"role": "assistant", "content": big},
+            {"role": "user", "content": "recent"},
+            {"role": "assistant", "content": "reply"},
+        ]
+        result = _trim_history(history)
+        assert any(t["content"] == "recent" for t in result)
+
+    def test_truncates_oversized_turn(self):
+        huge = "x" * 20000
+        history = [{"role": "user", "content": huge}]
+        result = _trim_history(history)
+        assert len(result) == 1
+        assert "...[truncated]" in result[0]["content"]
+        assert len(result[0]["content"]) < 15000

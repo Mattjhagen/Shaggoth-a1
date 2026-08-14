@@ -117,6 +117,8 @@ class CriticLoop:
 
     def stop(self) -> None:
         self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=10)
 
     def status(self) -> dict:
         return {
@@ -170,7 +172,8 @@ class CriticLoop:
         self.stats.seconds_spent += verdict.seconds
         self._seen.add(question.lower())
         if len(self._seen) > self._seen_max:
-            self._seen.clear()
+            to_drop = list(self._seen)[:len(self._seen) // 2]
+            self._seen -= set(to_drop)
 
         if not verdict.usable:
             self.stats.unusable += 1

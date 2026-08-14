@@ -261,7 +261,9 @@ class CuriosityScheduler:
         if not topics:
             return {"triggered": False, "reason": "no unknown topics found"}
 
-        # Research the first topic in background
+        with self._lock:
+            del self._message_buffer[:len(messages)]
+
         episode = self.curiosity.research_topic(
             topics[0],
             max_results=self.config.max_results_per_topic,
