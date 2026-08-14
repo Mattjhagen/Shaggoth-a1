@@ -32,7 +32,8 @@ _REDACT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     ), "[redacted-secret]"),
     (re.compile(
         r"(?i)\b(password|passwd|passphrase|api[ _-]?key|secret[ _-]?key|"
-        r"access[ _-]?token|private[ _-]?key|credentials?)\b\s*[:=]\s*\S+"
+        r"access[ _-]?token|private[ _-]?key|credentials?)\b\s*[:=]\s*"
+        r"(?:\"[^\"]*\"|'[^']*'|\S+)"
     ), "[redacted-credential]"),
 ]
 

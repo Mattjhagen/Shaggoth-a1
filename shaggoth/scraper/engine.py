@@ -150,6 +150,8 @@ class ScrapedPage:
 class ScraperEngine:
     """Fetches web pages, extracts clean text, stores in SQLite for training."""
 
+    _CACHE_MAX = 200
+
     def __init__(self, db_path: str | None = None, respect_robots: bool = True):
         self.db_path = db_path or str(Path.home() / ".shaggoth" / "scraper.db")
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -157,9 +159,6 @@ class ScraperEngine:
         self.respect_robots = respect_robots
         #: origin -> (RobotFileParser | None, fetched_at)
         self._robots_cache: dict[str, tuple] = {}
-        #: Set by fetch_page() to the raw HTML of the last successfully fetched
-        #: HTML page so crawl() can extract links without a second HTTP request.
-        self._last_html: str = ""
         #: origin -> monotonic time of the last request to it. crawl() used to
         #: loop fetch_page() with no pause at all, which is fine against
         #: Wikipedia and rude against a small customer site on shared hosting.
@@ -207,6 +206,9 @@ class ScraperEngine:
             # crawling the same origin queue behind each other instead of both
             # deciding they may go now.
             self._last_fetch[origin] = now + max(wait, 0.0)
+            if len(self._last_fetch) > self._CACHE_MAX:
+                oldest = min(self._last_fetch, key=self._last_fetch.get)
+                del self._last_fetch[oldest]
         if wait > 0:
             time.sleep(wait)
 
@@ -304,6 +306,9 @@ class ScraperEngine:
                 # No robots.txt, or unreachable. Allowed by default.
                 parser = None
             self._robots_cache[origin] = (parser, now)
+            if len(self._robots_cache) > self._CACHE_MAX:
+                oldest = min(self._robots_cache, key=lambda k: self._robots_cache[k][1])
+                del self._robots_cache[oldest]
             cached = self._robots_cache[origin]
 
         parser = cached[0]
@@ -375,11 +380,10 @@ class ScraperEngine:
                     charset = "utf-8"
                 if media_type in ("text/html", "application/xhtml+xml"):
                     html = raw.decode(charset, errors="replace")
-                    self._last_html = html
                     title = _extract_title(html)
                     text = _html_to_text(html)
                 else:
-                    self._last_html = ""
+                    html = ""
                     title = url.split("/")[-1] or url
                     text = raw.decode(charset, errors="replace")
                     text = _clean_text(text)
@@ -393,6 +397,7 @@ class ScraperEngine:
                 scraped_at=time.time(),
                 content_hash=content_hash,
             )
+            page._html = html  # type: ignore[attr-defined]
             self._store_page(page)
             self._log(url, "ok", f"{page.word_count} words")
             return page
@@ -438,9 +443,9 @@ class ScraperEngine:
                     scraped.append(page)
                     if len(scraped) >= max_pages:
                         break
-                    # Reuse the HTML cached by fetch_page — no second HTTP request.
-                    if self._last_html:
-                        links = _extract_links(self._last_html, url)
+                    page_html = getattr(page, "_html", "")
+                    if page_html:
+                        links = _extract_links(page_html, url)
                         for link in links[:20]:
                             if link not in visited:
                                 self.add_seed(link)

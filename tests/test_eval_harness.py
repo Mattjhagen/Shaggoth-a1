@@ -454,6 +454,27 @@ def test_run_logger_redacts_new_facts(tmp_path):
     assert "[redacted-secret]" in record.new_facts.get("api_key", "")
 
 
+def test_run_logger_redacts_quoted_credential(tmp_path):
+    """Credential values in quotes (password = "my secret") must be fully redacted."""
+    logger = RunLogger(directory=tmp_path)
+    record = logger.log(
+        session_id="redact",
+        user_input='my password = "super secret value"',
+        reply_text="ok",
+        source="pattern",
+        mode="no_drift",
+    )
+    assert record is not None
+    assert "super secret value" not in record.user_input
+    assert "[redacted-credential]" in record.user_input
+
+
+def test_harness_load_results_missing_file(tmp_path):
+    """load_results must return [] for a nonexistent path, not crash."""
+    loaded = Harness.load_results(tmp_path / "does-not-exist.jsonl")
+    assert loaded == []
+
+
 def test_engine_without_run_logger():
     """No crash when run_logger is None (the default)."""
     from shaggoth.dialogue import DialogueEngine

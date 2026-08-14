@@ -183,6 +183,8 @@ class Harness:
     def load_results(path: str | Path) -> list[RunResult]:
         """Read results from a JSONL file."""
         p = Path(path)
+        if not p.exists():
+            return []
         results = []
         for line in p.read_text(encoding="utf-8").splitlines():
             line = line.strip()

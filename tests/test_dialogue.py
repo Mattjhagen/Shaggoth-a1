@@ -515,5 +515,38 @@ class RecallQualityGateTests(unittest.TestCase):
         self.assertNotIn("you mentioned", reply.text)
 
 
+class RecalledEvictionTests(unittest.TestCase):
+    """The _recalled dict must not grow without bound across sessions."""
+
+    def test_recalled_dict_stays_bounded(self):
+        engine = make_engine()
+        for i in range(250):
+            sid = f"session-{i}"
+            engine._recalled.setdefault(sid, set())
+            if len(engine._recalled) > engine._recalled_max_sessions:
+                oldest = next(iter(engine._recalled))
+                if oldest != sid:
+                    del engine._recalled[oldest]
+        self.assertLessEqual(len(engine._recalled), engine._recalled_max_sessions + 1)
+
+    def test_recalled_max_sessions_default(self):
+        engine = make_engine()
+        self.assertEqual(engine._recalled_max_sessions, 200)
+
+
+class DuckTypeModelTests(unittest.TestCase):
+    """A non-OpenAI model with generate_chat but no .configured must not crash."""
+
+    def test_duck_type_model_without_configured_does_not_crash(self):
+        from unittest.mock import MagicMock
+        engine = make_engine()
+        mock = MagicMock()
+        del mock.configured
+        mock.generate_chat.return_value = "hello"
+        engine.model = mock
+        reply = engine.respond("hello", session_id="s1")
+        self.assertTrue(reply.text)
+
+
 if __name__ == "__main__":
     unittest.main()

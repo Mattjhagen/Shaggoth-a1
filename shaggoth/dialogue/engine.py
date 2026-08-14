@@ -187,6 +187,7 @@ class DialogueEngine:
         #: Instance-wide default, overridable per request.
         self.mode = normalize_mode(mode)
         self._recalled: dict[str, set[int]] = {}
+        self._recalled_max_sessions = 200
         self.deferred_questions = deferred_questions
         self.push_sender = push_sender
         self.curiosity_available = False
@@ -359,7 +360,7 @@ class DialogueEngine:
             or hasattr(self.model, "generate_chat")
         ) else None
         _gpt_has_tools = isinstance(self.model, OpenAIModel)
-        if body is None and _gpt is not None and _gpt.configured:
+        if body is None and _gpt is not None and getattr(_gpt, "configured", False):
             history, summary_extra = self._build_history_context(context)
             try:
                 profile = self.memory.user_profile_context()
@@ -547,6 +548,10 @@ class DialogueEngine:
         triggers: list[str] = []
         if source in ("pattern", "fallback") and not answered_from_knowledge:
             seen = self._recalled.setdefault(session_id, set())
+            if len(self._recalled) > self._recalled_max_sessions:
+                oldest = next(iter(self._recalled))
+                if oldest != session_id:
+                    del self._recalled[oldest]
             for recall in recalls:
                 if recall.message_id in seen:
                     continue

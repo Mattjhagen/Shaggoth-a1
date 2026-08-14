@@ -251,7 +251,9 @@ class CuriosityScheduler:
             messages = list(self._message_buffer)
 
         topics: list[str] = []
+        consumed = 0
         for msg in messages:
+            consumed += 1
             topic = self.curiosity.analyze_message(msg)
             if topic and topic not in topics:
                 topics.append(topic)
@@ -262,7 +264,7 @@ class CuriosityScheduler:
             return {"triggered": False, "reason": "no unknown topics found"}
 
         with self._lock:
-            del self._message_buffer[:len(messages)]
+            del self._message_buffer[:consumed]
 
         episode = self.curiosity.research_topic(
             topics[0],

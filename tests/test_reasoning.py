@@ -299,6 +299,25 @@ def test_causal_focus_does_not_leak_question_words():
     assert focus == {"light"}
 
 
+def test_reasoner_has_seeded_rng():
+    """The reasoner should use its own Random instance, not the global one."""
+    r = _reasoner([AERO])
+    assert hasattr(r, "_rng")
+    import random
+    assert isinstance(r._rng, random.Random)
+
+
+def test_search_cache_eviction():
+    """The _search_cache set must not grow without bound."""
+    r = _reasoner([AERO])
+    for i in range(600):
+        r._search_cache.add(f"query-{i}")
+        if len(r._search_cache) > r._search_cache_max:
+            to_drop = list(r._search_cache)[:len(r._search_cache) // 2]
+            r._search_cache -= set(to_drop)
+    assert len(r._search_cache) <= r._search_cache_max
+
+
 def test_causal_ranking_ignores_incidental_how_in_sentence_text():
     """A sentence that merely contains the word "how" must not outrank the
     sentence that actually explains the question's focus ("light"), which is

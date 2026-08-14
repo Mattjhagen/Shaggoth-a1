@@ -232,6 +232,53 @@ class GuardrailTests(unittest.TestCase):
             self.engine.add_rule({"id": "bad-redact", "type": "redact"})
 
 
+    def test_exclusion_uses_word_boundaries(self):
+        """Exclusion must match whole phrases only, not substrings.
+        'gun safe' should exclude 'gun safe' but not 'begun safely'."""
+        self.engine.add_rule({
+            "id": "test-boundary",
+            "type": "topic_refuse",
+            "keywords": ["make a gun"],
+            "exclude": ["gun safe"],
+            "message": "blocked",
+        })
+        self.assertTrue(self.engine.check_input("how to make a gun safe").allowed)
+        self.assertFalse(self.engine.check_input("how to make a gun at home").allowed)
+
+    def test_exclusion_rebuilds_matched_kws_after_stripping(self):
+        """After stripping exclude phrases, matched keywords must be re-evaluated
+        against the cleaned text. A keyword that no longer matches should not
+        fire the rule."""
+        self.engine.add_rule({
+            "id": "test-rebuild",
+            "type": "topic_refuse",
+            "keywords": ["build a bomb"],
+            "exclude": ["build a bomb shelter"],
+            "message": "blocked",
+        })
+        self.assertTrue(
+            self.engine.check_input("how do I build a bomb shelter").allowed
+        )
+        self.assertFalse(
+            self.engine.check_input("how do I build a bomb").allowed
+        )
+
+    def test_min_hits_threshold_respected(self):
+        """A topic_refuse rule with min_hits=2 requires two distinct keyword
+        matches before blocking."""
+        self.engine.add_rule({
+            "id": "multi-hit",
+            "type": "topic_refuse",
+            "min_hits": 2,
+            "keywords": ["alpha", "beta", "gamma"],
+            "message": "blocked",
+        })
+        self.assertTrue(self.engine.check_input("tell me about alpha").allowed)
+        self.assertFalse(
+            self.engine.check_input("tell me about alpha and beta").allowed
+        )
+
+
 class DeployedConfigTests(unittest.TestCase):
     """Validate the deployed config/guardrails.json has correct values."""
 

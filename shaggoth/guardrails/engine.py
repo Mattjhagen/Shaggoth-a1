@@ -263,12 +263,16 @@ class GuardrailEngine:
                 if excludes:
                     check_text = lowered
                     for ex in excludes:
-                        check_text = check_text.replace(ex.lower(), " ")
-                    still_hits = sum(
-                        1 for _, pat in kw_patterns
-                        if pat.search(check_text)
-                    )
-                    if still_hits == 0:
+                        check_text = re.sub(
+                            r"(?<!\w)" + re.escape(ex.lower()) + r"(?!\w)",
+                            " ",
+                            check_text,
+                        )
+                    matched_kws = [
+                        (kw, m) for kw, pat in kw_patterns
+                        if (m := pat.search(check_text))
+                    ]
+                    if not matched_kws:
                         continue
 
                 if len(matched_kws) >= int(rule.get("min_hits", 1)):
