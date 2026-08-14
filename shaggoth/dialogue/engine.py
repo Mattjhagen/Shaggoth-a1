@@ -102,6 +102,25 @@ def normalize_mode(value, default: str = DEFAULT_MODE) -> str:
     return default
 
 
+_METADATA_REDACT_RE = re.compile(
+    r"\bsk-[A-Za-z0-9_-]{16,}\b|"
+    r"\beyJ[A-Za-z0-9._-]{20,}\b|"
+    r"\bgh[pousr]_[A-Za-z0-9]{20,}\b|"
+    r"\b(?:[Pp]assword|[Pp]asswd|[Aa]pi[ _-]?[Kk]ey|[Ss]ecret[ _-]?[Kk]ey|"
+    r"[Aa]ccess[ _-]?[Tt]oken|[Pp]rivate[ _-]?[Kk]ey)\b\s*[:=]\s*\S+"
+)
+
+
+def _redact_metadata(value: Any) -> Any:
+    if isinstance(value, str):
+        return _METADATA_REDACT_RE.sub("[redacted]", value)
+    if isinstance(value, dict):
+        return {k: _redact_metadata(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_redact_metadata(v) for v in value]
+    return value
+
+
 @dataclass
 class Reply:
     text: str
@@ -804,6 +823,9 @@ class DialogueEngine:
         for tu in reply.tools_used:
             if tu.get("output"):
                 tu["output"], _ = self.guardrails.filter_output(tu["output"])
+            if tu.get("arguments"):
+                tu["arguments"] = _redact_metadata(tu["arguments"])
+        reply.reasoning = [_redact_metadata(s) for s in reply.reasoning]
         return reply
 
     def _persist(self, session_id: str, user_text: str, reply: Reply) -> None:

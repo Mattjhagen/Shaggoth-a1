@@ -41,6 +41,10 @@ def main(argv: list[str] | None = None) -> int:
     settings = load_settings()
     engine = build_engine(settings)
     engine.memory = MemoryStore(":memory:")
+    from shaggoth.tools.builtin import build_tool_registry
+    engine.tools = build_tool_registry(
+        knowledge_base=engine.knowledge, memory_store=engine.memory
+    )
 
     print(f"Loading benchmark from {args.benchmark or 'bundled default'}")
     harness = Harness(engine, session_id="eval-bench")

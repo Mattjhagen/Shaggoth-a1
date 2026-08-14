@@ -446,7 +446,9 @@ class KnowledgeBase:
             scored.append((overlap, i))
 
         scored.sort(key=lambda x: -x[0])
-        best_indices = sorted(idx for _, idx in scored[:max_chunks])
+        positive = [(s, i) for s, i in scored if s > 0]
+        selected = positive[:max_chunks] if positive else scored[:max_chunks]
+        best_indices = sorted(idx for _, idx in selected)
         return "\n\n".join(entry.chunks[i] for i in best_indices)
 
     def add_entry(self, topic: str, content: str) -> Path:

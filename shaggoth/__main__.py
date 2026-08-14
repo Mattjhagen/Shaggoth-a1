@@ -336,6 +336,10 @@ def cmd_benchmark(settings: dict, benchmark: str | None, output: str | None) -> 
 
     engine = build_engine(settings)
     engine.memory = MemoryStore(":memory:")
+    from .tools.builtin import build_tool_registry
+    engine.tools = build_tool_registry(
+        knowledge_base=engine.knowledge, memory_store=engine.memory
+    )
     harness = Harness(engine, session_id="eval-bench")
 
     benchmark_path = benchmark or None

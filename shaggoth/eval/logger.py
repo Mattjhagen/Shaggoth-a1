@@ -29,6 +29,10 @@ _REDACT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
         r"\beyJ[A-Za-z0-9._-]{20,}\b|"
         r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"
     ), "[redacted-secret]"),
+    (re.compile(
+        r"(?i)\b(password|passwd|passphrase|api[ _-]?key|secret[ _-]?key|"
+        r"access[ _-]?token|private[ _-]?key|credentials?)\b\s*[:=]\s*\S+"
+    ), "[redacted-credential]"),
 ]
 
 
