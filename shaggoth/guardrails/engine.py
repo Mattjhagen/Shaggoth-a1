@@ -75,6 +75,16 @@ DEFAULT_CONFIG: dict[str, Any] = {
                 "make mustard gas", "make nerve agent",
                 "make ricin", "make anthrax",
             ],
+            "exclude": [
+                "bomb shelter", "bomb squad", "bomb disposal",
+                "bomb threat", "bomb scare",
+                "poison ivy", "poison oak", "poison control",
+                "poison dart frog",
+                "gun safe", "gun safety", "gun control",
+                "gun license", "gun permit", "gun laws",
+                "weapon inspection", "weapon safety",
+                "explosive detection",
+            ],
             "message": (
                 "I don't help with weapons, explosives, or harmful substances. "
                 "Ask me something I can actually be useful for."
@@ -216,7 +226,7 @@ class GuardrailEngine:
                 continue
             rtype = rule.get("type")
             flag_level = rule.get("flag", "red")
-            rid = rule["id"]
+            rid = rule.get("id", "unknown")
 
             if rtype == "regex_block":
                 if re.search(rule["pattern"], text):
@@ -228,6 +238,9 @@ class GuardrailEngine:
                         flag=flag_level,
                     )
             elif rtype == "topic_refuse":
+                excludes = rule.get("exclude", [])
+                if excludes and any(ex.lower() in lowered for ex in excludes):
+                    continue
                 hits = sum(
                     1 for kw in rule.get("keywords", [])
                     if re.search(

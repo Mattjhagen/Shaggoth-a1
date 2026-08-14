@@ -181,6 +181,15 @@ class GuardrailTests(unittest.TestCase):
         ):
             self.assertTrue(self.engine.check_input(q).allowed, q)
 
+    def test_weapons_exclude_benign_continuations(self):
+        for q in (
+            "how do I make a bomb shelter",
+            "how to make poison ivy go away",
+            "how do I make a gun safe for storage",
+            "how to build a weapon inspection program",
+        ):
+            self.assertTrue(self.engine.check_input(q).allowed, q)
+
     def test_add_rule_rejects_missing_pattern(self):
         with self.assertRaises(ValueError, msg="requires a 'pattern'"):
             self.engine.add_rule({"id": "broken", "type": "regex_block"})

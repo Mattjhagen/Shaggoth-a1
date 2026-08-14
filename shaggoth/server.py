@@ -1110,6 +1110,13 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if not token:
                     return self._send_json(400, {"error": "token is required"})
                 with _PUSH_LOCK:
+                    for i, existing in enumerate(PUSH_TOKENS):
+                        if existing["token"] == token:
+                            PUSH_TOKENS[i] = {"token": token, "platform": platform, "time": time.time()}
+                            return self._send_json(200, {"ok": True, "tokens_registered": len(PUSH_TOKENS)})
+                    _STALE_AGE = 30 * 86400  # 30 days
+                    now = time.time()
+                    PUSH_TOKENS[:] = [t for t in PUSH_TOKENS if now - t.get("time", 0) < _STALE_AGE]
                     if len(PUSH_TOKENS) >= _MAX_PUSH_TOKENS:
                         return self._send_json(429, {"error": "too many tokens registered"})
                     PUSH_TOKENS.append({"token": token, "platform": platform, "time": time.time()})
@@ -1117,7 +1124,13 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 return self._send_json(200, {"ok": True, "tokens_registered": count})
 
             if path == "/push/tokens":
-                return self._send_json(200, {"tokens": PUSH_TOKENS})
+                safe_tokens = [
+                    {"platform": t.get("platform", "unknown"),
+                     "token_prefix": t["token"][:8] + "...",
+                     "registered": t.get("time", 0)}
+                    for t in PUSH_TOKENS
+                ]
+                return self._send_json(200, {"count": len(PUSH_TOKENS), "tokens": safe_tokens})
 
             if path == "/scrape/seed":
                 body = self._read_json()

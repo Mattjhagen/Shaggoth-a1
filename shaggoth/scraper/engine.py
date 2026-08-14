@@ -22,6 +22,21 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 
 
+_EXTRA_NON_GLOBAL = [
+    ipaddress.ip_network("100.64.0.0/10"),    # CGNAT (RFC 6598)
+    ipaddress.ip_network("192.0.0.0/24"),     # IETF Protocol Assignments
+    ipaddress.ip_network("198.18.0.0/15"),    # Benchmarking (RFC 2544)
+    ipaddress.ip_network("198.51.100.0/24"),  # Documentation TEST-NET-2
+    ipaddress.ip_network("203.0.113.0/24"),   # Documentation TEST-NET-3
+]
+
+
+def _is_non_global(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    if not addr.is_global:
+        return True
+    return any(addr in net for net in _EXTRA_NON_GLOBAL)
+
+
 class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Reject redirects to private/internal addresses (SSRF protection)."""
 
@@ -36,17 +51,19 @@ class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
             raise urllib.error.URLError(f"redirect to blocked host: {hostname}")
         try:
             addr = ipaddress.ip_address(hostname)
-            if not addr.is_global:
+            if _is_non_global(addr):
                 raise urllib.error.URLError(f"redirect to non-global address: {hostname}")
         except ValueError:
             pass
         try:
             for info in socket.getaddrinfo(hostname, None, socket.AF_UNSPEC):
                 addr = ipaddress.ip_address(info[4][0])
-                if not addr.is_global:
+                if _is_non_global(addr):
                     raise urllib.error.URLError(
                         f"redirect to non-global address: {hostname} -> {addr}"
                     )
+        except urllib.error.URLError:
+            raise
         except (socket.gaierror, OSError):
             pass
         return super().redirect_request(req, fp, code, msg, headers, newurl)
@@ -310,14 +327,14 @@ class ScraperEngine:
             return True
         try:
             addr = ipaddress.ip_address(hostname)
-            if not addr.is_global:
+            if _is_non_global(addr):
                 return True
         except ValueError:
             pass
         try:
             for info in socket.getaddrinfo(hostname, None, socket.AF_UNSPEC):
                 addr = ipaddress.ip_address(info[4][0])
-                if not addr.is_global:
+                if _is_non_global(addr):
                     return True
         except (socket.gaierror, OSError):
             pass

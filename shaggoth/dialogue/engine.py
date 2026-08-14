@@ -401,6 +401,8 @@ class DialogueEngine:
                     log.debug("GPT returned empty for: %s", text[:80])
             except GenerationError as exc:
                 log.warning("GPT generation failed: %s", exc)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("GPT generation unexpected error: %s", exc)
 
         # 5b-fallback. Knowledge extraction without GPT — walks the ranked
         # hits and extracts a definition or summary sentence directly.

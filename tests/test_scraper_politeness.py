@@ -229,6 +229,13 @@ def test_private_url_metadata_blocked():
 def test_private_url_cgnat_blocked():
     assert ScraperEngine._is_private_url("http://100.64.0.1/internal")
 
+def test_private_url_benchmarking_blocked():
+    assert ScraperEngine._is_private_url("http://198.18.0.1/bench")
+
+def test_private_url_documentation_blocked():
+    assert ScraperEngine._is_private_url("http://198.51.100.1/docs")
+    assert ScraperEngine._is_private_url("http://203.0.113.1/docs")
+
 def test_public_url_allowed():
     assert not ScraperEngine._is_private_url("https://example.com/page")
 
