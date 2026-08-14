@@ -159,3 +159,20 @@ def test_start_after_stop_restarts_the_thread(tmp_path):
     loop.start()
     assert loop._thread is not None and loop._thread.is_alive()
     loop.stop()
+
+
+def test_stop_joins_the_thread(tmp_path):
+    loop = _loop(["good"] * 10, tmp_path)
+    loop.start()
+    assert loop._thread.is_alive()
+    loop.stop()
+    assert not loop._thread.is_alive()
+
+
+def test_seen_set_half_eviction(tmp_path):
+    loop = _loop(["good"] * 200, tmp_path)
+    loop._seen_max = 10
+    for i in range(15):
+        loop._seen.add(f"q{i}")
+    loop.judge_once("trigger eviction")
+    assert len(loop._seen) <= 10
