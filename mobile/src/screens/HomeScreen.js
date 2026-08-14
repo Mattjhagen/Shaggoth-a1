@@ -4,7 +4,6 @@ import { colors, spacing, radius, fontSize } from '../theme/colors'
 import FeatureCard from '../components/FeatureCard'
 
 export default function HomeScreen({ onNavigate, connected }) {
-
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -19,7 +18,7 @@ export default function HomeScreen({ onNavigate, connected }) {
           flexDirection: 'row',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: spacing.xxxl,
+          marginBottom: spacing.xxl,
         }}>
           <Text style={{
             color: colors.text,
@@ -35,11 +34,28 @@ export default function HomeScreen({ onNavigate, connected }) {
             gap: spacing.sm,
           }}>
             <View style={{
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: connected ? colors.green : colors.red,
-            }} />
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.xs,
+              paddingHorizontal: spacing.sm + 2,
+              paddingVertical: spacing.xs + 1,
+              borderRadius: radius.full,
+              backgroundColor: (connected ? colors.green : colors.red) + '15',
+            }}>
+              <View style={{
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: connected ? colors.green : colors.red,
+              }} />
+              <Text style={{
+                color: connected ? colors.green : colors.red,
+                fontSize: fontSize.xs,
+                fontWeight: '600',
+              }}>
+                {connected ? 'Online' : 'Offline'}
+              </Text>
+            </View>
             <TouchableOpacity
               onPress={() => onNavigate('settings')}
               activeOpacity={0.7}
@@ -63,38 +79,38 @@ export default function HomeScreen({ onNavigate, connected }) {
       <View style={{
         alignItems: 'center',
         paddingVertical: spacing.xxl,
-        marginBottom: spacing.lg,
+        marginBottom: spacing.md,
       }}>
         <View style={{
-          width: 170,
-          height: 170,
-          borderRadius: 85,
+          width: 150,
+          height: 150,
+          borderRadius: 75,
           backgroundColor: colors.surfaceCard,
           alignItems: 'center',
           justifyContent: 'center',
           borderWidth: 2,
-          borderColor: colors.border,
-          shadowColor: colors.green,
+          borderColor: connected ? colors.primary + '40' : colors.border,
+          shadowColor: connected ? colors.primary : colors.green,
           shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.3,
+          shadowOpacity: connected ? 0.4 : 0.2,
           shadowRadius: 24,
           elevation: 12,
         }}>
           <View style={{
-            width: 148,
-            height: 148,
-            borderRadius: 74,
+            width: 130,
+            height: 130,
+            borderRadius: 65,
             backgroundColor: colors.surfaceLight,
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <Text style={{ fontSize: 64 }}>{'👽'}</Text>
+            <Text style={{ fontSize: 56 }}>{'👽'}</Text>
           </View>
         </View>
         <Text style={{
           color: colors.textDim,
           fontSize: fontSize.sm,
-          marginTop: spacing.md,
+          marginTop: spacing.lg,
           letterSpacing: 2,
           textTransform: 'uppercase',
         }}>
@@ -103,18 +119,50 @@ export default function HomeScreen({ onNavigate, connected }) {
       </View>
 
       <View style={{ paddingHorizontal: spacing.lg }}>
+        <TouchableOpacity
+          onPress={() => onNavigate('chat')}
+          activeOpacity={0.8}
+          style={{
+            backgroundColor: colors.primary,
+            borderRadius: radius.xl,
+            padding: spacing.xl,
+            marginBottom: spacing.md,
+            flexDirection: 'row',
+            alignItems: 'center',
+            shadowColor: colors.primary,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 12,
+            elevation: 8,
+          }}
+        >
+          <View style={{
+            width: 48,
+            height: 48,
+            borderRadius: 16,
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: spacing.lg,
+          }}>
+            <Text style={{ fontSize: 24 }}>{'🛸'}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.white, fontSize: fontSize.xl, fontWeight: '700' }}>
+              Start Chat
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: fontSize.sm, marginTop: 2 }}>
+              Transmit messages to the AI core
+            </Text>
+          </View>
+          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 20 }}>{'→'}</Text>
+        </TouchableOpacity>
+
         <View style={{
           flexDirection: 'row',
           gap: spacing.md,
           marginBottom: spacing.md,
         }}>
-          <FeatureCard
-            icon="🛸"
-            title="Chat"
-            subtitle="Transmit messages to the AI core"
-            accentColor={colors.primary}
-            onPress={() => onNavigate('chat')}
-          />
           <FeatureCard
             icon="🌌"
             title="Knowledge"
@@ -122,16 +170,50 @@ export default function HomeScreen({ onNavigate, connected }) {
             accentColor={colors.green}
             onPress={() => onNavigate('knowledge')}
           />
+          <FeatureCard
+            icon="👽"
+            title="Personality"
+            subtitle="View traits, backstory & values"
+            accentColor={colors.blue}
+            onPress={() => onNavigate('personality')}
+          />
         </View>
 
-        <FeatureCard
-          icon="🧠"
-          title="Self-Learn"
-          subtitle="Autonomous web research & knowledge acquisition"
-          accentColor={colors.blue}
-          onPress={() => onNavigate('learn')}
-          wide
-        />
+        <View style={{
+          flexDirection: 'row',
+          gap: spacing.md,
+          marginBottom: spacing.md,
+        }}>
+          <FeatureCard
+            icon="🔭"
+            title="Curiosity"
+            subtitle="Autonomous research engine"
+            accentColor={colors.yellow}
+            onPress={() => onNavigate('curiosity')}
+          />
+          <FeatureCard
+            icon="🛡"
+            title="Guardrails"
+            subtitle="Safety rules & content filters"
+            accentColor={colors.red}
+            onPress={() => onNavigate('guardrails')}
+          />
+        </View>
+
+        <View style={{
+          flexDirection: 'row',
+          gap: spacing.md,
+          marginBottom: spacing.md,
+        }}>
+          <FeatureCard
+            icon="🧠"
+            title="Self-Learn"
+            subtitle="Web research & training"
+            accentColor={colors.primary}
+            onPress={() => onNavigate('learn')}
+            wide
+          />
+        </View>
       </View>
     </ScrollView>
   )

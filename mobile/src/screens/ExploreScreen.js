@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import {
-  View, Text, ScrollView, FlatList, TouchableOpacity,
-  ActivityIndicator, TextInput,
+  View, Text, ScrollView, TouchableOpacity,
+  ActivityIndicator, TextInput, RefreshControl,
 } from 'react-native'
 import { colors, spacing, radius, fontSize } from '../theme/colors'
 import CategoryChip from '../components/CategoryChip'
@@ -26,14 +26,40 @@ export default function ExploreScreen({ onNavigate, onBack }) {
   const [category, setCategory] = useState('All')
   const [knowledge, setKnowledge] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  useEffect(() => {
-    api.getKnowledge()
-      .then(d => setKnowledge(d.entries || []))
-      .catch(() => {})
-      .finally(() => setLoading(false))
+  const loadKnowledge = useCallback(async () => {
+    try {
+      const d = await api.getKnowledge()
+      setKnowledge(d.entries || [])
+    } catch {}
   }, [])
+
+  useEffect(() => {
+    loadKnowledge().finally(() => setLoading(false))
+  }, [loadKnowledge])
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await loadKnowledge()
+    setRefreshing(false)
+  }, [loadKnowledge])
+
+  const handleSearch = useCallback(async () => {
+    if (!searchQuery.trim()) return
+    setLoading(true)
+    try {
+      const d = await api.searchKnowledge(searchQuery)
+      setKnowledge((d.results || []).map(r => ({
+        topic: r.topic,
+        content: r.content,
+        word_count: r.content ? r.content.split(' ').length : 0,
+        score: r.score,
+      })))
+    } catch {}
+    setLoading(false)
+  }, [searchQuery])
 
   const filteredTools = category === 'All'
     ? TOOLS
@@ -63,6 +89,14 @@ export default function ExploreScreen({ onNavigate, onBack }) {
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xl }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         <Text style={{
           color: colors.textSecondary,
@@ -160,7 +194,10 @@ export default function ExploreScreen({ onNavigate, onBack }) {
           borderWidth: 1,
           borderColor: colors.border,
           marginBottom: spacing.md,
+          flexDirection: 'row',
+          alignItems: 'center',
         }}>
+          <Text style={{ color: colors.textDim, fontSize: fontSize.md, marginRight: spacing.sm }}>{'🔍'}</Text>
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -170,29 +207,25 @@ export default function ExploreScreen({ onNavigate, onBack }) {
               color: colors.text,
               fontSize: fontSize.md,
               padding: 0,
+              flex: 1,
             }}
-            onSubmitEditing={() => {
-              if (!searchQuery.trim()) return
-              setLoading(true)
-              api.searchKnowledge(searchQuery)
-                .then(d => setKnowledge((d.results || []).map(r => ({
-                  topic: r.topic,
-                  content: r.content,
-                  word_count: r.content.split(' ').length,
-                  score: r.score,
-                }))))
-                .catch(() => {})
-                .finally(() => setLoading(false))
-            }}
+            returnKeyType="search"
+            onSubmitEditing={handleSearch}
           />
         </View>
 
         {loading ? (
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
         ) : knowledge.length === 0 ? (
-          <Text style={{ color: colors.textDim, textAlign: 'center', marginTop: 40 }}>
-            No knowledge entries yet
-          </Text>
+          <View style={{ alignItems: 'center', marginTop: 40 }}>
+            <Text style={{ fontSize: 48, marginBottom: spacing.md }}>{'🌌'}</Text>
+            <Text style={{ color: colors.textDim, fontSize: fontSize.lg, textAlign: 'center' }}>
+              No knowledge entries yet
+            </Text>
+            <Text style={{ color: colors.textMuted, fontSize: fontSize.sm, textAlign: 'center', marginTop: spacing.xs }}>
+              Use the Learn tool to add knowledge
+            </Text>
+          </View>
         ) : (
           knowledge.slice(0, 10).map((entry, i) => (
             <View

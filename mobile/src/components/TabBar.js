@@ -1,6 +1,6 @@
 import React from 'react'
 import { View, TouchableOpacity, Text, Platform } from 'react-native'
-import { colors } from '../theme/colors'
+import { colors, spacing, fontSize } from '../theme/colors'
 
 const TABS = [
   { key: 'home', label: 'Home', icon: '🛸' },
@@ -16,9 +16,9 @@ export default function TabBar({ tab, onTab }) {
       backgroundColor: colors.surface,
       borderTopWidth: 1,
       borderColor: colors.border,
-      paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-      paddingTop: 8,
-      alignItems: 'center',
+      paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+      paddingTop: 10,
+      alignItems: 'flex-end',
     }}>
       {TABS.map((t, idx) => {
         const isCenter = idx === 1
@@ -30,13 +30,13 @@ export default function TabBar({ tab, onTab }) {
               key={t.key}
               onPress={() => onTab(t.key)}
               activeOpacity={0.8}
-              style={{ flex: 1, alignItems: 'center', marginTop: -20 }}
+              style={{ flex: 1, alignItems: 'center', marginTop: -22 }}
             >
               <View style={{
-                width: 52,
-                height: 52,
-                borderRadius: 26,
-                backgroundColor: colors.primary,
+                width: 54,
+                height: 54,
+                borderRadius: 27,
+                backgroundColor: active ? colors.primary : colors.primaryDim,
                 alignItems: 'center',
                 justifyContent: 'center',
                 shadowColor: colors.primary,
@@ -44,8 +44,10 @@ export default function TabBar({ tab, onTab }) {
                 shadowOpacity: 0.4,
                 shadowRadius: 8,
                 elevation: 8,
+                borderWidth: 3,
+                borderColor: colors.surface,
               }}>
-                <Text style={{ fontSize: 22, color: colors.white }}>
+                <Text style={{ fontSize: 22 }}>
                   {t.icon}
                 </Text>
               </View>

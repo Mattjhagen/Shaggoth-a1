@@ -2,7 +2,9 @@ const { withAndroidManifest, withDangerousMod } = require("expo/config-plugins")
 const fs = require("fs");
 const path = require("path");
 
-const PACKAGE = "com.mattjhagen.shaggoth";
+function getPackageName(config) {
+  return config.android?.package || "com.relayapp.pro";
+}
 
 function withAndroidAssistant(config) {
   config = withAssistantManifest(config);
@@ -21,6 +23,8 @@ function withAssistantManifest(config) {
     if (hasService) return config;
 
     if (!app.service) app.service = [];
+
+    const pkg = getPackageName(config);
 
     app.service.push({
       $: {
@@ -90,9 +94,12 @@ function withAssistantNativeFiles(config) {
     (config) => {
       const projectRoot = config.modRequest.projectRoot;
       const androidRoot = path.join(projectRoot, "android");
+      const pkg = getPackageName(config);
+      const pkgPath = pkg.replace(/\./g, "/");
       const javaDir = path.join(
         androidRoot,
-        "app/src/main/java/com/mattjhagen/shaggoth"
+        "app/src/main/java",
+        pkgPath
       );
       const xmlDir = path.join(androidRoot, "app/src/main/res/xml");
 
@@ -101,7 +108,7 @@ function withAssistantNativeFiles(config) {
 
       fs.writeFileSync(
         path.join(javaDir, "ShaggothAssistService.java"),
-        `package ${PACKAGE};
+        `package ${pkg};
 
 import android.service.voice.VoiceInteractionService;
 
@@ -116,7 +123,7 @@ public class ShaggothAssistService extends VoiceInteractionService {
 
       fs.writeFileSync(
         path.join(javaDir, "ShaggothAssistSessionService.java"),
-        `package ${PACKAGE};
+        `package ${pkg};
 
 import android.os.Bundle;
 import android.service.voice.VoiceInteractionSession;
@@ -133,7 +140,7 @@ public class ShaggothAssistSessionService extends VoiceInteractionSessionService
 
       fs.writeFileSync(
         path.join(javaDir, "ShaggothAssistSession.java"),
-        `package ${PACKAGE};
+        `package ${pkg};
 
 import android.content.Context;
 import android.content.Intent;
@@ -166,7 +173,7 @@ public class ShaggothAssistSession extends VoiceInteractionSession {
         path.join(xmlDir, "voice_interaction_service.xml"),
         `<?xml version="1.0" encoding="utf-8"?>
 <voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:sessionService="${PACKAGE}.ShaggothAssistSessionService"
+    android:sessionService="${pkg}.ShaggothAssistSessionService"
     android:supportsAssist="true"
     android:supportsLaunchVoiceAssistFromKeyguard="true"
     android:supportsLocalInteraction="true" />

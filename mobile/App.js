@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { View, StatusBar, Platform } from 'react-native'
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
 import * as Linking from 'expo-linking'
+import Constants from 'expo-constants'
 import { colors } from './src/theme/colors'
 import TabBar from './src/components/TabBar'
 import HomeScreen from './src/screens/HomeScreen'
@@ -12,6 +12,9 @@ import ChatScreen from './src/screens/ChatScreen'
 import ExploreScreen from './src/screens/ExploreScreen'
 import ToolsScreen from './src/screens/ToolsScreen'
 import SettingsScreen from './src/screens/SettingsScreen'
+import PersonalityScreen from './src/screens/PersonalityScreen'
+import CuriosityScreen from './src/screens/CuriosityScreen'
+import GuardrailsScreen from './src/screens/GuardrailsScreen'
 import * as api from './src/api/shaggoth'
 
 Notifications.setNotificationHandler({
@@ -49,16 +52,22 @@ export default function App() {
     })
 
     async function setupPush() {
-      if (!Device.isDevice) return
-      const { status: existing } = await Notifications.getPermissionsAsync()
-      let final = existing
-      if (existing !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync()
-        final = status
-      }
-      if (final !== 'granted') return
-      const tokenData = await Notifications.getExpoPushTokenAsync()
-      api.registerPushToken(tokenData.data, Platform.OS).catch(() => {})
+      try {
+        if (!Device.isDevice) return
+        const { status: existing } = await Notifications.getPermissionsAsync()
+        let final = existing
+        if (existing !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync()
+          final = status
+        }
+        if (final !== 'granted') return
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId
+          ?? Constants.easConfig?.projectId
+        const tokenData = await Notifications.getExpoPushTokenAsync(
+          projectId ? { projectId } : undefined
+        )
+        api.registerPushToken(tokenData.data, Platform.OS).catch(() => {})
+      } catch {}
     }
     setupPush()
 
@@ -71,7 +80,7 @@ export default function App() {
       setTab('settings')
       return
     }
-    if (['chat', 'knowledge', 'learn'].includes(screen)) {
+    if (['chat', 'knowledge', 'learn', 'personality', 'curiosity', 'guardrails'].includes(screen)) {
       setSubScreen({ screen, params })
     }
   }
@@ -90,6 +99,12 @@ export default function App() {
           return <ExploreScreen onNavigate={navigate} onBack={goBack} />
         case 'learn':
           return <ToolsScreen onBack={goBack} />
+        case 'personality':
+          return <PersonalityScreen onBack={goBack} />
+        case 'curiosity':
+          return <CuriosityScreen onBack={goBack} />
+        case 'guardrails':
+          return <GuardrailsScreen onBack={goBack} />
       }
     }
 

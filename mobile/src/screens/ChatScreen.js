@@ -2,12 +2,23 @@ import React, { useState, useCallback, useRef, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   KeyboardAvoidingView, Platform, ActivityIndicator, Animated,
+  Keyboard, Modal,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { colors, spacing, radius, fontSize } from '../theme/colors'
 import Header from '../components/Header'
 import useVoice from '../hooks/useVoice'
 import * as api from '../api/shaggoth'
+
+const SOURCE_LABELS = {
+  knowledge: 'Knowledge Base',
+  model: 'AI Model',
+  reasoning: 'Multi-step Reasoning',
+  pattern: 'Pattern Match',
+  guardrail: 'Guardrail',
+  plugin: 'Plugin',
+  fallback: 'Fallback',
+}
 
 async function getSessionId() {
   let sid = await AsyncStorage.getItem('shaggoth_session')
@@ -40,9 +51,9 @@ function MicButton({ listening, onPress, available }) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <Animated.View style={{
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         backgroundColor: listening ? colors.red : colors.surfaceCard,
         alignItems: 'center',
         justifyContent: 'center',
@@ -51,26 +62,63 @@ function MicButton({ listening, onPress, available }) {
         marginRight: spacing.sm,
         transform: [{ scale: pulseAnim }],
       }}>
-        <Text style={{ fontSize: 20 }}>{listening ? '⏹' : '🎙'}</Text>
+        <Text style={{ fontSize: 18 }}>{listening ? '⏹' : '🎙'}</Text>
       </Animated.View>
     </TouchableOpacity>
   )
 }
 
-function SpeakerButton({ speaking, onPress }) {
+function FeedbackBar({ item, onFeedback }) {
+  if (!item.text || item.source === 'streaming' || item.source === 'error') return null
+
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={{ marginLeft: spacing.xs }}>
-      <View style={{
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.xs,
-        borderRadius: radius.sm,
-        backgroundColor: speaking ? colors.primaryMuted : 'transparent',
-      }}>
-        <Text style={{ fontSize: 14, color: speaking ? colors.primary : colors.textDim }}>
-          {speaking ? '🔊' : '🔈'}
-        </Text>
-      </View>
-    </TouchableOpacity>
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs }}>
+      <TouchableOpacity
+        onPress={() => onFeedback(item, 'good')}
+        activeOpacity={0.7}
+        style={{
+          paddingHorizontal: spacing.sm,
+          paddingVertical: spacing.xs,
+          borderRadius: radius.sm,
+          backgroundColor: item.verdict === 'good' ? colors.green + '25' : 'transparent',
+        }}
+      >
+        <Text style={{
+          fontSize: 14,
+          opacity: item.verdict === 'bad' ? 0.3 : 1,
+        }}>{'👍'}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => onFeedback(item, 'bad')}
+        activeOpacity={0.7}
+        style={{
+          paddingHorizontal: spacing.sm,
+          paddingVertical: spacing.xs,
+          borderRadius: radius.sm,
+          backgroundColor: item.verdict === 'bad' ? colors.red + '25' : 'transparent',
+        }}
+      >
+        <Text style={{
+          fontSize: 14,
+          opacity: item.verdict === 'good' ? 0.3 : 1,
+        }}>{'👎'}</Text>
+      </TouchableOpacity>
+      {item.source && !['pattern', 'streaming', 'error'].includes(item.source) && (
+        <TouchableOpacity
+          onPress={() => onFeedback(item, 'explain')}
+          activeOpacity={0.7}
+          style={{
+            paddingHorizontal: spacing.sm,
+            paddingVertical: spacing.xs,
+            marginLeft: spacing.xs,
+            borderRadius: radius.sm,
+            backgroundColor: colors.surfaceLight,
+          }}
+        >
+          <Text style={{ fontSize: fontSize.xs, color: colors.textSecondary, fontWeight: '600' }}>How?</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   )
 }
 
@@ -79,22 +127,34 @@ export default function ChatScreen({ onBack, assistMode }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [autoSpeak, setAutoSpeak] = useState(false)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
+  const [feedbackModal, setFeedbackModal] = useState(null)
+  const [feedbackNote, setFeedbackNote] = useState('')
+  const [expandedMsg, setExpandedMsg] = useState(null)
   const flatRef = useRef(null)
+  const loadingRef = useRef(false)
+  const autoSpeakRef = useRef(false)
   const voice = useVoice()
+  const voiceRef = useRef(voice)
+  voiceRef.current = voice
+
+  useEffect(() => { autoSpeakRef.current = autoSpeak }, [autoSpeak])
 
   useEffect(() => {
-    if (assistMode && voice.available) {
-      voice.startListening((text) => {
-        if (text) {
-          setInput(text)
-          setTimeout(() => sendWithText(text), 300)
-        }
-      })
-    }
-  }, [assistMode, voice.available])
+    if (Platform.OS !== 'android') return
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height)
+    })
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0)
+    })
+    return () => { showSub.remove(); hideSub.remove() }
+  }, [])
 
   const sendWithText = useCallback(async (text) => {
-    if (!text?.trim() || loading) return
+    if (!text?.trim() || loadingRef.current) return
+    loadingRef.current = true
+    setLoading(true)
     setInput('')
     const sid = await getSessionId()
 
@@ -102,8 +162,7 @@ export default function ChatScreen({ onBack, assistMode }) {
     setMessages(prev => [...prev, userMsg])
 
     const botId = (Date.now() + 1).toString()
-    setMessages(prev => [...prev, { id: botId, role: 'assistant', text: '', source: 'streaming' }])
-    setLoading(true)
+    setMessages(prev => [...prev, { id: botId, role: 'assistant', text: '', source: 'streaming', question: text.trim() }])
 
     let fullReply = ''
     api.chatStream(text.trim(), sid,
@@ -115,31 +174,81 @@ export default function ChatScreen({ onBack, assistMode }) {
       },
       meta => {
         setMessages(prev => prev.map(m =>
-          m.id === botId ? { ...m, source: meta.source, flag: meta.flag } : m
+          m.id === botId ? {
+            ...m,
+            source: meta.source,
+            flag: meta.flag,
+            reasoning: meta.reasoning,
+            entries_used: meta.entries_used,
+            mode: meta.mode,
+          } : m
         ))
+        loadingRef.current = false
         setLoading(false)
-        if (autoSpeak && fullReply) voice.speak(fullReply)
+        if (autoSpeakRef.current && fullReply) voiceRef.current.speak(fullReply)
       },
       err => {
         setMessages(prev => prev.map(m =>
           m.id === botId ? { ...m, text: 'Error: ' + err, source: 'error' } : m
         ))
+        loadingRef.current = false
         setLoading(false)
       }
     )
-  }, [loading, autoSpeak, voice])
+  }, [])
+
+  useEffect(() => {
+    if (assistMode && voice.available) {
+      voice.startListening((text) => {
+        if (text) {
+          setInput(text)
+          setTimeout(() => sendWithText(text), 300)
+        }
+      })
+    }
+  }, [assistMode, voice.available, sendWithText])
 
   const send = useCallback(() => sendWithText(input), [input, sendWithText])
 
   const handleMicPress = useCallback(() => {
-    if (voice.listening) {
-      voice.stopListening()
+    if (voiceRef.current.listening) {
+      voiceRef.current.stopListening()
     } else {
-      voice.startListening((text) => {
+      voiceRef.current.startListening((text) => {
         if (text) setInput(text)
       })
     }
-  }, [voice])
+  }, [])
+
+  const handleFeedback = useCallback(async (item, action) => {
+    if (action === 'explain') {
+      setExpandedMsg(expandedMsg === item.id ? null : item.id)
+      return
+    }
+    if (item.verdict === action) return
+    setMessages(prev => prev.map(m =>
+      m.id === item.id ? { ...m, verdict: action } : m
+    ))
+    setFeedbackModal({ ...item, verdict: action })
+    setFeedbackNote('')
+  }, [expandedMsg])
+
+  const submitFeedback = useCallback(async () => {
+    if (!feedbackModal) return
+    const sid = await getSessionId()
+    api.sendFeedback({
+      question: feedbackModal.question || '',
+      verdict: feedbackModal.verdict,
+      note: feedbackNote,
+      answer: feedbackModal.text,
+      source: feedbackModal.source,
+      entries_used: feedbackModal.entries_used || [],
+      reasoning: feedbackModal.reasoning || [],
+      session_id: sid,
+    }).catch(() => {})
+    setFeedbackModal(null)
+    setFeedbackNote('')
+  }, [feedbackModal, feedbackNote])
 
   const newChat = async () => {
     await AsyncStorage.removeItem('shaggoth_session')
@@ -147,12 +256,13 @@ export default function ChatScreen({ onBack, assistMode }) {
     voice.stopSpeaking()
   }
 
+  const Wrapper = Platform.OS === 'ios' ? KeyboardAvoidingView : View
+  const wrapperProps = Platform.OS === 'ios'
+    ? { style: { flex: 1, backgroundColor: colors.background }, behavior: 'padding', keyboardVerticalOffset: 44 }
+    : { style: { flex: 1, backgroundColor: colors.background, paddingBottom: keyboardHeight } }
+
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      behavior="padding"
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 26}
-    >
+    <Wrapper {...wrapperProps}>
       <Header
         title="Comms"
         onBack={onBack}
@@ -176,7 +286,7 @@ export default function ChatScreen({ onBack, assistMode }) {
                 fontSize: fontSize.sm,
                 fontWeight: '600',
               }}>
-                {autoSpeak ? '🔊 Voice' : '🔇 Mute'}
+                {autoSpeak ? '🔊' : '🔇'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={newChat} activeOpacity={0.7}>
@@ -189,7 +299,7 @@ export default function ChatScreen({ onBack, assistMode }) {
                 borderColor: colors.primaryBorder,
               }}>
                 <Text style={{ color: colors.primary, fontSize: fontSize.sm, fontWeight: '600' }}>
-                  New Chat
+                  New
                 </Text>
               </View>
             </TouchableOpacity>
@@ -222,38 +332,43 @@ export default function ChatScreen({ onBack, assistMode }) {
         ref={flatRef}
         data={messages}
         keyExtractor={m => m.id}
-        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         keyboardShouldPersistTaps="handled"
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{ paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, flexGrow: 1 }}
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
         ListEmptyComponent={
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ fontSize: 48, marginBottom: spacing.md }}>{'👽'}</Text>
+            <Text style={{ fontSize: 56, marginBottom: spacing.md }}>{'👽'}</Text>
+            <Text style={{
+              color: colors.text,
+              fontSize: fontSize.xl,
+              fontWeight: '600',
+              textAlign: 'center',
+              marginBottom: spacing.xs,
+            }}>
+              Open a channel
+            </Text>
             <Text style={{
               color: colors.textDim,
-              fontSize: fontSize.lg,
+              fontSize: fontSize.sm,
               textAlign: 'center',
+              maxWidth: 220,
+              lineHeight: 18,
             }}>
-              Open a channel to Shaggoth
+              {voice.available
+                ? 'Type a message or tap the mic to speak'
+                : 'Type a message to start a conversation'
+              }
             </Text>
-            {voice.available && (
-              <Text style={{
-                color: colors.textDim,
-                fontSize: fontSize.sm,
-                textAlign: 'center',
-                marginTop: spacing.sm,
-              }}>
-                Tap the mic to speak
-              </Text>
-            )}
           </View>
         }
         renderItem={({ item }) => {
           const isUser = item.role === 'user'
+          const isExpanded = expandedMsg === item.id
           const tags = []
           if (item.source && !['pattern', 'streaming', 'error'].includes(item.source))
-            tags.push(item.source)
+            tags.push(SOURCE_LABELS[item.source] || item.source)
           if (item.flag && item.flag !== 'green')
             tags.push(item.flag.toUpperCase())
 
@@ -281,24 +396,85 @@ export default function ChatScreen({ onBack, assistMode }) {
                   {item.text || (item.source === 'streaming' ? '...' : '')}
                 </Text>
               </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                {tags.length > 0 && (
-                  <Text style={{
-                    color: colors.textDim,
-                    fontSize: fontSize.xs,
-                    marginTop: spacing.xs,
-                    marginHorizontal: spacing.xs,
-                  }}>
-                    {tags.join(' · ')}
-                  </Text>
-                )}
-                {!isUser && item.text && item.source !== 'streaming' && (
-                  <SpeakerButton
-                    speaking={voice.speaking}
-                    onPress={() => voice.speaking ? voice.stopSpeaking() : voice.speak(item.text)}
-                  />
-                )}
-              </View>
+
+              {!isUser && (
+                <View style={{ maxWidth: '82%' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {tags.length > 0 && (
+                      <Text style={{
+                        color: colors.textDim,
+                        fontSize: fontSize.xs,
+                        marginTop: spacing.xs,
+                        marginRight: spacing.xs,
+                      }}>
+                        {tags.join(' · ')}
+                      </Text>
+                    )}
+                    {item.text && item.source !== 'streaming' && (
+                      <TouchableOpacity
+                        onPress={() => voice.speaking ? voice.stopSpeaking() : voice.speak(item.text)}
+                        activeOpacity={0.7}
+                        style={{ marginTop: spacing.xs, marginRight: spacing.xs }}
+                      >
+                        <Text style={{ fontSize: 14, color: voice.speaking ? colors.primary : colors.textDim }}>
+                          {voice.speaking ? '🔊' : '🔈'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <FeedbackBar item={item} onFeedback={handleFeedback} />
+
+                  {isExpanded && (
+                    <View style={{
+                      backgroundColor: colors.surface,
+                      borderRadius: radius.md,
+                      padding: spacing.md,
+                      marginTop: spacing.sm,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                    }}>
+                      <Text style={{ color: colors.textSecondary, fontSize: fontSize.xs, fontWeight: '600', marginBottom: spacing.xs }}>
+                        HOW IT GOT THAT ANSWER
+                      </Text>
+                      {item.source && (
+                        <Text style={{ color: colors.text, fontSize: fontSize.sm, marginBottom: spacing.xs }}>
+                          Source: {SOURCE_LABELS[item.source] || item.source}
+                        </Text>
+                      )}
+                      {item.mode && (
+                        <Text style={{ color: colors.text, fontSize: fontSize.sm, marginBottom: spacing.xs }}>
+                          Mode: {item.mode === 'no_drift' ? 'Grounded' : 'Creative'}
+                        </Text>
+                      )}
+                      {item.entries_used?.length > 0 && (
+                        <View style={{ marginBottom: spacing.xs }}>
+                          <Text style={{ color: colors.textDim, fontSize: fontSize.xs, marginBottom: 2 }}>
+                            Knowledge used:
+                          </Text>
+                          {item.entries_used.map((e, i) => (
+                            <Text key={i} style={{ color: colors.primary, fontSize: fontSize.sm }}>
+                              {'  '}• {e}
+                            </Text>
+                          ))}
+                        </View>
+                      )}
+                      {item.reasoning?.length > 0 && (
+                        <View>
+                          <Text style={{ color: colors.textDim, fontSize: fontSize.xs, marginBottom: 2 }}>
+                            Reasoning:
+                          </Text>
+                          {item.reasoning.map((step, i) => (
+                            <Text key={i} style={{ color: colors.textSecondary, fontSize: fontSize.sm }}>
+                              {i + 1}. {step}
+                            </Text>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+              )}
             </View>
           )
         }}
@@ -306,7 +482,7 @@ export default function ChatScreen({ onBack, assistMode }) {
 
       <View style={{
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-end',
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm,
         backgroundColor: colors.background,
@@ -336,6 +512,7 @@ export default function ChatScreen({ onBack, assistMode }) {
             borderWidth: 1,
             borderColor: colors.inputBorder,
             marginRight: spacing.sm,
+            textAlignVertical: 'center',
           }}
           blurOnSubmit={false}
         />
@@ -344,9 +521,9 @@ export default function ChatScreen({ onBack, assistMode }) {
           disabled={loading || !input.trim()}
           activeOpacity={0.7}
           style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
+            width: 44,
+            height: 44,
+            borderRadius: 22,
             backgroundColor: colors.primary,
             alignItems: 'center',
             justifyContent: 'center',
@@ -360,10 +537,89 @@ export default function ChatScreen({ onBack, assistMode }) {
         >
           {loading
             ? <ActivityIndicator size="small" color={colors.white} />
-            : <Text style={{ color: colors.white, fontSize: 20, transform: [{ rotate: '45deg' }] }}>{'➤'}</Text>
+            : <Text style={{ color: colors.white, fontSize: 18, transform: [{ rotate: '45deg' }] }}>{'➤'}</Text>
           }
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+
+      <Modal visible={!!feedbackModal} transparent animationType="fade">
+        <View style={{
+          flex: 1,
+          justifyContent: 'center',
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          padding: spacing.xxl,
+        }}>
+          <View style={{
+            backgroundColor: colors.surface,
+            borderRadius: radius.xl,
+            padding: spacing.xl,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}>
+            <Text style={{
+              fontSize: fontSize.xl,
+              fontWeight: '700',
+              color: colors.text,
+              marginBottom: spacing.sm,
+            }}>
+              {feedbackModal?.verdict === 'good' ? '👍 Good answer' : '👎 Bad answer'}
+            </Text>
+            <Text style={{
+              fontSize: fontSize.sm,
+              color: colors.textDim,
+              marginBottom: spacing.lg,
+            }}>
+              Leave a note to help retrain the model (optional)
+            </Text>
+            <TextInput
+              value={feedbackNote}
+              onChangeText={setFeedbackNote}
+              placeholder="What was good/bad about this answer?"
+              placeholderTextColor={colors.textDim}
+              multiline
+              style={{
+                backgroundColor: colors.inputBg,
+                color: colors.text,
+                borderRadius: radius.md,
+                padding: spacing.md,
+                fontSize: fontSize.md,
+                borderWidth: 1,
+                borderColor: colors.inputBorder,
+                marginBottom: spacing.lg,
+                minHeight: 80,
+                textAlignVertical: 'top',
+              }}
+            />
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <TouchableOpacity
+                onPress={() => { setFeedbackModal(null); setFeedbackNote('') }}
+                style={{
+                  flex: 1,
+                  padding: spacing.md,
+                  borderRadius: radius.md,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: colors.textSecondary }}>Skip</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={submitFeedback}
+                style={{
+                  flex: 1,
+                  padding: spacing.md,
+                  borderRadius: radius.md,
+                  backgroundColor: colors.primary,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: colors.white, fontWeight: '600' }}>Submit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </Wrapper>
   )
 }
