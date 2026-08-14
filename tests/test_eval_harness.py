@@ -396,6 +396,49 @@ def test_engine_with_run_logger(tmp_path):
     assert records[0].latency_ms > 0
 
 
+def test_run_logger_redacts_emails_in_input(tmp_path):
+    logger = RunLogger(directory=tmp_path)
+    record = logger.log(
+        session_id="redact",
+        user_input="contact bob@example.com for details",
+        reply_text="ok",
+        source="pattern",
+        mode="no_drift",
+    )
+    assert record is not None
+    assert "bob@example.com" not in record.user_input
+    assert "[redacted-email]" in record.user_input
+
+
+def test_run_logger_redacts_secrets_in_reply(tmp_path):
+    logger = RunLogger(directory=tmp_path)
+    record = logger.log(
+        session_id="redact",
+        user_input="show my token",
+        reply_text="your key is ghp_Abc1234567890xyzABCD",
+        source="model",
+        mode="drift",
+    )
+    assert record is not None
+    assert "ghp_" not in record.reply_text
+    assert "[redacted-secret]" in record.reply_text
+
+
+def test_run_logger_redacts_sk_key_in_input(tmp_path):
+    logger = RunLogger(directory=tmp_path)
+    record = logger.log(
+        session_id="redact",
+        user_input="my key is sk-1234567890abcdef1234",
+        reply_text="blocked",
+        source="guardrail",
+        mode="no_drift",
+        blocked=True,
+    )
+    assert record is not None
+    assert "sk-1234567890abcdef1234" not in record.user_input
+    assert "[redacted-secret]" in record.user_input
+
+
 def test_engine_without_run_logger():
     """No crash when run_logger is None (the default)."""
     from shaggoth.dialogue import DialogueEngine

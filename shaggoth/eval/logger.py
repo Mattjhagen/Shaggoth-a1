@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -20,6 +21,21 @@ from ..config import DATA_DIR
 log = logging.getLogger(__name__)
 
 DEFAULT_RUNS_DIR = DATA_DIR / "eval" / "runs"
+
+_REDACT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[redacted-email]"),
+    (re.compile(
+        r"\bsk-[A-Za-z0-9_-]{16,}\b|"
+        r"\beyJ[A-Za-z0-9._-]{20,}\b|"
+        r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"
+    ), "[redacted-secret]"),
+]
+
+
+def _redact_for_log(text: str) -> str:
+    for pat, repl in _REDACT_PATTERNS:
+        text = pat.sub(repl, text)
+    return text
 
 
 @dataclass
@@ -88,8 +104,8 @@ class RunLogger:
                 run_id=uuid.uuid4().hex[:12],
                 timestamp=time.time(),
                 session_id=session_id,
-                user_input=user_input,
-                reply_text=reply_text,
+                user_input=_redact_for_log(user_input),
+                reply_text=_redact_for_log(reply_text),
                 source=source,
                 mode=mode,
                 blocked=blocked,

@@ -572,6 +572,8 @@ class MemoryStore:
             result.setdefault(cat, {})[key] = value
         return result
 
+    _PROFILE_MAX_CHARS = 2000
+
     def user_profile_context(self, user_id: str = "default") -> str:
         """Build a natural-language summary of what we know about the user."""
         facts = self.all_facts(user_id)
@@ -585,7 +587,10 @@ class MemoryStore:
         for cat, entries in prefs.items():
             items = [f"{k}: {v}" for k, v in entries.items()]
             parts.append(f"{cat.title()} — " + "; ".join(items) + ".")
-        return " ".join(parts)
+        text = " ".join(parts)
+        if len(text) > self._PROFILE_MAX_CHARS:
+            text = text[: self._PROFILE_MAX_CHARS - 1] + "…"
+        return text
 
     # ----------------------------------------------------- project memory
 
@@ -595,7 +600,7 @@ class MemoryStore:
     ) -> int:
         now = time.time()
         with self._lock:
-            cur = self.db.execute(
+            self.db.execute(
                 "INSERT INTO projects (user_id, name, description, status, ts_created, ts_updated) "
                 "VALUES (?, ?, ?, 'active', ?, ?) "
                 "ON CONFLICT(user_id, name) DO UPDATE SET "
@@ -603,7 +608,11 @@ class MemoryStore:
                 (user_id, name, description, now, now),
             )
             self.db.commit()
-        return cur.lastrowid or 0
+            row = self.db.execute(
+                "SELECT id FROM projects WHERE user_id = ? AND name = ?",
+                (user_id, name),
+            ).fetchone()
+        return row[0] if row else 0
 
     def update_project(
         self, name: str, *, description: str | None = None,

@@ -211,3 +211,19 @@ def test_full_profile_and_project_context(mem):
 
     proj = mem.project_context()
     assert "Shaggoth" in proj
+
+
+def test_user_profile_context_capped(mem):
+    for i in range(200):
+        mem.set_fact(f"fact_{i}", "x" * 50, confidence=0.9, source="user")
+    ctx = mem.user_profile_context()
+    assert len(ctx) <= mem._PROFILE_MAX_CHARS
+    assert ctx.endswith("…")
+
+
+def test_add_project_upsert_returns_correct_id(mem):
+    pid1 = mem.add_project("Alpha", description="v1")
+    pid2 = mem.add_project("Alpha", description="v2")
+    assert pid1 == pid2
+    proj = mem.get_project("Alpha")
+    assert proj["description"] == "v2"
