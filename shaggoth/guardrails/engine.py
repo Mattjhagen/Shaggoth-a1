@@ -238,19 +238,35 @@ class GuardrailEngine:
                         flag=flag_level,
                     )
             elif rtype == "topic_refuse":
-                excludes = rule.get("exclude", [])
-                if excludes and any(ex.lower() in lowered for ex in excludes):
-                    continue
-                hits = sum(
-                    1 for kw in rule.get("keywords", [])
-                    if re.search(
+                keywords = rule.get("keywords", [])
+                kw_patterns = [
+                    (kw, re.compile(
                         r"\b" + r"\s+(?:a\s+|an\s+|the\s+)?".join(
                             re.escape(w) for w in kw.lower().split()
-                        ) + r"\b",
-                        lowered,
+                        ) + r"\b"
+                    ))
+                    for kw in keywords
+                ]
+                matched_kws = [
+                    (kw, m) for kw, pat in kw_patterns
+                    if (m := pat.search(lowered))
+                ]
+                if not matched_kws:
+                    continue
+
+                excludes = rule.get("exclude", [])
+                if excludes:
+                    check_text = lowered
+                    for ex in excludes:
+                        check_text = check_text.replace(ex.lower(), " ")
+                    still_hits = sum(
+                        1 for _, pat in kw_patterns
+                        if pat.search(check_text)
                     )
-                )
-                if hits >= int(rule.get("min_hits", 1)):
+                    if still_hits == 0:
+                        continue
+
+                if len(matched_kws) >= int(rule.get("min_hits", 1)):
                     msg = rule.get("message", f"Flagged. [{FLAG_WORD}]")
                     return Verdict(
                         allowed=False,
