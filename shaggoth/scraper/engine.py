@@ -262,6 +262,33 @@ class ScraperEngine:
         except Exception:
             return True
 
+    @staticmethod
+    def _is_private_url(url: str) -> bool:
+        """Block URLs targeting private/internal network addresses."""
+        import ipaddress
+        import socket
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return True
+        hostname = parsed.hostname or ""
+        if not hostname:
+            return True
+        if hostname in ("localhost", "metadata.google.internal"):
+            return True
+        try:
+            addr = ipaddress.ip_address(hostname)
+            return addr.is_private or addr.is_loopback or addr.is_link_local
+        except ValueError:
+            pass
+        try:
+            for info in socket.getaddrinfo(hostname, None, socket.AF_UNSPEC):
+                addr = ipaddress.ip_address(info[4][0])
+                if addr.is_private or addr.is_loopback or addr.is_link_local:
+                    return True
+        except (socket.gaierror, OSError):
+            pass
+        return False
+
     def fetch_page(self, url: str, timeout: int = 15) -> ScrapedPage | None:
         """Fetch a single URL, extract clean text, store in DB.
 
@@ -269,6 +296,9 @@ class ScraperEngine:
         any other failure so a blocked seed is visible in the scraper stats
         rather than silently absent.
         """
+        if self._is_private_url(url):
+            self._log(url, "error", "blocked: private/internal address")
+            return None
         if self.respect_robots and not self.robots_allows(url):
             self._log(url, "error", "blocked by robots.txt")
             return None

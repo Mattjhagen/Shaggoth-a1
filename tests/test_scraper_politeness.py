@@ -194,3 +194,46 @@ def test_charset_extraction_missing_defaults_to_utf8():
 def test_charset_extraction_case_insensitive():
     from shaggoth.scraper.engine import _extract_charset
     assert _extract_charset("text/html; Charset=WINDOWS-1252") == "WINDOWS-1252"
+
+
+# ---------------------------------------------------------------------------
+# SSRF protection: private/internal addresses must be blocked
+# ---------------------------------------------------------------------------
+
+def test_private_url_localhost_blocked():
+    assert ScraperEngine._is_private_url("http://localhost/secret")
+
+def test_private_url_127_blocked():
+    assert ScraperEngine._is_private_url("http://127.0.0.1/admin")
+
+def test_private_url_10_blocked():
+    assert ScraperEngine._is_private_url("http://10.0.0.1/internal")
+
+def test_private_url_192_168_blocked():
+    assert ScraperEngine._is_private_url("http://192.168.1.1/router")
+
+def test_private_url_ipv6_loopback_blocked():
+    assert ScraperEngine._is_private_url("http://[::1]/secret")
+
+def test_private_url_file_scheme_blocked():
+    assert ScraperEngine._is_private_url("file:///etc/passwd")
+
+def test_private_url_ftp_scheme_blocked():
+    assert ScraperEngine._is_private_url("ftp://internal.local/data")
+
+def test_private_url_metadata_blocked():
+    assert ScraperEngine._is_private_url("http://metadata.google.internal/computeMetadata/v1/")
+
+def test_public_url_allowed():
+    assert not ScraperEngine._is_private_url("https://example.com/page")
+
+def test_public_url_https_allowed():
+    assert not ScraperEngine._is_private_url("https://en.wikipedia.org/wiki/Python")
+
+def test_fetch_page_blocks_private_url(scraper, monkeypatch):
+    def should_not_run(*args, **kwargs):
+        raise AssertionError("fetched a private URL")
+    monkeypatch.setattr("urllib.request.urlopen", should_not_run)
+    assert scraper.fetch_page("http://127.0.0.1/admin") is None
+    logs = scraper.recent_logs(limit=5)
+    assert any("private" in (entry.get("message") or "") for entry in logs)
