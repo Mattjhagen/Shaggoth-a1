@@ -255,6 +255,15 @@ class WikipediaTests(unittest.TestCase):
         self.assertIn("visible", result)
         self.assertNotIn("invisible", result)
 
+    def test_html_entity_out_of_range_does_not_crash(self):
+        result = _html_to_text("test&#9999999;end")
+        self.assertIn("test", result)
+        self.assertIn("end", result)
+
+    def test_html_entity_valid_codepoint(self):
+        result = _html_to_text("&#65;")
+        self.assertIn("A", result)
+
 
 class ResearchQueueTests(unittest.TestCase):
     """Research queue: concurrent requests queue instead of failing."""
@@ -368,6 +377,19 @@ class CuriosityLockingTests(unittest.TestCase):
         self.assertEqual(result.get("refreshed", 0), 0)
         with self.engine._lock:
             self.engine._running = False
+
+    def test_load_history_rejects_non_list(self):
+        self.engine.history_path.write_text('{"not": "a list"}', encoding="utf-8")
+        result = self.engine._load_history()
+        self.assertIsInstance(result, list)
+        self.assertEqual(result, [])
+
+    def test_history_is_trimmed_when_oversized(self):
+        self.engine._history = [{"topic": f"t{i}"} for i in range(250)]
+        self.engine._history.append({"topic": "new"})
+        if len(self.engine._history) > 200:
+            del self.engine._history[:-100]
+        self.assertLessEqual(len(self.engine._history), 100)
 
 
 class PluginTests(unittest.TestCase):

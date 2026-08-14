@@ -353,3 +353,17 @@ class TestTrimHistory:
         assert len(result) == 1
         assert "...[truncated]" in result[0]["content"]
         assert len(result[0]["content"]) < 15000
+
+    def test_extremely_oversized_pair_is_skipped_not_stubbed(self):
+        huge = "x" * 100000
+        history = [
+            {"role": "user", "content": huge},
+            {"role": "assistant", "content": huge},
+            {"role": "user", "content": "recent"},
+            {"role": "assistant", "content": "reply"},
+        ]
+        result = _trim_history(history)
+        assert any(t["content"] == "recent" for t in result)
+        for t in result:
+            if t["content"] not in ("recent", "reply"):
+                assert t["content"] != "...[truncated]"

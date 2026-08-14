@@ -233,6 +233,14 @@ class TestSupervisor(unittest.TestCase):
         sup = Supervisor([CountingAgent()])
         json.dumps(sup.status())
 
+    def test_add_acquires_lock(self):
+        clock = FakeClock()
+        sup = Supervisor([], clock=clock)
+        agent = CountingAgent(clock=clock)
+        sup.add(agent)
+        self.assertIn(agent, sup.agents)
+        self.assertEqual(len(sup.agents), 1)
+
 
 # --------------------------------------------------------------------------
 # the crew

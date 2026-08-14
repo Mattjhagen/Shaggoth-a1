@@ -69,6 +69,8 @@ def _trim_history(conversation_history: list[dict] | None) -> list[dict]:
         if cost > _HISTORY_CHAR_BUDGET:
             marker = "...[truncated]"
             cap = max(0, (_HISTORY_CHAR_BUDGET - len(marker) * len(pair)) // len(pair))
+            if cap == 0:
+                continue
             pair = [
                 {**t, "content": t["content"][:cap] + marker}
                 if len(t["content"]) > cap else t

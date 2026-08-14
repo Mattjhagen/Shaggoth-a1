@@ -87,7 +87,8 @@ class CuriosityEngine:
     def _load_history(self) -> list[dict]:
         if self.history_path.exists():
             try:
-                return json.loads(self.history_path.read_text(encoding="utf-8"))
+                data = json.loads(self.history_path.read_text(encoding="utf-8"))
+                return data if isinstance(data, list) else []
             except (json.JSONDecodeError, OSError):
                 return []
         return []
@@ -218,6 +219,8 @@ class CuriosityEngine:
             finally:
                 episode.ended_at = time.time()
                 self._history.append(asdict(episode))
+                if len(self._history) > 200:
+                    del self._history[:-100]
                 self._save_history()
                 self._fire_completion(episode)
 

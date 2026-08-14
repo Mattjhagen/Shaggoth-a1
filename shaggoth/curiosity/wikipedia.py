@@ -148,7 +148,12 @@ def _html_to_text(html: str) -> str:
     text = re.sub(r"<[^>]+>", " ", html)
     text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
     text = text.replace("&quot;", '"').replace("&#39;", "'").replace("&nbsp;", " ")
-    text = re.sub(r"&#(\d+);", lambda m: chr(int(m.group(1))), text)
+    def _safe_chr(m):
+        try:
+            return chr(int(m.group(1)))
+        except (ValueError, OverflowError):
+            return m.group(0)
+    text = re.sub(r"&#(\d+);", _safe_chr, text)
     text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()

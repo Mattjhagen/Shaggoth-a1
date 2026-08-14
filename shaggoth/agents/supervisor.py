@@ -42,7 +42,8 @@ class Supervisor:
     # -- crew ----------------------------------------------------------------
 
     def add(self, agent) -> None:
-        self.agents.append(agent)
+        with self._lock:
+            self.agents.append(agent)
 
     def get(self, name: str):
         for agent in self.agents:
