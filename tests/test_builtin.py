@@ -63,6 +63,11 @@ class TestSafeEval:
         with pytest.raises(ValueError, match="too deeply nested|too large"):
             _safe_eval("(((2**999)**999)**999)")
 
+    def test_nested_exponent_bit_length_guard(self):
+        """(999**999) has ~9951 bits; (999**999)**999 would be ~10M bits."""
+        with pytest.raises(ValueError, match="too large"):
+            _safe_eval("(999**999)**999")
+
     def test_intermediate_result_too_large(self):
         with pytest.raises(ValueError, match="too large"):
             _safe_eval("2 ** 10000")

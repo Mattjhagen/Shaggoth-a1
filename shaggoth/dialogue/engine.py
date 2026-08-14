@@ -561,6 +561,9 @@ class DialogueEngine:
                 if len(snippet) < 20:
                     continue
                 seen.add(recall.message_id)
+                if len(seen) > 500:
+                    excess = sorted(seen)[:len(seen) - 500]
+                    seen.difference_update(excess)
                 topic = ", ".join(recall.shared_words[:3])
                 when = _humanize_age(time.time() - recall.ts)
                 body += (

@@ -269,3 +269,30 @@ def test_redirect_to_metadata_is_blocked(scraper, monkeypatch):
     req = urllib.request.Request("http://evil.example.com/redir")
     with pytest.raises(urllib.error.URLError, match="blocked host"):
         handler.redirect_request(req, None, 302, "Found", {}, "http://metadata.google.internal/v1/")
+
+
+# ---------------------------------------------------------------------------
+# _conn() context manager closes the connection
+# ---------------------------------------------------------------------------
+
+def test_conn_closes_connection_after_use(scraper):
+    """_conn() must close the SQLite connection when the block exits."""
+    with scraper._conn() as conn:
+        conn.execute("SELECT 1")
+    # After the context manager exits, the connection should be closed.
+    # Attempting to use it should raise ProgrammingError.
+    import sqlite3
+    with pytest.raises(sqlite3.ProgrammingError):
+        conn.execute("SELECT 1")
+
+
+def test_conn_closes_connection_on_exception(scraper):
+    """Connection must be closed even if the block raises."""
+    import sqlite3
+    try:
+        with scraper._conn() as conn:
+            raise ValueError("boom")
+    except ValueError:
+        pass
+    with pytest.raises(sqlite3.ProgrammingError):
+        conn.execute("SELECT 1")

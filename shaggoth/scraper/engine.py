@@ -18,6 +18,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import urllib.robotparser
+from contextlib import contextmanager
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
@@ -237,8 +238,14 @@ class ScraperEngine:
                 );
             """)
 
-    def _conn(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.db_path)
+    @contextmanager
+    def _conn(self):
+        conn = sqlite3.connect(self.db_path)
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     def add_seed(self, url: str) -> None:
         """Add a URL to the seed list for future crawling."""
