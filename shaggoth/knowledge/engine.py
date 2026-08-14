@@ -3,6 +3,7 @@ from __future__ import annotations
 import difflib
 import math
 import re
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -94,14 +95,31 @@ class KnowledgeBase:
         self._entries: list[KnowledgeEntry] = []
         self._index: dict[str, list[int]] = {}
         self._last_scan: float = 0
+        self._last_check: float = 0
+        self._known_paths: set[str] = set()
+        # _index holds positions into _entries, so the two must be swapped
+        # together and read as one snapshot. Held only around the swap and the
+        # snapshot read -- never around the scan itself, which does file I/O.
+        self._swap_lock = threading.Lock()
         self._scan()
 
     def _scan(self) -> None:
         entries: list[KnowledgeEntry] = []
+        # Every path this scan *considered*, including files skipped for being
+        # empty. maybe_reload() compares against this, so it has to record what
+        # was on disk rather than what produced an entry -- otherwise an empty
+        # file would look like a deletion on every check and rescan forever.
+        seen: set[str] = set()
         for fpath in sorted(self.directory.glob("*")):
             if fpath.suffix.lower() not in (".md", ".txt", ".text"):
                 continue
-            content = fpath.read_text(encoding="utf-8", errors="replace").strip()
+            seen.add(str(fpath))
+            try:
+                content = fpath.read_text(encoding="utf-8", errors="replace").strip()
+            except FileNotFoundError:
+                # Deleted between the glob and the read.
+                seen.discard(str(fpath))
+                continue
             if not content:
                 continue
             # Collapse runs of separators: "aeroponics---wikipedia" would
@@ -127,21 +145,58 @@ class KnowledgeBase:
                 chunks=chunks,
                 chunk_keywords=chunk_kw,
             ))
-        self._entries = entries
-        self._index = {}
+        index: dict[str, list[int]] = {}
         for i, entry in enumerate(entries):
             for kw in set(entry.keywords):
-                self._index.setdefault(kw, []).append(i)
+                index.setdefault(kw, []).append(i)
+        # Publish both at once. Assigning _entries first left a window where a
+        # concurrent query() could pair the new entry list with the stale index
+        # (or an index still being filled), and index into it out of range.
+        with self._swap_lock:
+            self._entries = entries
+            self._index = index
+        # Rebound, never mutated in place, so a concurrent maybe_reload() reads
+        # either the whole old set or the whole new one.
+        self._known_paths = seen
         self._last_scan = time.time()
 
+    def _snapshot(self) -> tuple[list[KnowledgeEntry], dict[str, list[int]]]:
+        """The current entries and index as a matched pair."""
+        with self._swap_lock:
+            return self._entries, self._index
+
+    # Statting every file in the corpus costs ~13ms at 800 entries, and one
+    # /curiosity/status triggers four such checks (once directly, three more
+    # via FreshnessTracker) -- ~50ms of pure duplicate work per request.
+    # Re-statting the directory more often than this cannot surface anything
+    # a caller would act on; a new file is simply picked up a tick later.
+    _RELOAD_CHECK_INTERVAL = 2.0
+
     def maybe_reload(self) -> bool:
-        needs_reload = False
+        now = time.time()
+        if now - self._last_check < self._RELOAD_CHECK_INTERVAL:
+            return False
+        self._last_check = now
+        # Compare the whole path set, not just mtimes. Iterating only the files
+        # that still exist can never observe a deletion, so a removed entry
+        # used to stay queryable until the process restarted -- and it only
+        # ever disappeared by accident, when some *other* file was written and
+        # forced a full rescan.
+        current: set[str] = set()
+        newest = 0.0
         for fpath in self.directory.glob("*"):
-            if fpath.suffix.lower() in (".md", ".txt", ".text"):
-                if fpath.stat().st_mtime > self._last_scan:
-                    needs_reload = True
-                    break
-        if needs_reload:
+            if fpath.suffix.lower() not in (".md", ".txt", ".text"):
+                continue
+            current.add(str(fpath))
+            try:
+                mtime = fpath.stat().st_mtime
+            except FileNotFoundError:
+                # Deleted underneath us; the set comparison catches it.
+                current.discard(str(fpath))
+                continue
+            if mtime > newest:
+                newest = mtime
+        if current != self._known_paths or newest > self._last_scan:
             self._scan()
             return True
         return False
@@ -209,17 +264,21 @@ class KnowledgeBase:
         threshold and stays comparable as the corpus grows.
         """
         self.maybe_reload()
+        # One matched (entries, index) pair for the whole ranking pass: a
+        # reload landing mid-query must not shift the positions in _index out
+        # from under the _entries list they point into.
+        entries, index = self._snapshot()
         query_words = set(extract_keywords(text))
-        if not query_words or not self._entries:
+        if not query_words or not entries:
             return []
 
-        total = len(self._entries)
-        avg_len = sum(e.word_count for e in self._entries) / total or 1.0
+        total = len(entries)
+        avg_len = sum(e.word_count for e in entries) / total or 1.0
 
         # Only documents containing at least one query term can score.
         candidates: set[int] = set()
         for word in query_words:
-            candidates.update(self._index.get(word, ()))
+            candidates.update(index.get(word, ()))
 
         # Fuzzy fallback: if exact index matching found nothing, try to
         # match misspelled query words to known index keywords.
@@ -236,7 +295,7 @@ class KnowledgeBase:
 
         # Title matches count even when the body never repeats the phrase.
         title_hits: dict[int, int] = {}
-        for idx, entry in enumerate(self._entries):
+        for idx, entry in enumerate(entries):
             overlap = len(query_words & self._topic_tokens(entry))
             if overlap:
                 title_hits[idx] = overlap
@@ -247,7 +306,7 @@ class KnowledgeBase:
 
         results: list[tuple[KnowledgeEntry, float]] = []
         for idx in candidates:
-            entry = self._entries[idx]
+            entry = entries[idx]
             # Term frequencies from the pre-extracted keyword list.
             tf_counts: dict[str, int] = {}
             for kw in entry.keywords:
@@ -257,7 +316,7 @@ class KnowledgeBase:
             doc_len = entry.word_count or 1
             score = 0.0
             for word, tf in tf_counts.items():
-                df = len(self._index.get(word, ()))
+                df = len(index.get(word, ()))
                 idf = math.log(1 + (total - df + 0.5) / (df + 0.5))
                 denom = tf + self._BM25_K1 * (
                     1 - self._BM25_B + self._BM25_B * doc_len / avg_len

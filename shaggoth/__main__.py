@@ -15,9 +15,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import uuid
 from pathlib import Path
+
+# Installed-mode guard: `python -m shaggoth` imports .config directly, so the
+# console-script bootstrap (shaggoth._bootstrap) never runs. Without this, an
+# installed package would resolve ROOT to site-packages and write user data
+# (data/, config/) inside the install tree. Mirror the bootstrap's rule: when
+# the package is not in a repo checkout (no LICENSE above it), default the data
+# root to a per-user ~/.shaggoth.
+if not os.environ.get("SHAGGOTH_ROOT") and not (Path(__file__).resolve().parent.parent / "LICENSE").exists():
+    os.environ["SHAGGOTH_ROOT"] = str(Path.home() / ".shaggoth")
 
 from .config import ensure_dirs, load_settings, DATA_DIR, CONFIG_DIR
 from .dialogue import DialogueEngine
@@ -74,6 +84,15 @@ def build_engine(settings: dict) -> DialogueEngine:
         model = _load_tinygpt(settings)
     if model is None and model_choice in ("auto", "markov"):
         model = _load_markov(settings)
+    if model is None and model_choice in ("cloud", "gemini", "cloudflare"):
+        # Free-tier cloud backends (Gemini / Cloudflare Workers AI). No key
+        # configured -> build_cloud_model returns None and the engine runs
+        # knowledge/patterns only, exactly as before.
+        from .models.cloud import build_cloud_model
+
+        model = build_cloud_model(model_choice)
+        if model is not None:
+            print(f"[shaggoth] Using cloud model: {model.provider} ({model.model_name})")
 
     return DialogueEngine(
         guardrails=GuardrailEngine(settings["guardrails_path"]),
@@ -418,6 +437,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("facts", help="show remembered facts")
 
     sub.add_parser("freshness", help="show knowledge freshness status")
+    sub.add_parser("gui", help="launch the desktop chat window (Tkinter)")
+
+    p_agents = sub.add_parser("agents", help="show the onboard training crew")
+    p_agents.add_argument("--run", metavar="NAME", default=None, help="run one agent now and print the result")
 
     p_bench = sub.add_parser("benchmark", help="run eval benchmark and score results")
     p_bench.add_argument("--benchmark", default=None, help="path to benchmark JSONL")
@@ -453,7 +476,63 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_knowledge_freshness(settings)
     if args.command == "benchmark":
         return cmd_benchmark(settings, args.benchmark, args.output)
+    if args.command == "gui":
+        return cmd_gui(settings)
+    if args.command == "agents":
+        return cmd_agents(settings, args.run)
     return 2
+
+
+def cmd_gui(settings: dict) -> int:
+    from .agents import agents_enabled, build_crew
+    from .gui.tk import run_tk_app
+
+    engine = build_engine(settings)
+
+    # The desktop app runs the crew in-process when it is enabled, so the
+    # local GUI is somewhere the model trains and not only somewhere it talks.
+    # No curiosity scheduler or critic is built here: those belong to `serve`,
+    # and the researcher and grader report a skip with the reason rather than
+    # pretending to work. The curator, gatherer and trainer are fully
+    # functional without a server.
+    supervisor = None
+    if agents_enabled(settings):
+        supervisor = build_crew(engine, settings=settings)
+        supervisor.start()
+    try:
+        return run_tk_app(engine, supervisor=supervisor)
+    finally:
+        if supervisor is not None:
+            supervisor.stop()
+
+
+def cmd_agents(settings: dict, run: str | None) -> int:
+    """Show the crew, or run one agent now and print what it did."""
+    from .agents import DEFAULT_AGENT_SETTINGS, agents_enabled, build_crew
+
+    engine = build_engine(settings)
+    supervisor = build_crew(engine, settings=settings)
+
+    if not agents_enabled(settings):
+        print("Agents are disabled. Enable them in config/settings.json:\n")
+        print('  "agents": ' + json.dumps(DEFAULT_AGENT_SETTINGS | {"enabled": True}, indent=2))
+        print("\nShowing the crew as it would be configured:\n")
+
+    if run:
+        agent = supervisor.get(run)
+        if agent is None:
+            print(f"No such agent: {run}")
+            print("Known: " + ", ".join(a.name for a in supervisor.agents))
+            return 2
+        report = agent.run()
+        print(json.dumps(report.as_dict(), indent=2, default=str))
+        return 0
+
+    for agent in supervisor.agents:
+        state = "enabled" if agent.enabled else "disabled"
+        cadence = agent.cadence_seconds / 60.0
+        print(f"{agent.name:<11} {state:<9} every {cadence:g}m  {agent.role}")
+    return 0
 
 
 if __name__ == "__main__":

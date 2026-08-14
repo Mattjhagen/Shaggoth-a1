@@ -29,91 +29,21 @@ quarantine directory (default: a sibling of --data-dir named
 from __future__ import annotations
 
 import argparse
-import re
 import shutil
 import sys
-from dataclasses import dataclass, field
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from shaggoth.curiosity.topics import base_topic, canonical_subject, is_question_topic
+from shaggoth.knowledge.dedupe import (  # noqa: F401 -- re-exported for callers
+    QUARANTINE_DIRNAME,
+    DedupGroup,
+    Variant,
+    group_entries,
+    is_fragment as _is_fragment,
+    plan_dedup,
+)
 from shaggoth.knowledge.engine import DEFAULT_KNOWLEDGE_DIR, KnowledgeBase
-
-_FRAGMENT_SUFFIX = re.compile(r"-part-[0-9]+$", re.I)
-
-
-@dataclass
-class Variant:
-    """One title variant of a subject.
-
-    All the "Aeroponic Farming Part N" chunks share a variant; "Why Is
-    Aeroponic Farming Part N" is a second, separate variant of the same
-    subject -- collapsing part-N chunk suffixes but keeping everything else,
-    so a multi-chunk article is graded as one unit rather than file by file.
-    """
-
-    label: str
-    paths: list = field(default_factory=list)
-    word_count: int = 0
-
-    @property
-    def is_question(self) -> bool:
-        return is_question_topic(self.label)
-
-
-@dataclass
-class DedupGroup:
-    subject: str
-    keep: Variant
-    remove: list
-
-
-def group_entries(entries) -> dict:
-    """Group knowledge entries by canonical subject, then by title variant.
-
-    Returns {subject: {variant_label: Variant}}.
-    """
-    groups: dict = {}
-    for entry in entries:
-        subject = canonical_subject(entry.topic)
-        variant_label = base_topic(entry.topic)
-        bucket = groups.setdefault(subject, {})
-        variant = bucket.setdefault(variant_label, Variant(label=variant_label))
-        variant.paths.append(entry.path)
-        variant.word_count += entry.word_count
-    return groups
-
-
-def _choose_keeper(variants: list) -> Variant:
-    """A non-question title wins outright; among ties, the larger one does.
-
-    Preferring "more content" over "more files" means a single meaty article
-    is not discarded in favor of three thin ones purely on file count.
-    """
-    return sorted(variants, key=lambda v: (v.is_question, -v.word_count, v.label))[0]
-
-
-def plan_dedup(entries) -> list:
-    """Every subject with more than one title variant, and what to do about it.
-
-    ``entries`` is anything with ``.topic`` (str), ``.path`` (str), and
-    ``.word_count`` (int) -- KnowledgeEntry satisfies this, and so does any
-    fake used in tests.
-    """
-    plan = []
-    for subject, variants_by_label in group_entries(entries).items():
-        variants = list(variants_by_label.values())
-        if len(variants) <= 1:
-            continue
-        keep = _choose_keeper(variants)
-        remove = [v for v in variants if v is not keep]
-        plan.append(DedupGroup(subject=subject, keep=keep, remove=remove))
-    return plan
-
-
-def _is_fragment(path: str) -> bool:
-    return bool(_FRAGMENT_SUFFIX.search(Path(path).stem))
 
 
 def main(argv=None) -> int:
@@ -124,7 +54,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     directory = args.data_dir or DEFAULT_KNOWLEDGE_DIR
-    quarantine = args.quarantine_dir or (directory.parent / "knowledge_dedup_removed")
+    quarantine = args.quarantine_dir or (directory.parent / QUARANTINE_DIRNAME)
 
     entries = KnowledgeBase(directory)._entries
     total_before = len(entries)

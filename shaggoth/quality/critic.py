@@ -140,17 +140,17 @@ class CriticLoop:
         if self.memory is None:
             return []
         try:
-            rows = self.memory.db.execute(
-                "SELECT DISTINCT content FROM messages WHERE role = 'user' "
-                "ORDER BY id DESC LIMIT ?",
-                (limit * 6,),
-            ).fetchall()
+            # Locked accessor -- this loop runs on the critic's own background
+            # thread, concurrently with request-handling threads on the same
+            # sqlite3.Connection. Reaching into memory.db directly here raced
+            # them (SQLITE_MISUSE, silently caught below).
+            rows = self.memory.recent_user_messages(limit * 6)
         except Exception as exc:  # noqa: BLE001
             self.stats.last_error = str(exc)[:200]
             return []
 
         out = []
-        for (text,) in rows:
+        for text in rows:
             text = (text or "").strip()
             if len(text) < 8 or text.lower() in self._seen:
                 continue

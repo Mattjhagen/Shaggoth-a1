@@ -15,6 +15,9 @@ Endpoints:
     GET  /learn/history              → past learning sessions
     POST /scrape/url                 → scrape a single URL
     GET  /scrape/stats               → scraper statistics
+    GET  /agents                     → onboard training crew + per-agent stats
+    GET  /agents/history             → what recent agent turns actually did
+    POST /agents/run                 → body {"agent": "curator"} (omit = all)
 
 Auth: If SHAGGOTH_API_KEY env var or api_key setting is set, all API
 routes (except /health, /, and static files) require
@@ -23,6 +26,7 @@ routes (except /health, /, and static files) require
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import mimetypes
 import os
@@ -36,10 +40,14 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import __version__
+from .dialogue.engine import compose_greeting as _compose_greeting
 from .dialogue.engine import normalize_mode
 from .curiosity.engine import CuriosityEngine
 from .curiosity.scheduler import CuriosityScheduler, ScheduleConfig
 from .curiosity.topics import extract_topic_query
+from .agents import agents_enabled, build_crew
+from .agents.supervisor import Supervisor
+from .config import load_settings
 from .dialogue import DialogueEngine
 from .dialogue.proactive import ProactiveChatter, ProactiveConfig
 from .knowledge.engine import KnowledgeBase
@@ -48,12 +56,53 @@ from .feedback import FeedbackStore
 from .notify import DeferredQuestions, PushSender
 from .quality import CriticLoop, build_teacher
 from .personality.engine import PersonalityEngine
+from .personality.voices import get_voice
+from .sites import DomainError, SiteRegistry, verify
+from .sites.crawl import MAX_DEPTH, MAX_PAGES, CrawlNotPermitted
+from .sites.jobs import CrawlAlreadyRunning, CrawlJobs
+from .sites.verification import dns_instructions, file_instructions
 
 STATIC_DIR = Path(__file__).parent / "static"
 API_KEY = os.environ.get("SHAGGOTH_API_KEY") or ""
 RATE_LIMITS: dict[str, list[float]] = {}
+_SITES_INIT_LOCK = threading.Lock()
 _RATE_LIMIT_LOCK = threading.Lock()
 PUSH_TOKENS: list[dict] = []
+
+# Peers whose forwarded-IP headers we believe. cloudflared runs on this host
+# and dials 127.0.0.1:8420, so the tunnel always shows up as loopback.
+#
+# This list is the whole security boundary of _client_ip(). Anyone allowed in
+# here can claim to be any IP and get a fresh rate-limit bucket per request,
+# which is a limiter bypass -- so it stays loopback-only. The server binds
+# 0.0.0.0, and a LAN client connecting directly is NOT trusted: its headers
+# are ignored and its real socket address is used.
+_TRUSTED_PROXIES = frozenset({"127.0.0.1", "::1"})
+
+# Cloudflare sends exactly one client IP here. Preferred over X-Forwarded-For,
+# which arrives as a comma-separated chain and needs picking apart.
+_REAL_IP_HEADERS = ("CF-Connecting-IP", "X-Real-IP")
+
+
+def _parse_ip(raw: str) -> str:
+    """Validate one forwarded-header value into a canonical IP, or "".
+
+    Validation is not cosmetic. The return value becomes a RATE_LIMITS key,
+    so an unvalidated header would let a caller push arbitrary -- and
+    arbitrarily long -- strings into a process-lifetime dict.
+    """
+    value = (raw or "").strip()
+    if not value or len(value) > 64:
+        return ""
+    # Some proxies append a source port: "1.2.3.4:5678" or "[::1]:443".
+    if value.startswith("["):
+        value = value.partition("]")[0].lstrip("[")
+    elif value.count(":") == 1:
+        value = value.partition(":")[0]
+    try:
+        return str(ipaddress.ip_address(value))
+    except ValueError:
+        return ""
 
 
 # A URL pasted into a chat message. Deliberately conservative: requires an
@@ -168,7 +217,31 @@ def _request_mode(body: dict):
     return None
 
 
-def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None, feedback: FeedbackStore | None = None, critic: CriticLoop | None = None, proactive=None):
+
+def _crawl_bounds(body: dict) -> dict:
+    """Caller-supplied crawl bounds, clamped to the module ceilings.
+
+    Only ever downward. A tenant asking for a smaller crawl of their own site
+    is reasonable; letting a request raise the limits would make the ceilings
+    decorative, and the ceilings are what stop this box being pointed at
+    something large.
+    """
+    floors = {"max_pages": 1, "max_depth": 0}
+    ceilings = {"max_pages": MAX_PAGES, "max_depth": MAX_DEPTH}
+    out: dict[str, int] = {}
+    for key in ("max_pages", "max_depth"):
+        raw = body.get(key)
+        if raw is None:
+            continue
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            continue
+        out[key] = max(floors[key], min(value, ceilings[key]))
+    return out
+
+
+def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str = "", curiosity: CuriosityEngine | None = None, scheduler: CuriosityScheduler | None = None, push: PushSender | None = None, deferred: DeferredQuestions | None = None, feedback: FeedbackStore | None = None, critic: CriticLoop | None = None, proactive=None, sites: SiteRegistry | None = None, crawl_jobs: CrawlJobs | None = None, supervisor: Supervisor | None = None):
     class Handler(BaseHTTPRequestHandler):
         server_version = f"Shaggoth/{__version__}"
 
@@ -230,6 +303,273 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             self._send_json(401, {"error": "unauthorized"})
             return False
 
+        def _client_ip(self) -> str:
+            """The real caller's IP, seen through the Cloudflare tunnel.
+
+            Without this the limiter was effectively global. It keyed on the
+            socket address, but every public request arrives via cloudflared
+            over loopback, so the entire internet shared one "127.0.0.1"
+            bucket: 60 requests/minute total, not per visitor. One person
+            clicking fast locked out every other caller, the dashboard and the
+            command center's ambient dialogue included.
+
+            Headers are only believed when the immediate peer is a trusted
+            proxy -- otherwise anyone could mint a fresh bucket per request by
+            sending a made-up CF-Connecting-IP, which is a worse hole than the
+            one being closed.
+            """
+            peer = self.client_address[0] if self.client_address else ""
+            if peer not in _TRUSTED_PROXIES:
+                return peer
+
+            for header in _REAL_IP_HEADERS:
+                candidate = _parse_ip(self.headers.get(header, ""))
+                if candidate:
+                    return candidate
+
+            # X-Forwarded-For is "client, proxy1, proxy2...". The leftmost
+            # entry is the original client, but it is also the one a caller
+            # can forge; everything after it was appended by infrastructure.
+            # We only reach this line when the peer is trusted, so the chain
+            # itself is as trustworthy as that proxy -- take the leftmost.
+            forwarded = self.headers.get("X-Forwarded-For", "")
+            for part in forwarded.split(","):
+                candidate = _parse_ip(part)
+                if candidate:
+                    return candidate
+
+            # Direct loopback call (curl on the box, health checks) or a proxy
+            # that forwarded nothing. Fall back to the socket address.
+            return peer
+
+        def _sites(self) -> SiteRegistry:
+            """The tenant registry, built at most once per server.
+
+            Lazy on purpose: ``make_handler(None, None)`` is how the tests get
+            at the handler's own helpers, and building a class should not
+            create directories on disk as a side effect.
+            """
+            nonlocal sites
+            with _SITES_INIT_LOCK:
+                if sites is None:
+                    sites = SiteRegistry()
+                return sites
+
+        def _crawl_jobs(self) -> CrawlJobs:
+            nonlocal crawl_jobs
+            with _SITES_INIT_LOCK:
+                if crawl_jobs is None:
+                    crawl_jobs = CrawlJobs()
+                return crawl_jobs
+
+        # ------------------------------------------------- tenant sites
+        #
+        # The registry, ownership verification and the crawl existed as
+        # library code with nothing able to reach them over the wire. This is
+        # that wire. Three rules hold across all of it:
+        #
+        # * A verification failure is data, not an error. The check ran and
+        #   answered "not yet", so it comes back 200 with the machine-readable
+        #   reason intact. ``nxdomain``, ``no_record`` and ``not_found`` need
+        #   three different actions from the owner; collapsing them into one
+        #   4xx throws away the only part that was worth computing.
+        # * Nothing here writes ``status``. There is no update route, and the
+        #   crawl route *reads* verification rather than accepting it, so no
+        #   request body can talk its way past the gate.
+        # * Caller-supplied bounds are clamped downward only.
+
+        def _site_payload(self, record) -> dict:
+            """Full view of one site, including how to prove ownership."""
+            data = record.public_dict()
+            data["verified"] = record.verified
+            data["verification"] = {
+                "dns": dns_instructions(record.domain, record.token),
+                "file": file_instructions(record.domain, record.token),
+            }
+            return data
+
+        def _site_summary(self, record) -> dict:
+            """Listing view -- deliberately narrower than ``_site_payload``.
+
+            ``GET /sites`` is reachable without auth while SHAGGOTH_API_KEY is
+            unset, so the listing carries no verification tokens and no
+            support contacts. A token is not a credential, but there is no
+            reason to hand every tenant's one to every caller either.
+            """
+            return {
+                "site_id": record.site_id,
+                "domain": record.domain,
+                "status": record.status,
+                "verified": record.verified,
+                "personality": record.personality,
+                "created_at": record.created_at,
+                "last_crawl_at": record.last_crawl_at or None,
+                "pages_indexed": record.pages_indexed,
+            }
+
+        def _lookup_site(self, site_id: str):
+            """The record, or None having already sent a 404."""
+            record = self._sites().get(site_id)
+            if record is None:
+                self._send_json(404, {
+                    "error": f"no site with id {site_id!r}",
+                    "reason": "unknown_site",
+                })
+                return None
+            return record
+
+        def _route_sites_get(self, path: str, url):
+            if path in ("/sites", "/sites/"):
+                return self._send_json(200, {
+                    "sites": [self._site_summary(r)
+                              for r in self._sites().list_sites()],
+                })
+
+            parts = [p for p in path.split("/") if p]
+            site_id = parts[1] if len(parts) > 1 else ""
+            tail = parts[2] if len(parts) > 2 else ""
+            if len(parts) > 3:
+                return self._send_json(404, {"error": "not found"})
+
+            record = self._lookup_site(site_id)
+            if record is None:
+                return
+
+            if not tail:
+                return self._send_json(200, self._site_payload(record))
+
+            if tail == "greeting":
+                voice = get_voice(record.personality)
+                # Counted from the site's own corpus, not the global one, so
+                # the cold-start line is right for a tenant that has not been
+                # crawled yet. A voice with reports_state=False then ignores
+                # the number entirely -- it is only ever used to choose
+                # between "hello" and "I'm still being set up".
+                kb = self._sites().knowledge_base(site_id)
+                kb.maybe_reload()
+                return self._send_json(200, {
+                    "site_id": site_id,
+                    "domain": record.domain,
+                    "personality": record.personality,
+                    "voice": voice.name,
+                    "greeting": _compose_greeting(
+                        len(kb._entries), voice=voice
+                    ),
+                })
+
+            if tail == "crawl":
+                job = self._crawl_jobs().get(site_id)
+                return self._send_json(200, {
+                    "site_id": site_id,
+                    "domain": record.domain,
+                    # "idle" rather than a 404: never crawled and finished
+                    # crawling are both "nothing running", and a poller should
+                    # not have to special-case the first one.
+                    "state": job.state if job else "idle",
+                    "job": job.as_dict() if job else None,
+                    "last_crawl_at": record.last_crawl_at or None,
+                    "pages_indexed": record.pages_indexed,
+                })
+
+            return self._send_json(404, {"error": "not found"})
+
+        def _route_sites_post(self, path: str, url):
+            registry = self._sites()
+
+            if path in ("/sites/register", "/sites/register/"):
+                # Every call can create a directory and a record, so this sits
+                # far below the global per-minute limit. Registering is also
+                # idempotent per domain, which caps the damage a loop can do.
+                if not self._rate_limit(
+                    f"register:{self._client_ip()}", limit=10, window=3600.0
+                ):
+                    return
+                body = self._read_json()
+                raw = (body.get("url") or body.get("domain") or "").strip()
+                if not raw:
+                    return self._send_json(400, {
+                        "error": "url is required",
+                        "reason": "missing_url",
+                    })
+                try:
+                    record = registry.register(raw)
+                except DomainError as exc:
+                    # DomainError messages are written for the site owner
+                    # ("Enter a domain name, not an IP address."), so they are
+                    # the response text rather than something generic.
+                    return self._send_json(400, {
+                        "error": str(exc),
+                        "reason": "invalid_domain",
+                    })
+                return self._send_json(200, self._site_payload(record))
+
+            parts = [p for p in path.split("/") if p]
+            site_id = parts[1] if len(parts) > 1 else ""
+            tail = parts[2] if len(parts) > 2 else ""
+            if len(parts) != 3:
+                return self._send_json(404, {"error": "not found"})
+
+            record = self._lookup_site(site_id)
+            if record is None:
+                return
+
+            if tail == "verify":
+                # A verify call makes the server talk to DNS and to the
+                # customer's own web server, so it is capped per site rather
+                # than per caller -- otherwise a rotating source IP turns the
+                # endpoint into a small amplifier aimed at their box.
+                if not self._rate_limit(f"verify:{site_id}", limit=12, window=600.0):
+                    return
+                body = self._read_json()
+                method = (body.get("method") or "any").strip().lower()
+                if method not in ("any", "dns", "file"):
+                    return self._send_json(400, {
+                        "error": "method must be one of: any, dns, file",
+                        "reason": "bad_method",
+                    })
+                result = verify(record.domain, record.token, method=method)
+                if result.verified and not record.verified:
+                    record = registry.mark_verified(site_id, result.method) or record
+                payload = result.as_dict()
+                payload.update({
+                    "site_id": site_id,
+                    "domain": record.domain,
+                    "status": record.status,
+                })
+                return self._send_json(200, payload)
+
+            if tail == "crawl":
+                if not self._rate_limit(f"crawl:{site_id}", limit=4, window=3600.0):
+                    return
+                body = self._read_json()
+                try:
+                    job = self._crawl_jobs().start(
+                        registry, site_id, **_crawl_bounds(body)
+                    )
+                except CrawlNotPermitted as exc:
+                    # 409 rather than 403: the request is well formed and the
+                    # caller may well own the site. The *state* is wrong, and
+                    # it is fixable by verifying.
+                    return self._send_json(409, {
+                        "error": str(exc),
+                        "reason": "not_verified",
+                        "status": record.status,
+                    })
+                except CrawlAlreadyRunning as exc:
+                    return self._send_json(409, {
+                        "error": str(exc),
+                        "reason": "already_running",
+                    })
+                # 202: the crawl is bounded at 25 pages paced 1s apart, which
+                # outlives some proxies in front of this box. Poll the GET.
+                return self._send_json(202, {
+                    "site_id": site_id,
+                    "domain": record.domain,
+                    "job": job.as_dict(),
+                })
+
+            return self._send_json(404, {"error": "not found"})
+
         def _rate_limit(self, key: str = "", limit: int = 60, window: float = 60.0) -> bool:
             """Cap requests per client IP per minute.
 
@@ -289,6 +629,9 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
 
             if not self._check_auth():
                 return
+
+            if path == "/sites" or path.startswith("/sites/"):
+                return self._route_sites_get(path, url)
 
             if path == "/history":
                 params = parse_qs(url.query)
@@ -417,6 +760,27 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                     return self._send_json(501, {"error": "critic not initialized"})
                 return self._send_json(200, critic.status())
 
+            if path == "/agents":
+                # 200 with enabled:false rather than 501, because "the crew is
+                # switched off" is a normal configuration and a dashboard
+                # should be able to say so without treating it as an error.
+                if not supervisor:
+                    return self._send_json(200, {
+                        "enabled": False,
+                        "running": False,
+                        "agents": [],
+                        "reason": "agents disabled in settings",
+                    })
+                return self._send_json(200, {"enabled": True, **supervisor.status()})
+
+            if path == "/agents/history":
+                if not supervisor:
+                    return self._send_json(200, {"enabled": False, "history": []})
+                return self._send_json(200, {
+                    "enabled": True,
+                    "history": supervisor.history(50),
+                })
+
             if path == "/push/status":
                 return self._send_json(200, push.status() if push else {"available": False})
 
@@ -467,6 +831,9 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             return self._send_json(404, {"error": "not found"})
 
         def _route_post(self, path: str, url):
+            if path.startswith("/sites/"):
+                return self._route_sites_post(path, url)
+
             if path == "/chat":
                 body = self._read_json()
                 message = (body.get("message") or "").strip()
@@ -612,6 +979,26 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 body = self._read_json()
                 limit = max(1, min(int(body.get("limit") or 3), 50))
                 return self._send_json(200, critic.run_batch(limit))
+
+            if path == "/agents/run":
+                # Manual kick, for verifying without waiting for the cadence.
+                # Runs on the request thread, so a slow agent holds the
+                # connection -- that is the point: the caller wanted to watch
+                # it happen. The scheduled path never blocks a request.
+                if not supervisor:
+                    return self._send_json(501, {"error": "agents disabled in settings"})
+                body = self._read_json()
+                name = body.get("agent") or body.get("name")
+                try:
+                    reports = supervisor.run_now(name)
+                except KeyError:
+                    return self._send_json(404, {
+                        "error": f"no such agent: {name}",
+                        "agents": [a.name for a in supervisor.agents],
+                    })
+                return self._send_json(200, {
+                    "ran": [r.as_dict() for r in reports],
+                })
 
             if path == "/feedback":
                 if not feedback:
@@ -857,7 +1244,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             url = urlparse(self.path)
             if not self._check_auth():
                 return
-            if not self._rate_limit(self.client_address[0]):
+            if not self._rate_limit(self._client_ip()):
                 return
             self._guard(self._route_post, url.path, url)
 
@@ -986,15 +1373,34 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     # Proactive chatter — Shaggoth messages first, in character.
     proactive = ProactiveChatter(engine, push, slack=slack)
 
-    scheduler.start()
+    # The onboard crew, when settings["agents"]["enabled"] is true. It drives
+    # the curiosity scheduler and the critic *instead of* their own timer
+    # threads -- start both and every research cycle and grading batch would
+    # run twice, at twice the load, with /agents reporting half of it. Off by
+    # default, so an existing deployment is unchanged by this block.
+    settings = load_settings()
+    supervisor = None
+    if agents_enabled(settings):
+        supervisor = build_crew(
+            engine,
+            scheduler=scheduler,
+            critic=critic,
+            scraper=learner.scraper,
+            settings=settings,
+        )
+        supervisor.start()
+    else:
+        scheduler.start()
+        if critic.teacher.available():
+            critic.start()
+
     proactive.start()
-    if critic.teacher.available():
-        critic.start()
     httpd = ThreadingHTTPServer(
         (host, port),
         make_handler(
             engine, learner, api_key, curiosity, scheduler, push, deferred,
-            feedback, critic, proactive,
+            feedback, critic, proactive, sites=SiteRegistry(),
+            crawl_jobs=CrawlJobs(), supervisor=supervisor,
         ),
     )
     auth_status = "enabled" if api_key else "disabled"
@@ -1011,12 +1417,20 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     print(f"  POST /push/subscribe  GET /push/status  GET /deferred")
     print(f"  POST /feedback        GET /feedback")
     print(f"  POST /critic/run      GET /critic")
+    print(f"  POST /agents/run      GET /agents   GET /agents/history")
     print(f"  Critic: {critic.teacher.model} "
           f"{'ready' if critic.teacher.available() else 'unavailable'}")
+    if supervisor is not None:
+        crew = ", ".join(a.name for a in supervisor.agents if a.enabled)
+        print(f"  Agents: {crew or 'none enabled'}")
+    else:
+        print(f"  Agents: off (set agents.enabled in config/settings.json)")
     print(f"  Push: {'ready' if push.available else 'not configured'}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nShutting down.")
         scheduler.stop()
+        if supervisor is not None:
+            supervisor.stop()
         httpd.server_close()

@@ -15,6 +15,8 @@ from __future__ import annotations
 import random
 import re
 
+from ..personality.voices import SHAGGOTH, get_voice
+
 # Pronoun/verb reflection map, applied to captured fragments.
 REFLECTIONS = {
     "i": "you", "me": "you", "my": "your", "mine": "yours",
@@ -316,15 +318,11 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
     ]),
 ]
 
-FALLBACKS = [
-    "Tell me more — that's not enough to work with yet.",
-    "What are you actually getting at? Give me something concrete.",
-    "Interesting direction. Keep going.",
-    "I need more context. What specifically?",
-    "Go on — I'm listening, but I need more to give you a real answer.",
-    "Give me a subject and I'll work with it.",
-    "I can do more with a specific topic. What are you curious about?",
-]
+#: Kept as a module-level name because it is part of this module's public
+#: surface, but it is now just Shaggoth's own pool -- see
+#: :mod:`shaggoth.personality.voices`. A PatternEngine built for a tenant
+#: draws from that tenant's voice instead.
+FALLBACKS = list(SHAGGOTH.fallbacks)
 
 SOCIAL_QUESTION_RESPONSES = [
     "That's too vague for a real answer. What specifically are you asking?",
@@ -338,8 +336,9 @@ SOCIAL_QUESTION_RESPONSES = [
 
 
 class PatternEngine:
-    def __init__(self, seed: int | None = None):
+    def __init__(self, seed: int | None = None, voice=None):
         self.rng = random.Random(seed)
+        self.voice = get_voice(voice)
 
     def respond(self, text: str) -> str | None:
         """Return a pattern-based reply, or None if no rule matched."""
@@ -365,4 +364,4 @@ class PatternEngine:
         return None
 
     def fallback(self) -> str:
-        return self.rng.choice(FALLBACKS)
+        return self.rng.choice(self.voice.fallbacks)

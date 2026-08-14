@@ -1,20 +1,44 @@
 [project]
 name = "shaggoth"
 version = "0.1.0"
-description = "Homegrown conversational AI platform with adjustable guardrails, memory, and plugins"
+description = "A homegrown, self-learning conversational AI you can run entirely on your own hardware — or point at free-tier cloud models."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
+authors = [
+    { name = "Matt Jhagen" },
+]
+keywords = ["ai", "chatbot", "self-learning", "knowledge-base", "llm", "markov", "local"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Communications :: Chat",
+]
 dependencies = []
 
 [project.optional-dependencies]
-# Only needed to train/run the TinyGPT transformer (Phase 1, on the R510)
+# Only needed to train/run the TinyGPT transformer. Optional; Markov is stdlib.
 gpt = ["torch>=2.0"]
-# OpenAI GPT backend — set OPENAI_API_KEY env var after installing
+# OpenAI GPT backend — set OPENAI_API_KEY env var after installing.
+# (The free-tier Gemini / Cloudflare Workers AI backends need no pip deps.)
 openai = ["openai>=1.0"]
 
+[project.urls]
+Homepage = "https://github.com/Mattjhagen/Shaggoth-a1"
+Repository = "https://github.com/Mattjhagen/Shaggoth-a1"
+Documentation = "https://github.com/Mattjhagen/Shaggoth-a1/blob/main/docs/ARCHITECTURE.md"
+
 [project.scripts]
-shaggoth = "shaggoth.__main__:main"
+shaggoth = "shaggoth._bootstrap:main"
 
 [build-system]
 requires = ["setuptools>=61"]
@@ -22,3 +46,15 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["shaggoth*"]
+
+[tool.setuptools.package-data]
+shaggoth = [
+    "static/*.html",
+    "static/*.css",
+    "static/*.js",
+    "static/*.json",
+    "static/*.svg",
+    "static/*.ico",
+    "static/*.png",
+    "static/embed/*.js",
+]

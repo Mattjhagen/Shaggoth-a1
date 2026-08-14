@@ -42,3 +42,7 @@ data/push_subscriptions.json
 data/deferred_questions.json
 data/learning_history.json
 data/feedback.json
+
+# Tenant records: verification tokens and support contacts for real domains.
+# Never belongs in a public repo.
+data/sites/
