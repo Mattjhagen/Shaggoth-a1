@@ -1509,6 +1509,8 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     except KeyboardInterrupt:
         print("\nShutting down.")
         scheduler.stop()
+        critic.stop()
+        proactive.stop()
         if supervisor is not None:
             supervisor.stop()
         httpd.server_close()

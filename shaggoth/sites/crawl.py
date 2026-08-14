@@ -166,7 +166,7 @@ def crawl_site(
         ))
 
         if depth < max_depth:
-            for href in _HREF.findall(scraper._last_html or ""):
+            for href in _HREF.findall(getattr(page, '_html', '')):
                 nxt = urllib.parse.urljoin(url, href)
                 if nxt.startswith(("http://", "https://")) and nxt not in seen_urls:
                     queue.append((nxt, depth + 1))
