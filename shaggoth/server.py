@@ -283,9 +283,12 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             if length > self._MAX_BODY:
                 return {}
             try:
-                return json.loads(self.rfile.read(length))
+                result = json.loads(self.rfile.read(length))
             except json.JSONDecodeError:
                 return {}
+            if not isinstance(result, dict):
+                return {}
+            return result
 
         def _send_static(self, path: Path) -> None:
             if not path.exists() or not path.is_file():
@@ -1295,6 +1298,8 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             text/html -- which is actively misleading when you are debugging
             cache headers, and wrong for any client that HEADs before GET.
             """
+            if not self._rate_limit(self._client_ip(), limit=120):
+                return
             self._suppress_body = True
             try:
                 url = urlparse(self.path)

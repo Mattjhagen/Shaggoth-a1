@@ -111,13 +111,18 @@ _METADATA_REDACT_RE = re.compile(
 )
 
 
-def _redact_metadata(value: Any) -> Any:
+def _redact_metadata(value: Any, _depth: int = 0) -> Any:
+    if _depth > 20:
+        return value
     if isinstance(value, str):
         return _METADATA_REDACT_RE.sub("[redacted]", value)
     if isinstance(value, dict):
-        return {k: _redact_metadata(v) for k, v in value.items()}
+        return {
+            _redact_metadata(k, _depth + 1): _redact_metadata(v, _depth + 1)
+            for k, v in value.items()
+        }
     if isinstance(value, list):
-        return [_redact_metadata(v) for v in value]
+        return [_redact_metadata(v, _depth + 1) for v in value]
     return value
 
 
@@ -349,7 +354,11 @@ class DialogueEngine:
         # plan→act→verify tool loop.
         from ..models.openai_model import OpenAIModel
         from ..models.base import GenerationError
-        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
+        _gpt = self.model if (
+            isinstance(self.model, OpenAIModel)
+            or hasattr(self.model, "generate_chat")
+        ) else None
+        _gpt_has_tools = isinstance(self.model, OpenAIModel)
         if body is None and _gpt is not None and _gpt.configured:
             history, summary_extra = self._build_history_context(context)
             try:
@@ -373,7 +382,7 @@ class DialogueEngine:
                 log.warning("Failed to load user profile/project context", exc_info=True)
             loop_result = None
             try:
-                use_tools = self.tools if len(self.tools) > 0 else None
+                use_tools = self.tools if (len(self.tools) > 0 and _gpt_has_tools) else None
                 if use_tools is not None:
                     loop_result = _gpt.generate_with_tools(
                         user_message=text,
@@ -482,31 +491,6 @@ class DialogueEngine:
                     f"lookup: {best_loose_topic}",
                     "select: best non-definitional sentence",
                 ]
-
-        if body is None:
-            body = self.patterns.respond(text)
-
-        # 5b. GPT generation — preferred over Markov when available.
-        # GPT can follow the prompt and stay in character, so it works in both
-        # drift and no_drift modes. It's tried whenever the pattern engine and
-        # knowledge base haven't produced an answer yet.
-        # GPT-class models (OpenAI or a free-tier cloud backend) share the
-        # RAG-aware generate_chat() interface; duck-type rather than enumerate.
-        _gpt = self.model if hasattr(self.model, "generate_chat") else None
-        if body is None and _gpt is not None and _gpt.configured:
-            # Build recent conversation history for GPT context.
-            history = [
-                {"role": m["role"], "content": m["content"]}
-                for m in context.get("recent", [])
-            ]
-            generated = _gpt.generate_chat(
-                user_message=text,
-                knowledge_context=knowledge_context,
-                conversation_history=history,
-                personality_context=personality_context,
-            ).strip()
-            if generated:
-                body, source = generated, "model"
 
         # 5c. Markov generation is DRIFT-only and runs only when GPT is absent.
         if drift and body is None and self.model is not None and self.model.is_trained() and _gpt is None:

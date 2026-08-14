@@ -79,6 +79,9 @@ class SlackSender:
             finally:
                 self._send_semaphore.release()
 
-        threading.Thread(
-            target=_send_and_release, name="shaggoth-slack", daemon=True
-        ).start()
+        try:
+            threading.Thread(
+                target=_send_and_release, name="shaggoth-slack", daemon=True
+            ).start()
+        except RuntimeError:
+            self._send_semaphore.release()

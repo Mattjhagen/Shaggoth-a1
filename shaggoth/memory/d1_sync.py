@@ -219,13 +219,23 @@ class D1Sync:
         user_id: str = "default",
     ) -> int:
         pid = self._local.add_project(name, description, user_id=user_id)
-        self._enqueue(
-            "INSERT INTO projects (user_id, name, description, status, ts_created, ts_updated) "
-            "VALUES (?, ?, ?, 'active', ?, ?) "
-            "ON CONFLICT(user_id, name) DO UPDATE SET "
-            "description = excluded.description, ts_updated = excluded.ts_updated",
-            [user_id, name, description, time.time(), time.time()],
-        )
+        now = time.time()
+        if description:
+            self._enqueue(
+                "INSERT INTO projects (user_id, name, description, status, ts_created, ts_updated) "
+                "VALUES (?, ?, ?, 'active', ?, ?) "
+                "ON CONFLICT(user_id, name) DO UPDATE SET "
+                "description = excluded.description, ts_updated = excluded.ts_updated",
+                [user_id, name, description, now, now],
+            )
+        else:
+            self._enqueue(
+                "INSERT INTO projects (user_id, name, description, status, ts_created, ts_updated) "
+                "VALUES (?, ?, ?, 'active', ?, ?) "
+                "ON CONFLICT(user_id, name) DO UPDATE SET "
+                "ts_updated = excluded.ts_updated",
+                [user_id, name, description, now, now],
+            )
         return pid
 
     def update_project(

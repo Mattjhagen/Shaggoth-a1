@@ -249,7 +249,7 @@ class CuriosityEngine:
                         episode.pages_scraped += 1
                         episode.urls_found += 1
             except Exception:
-                log.debug("Wikipedia lookup failed for %s", episode.topic, exc_info=True)
+                log.debug("Wikipedia lookup failed", exc_info=True)
 
         # 1. Search the web for each query
         all_results: list[SearchResult] = []

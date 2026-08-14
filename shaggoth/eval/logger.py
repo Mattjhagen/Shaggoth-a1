@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -77,6 +78,7 @@ class RunLogger:
     def __init__(self, directory: str | Path | None = None, *, enabled: bool = True):
         self.directory = Path(directory) if directory else DEFAULT_RUNS_DIR
         self.enabled = enabled
+        self._write_lock = threading.Lock()
         if self.enabled:
             self.directory.mkdir(parents=True, exist_ok=True)
 
@@ -114,15 +116,19 @@ class RunLogger:
                 mode=mode,
                 blocked=blocked,
                 entries_used=entries_used or [],
-                reasoning=[str(s) for s in (reasoning or [])],
-                new_facts={k: _redact_for_log(str(v)) for k, v in (new_facts or {}).items()},
-                memory_triggers=memory_triggers or [],
+                reasoning=[_redact_for_log(str(s)) for s in (reasoning or [])],
+                new_facts={
+                    _redact_for_log(k): _redact_for_log(str(v))
+                    for k, v in (new_facts or {}).items()
+                },
+                memory_triggers=[_redact_for_log(t) for t in (memory_triggers or [])],
                 flag=flag,
                 latency_ms=round(latency_ms, 2),
             )
             path = self._path_for_today()
-            with open(path, "a", encoding="utf-8") as fh:
-                fh.write(json.dumps(record.to_dict(), ensure_ascii=False) + "\n")
+            with self._write_lock:
+                with open(path, "a", encoding="utf-8") as fh:
+                    fh.write(json.dumps(record.to_dict(), ensure_ascii=False) + "\n")
             return record
         except Exception as exc:  # noqa: BLE001
             log.warning("[eval] run logging failed: %s", exc)

@@ -39,6 +39,10 @@ class PersonalityEngine:
         try:
             with open(self.path, encoding="utf-8") as fh:
                 loaded = json.load(fh)
+                if not isinstance(loaded, dict):
+                    log.warning("[personality] %s: expected dict, got %s", self.path, type(loaded).__name__)
+                    self._mtime = None
+                    return
                 self.config = {**DEFAULT_PERSONALITY, **loaded}
             self._mtime = self.path.stat().st_mtime
         except (json.JSONDecodeError, OSError) as exc:
