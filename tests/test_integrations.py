@@ -120,7 +120,8 @@ class FakeMemoryStore:
         self.messages.append({"id": mid, "session_id": session_id, "role": role, "content": content})
         return mid
 
-    def set_fact(self, key, value, user_id="default", commit=True):
+    def set_fact(self, key, value, user_id="default", commit=True, *,
+                 confidence=0.5, source="pattern"):
         self.facts[key] = value
 
     def extract_and_store_facts(self, text):

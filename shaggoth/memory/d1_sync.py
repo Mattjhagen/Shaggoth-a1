@@ -115,8 +115,10 @@ class D1Sync:
         return mid
 
     def set_fact(self, key: str, value: str, user_id: str = "default",
-                 commit: bool = True) -> None:
-        self._local.set_fact(key, value, user_id=user_id, commit=commit)
+                 commit: bool = True, *, confidence: float = 0.5,
+                 source: str = "pattern") -> None:
+        self._local.set_fact(key, value, user_id=user_id, commit=commit,
+                             confidence=confidence, source=source)
         self._enqueue(
             "INSERT INTO facts (key, value, user_id, ts) VALUES (?, ?, ?, ?) "
             "ON CONFLICT(key, user_id) DO UPDATE SET "

@@ -4,7 +4,7 @@ import difflib
 import math
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +12,39 @@ from ..config import DATA_DIR
 from ..memory.store import STOPWORDS, extract_keywords
 
 DEFAULT_KNOWLEDGE_DIR = DATA_DIR / "knowledge"
+
+# Chunking parameters. Articles longer than _CHUNK_THRESHOLD words are split
+# into overlapping windows so BM25 can score specific sections rather than
+# diluting term frequency across thousands of words.
+_CHUNK_THRESHOLD = 800   # words — below this, one chunk = full article
+_CHUNK_SIZE = 500        # words per chunk
+_CHUNK_OVERLAP = 100     # words shared between consecutive chunks
+
+
+def chunk_content(
+    text: str,
+    chunk_size: int = _CHUNK_SIZE,
+    overlap: int = _CHUNK_OVERLAP,
+    threshold: int = _CHUNK_THRESHOLD,
+) -> list[str]:
+    """Split text into overlapping chunks of roughly *chunk_size* words.
+
+    Returns a single-element list (the full text) when the article is short
+    enough that chunking would add cost without value.
+    """
+    words = text.split()
+    if len(words) <= threshold:
+        return [text]
+
+    chunks: list[str] = []
+    start = 0
+    while start < len(words):
+        end = min(start + chunk_size, len(words))
+        chunks.append(" ".join(words[start:end]))
+        if end >= len(words):
+            break
+        start += chunk_size - overlap
+    return chunks
 
 
 @dataclass
@@ -22,6 +55,8 @@ class KnowledgeEntry:
     word_count: int
     keywords: list[str]
     mtime: float
+    chunks: list[str] = field(default_factory=list)
+    chunk_keywords: list[list[str]] = field(default_factory=list)
 
 
 # Common English words that should not count as meaningful title tokens.
@@ -76,6 +111,12 @@ class KnowledgeBase:
                 fpath.stem.replace("-", " ").replace("_", " ").split()
             ).title()
             keywords = extract_keywords(content)
+            chunks = chunk_content(content)
+            chunk_kw = (
+                [extract_keywords(c) for c in chunks]
+                if len(chunks) > 1
+                else [keywords]
+            )
             entries.append(KnowledgeEntry(
                 topic=topic,
                 content=content,
@@ -83,6 +124,8 @@ class KnowledgeBase:
                 word_count=len(content.split()),
                 keywords=keywords,
                 mtime=fpath.stat().st_mtime,
+                chunks=chunks,
+                chunk_keywords=chunk_kw,
             ))
         self._entries = entries
         self._index = {}
@@ -147,8 +190,19 @@ class KnowledgeBase:
             if len(t) > 1 and t not in _TITLE_STOPWORDS
         }
 
+    # Reranker blending weight. After BM25 retrieves candidates, a second
+    # pass scores each entry's best-matching chunk for keyword density and
+    # concentration. The final score is a weighted blend of the two.
+    _RERANK_BM25_WEIGHT = 0.75
+    _RERANK_CHUNK_WEIGHT = 0.25
+
     def query(self, text: str, limit: int = 3, min_score: float = 0.0) -> list[tuple[KnowledgeEntry, float]]:
         """Rank knowledge entries against ``text`` using BM25 + title boost.
+
+        After BM25 scoring, a chunk-level reranker rescores each candidate
+        by measuring keyword density within the best-matching content chunk.
+        This lifts entries where query terms are concentrated in one section
+        over entries where they are scattered across thousands of words.
 
         Returns ``(entry, score)`` pairs sorted best-first. Scores are
         normalized to roughly 0..1 so ``min_score`` behaves like a confidence
@@ -241,16 +295,90 @@ class KnowledgeBase:
         if not results:
             return []
 
-        best_raw = max(s for _, s in results)
+        # --- Rerank pass: blend BM25 with chunk-level keyword density ---
+        best_bm25 = max(s for _, s in results) or 1.0
+        reranked: list[tuple[KnowledgeEntry, float]] = []
+        for entry, bm25_raw in results:
+            bm25_norm = bm25_raw / best_bm25
+            chunk_rel = self._chunk_relevance(entry, query_words)
+            combined = (
+                self._RERANK_BM25_WEIGHT * bm25_norm
+                + self._RERANK_CHUNK_WEIGHT * chunk_rel
+            )
+            reranked.append((entry, combined))
 
-        # Normalize to 0..1 against the best hit so min_score is a stable
-        # confidence threshold rather than a corpus-size-dependent magnitude.
-        best = best_raw or 1.0
-        normalized = [(e, s / best) for e, s in results if (s / best) >= min_score]
-        # Tie-break toward the SHORTER, more focused article -- the opposite of
-        # the previous behaviour, which surfaced sprawling omnibus pages.
+        # Normalize to 0..1 against the best combined hit.
+        best = max(s for _, s in reranked) or 1.0
+        normalized = [(e, s / best) for e, s in reranked if (s / best) >= min_score]
+        # Tie-break toward the SHORTER, more focused article.
         normalized.sort(key=lambda x: (-x[1], x[0].word_count))
         return normalized[:limit]
+
+    # ------------------------------------------------------------------
+    # Chunk-level reranker
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _chunk_relevance(entry: KnowledgeEntry, query_words: set[str]) -> float:
+        """Score how well the entry's best chunk covers the query keywords.
+
+        Returns 0..1 — the blend of keyword *density* (what fraction of
+        query terms appear in the chunk) and *concentration* (query terms
+        as a fraction of the chunk's total keywords).
+        """
+        chunks = entry.chunks if entry.chunks else [entry.content]
+        chunk_kws = entry.chunk_keywords if entry.chunk_keywords else None
+
+        best = 0.0
+        for i, chunk in enumerate(chunks):
+            if chunk_kws and i < len(chunk_kws):
+                kw_set = set(chunk_kws[i])
+            else:
+                kw_set = set(extract_keywords(chunk))
+
+            overlap = len(query_words & kw_set)
+            if not overlap:
+                continue
+
+            density = overlap / max(len(query_words), 1)
+            concentration = overlap / max(len(kw_set), 1)
+            score = 0.6 * density + 0.4 * concentration
+            best = max(best, score)
+
+        return best
+
+    def best_chunks(
+        self,
+        entry: KnowledgeEntry,
+        query: str,
+        max_chunks: int = 2,
+    ) -> str:
+        """Return the most query-relevant chunk(s) from *entry*.
+
+        When the entry is short or unchunked, returns the full content.
+        Otherwise scores each chunk by keyword overlap with the query and
+        returns the top *max_chunks*, reassembled in their original order
+        so the prose reads sequentially.
+        """
+        if not entry.chunks or len(entry.chunks) <= 1:
+            return entry.content
+
+        query_words = set(extract_keywords(query))
+        if not query_words:
+            return entry.content
+
+        scored: list[tuple[float, int]] = []
+        for i, chunk in enumerate(entry.chunks):
+            if entry.chunk_keywords and i < len(entry.chunk_keywords):
+                kw_set = set(entry.chunk_keywords[i])
+            else:
+                kw_set = set(extract_keywords(chunk))
+            overlap = len(query_words & kw_set)
+            scored.append((overlap, i))
+
+        scored.sort(key=lambda x: -x[0])
+        best_indices = sorted(idx for _, idx in scored[:max_chunks])
+        return "\n\n".join(entry.chunks[i] for i in best_indices)
 
     def add_entry(self, topic: str, content: str) -> Path:
         fpath = self.directory / f"{self.slug_for(topic)}.md"

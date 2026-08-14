@@ -15,10 +15,10 @@ from .harness import Harness, BenchmarkTask, RunResult
 from .scorer import score_run, ScoreCard
 
 __all__ = [
-    "RunLogger",
-    "Harness",
     "BenchmarkTask",
+    "Harness",
+    "RunLogger",
     "RunResult",
-    "score_run",
     "ScoreCard",
+    "score_run",
 ]

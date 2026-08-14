@@ -478,6 +478,11 @@ function replyDetail(meta) {
   }
   if (meta.entries_used && meta.entries_used.length)
     lines.push('entries: ' + meta.entries_used.join(', '));
+  if (meta.citations && meta.citations.length) {
+    lines.push('citations:');
+    for (const c of meta.citations)
+      lines.push('  [' + c.topic + ' (' + c.score + ')] ' + (c.snippet || '').slice(0, 120));
+  }
   if (meta.rule_id) lines.push('rule: ' + meta.rule_id);
   if (meta.output_rules_applied && meta.output_rules_applied.length)
     lines.push('output filters: ' + meta.output_rules_applied.join(', '));

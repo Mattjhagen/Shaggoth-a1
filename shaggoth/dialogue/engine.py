@@ -114,6 +114,8 @@ class Reply:
     reasoning: list = field(default_factory=list)
     #: Knowledge entries the answer was built from.
     entries_used: list = field(default_factory=list)
+    #: Structured citations: [{topic, snippet, score}].
+    citations: list = field(default_factory=list)
 
 
 class DialogueEngine:
@@ -474,10 +476,12 @@ class DialogueEngine:
                 )
                 triggers.append(topic)
 
+        citations = self._build_citations(text, knowledge_hits, entries_used)
         reply = self._finish(
             Reply(body, source=source, memory_triggers=triggers,
                   new_facts=new_facts, mode=mode,
-                  reasoning=reasoning_steps, entries_used=entries_used)
+                  reasoning=reasoning_steps, entries_used=entries_used,
+                  citations=citations)
         )
         self._persist(session_id, text, reply)
 
@@ -504,6 +508,36 @@ class DialogueEngine:
         return reply
 
     # ------------------------------------------------------------------
+    def _build_citations(
+        self,
+        query: str,
+        knowledge_hits: list,
+        entries_used: list,
+    ) -> list[dict]:
+        """Build structured citation records from the knowledge hits used."""
+        if not entries_used or not knowledge_hits:
+            return []
+        used_set = {t.lower() for t in entries_used}
+        citations: list[dict] = []
+        for entry, score in knowledge_hits:
+            if entry.topic.lower() not in used_set:
+                continue
+            snippet_source = self.knowledge.best_chunks(entry, query)
+            snippet = summarize_entry(
+                snippet_source, entry.topic, max_sentences=2, max_chars=200,
+            )
+            if not snippet:
+                snippet = snippet_source[:200].strip()
+                if len(snippet_source) > 200:
+                    snippet += "..."
+            citations.append({
+                "topic": entry.topic,
+                "snippet": snippet,
+                "score": round(score, 3),
+            })
+        return citations
+
+    # ------------------------------------------------------------------
     @staticmethod
     def _build_history_context(context: dict) -> tuple[list[dict], str]:
         """Extract chat history and summary from conversation context.
@@ -522,9 +556,12 @@ class DialogueEngine:
             )
         return history, summary_extra
 
-    @staticmethod
-    def _build_knowledge_context(query: str, hits) -> str:
+    def _build_knowledge_context(self, query: str, hits) -> str:
         """Format knowledge hits into a context string for GPT.
+
+        When entries have been chunked, retrieves the most query-relevant
+        chunk(s) and summarises from those rather than the full article,
+        giving GPT focused material instead of a broad diluted overview.
 
         Passes more content for explanatory questions (how/why) so GPT has
         richer material to construct a real answer rather than just
@@ -542,12 +579,13 @@ class DialogueEngine:
         for entry, _score in hits:
             if not knowledge_is_relevant(entry.topic, query, entry.content):
                 continue
+            source_text = self.knowledge.best_chunks(entry, query)
             snippet = summarize_entry(
-                entry.content, entry.topic,
+                source_text, entry.topic,
                 max_sentences=max_sents, max_chars=max_ch,
             )
             if not snippet:
-                snippet = entry.content[:max_ch].strip()
+                snippet = source_text[:max_ch].strip()
             snippets.append(f"On {entry.topic}: {snippet}")
         return "\n\n".join(snippets) + "\n" if snippets else ""
 

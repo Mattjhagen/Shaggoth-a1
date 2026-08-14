@@ -163,8 +163,9 @@ class MemoryStore:
         for sql in _MIGRATIONS:
             try:
                 self.db.execute(sql)
-            except sqlite3.OperationalError:
-                pass
+            except sqlite3.OperationalError as exc:
+                if "duplicate column name" not in str(exc).lower():
+                    raise
 
     # ----------------------------------------------------------- writing
     def add_message(self, session_id: str, role: str, content: str) -> int:

@@ -123,8 +123,9 @@ class Harness:
 
     def _run_one(self, task: BenchmarkTask) -> RunResult:
         try:
+            sid = f"{self.session_id}_{task.id}"
             t0 = time.monotonic()
-            reply = self.engine.respond(task.input, session_id=self.session_id)
+            reply = self.engine.respond(task.input, session_id=sid)
             latency = (time.monotonic() - t0) * 1000
             return RunResult(
                 task_id=task.id,
