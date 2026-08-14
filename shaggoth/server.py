@@ -979,9 +979,12 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
 
             if path == "/learn/start":
                 body = self._read_json()
-                crawl_depth = max(0, min(int(body.get("crawl_depth", 1)), MAX_DEPTH))
-                max_pages = max(1, min(int(body.get("max_pages", 20)), MAX_PAGES))
-                training_steps = max(0, min(int(body.get("training_steps", 1000)), 10_000))
+                try:
+                    crawl_depth = max(0, min(int(body.get("crawl_depth", 1)), MAX_DEPTH))
+                    max_pages = max(1, min(int(body.get("max_pages", 20)), MAX_PAGES))
+                    training_steps = max(0, min(int(body.get("training_steps", 1000)), 10_000))
+                except (ValueError, TypeError):
+                    return self._send_json(400, {"error": "crawl_depth, max_pages, and training_steps must be integers"})
                 session = learner.learn(
                     urls=body.get("urls"),
                     crawl_depth=crawl_depth,
@@ -1162,8 +1165,11 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 # subject). Falls back to the raw topic when it is not
                 # question-shaped, so a plain "aeroponics" is untouched.
                 topic = extract_topic_query(topic) or topic
-                max_results = body.get("max_results", 5)
-                max_pages = body.get("max_pages", 3)
+                try:
+                    max_results = max(1, min(int(body.get("max_results", 5)), 20))
+                    max_pages = max(1, min(int(body.get("max_pages", 3)), MAX_PAGES))
+                except (ValueError, TypeError):
+                    return self._send_json(400, {"error": "max_results and max_pages must be integers"})
                 episode = curiosity.research_topic(
                     topic, max_results=max_results, max_pages=max_pages, background=True,
                 )

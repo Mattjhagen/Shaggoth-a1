@@ -19,6 +19,8 @@ import urllib.request
 #: Default channel created for this deployment.
 DEFAULT_CHANNEL_ID = "C0BLD1P9TC5"  # #shaggoth
 
+_MAX_CONCURRENT_SENDS = 8
+
 
 class SlackSender:
     """Posts text messages to a Slack channel via the Web API."""
@@ -34,6 +36,7 @@ class SlackSender:
             or os.environ.get("SLACK_CHANNEL_ID")
             or DEFAULT_CHANNEL_ID
         )
+        self._send_semaphore = threading.Semaphore(_MAX_CONCURRENT_SENDS)
 
     @property
     def configured(self) -> bool:
@@ -65,7 +68,17 @@ class SlackSender:
             return False
 
     def send_async(self, text: str) -> None:
-        """Fire-and-forget send on a daemon thread."""
+        """Fire-and-forget send on a daemon thread, bounded to avoid thread storms."""
+        if not self._send_semaphore.acquire(blocking=False):
+            print("[slack] too many concurrent sends, dropping message")
+            return
+
+        def _send_and_release() -> None:
+            try:
+                self.send(text)
+            finally:
+                self._send_semaphore.release()
+
         threading.Thread(
-            target=self.send, args=(text,), name="shaggoth-slack", daemon=True
+            target=_send_and_release, name="shaggoth-slack", daemon=True
         ).start()

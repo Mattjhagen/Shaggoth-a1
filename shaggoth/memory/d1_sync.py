@@ -151,8 +151,9 @@ class D1Sync:
                 self._d1_query(sql, params)
             except Exception as exc:
                 msg = str(exc)
-                if self._api_token:
-                    msg = msg.replace(self._api_token, "[REDACTED]")
+                for secret in (self._api_token, self._account_id, self._database_id):
+                    if secret:
+                        msg = msg.replace(secret, "[REDACTED]")
                 print(f"[d1] sync failed: {type(exc).__name__}: {msg}")
             finally:
                 self._queue.task_done()
