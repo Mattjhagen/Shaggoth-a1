@@ -24,6 +24,7 @@ from ..config import DATA_DIR
 log = logging.getLogger(__name__)
 
 DEFAULT_BENCHMARKS_DIR = DATA_DIR / "eval" / "benchmarks"
+_BUNDLED_BENCHMARK = Path(__file__).resolve().parent / "default_benchmark.jsonl"
 
 
 @dataclass
@@ -77,7 +78,12 @@ class RunResult:
 
 def load_tasks(path: str | Path | None = None) -> list[BenchmarkTask]:
     """Load benchmark tasks from a JSONL file."""
-    p = Path(path) if path else DEFAULT_BENCHMARKS_DIR / "default.jsonl"
+    if path:
+        p = Path(path)
+    else:
+        p = DEFAULT_BENCHMARKS_DIR / "default.jsonl"
+        if not p.exists():
+            p = _BUNDLED_BENCHMARK
     if not p.exists():
         log.warning("[eval] benchmark file not found: %s", p)
         return []

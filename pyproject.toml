@@ -57,4 +57,5 @@ shaggoth = [
     "static/*.ico",
     "static/*.png",
     "static/embed/*.js",
+    "eval/*.jsonl",
 ]

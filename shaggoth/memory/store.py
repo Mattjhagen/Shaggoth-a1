@@ -248,10 +248,11 @@ class MemoryStore:
             return row[0] if row else None
 
     def get_fact_with_meta(self, key: str, user_id: str = "default") -> dict | None:
-        row = self.db.execute(
-            "SELECT value, confidence, source, ts FROM facts "
-            "WHERE key = ? AND user_id = ?", (key, user_id)
-        ).fetchone()
+        with self._lock:
+            row = self.db.execute(
+                "SELECT value, confidence, source, ts FROM facts "
+                "WHERE key = ? AND user_id = ?", (key, user_id)
+            ).fetchone()
         if not row:
             return None
         return {"value": row[0], "confidence": row[1], "source": row[2], "ts": row[3]}
@@ -265,10 +266,11 @@ class MemoryStore:
             )
 
     def all_facts_with_meta(self, user_id: str = "default") -> dict[str, dict]:
-        rows = self.db.execute(
-            "SELECT key, value, confidence, source, ts FROM facts WHERE user_id = ?",
-            (user_id,),
-        ).fetchall()
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT key, value, confidence, source, ts FROM facts WHERE user_id = ?",
+                (user_id,),
+            ).fetchall()
         return {
             r[0]: {"value": r[1], "confidence": r[2], "source": r[3], "ts": r[4]}
             for r in rows
@@ -525,42 +527,46 @@ class MemoryStore:
         user_id: str = "default", *,
         confidence: float = 0.5, source: str = "inferred",
     ) -> None:
-        self.db.execute(
-            "INSERT INTO preferences (user_id, category, key, value, confidence, source, ts) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?) "
-            "ON CONFLICT(user_id, category, key) DO UPDATE SET "
-            "value = excluded.value, confidence = excluded.confidence, "
-            "source = excluded.source, ts = excluded.ts",
-            (user_id, category, key, value, confidence, source, time.time()),
-        )
-        self.db.commit()
+        with self._lock:
+            self.db.execute(
+                "INSERT INTO preferences (user_id, category, key, value, confidence, source, ts) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(user_id, category, key) DO UPDATE SET "
+                "value = excluded.value, confidence = excluded.confidence, "
+                "source = excluded.source, ts = excluded.ts",
+                (user_id, category, key, value, confidence, source, time.time()),
+            )
+            self.db.commit()
 
     def get_preference(
         self, category: str, key: str, user_id: str = "default",
     ) -> str | None:
-        row = self.db.execute(
-            "SELECT value FROM preferences "
-            "WHERE user_id = ? AND category = ? AND key = ?",
-            (user_id, category, key),
-        ).fetchone()
+        with self._lock:
+            row = self.db.execute(
+                "SELECT value FROM preferences "
+                "WHERE user_id = ? AND category = ? AND key = ?",
+                (user_id, category, key),
+            ).fetchone()
         return row[0] if row else None
 
     def preferences_by_category(
         self, category: str, user_id: str = "default",
     ) -> dict[str, str]:
-        rows = self.db.execute(
-            "SELECT key, value FROM preferences "
-            "WHERE user_id = ? AND category = ? ORDER BY key",
-            (user_id, category),
-        ).fetchall()
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT key, value FROM preferences "
+                "WHERE user_id = ? AND category = ? ORDER BY key",
+                (user_id, category),
+            ).fetchall()
         return dict(rows)
 
     def all_preferences(self, user_id: str = "default") -> dict[str, dict[str, str]]:
-        rows = self.db.execute(
-            "SELECT category, key, value FROM preferences "
-            "WHERE user_id = ? ORDER BY category, key",
-            (user_id,),
-        ).fetchall()
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT category, key, value FROM preferences "
+                "WHERE user_id = ? ORDER BY category, key",
+                (user_id,),
+            ).fetchall()
         result: dict[str, dict[str, str]] = {}
         for cat, key, value in rows:
             result.setdefault(cat, {})[key] = value
@@ -588,14 +594,15 @@ class MemoryStore:
         user_id: str = "default",
     ) -> int:
         now = time.time()
-        cur = self.db.execute(
-            "INSERT INTO projects (user_id, name, description, status, ts_created, ts_updated) "
-            "VALUES (?, ?, ?, 'active', ?, ?) "
-            "ON CONFLICT(user_id, name) DO UPDATE SET "
-            "description = excluded.description, ts_updated = excluded.ts_updated",
-            (user_id, name, description, now, now),
-        )
-        self.db.commit()
+        with self._lock:
+            cur = self.db.execute(
+                "INSERT INTO projects (user_id, name, description, status, ts_created, ts_updated) "
+                "VALUES (?, ?, ?, 'active', ?, ?) "
+                "ON CONFLICT(user_id, name) DO UPDATE SET "
+                "description = excluded.description, ts_updated = excluded.ts_updated",
+                (user_id, name, description, now, now),
+            )
+            self.db.commit()
         return cur.lastrowid or 0
 
     def update_project(
@@ -615,20 +622,22 @@ class MemoryStore:
         sets.append("ts_updated = ?")
         params.append(time.time())
         params.extend([user_id, name])
-        cur = self.db.execute(
-            f"UPDATE projects SET {', '.join(sets)} "
-            "WHERE user_id = ? AND name = ?",
-            params,
-        )
-        self.db.commit()
+        with self._lock:
+            cur = self.db.execute(
+                f"UPDATE projects SET {', '.join(sets)} "
+                "WHERE user_id = ? AND name = ?",
+                params,
+            )
+            self.db.commit()
         return cur.rowcount > 0
 
     def get_project(self, name: str, user_id: str = "default") -> dict | None:
-        row = self.db.execute(
-            "SELECT id, name, description, status, ts_created, ts_updated "
-            "FROM projects WHERE user_id = ? AND name = ?",
-            (user_id, name),
-        ).fetchone()
+        with self._lock:
+            row = self.db.execute(
+                "SELECT id, name, description, status, ts_created, ts_updated "
+                "FROM projects WHERE user_id = ? AND name = ?",
+                (user_id, name),
+            ).fetchone()
         if not row:
             return None
         return {
@@ -639,19 +648,20 @@ class MemoryStore:
     def list_projects(
         self, user_id: str = "default", status: str | None = "active",
     ) -> list[dict]:
-        if status:
-            rows = self.db.execute(
-                "SELECT id, name, description, status, ts_created, ts_updated "
-                "FROM projects WHERE user_id = ? AND status = ? "
-                "ORDER BY ts_updated DESC",
-                (user_id, status),
-            ).fetchall()
-        else:
-            rows = self.db.execute(
-                "SELECT id, name, description, status, ts_created, ts_updated "
-                "FROM projects WHERE user_id = ? ORDER BY ts_updated DESC",
-                (user_id,),
-            ).fetchall()
+        with self._lock:
+            if status:
+                rows = self.db.execute(
+                    "SELECT id, name, description, status, ts_created, ts_updated "
+                    "FROM projects WHERE user_id = ? AND status = ? "
+                    "ORDER BY ts_updated DESC",
+                    (user_id, status),
+                ).fetchall()
+            else:
+                rows = self.db.execute(
+                    "SELECT id, name, description, status, ts_created, ts_updated "
+                    "FROM projects WHERE user_id = ? ORDER BY ts_updated DESC",
+                    (user_id,),
+                ).fetchall()
         return [
             {"id": r[0], "name": r[1], "description": r[2],
              "status": r[3], "ts_created": r[4], "ts_updated": r[5]}
@@ -699,4 +709,5 @@ class MemoryStore:
         return [r[0] for r in rows]
 
     def close(self) -> None:
-        self.db.close()
+        with self._lock:
+            self.db.close()

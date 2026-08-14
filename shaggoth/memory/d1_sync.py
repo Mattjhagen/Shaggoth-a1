@@ -120,20 +120,24 @@ class D1Sync:
         self._local.set_fact(key, value, user_id=user_id, commit=commit,
                              confidence=confidence, source=source)
         self._enqueue(
-            "INSERT INTO facts (key, value, user_id, ts) VALUES (?, ?, ?, ?) "
+            "INSERT INTO facts (key, value, user_id, ts, confidence, source) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(key, user_id) DO UPDATE SET "
-            "value = excluded.value, ts = excluded.ts",
-            [key, value, user_id, time.time()],
+            "value = excluded.value, ts = excluded.ts, "
+            "confidence = excluded.confidence, source = excluded.source",
+            [key, value, user_id, time.time(), confidence, source],
         )
 
     def extract_and_store_facts(self, text: str) -> dict:
         found = self._local.extract_and_store_facts(text)
         for key, value in found.items():
             self._enqueue(
-                "INSERT INTO facts (key, value, user_id, ts) VALUES (?, ?, ?, ?) "
+                "INSERT INTO facts (key, value, user_id, ts, confidence, source) "
+                "VALUES (?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(key, user_id) DO UPDATE SET "
-                "value = excluded.value, ts = excluded.ts",
-                [key, value, "default", time.time()],
+                "value = excluded.value, ts = excluded.ts, "
+                "confidence = excluded.confidence, source = excluded.source",
+                [key, value, "default", time.time(), 0.5, "pattern"],
             )
         return found
 
