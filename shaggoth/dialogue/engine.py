@@ -368,7 +368,11 @@ class DialogueEngine:
                     ).strip()
                 if generated:
                     body = generated
-                    if knowledge_context:
+                    used_knowledge_tool = any(
+                        tc.tool_name == "knowledge_search" and tc.output and not tc.error
+                        for tc in (loop_result.tool_calls if use_tools and loop_result.tool_calls else [])
+                    )
+                    if knowledge_context or used_knowledge_tool:
                         source = "model"
                         answered_from_knowledge = True
                         entries_used = [
