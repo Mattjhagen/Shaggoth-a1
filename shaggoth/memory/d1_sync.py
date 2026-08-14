@@ -141,6 +141,64 @@ class D1Sync:
             )
         return found
 
+    def set_preference(
+        self, category: str, key: str, value: str,
+        user_id: str = "default", *,
+        confidence: float = 0.5, source: str = "inferred",
+    ) -> None:
+        self._local.set_preference(
+            category, key, value, user_id=user_id,
+            confidence=confidence, source=source,
+        )
+        self._enqueue(
+            "INSERT INTO preferences (user_id, category, key, value, confidence, source, ts) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(user_id, category, key) DO UPDATE SET "
+            "value = excluded.value, confidence = excluded.confidence, "
+            "source = excluded.source, ts = excluded.ts",
+            [user_id, category, key, value, confidence, source, time.time()],
+        )
+
+    def add_project(
+        self, name: str, description: str = "",
+        user_id: str = "default",
+    ) -> int:
+        pid = self._local.add_project(name, description, user_id=user_id)
+        self._enqueue(
+            "INSERT INTO projects (user_id, name, description, status, ts_created, ts_updated) "
+            "VALUES (?, ?, ?, 'active', ?, ?) "
+            "ON CONFLICT(user_id, name) DO UPDATE SET "
+            "description = excluded.description, ts_updated = excluded.ts_updated",
+            [user_id, name, description, time.time(), time.time()],
+        )
+        return pid
+
+    def update_project(
+        self, name: str, *, description: str | None = None,
+        status: str | None = None, user_id: str = "default",
+    ) -> bool:
+        result = self._local.update_project(
+            name, description=description, status=status, user_id=user_id,
+        )
+        sets = []
+        params: list = []
+        if description is not None:
+            sets.append("description = ?")
+            params.append(description)
+        if status is not None:
+            sets.append("status = ?")
+            params.append(status)
+        if sets:
+            sets.append("ts_updated = ?")
+            params.append(time.time())
+            params.extend([user_id, name])
+            self._enqueue(
+                f"UPDATE projects SET {', '.join(sets)} "
+                "WHERE user_id = ? AND name = ?",
+                params,
+            )
+        return result
+
     # --------------------------------------------------------- read delegation
 
     def __getattr__(self, name: str):

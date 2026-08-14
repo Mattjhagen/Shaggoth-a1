@@ -68,6 +68,7 @@ RATE_LIMITS: dict[str, list[float]] = {}
 _SITES_INIT_LOCK = threading.Lock()
 _RATE_LIMIT_LOCK = threading.Lock()
 PUSH_TOKENS: list[dict] = []
+_MAX_PUSH_TOKENS = 100
 
 # Peers whose forwarded-IP headers we believe. cloudflared runs on this host
 # and dials 127.0.0.1:8420, so the tunnel always shows up as loopback.
@@ -804,7 +805,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 # it hasn't displayed yet.
                 params = parse_qs(url.query)
                 session_id = (params.get("session_id") or ["default"])[0]
-                since_id = int((params.get("since_id") or ["0"])[0] or 0)
+                try:
+                    since_id = int((params.get("since_id") or ["0"])[0] or 0)
+                except (ValueError, TypeError):
+                    return self._send_json(400, {"error": "since_id must be an integer"})
                 try:
                     messages = engine.memory.proactive_messages_after(
                         session_id, since_id=since_id
@@ -977,7 +981,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if not critic:
                     return self._send_json(501, {"error": "critic not initialized"})
                 body = self._read_json()
-                limit = max(1, min(int(body.get("limit") or 3), 50))
+                try:
+                    limit = max(1, min(int(body.get("limit") or 3), 50))
+                except (ValueError, TypeError):
+                    return self._send_json(400, {"error": "limit must be an integer"})
                 return self._send_json(200, critic.run_batch(limit))
 
             if path == "/agents/run":
@@ -1090,6 +1097,8 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 platform = body.get("platform", "unknown")
                 if not token:
                     return self._send_json(400, {"error": "token is required"})
+                if len(PUSH_TOKENS) >= _MAX_PUSH_TOKENS:
+                    return self._send_json(429, {"error": "too many tokens registered"})
                 PUSH_TOKENS.append({"token": token, "platform": platform, "time": time.time()})
                 return self._send_json(200, {"ok": True, "tokens_registered": len(PUSH_TOKENS)})
 

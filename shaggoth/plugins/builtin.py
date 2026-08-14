@@ -30,6 +30,9 @@ _OPS = {
 }
 
 
+_MAX_EXPONENT = 1000
+
+
 def _safe_eval(expr: str) -> float:
     """Evaluate arithmetic via the AST — no eval(), no names, no calls."""
 
@@ -39,7 +42,11 @@ def _safe_eval(expr: str) -> float:
         if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
             return node.value
         if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
-            return _OPS[type(node.op)](walk(node.left), walk(node.right))
+            left = walk(node.left)
+            right = walk(node.right)
+            if isinstance(node.op, ast.Pow) and abs(right) > _MAX_EXPONENT:
+                raise ValueError(f"exponent too large (max {_MAX_EXPONENT})")
+            return _OPS[type(node.op)](left, right)
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS[type(node.op)](walk(node.operand))
         raise ValueError("unsupported expression")

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import random
 import threading
 from pathlib import Path
 from typing import Any
 
 from ..config import CONFIG_DIR
+
+log = logging.getLogger(__name__)
 
 DEFAULT_PERSONALITY: dict[str, Any] = {
     "version": 1,
@@ -33,10 +36,14 @@ class PersonalityEngine:
             self.save()
 
     def _load(self) -> None:
-        with open(self.path, encoding="utf-8") as fh:
-            loaded = json.load(fh)
-            self.config = {**DEFAULT_PERSONALITY, **loaded}
-        self._mtime = self.path.stat().st_mtime
+        try:
+            with open(self.path, encoding="utf-8") as fh:
+                loaded = json.load(fh)
+                self.config = {**DEFAULT_PERSONALITY, **loaded}
+            self._mtime = self.path.stat().st_mtime
+        except (json.JSONDecodeError, OSError) as exc:
+            log.warning("[personality] failed to load %s: %s", self.path, exc)
+            self._mtime = None
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
