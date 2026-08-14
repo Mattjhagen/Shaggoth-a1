@@ -307,7 +307,7 @@ class ScraperEngine:
                 )
                 with _safe_opener.open(request, timeout=timeout) as response:
                     parser.parse(
-                        response.read().decode("utf-8", errors="replace").splitlines()
+                        response.read(1_048_576).decode("utf-8", errors="replace").splitlines()
                     )
             except Exception:
                 # No robots.txt, or unreachable. Allowed by default.

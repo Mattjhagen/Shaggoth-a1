@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import random
 import re
+import threading
 from dataclasses import dataclass, field
 from typing import Callable, Optional, Any
 
@@ -338,6 +339,7 @@ class Reasoner:
         self.search = search
         self._search_cache: dict[str, None] = {}
         self._search_cache_max = 500
+        self._cache_lock = threading.Lock()
         self._rng = random.Random()
 
     # -- web search --------------------------------------------------------
@@ -351,13 +353,13 @@ class Reasoner:
         if not self.knowledge or not results:
             return
 
-        # Skip if we've already added this query
-        if query in self._search_cache:
-            return
-        self._search_cache[query] = None
-        if len(self._search_cache) > self._search_cache_max:
-            for _ in range(len(self._search_cache) // 2):
-                self._search_cache.pop(next(iter(self._search_cache)))
+        with self._cache_lock:
+            if query in self._search_cache:
+                return
+            self._search_cache[query] = None
+            if len(self._search_cache) > self._search_cache_max:
+                for _ in range(len(self._search_cache) // 2):
+                    self._search_cache.pop(next(iter(self._search_cache)))
 
         # Format results as a knowledge entry
         formatted_results = []

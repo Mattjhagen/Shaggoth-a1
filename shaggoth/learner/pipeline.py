@@ -177,7 +177,10 @@ class LearnerPipeline:
             session.ended_at = time.time()
             with self._lock:
                 self._history.append(asdict(session))
-                self._save_history()
+                try:
+                    self._save_history()
+                except Exception:
+                    pass
                 self._learning = False
                 self._current_session = None
 

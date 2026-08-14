@@ -284,7 +284,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 return {}
             try:
                 result = json.loads(self.rfile.read(length))
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, UnicodeDecodeError):
                 return {}
             if not isinstance(result, dict):
                 return {}
@@ -1136,7 +1136,6 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 with _PUSH_LOCK:
                     safe_tokens = [
                         {"platform": t.get("platform", "unknown"),
-                         "token_prefix": t["token"][:8] + "...",
                          "registered": t.get("time", 0)}
                         for t in PUSH_TOKENS
                     ]

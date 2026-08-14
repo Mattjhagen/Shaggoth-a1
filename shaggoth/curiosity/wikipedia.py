@@ -150,7 +150,10 @@ def _html_to_text(html: str) -> str:
     text = text.replace("&quot;", '"').replace("&#39;", "'").replace("&nbsp;", " ")
     def _safe_chr(m):
         try:
-            return chr(int(m.group(1)))
+            cp = int(m.group(1))
+            if 0xD800 <= cp <= 0xDFFF:
+                return m.group(0)
+            return chr(cp)
         except (ValueError, OverflowError):
             return m.group(0)
     text = re.sub(r"&#(\d+);", _safe_chr, text)

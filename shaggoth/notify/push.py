@@ -118,15 +118,11 @@ class SubscriptionStore:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             data = json.dumps(list(self._subs.values()), indent=2) + "\n"
             fd, tmp = tempfile.mkstemp(dir=str(self.path.parent), suffix=".tmp")
-            closed = False
             try:
-                os.write(fd, data.encode("utf-8"))
-                os.close(fd)
-                closed = True
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    fh.write(data)
                 os.replace(tmp, str(self.path))
             except BaseException:
-                if not closed:
-                    os.close(fd)
                 try:
                     os.unlink(tmp)
                 except OSError:
@@ -241,6 +237,8 @@ class PushSender:
         """Fire and forget. Returns immediately."""
         if not self.available:
             return
+        if not self._semaphore.acquire(blocking=False):
+            return
         payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
         thread = threading.Thread(
             target=self._guarded_send_all,
@@ -255,6 +253,8 @@ class PushSender:
         """Send a notification to subscriptions in a specific session only."""
         if not self.available:
             return
+        if not self._semaphore.acquire(blocking=False):
+            return
         payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
         thread = threading.Thread(
             target=self._guarded_send_to_session,
@@ -265,7 +265,6 @@ class PushSender:
         thread.start()
 
     def _guarded_send_all(self, payload: str, respect_rate_limit: bool) -> dict:
-        self._semaphore.acquire()
         try:
             return self._send_all(payload, respect_rate_limit)
         finally:
@@ -273,7 +272,6 @@ class PushSender:
 
     def _guarded_send_to_session(self, session_id: str, payload: str,
                                  respect_rate_limit: bool) -> dict:
-        self._semaphore.acquire()
         try:
             return self._send_to_session(session_id, payload, respect_rate_limit)
         finally:
