@@ -72,6 +72,7 @@ class TestPatternEngine:
         assert self.engine.respond("I need help with my code") is None
         assert self.engine.respond("I need a way to fix this") is None
         assert self.engine.respond("I need some information about gravity") is None
+        assert self.engine.respond("I need information about gravity") is None
 
     def test_i_need_help_with_trailing_punctuation_routes_to_help(self):
         # Regression: the trailing period previously broke the negative lookahead,

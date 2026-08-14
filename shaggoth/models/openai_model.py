@@ -412,17 +412,23 @@ class OpenAIModel(LanguageModel):
 
         last_text = ""
         if messages and messages[-1].get("role") == "tool":
-            try:
-                client = self._client_instance()
-                resp = client.chat.completions.create(
-                    model=self._model,
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=0.7,
-                )
-                last_text = (resp.choices[0].message.content or "").strip()
-            except Exception:  # noqa: BLE001
-                pass
+            for attempt in range(_RETRIES + 1):
+                try:
+                    client = self._client_instance()
+                    resp = client.chat.completions.create(
+                        model=self._model,
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        temperature=0.7,
+                    )
+                    last_text = (resp.choices[0].message.content or "").strip()
+                    break
+                except Exception as exc:  # noqa: BLE001
+                    if _is_transient(exc) and attempt < _RETRIES:
+                        time.sleep(_BACKOFF * (2 ** attempt))
+                        continue
+                    log.warning("[openai] tool-loop fallback failed: %s", exc)
+                    break
 
         return ToolLoopResult(
             text=last_text,

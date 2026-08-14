@@ -111,7 +111,7 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "I remember facts you tell me and the conversations we've had. The rest — "
         "feelings, dreams, boredom — is you reading tone into a ranking function.",
     ]),
-    (re.compile(r"(?i)^i need (?!(?:to|you|help|a|an|the|some|info)\b)(.+)"), [
+    (re.compile(r"(?i)^i need (?!(?:to|you|help|a|an|the|some|info(?:rmation)?)\b)(.+)"), [
         "What do you need {0} for? Context helps me give you something useful.",
         "Alright — what's the actual situation with {0}?",
         "Tell me more about {0}. What are you trying to do?",
