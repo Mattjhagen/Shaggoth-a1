@@ -317,6 +317,15 @@ class DialogueEngine:
         if body is None and _gpt is not None and _gpt.configured:
             history, summary_extra = self._build_history_context(context)
             try:
+                profile = self.memory.user_profile_context()
+                if profile:
+                    summary_extra = f"\nAbout this user: {profile}\n{summary_extra}"
+                project_ctx = self.memory.project_context()
+                if project_ctx:
+                    summary_extra = f"{summary_extra}\n{project_ctx}"
+            except Exception:  # noqa: BLE001
+                pass
+            try:
                 generated = _gpt.generate_chat(
                     user_message=text,
                     knowledge_context=knowledge_context,

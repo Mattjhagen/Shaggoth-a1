@@ -83,7 +83,7 @@ def build_registry() -> PluginRegistry:
             # Delegate to MemoryStore rather than re-inlining the schema --
             # this call site had drifted out of sync with the facts table and
             # raised on every fresh database.
-            memory.set_fact(key, value)
+            memory.set_fact(key, value, confidence=1.0, source="user")
             return f"Got it — I'll remember {match.group(1).strip()} is {value}."
         return None
 
@@ -91,10 +91,32 @@ def build_registry() -> PluginRegistry:
     def facts_plugin(text: str, memory=None, **_) -> str | None:
         if re.search(r"(?i)\bwhat do you (?:know|remember) about me\b", text) and memory:
             facts = memory.all_facts()
-            if not facts:
+            parts = []
+            if facts:
+                lines = "; ".join(f"{k.replace('_', ' ')}: {v}" for k, v in facts.items())
+                parts.append(lines)
+            try:
+                prefs = memory.all_preferences()
+                for cat, entries in prefs.items():
+                    if isinstance(entries, dict) and entries:
+                        items = "; ".join(f"{k}: {v}" for k, v in entries.items())
+                        parts.append(f"{cat}: {items}")
+            except (AttributeError, TypeError):
+                pass
+            try:
+                projects = memory.list_projects()
+                if projects and isinstance(projects, list):
+                    names = ", ".join(
+                        p["name"] for p in projects[:5]
+                        if isinstance(p, dict) and "name" in p
+                    )
+                    if names:
+                        parts.append(f"projects: {names}")
+            except (AttributeError, TypeError):
+                pass
+            if not parts:
                 return "Nothing yet! Tell me about yourself — your name, what you like, what you're building."
-            lines = "; ".join(f"{k.replace('_', ' ')}: {v}" for k, v in facts.items())
-            return f"Here's what I remember — {lines}."
+            return f"Here's what I remember — {'; '.join(parts)}."
         return None
 
     @registry.register("curiosity")
