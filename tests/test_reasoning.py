@@ -6770,3 +6770,45 @@ def test_batch161_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is a chemical reaction",                            "chemical reaction"),
+    ("what is an acid",                                        "acid"),
+    ("what is a base in chemistry",                            "base"),
+    ("what is osmosis",                                        "osmosis"),
+    ("what is oxidation",                                      "oxidation"),
+    # "what is X made of" → X
+    ("what is water made of",                                  "water"),
+    ("what is steel made of",                                  "steel"),
+    # "what is the chemical formula for X" → X
+    ("what is the chemical formula for water",                 "water"),
+    ("what is the chemical formula for carbon dioxide",        "carbon dioxide"),
+    # "how does X react with Y" → X
+    ("how does acid react with metal",                         "acid"),
+    # "what is X" → X (elements)
+    ("what is hydrogen",                                       "hydrogen"),
+    ("what is carbon",                                         "carbon"),
+    # "what happens when X is VERBed" → X (trailing copula+participle stripped)
+    ("what happens when ice is heated",                        "ice"),
+    # "what is the boiling point of X" → X
+    ("what is the boiling point of water",                     "water"),
+    # "what is the atomic number of X" → X
+    ("what is the atomic number of gold",                      "gold"),
+    # "how many electrons does X have" → X
+    ("how many electrons does carbon have",                    "carbon"),
+    # "what are X" → X
+    ("what are noble gases",                                   "noble gases"),
+    ("what is the periodic table",                             "periodic table"),
+    # "what is X bonding" → X bonding
+    ("what is covalent bonding",                               "covalent bonding"),
+    # "how do you balance X" → X
+    ("how do you balance a chemical equation",                 "chemical equation"),
+])
+def test_batch162_subject_extraction(question, expected):
+    """Batch 162: chemistry — reactions, elements, formulas, passive-when strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

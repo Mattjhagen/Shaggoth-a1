@@ -625,6 +625,10 @@ def subject_of(question: str) -> str:
     # Leading temporal/locative/conditional conjunction left over after stripping
     # "what happens during/when/if X" → strip the conjunction.
     text = re.sub(r"^(?:during|when|if)\s+", "", text, flags=re.I)
+    # "ice is heated" / "steel is tempered" → strip trailing copula + past participle.
+    # Fires after the "when" conjunction strip so "what happens when ice is heated" → "ice".
+    # Restrict to -ed only: -en suffix (oxygen, frozen, kitchen) causes false positives.
+    text = re.sub(r"\s+(?:is|are|was|were)\s+\w+ed\s*$", "", text, flags=re.I)
     # "how do I protect my computer from viruses" → "computer"
     # "I VERB [my/the] OBJECT [from/against/with X]" after QW strips "how do ".
     _m_first_person_action = re.match(
