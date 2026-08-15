@@ -24,6 +24,7 @@ Two rules shape the base class, both learned from the loops it wraps:
 
 from __future__ import annotations
 
+import threading
 import time
 from dataclasses import dataclass, field
 
@@ -120,6 +121,7 @@ class Agent:
         self.enabled = bool(enabled)
         self._clock = clock
         self.stats = AgentStats()
+        self._lock = threading.Lock()
         self._next_due = self._clock() + self.cadence_seconds
 
     # -- scheduling ----------------------------------------------------------
@@ -154,51 +156,52 @@ class Agent:
 
     def run(self) -> AgentReport:
         """One turn. Records stats, reschedules, and never raises."""
-        started = self._clock()
-        try:
-            detail = self.work() or {}
-        except AgentSkipped as exc:
-            reason = str(exc) or "nothing to do"
-            self.stats.skips += 1
-            self.stats.last_skip_reason = reason
-            self.reschedule()
-            return AgentReport(
-                name=self.name,
-                ran=False,
-                skipped=True,
-                reason=reason,
-                seconds=self._clock() - started,
-            )
-        except Exception as exc:  # noqa: BLE001 -- see module docstring, rule 1
+        with self._lock:
+            started = self._clock()
+            try:
+                detail = self.work() or {}
+            except AgentSkipped as exc:
+                reason = str(exc) or "nothing to do"
+                self.stats.skips += 1
+                self.stats.last_skip_reason = reason
+                self.reschedule()
+                return AgentReport(
+                    name=self.name,
+                    ran=False,
+                    skipped=True,
+                    reason=reason,
+                    seconds=self._clock() - started,
+                )
+            except Exception as exc:  # noqa: BLE001 -- see module docstring, rule 1
+                elapsed = self._clock() - started
+                self.stats.failures += 1
+                self.stats.last_error = f"{type(exc).__name__}: {exc}"[:200]
+                self.reschedule()
+                print(f"[agents] {self.name} failed: {exc}")
+                return AgentReport(
+                    name=self.name,
+                    ran=False,
+                    error=self.stats.last_error,
+                    seconds=elapsed,
+                )
+
             elapsed = self._clock() - started
-            self.stats.failures += 1
-            self.stats.last_error = f"{type(exc).__name__}: {exc}"[:200]
+            self.stats.runs += 1
+            self.stats.last_run = self._clock()
+            self.stats.last_detail = detail
             self.stats.seconds_spent += elapsed
             self.reschedule()
-            print(f"[agents] {self.name} failed: {exc}")
-            return AgentReport(
-                name=self.name,
-                ran=False,
-                error=self.stats.last_error,
-                seconds=elapsed,
-            )
-
-        elapsed = self._clock() - started
-        self.stats.runs += 1
-        self.stats.last_run = self._clock()
-        self.stats.last_detail = detail
-        self.stats.seconds_spent += elapsed
-        self.reschedule()
-        return AgentReport(name=self.name, ran=True, detail=detail, seconds=elapsed)
+            return AgentReport(name=self.name, ran=True, detail=detail, seconds=elapsed)
 
     # -- reporting -----------------------------------------------------------
 
     def status(self) -> dict:
-        return {
-            "name": self.name,
-            "role": self.role,
-            "enabled": self.enabled,
-            "cadence_minutes": round(self.cadence_seconds / 60.0, 2),
-            "due_in_seconds": round(self.due_in(), 1),
-            **self.stats.as_dict(),
-        }
+        with self._lock:
+            return {
+                "name": self.name,
+                "role": self.role,
+                "enabled": self.enabled,
+                "cadence_minutes": round(self.cadence_seconds / 60.0, 2),
+                "due_in_seconds": round(self.due_in(), 1),
+                **self.stats.as_dict(),
+            }

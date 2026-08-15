@@ -444,6 +444,7 @@ class DialogueEngine:
                 log.warning("GPT generation failed: %s", exc)
             except Exception as exc:  # noqa: BLE001
                 log.warning("GPT generation unexpected error: %s", exc)
+        gpt_answered = body is not None
 
         # 5b-fallback. Knowledge extraction without GPT — walks the ranked
         # hits and extracts a definition or summary sentence directly.
@@ -600,7 +601,7 @@ class DialogueEngine:
             deferred = None
             if topic:
                 deferred = self.deferred_questions.record(text, topic, session_id=session_id)
-            if deferred and self.push_sender:
+            if deferred and self.push_sender and not gpt_answered:
                 # Notify user that we're researching their question
                 try:
                     self.push_sender.notify_session(
@@ -751,9 +752,12 @@ class DialogueEngine:
         from ..models.openai_model import OpenAIModel
         from ..models.base import GenerationError
 
-        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
+        _gpt = self.model if (
+            isinstance(self.model, OpenAIModel)
+            or hasattr(self.model, "generate_chat")
+        ) else None
         history, summary_extra = self._build_history_context(context)
-        if _gpt and _gpt.configured and history:
+        if _gpt and getattr(_gpt, "configured", False) and history:
             subject = last_subject(context)
             knowledge_context = ""
             if subject and self.knowledge:
@@ -770,8 +774,8 @@ class DialogueEngine:
                 ).strip()
                 if generated:
                     return generated, "model"
-            except GenerationError:
-                pass
+            except GenerationError as exc:
+                log.warning("[dialogue] GPT follow-up failed: %s", exc)
         return follow_up_reply(context), "pattern"
 
     # ------------------------------------------------------------------
@@ -788,8 +792,11 @@ class DialogueEngine:
         from ..models.openai_model import OpenAIModel
         from ..models.base import GenerationError
 
-        _gpt = self.model if isinstance(self.model, OpenAIModel) else None
-        if _gpt and _gpt.configured:
+        _gpt = self.model if (
+            isinstance(self.model, OpenAIModel)
+            or hasattr(self.model, "generate_chat")
+        ) else None
+        if _gpt and getattr(_gpt, "configured", False):
             history, summary_extra = self._build_history_context(context)
             try:
                 generated = _gpt.generate_chat(
@@ -801,8 +808,8 @@ class DialogueEngine:
                 ).strip()
                 if generated:
                     return generated, "model"
-            except GenerationError:
-                pass
+            except GenerationError as exc:
+                log.warning("[dialogue] GPT chitchat failed: %s", exc)
         body = self.patterns.respond(text)
         if body is None:
             body = (self.patterns.respond_no_subject_question(text)

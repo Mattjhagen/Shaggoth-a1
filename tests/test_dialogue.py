@@ -402,6 +402,28 @@ class GPTConversationTests(unittest.TestCase):
             mock_gpt.generate_with_tools.assert_called()
             self.assertEqual(reply.source, "fallback")
 
+    def test_gpt_answer_suppresses_research_push_notification(self):
+        """When GPT answers without KB context (source='fallback'), deferred
+        research should still be recorded but the push notification must NOT
+        fire — the user already has an answer."""
+        import tempfile
+        from unittest.mock import MagicMock
+        from shaggoth.knowledge.engine import KnowledgeBase
+        with tempfile.TemporaryDirectory() as td:
+            engine, _mock_gpt = self._make_gpt_engine(
+                "Quantum computing uses qubits to process information."
+            )
+            engine.knowledge = KnowledgeBase(td)
+            mock_dq = MagicMock()
+            mock_dq.record.return_value = object()  # truthy deferred token
+            engine.deferred_questions = mock_dq
+            mock_push = MagicMock()
+            engine.push_sender = mock_push
+            reply = engine.respond("what is quantum computing", session_id="s1")
+            self.assertEqual(reply.source, "fallback")
+            mock_dq.record.assert_called()  # research still queued
+            mock_push.notify_session.assert_not_called()  # no misleading notification
+
     def test_gpt_statement_without_knowledge_is_model(self):
         """A statement (not a question) should get source='model', not 'fallback'."""
         import tempfile

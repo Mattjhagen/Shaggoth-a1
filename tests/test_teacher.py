@@ -265,6 +265,16 @@ class TestAnthropicTeacher:
         assert not v.usable
         assert "401" in v.raw
 
+    def test_judge_http_error_with_unreadable_body_does_not_raise(self):
+        """exc.read() raising OSError must not propagate — verdict is still unusable."""
+        err = _http_error(429, b"")
+        err.read = MagicMock(side_effect=OSError("connection reset"))
+        teacher = AnthropicTeacher(api_key="sk-ant-x")
+        with patch("urllib.request.urlopen", side_effect=err):
+            v = teacher.judge("q", "a")
+        assert not v.usable
+        assert "429" in v.raw
+
     def test_judge_network_error_is_unusable(self):
         teacher = AnthropicTeacher(api_key="sk-ant-x")
         with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
@@ -311,6 +321,16 @@ class TestOpenRouterTeacher:
             v = teacher.judge("q", "a")
         assert not v.usable
         assert "429" in v.raw
+
+    def test_judge_http_error_with_unreadable_body_does_not_raise(self):
+        """exc.read() raising OSError must not propagate — verdict is still unusable."""
+        err = _http_error(503, b"")
+        err.read = MagicMock(side_effect=OSError("connection reset"))
+        teacher = OpenRouterTeacher(api_key="sk-or-x")
+        with patch("urllib.request.urlopen", side_effect=err):
+            v = teacher.judge("q", "a")
+        assert not v.usable
+        assert "503" in v.raw
 
 
 # ---------------------------------------------------------------------------
@@ -445,6 +465,14 @@ class TestFallbackTeacher:
         ft = FallbackTeacher([a])
         ft.judge("q", "answer text")
         assert not ft.available()
+
+    def test_advance_past_end_does_not_raise(self):
+        """_advance called when _index is already at the list end must be a no-op."""
+        a = _StubTeacher("a", result=("", 1.0, "429 quota"))
+        ft = FallbackTeacher([a])
+        ft.judge("q", "answer text")  # exhausts the only teacher; _index == len
+        assert ft._index >= len(ft._teachers)
+        ft._advance("extra call")   # must not raise IndexError
 
 
 # ---------------------------------------------------------------------------

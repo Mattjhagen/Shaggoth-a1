@@ -80,7 +80,6 @@ def score_task(result: RunResult) -> TaskScore:
             notes.append(f"expected source={result.expect_source}, got {result.source}")
 
     if result.expect_keywords:
-        text_lower = result.reply_text.lower()
         missing = [
             kw for kw in result.expect_keywords
             if not _word_in_text(kw, result.reply_text)
