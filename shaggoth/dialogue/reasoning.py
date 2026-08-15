@@ -598,6 +598,9 @@ def subject_of(question: str) -> str:
     # "when you mix baking soda and vinegar" → strip "when " → "you mix baking soda ..."
     # → strip "you VERB " (generic pronoun + one verb) → "baking soda and vinegar".
     text = re.sub(r"^(?:you|we|they|people|someone|a\s+person)\s+\w+\s+", "", text, flags=re.I)
+    # Strip leading preposition orphaned by pronoun+verb strip:
+    # "how do you deal with anxiety" → pronoun strip → "with anxiety" → "anxiety"
+    text = re.sub(r"^(?:with|about|from|against|through|around|between)\s+", "", text, flags=re.I)
     # "what country has won the most world cups" → "world cups"
     # "who has won the most grand slams" → after QW strips "who", bare "has won the most X"
     # also matches (subject group is now optional).
@@ -930,7 +933,8 @@ def subject_of(question: str) -> str:
     if _m_way_to:
         text = _m_way_to.group(1)
     text = re.sub(
-        r"\s+(?:need|needs|require|requires|use[sd]?|produce[sd]?|"
+        # Negative lookbehind: don't strip "needs" in "hierarchy of needs" (noun phrase).
+        r"(?<!of)\s+(?:need|needs|require|requires|use[sd]?|produce[sd]?|"
         r"happen(?:ed|s)?|occur(?:red|s)?|exist(?:ed|s)?|"
         r"made|created|formed|produced|compos(?:ed|es?)?|prevented|caused|built|done|founded|"
         # Irregular past-tense verbs common in hypothetical "if X lost/became Y" questions:
@@ -1224,7 +1228,7 @@ def subject_of(question: str) -> str:
         r"sticky|slippery|rough|smooth|thin|thick|narrow|tall|short|"
         r"similar|different|related|connected|distinct|unique|identical|"
         r"dangerous|harmful|safe|harmless|poisonous|helpful|useful|effective|important|"
-        r"good|bad|healthy|unhealthy|"
+        r"good|bad|healthy|unhealthy|contagious|infectious|transmissible|"
         r"hard|soft|tough|fragile|brittle|flexible|rigid|elastic|"
         # Behavioral/ecological adjectives: "why are animals nocturnal" → "animals"
         r"nocturnal|diurnal|crepuscular|aquatic|terrestrial|arboreal|"

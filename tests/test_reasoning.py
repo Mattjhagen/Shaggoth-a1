@@ -5315,3 +5315,88 @@ def test_batch123_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is diabetes",                                 "diabetes"),
+    ("what is hypertension",                             "hypertension"),
+    ("what is alzheimers disease",                       "alzheimers disease"),
+    ("what is depression",                               "depression"),
+    ("what is a virus",                                  "virus"),
+    ("what is a vaccine",                                "vaccine"),
+    ("what is the immune system",                        "immune system"),
+    # "what causes X"
+    ("what causes diabetes",                             "diabetes"),
+    ("what causes heart disease",                        "heart disease"),
+    # "what are the symptoms of X"
+    ("what are the symptoms of covid",                   "covid"),
+    ("what are the symptoms of flu",                     "flu"),
+    # "how is X treated"
+    ("how is diabetes treated",                          "diabetes"),
+    ("how is cancer treated",                            "cancer"),
+    # "is X contagious"
+    ("is covid contagious",                              "covid"),
+    ("is the flu contagious",                            "flu"),
+    # "how do X work"
+    ("how do vaccines work",                             "vaccines"),
+    # "what is the difference between X and Y"
+    ("what is the difference between a cold and the flu", "cold and flu"),
+    # "how does X work"
+    ("how does the immune system work",                  "immune system"),
+    # "what are the side effects of X"
+    ("what are the side effects of aspirin",             "aspirin"),
+    ("what are the side effects of ibuprofen",           "ibuprofen"),
+    # "how do you prevent X"
+    ("how do you prevent diabetes",                      "diabetes"),
+    ("how do you prevent the flu",                       "flu"),
+])
+def test_batch124_subject_extraction(question, expected):
+    """Batch 124: health/medicine — diseases, vaccines, symptoms, treatments."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is psychology",                               "psychology"),
+    ("what is cognitive behavioral therapy",             "cognitive behavioral therapy"),
+    ("what is anxiety",                                  "anxiety"),
+    ("what is the placebo effect",                       "placebo effect"),
+    # "what causes X"
+    ("what causes anxiety",                              "anxiety"),
+    ("what causes depression",                           "depression"),
+    # "what is the difference between X and Y"
+    ("what is the difference between anxiety and stress", "anxiety and stress"),
+    ("what is the difference between psychologist and psychiatrist", "psychologist and psychiatrist"),
+    # "how does X affect Y"
+    ("how does stress affect the body",                  "stress"),
+    ("how does sleep affect mental health",              "sleep"),
+    # "what are the stages of X"
+    ("what are the stages of grief",                     "grief"),
+    # "what is X disorder"
+    ("what is bipolar disorder",                         "bipolar disorder"),
+    ("what is ocd",                                      "ocd"),
+    ("what is ptsd",                                     "ptsd"),
+    # "what are the symptoms of X"
+    ("what are the symptoms of anxiety",                 "anxiety"),
+    ("what are the symptoms of depression",              "depression"),
+    # "how is X diagnosed"
+    ("how is depression diagnosed",                      "depression"),
+    ("how is autism diagnosed",                          "autism"),
+    # "is X a mental illness"
+    ("is depression a mental illness",                   "depression"),
+    # "how do you deal with X"
+    ("how do you deal with anxiety",                     "anxiety"),
+    ("how do you deal with stress",                      "stress"),
+    # "what is X's hierarchy of needs"
+    ("what is maslow's hierarchy of needs",              "maslow's hierarchy of needs"),
+])
+def test_batch125_subject_extraction(question, expected):
+    """Batch 125: psychology/mental health — disorders, therapy, emotions, theory."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
