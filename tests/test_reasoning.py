@@ -1453,3 +1453,38 @@ def test_batch17_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what do X eat" → X (eat added to trailing verb list)
+    ("what do lions eat",                   "lions"),
+    ("what do elephants eat",               "elephants"),
+    ("what do whales eat",                  "whales"),
+    ("what do sharks eat",                  "sharks"),
+    # Bare yes/no opener stripped
+    ("do humans have tails",                "humans"),
+    ("do sharks have bones",                "sharks"),
+    ("does a spider have a brain",          "spider"),
+    ("does the moon have water",            "moon"),
+    # "who won/ruled X" attribution verb strip
+    ("who won world war 2",                 "world war 2"),
+    ("who won world war 1",                 "world war 1"),
+    ("who ruled ancient egypt",             "ancient egypt"),
+    # "X stand for" trailing strip
+    ("what does nasa stand for",            "nasa"),
+    ("what does dna stand for",             "dna"),
+    ("what does atm stand for",             "atm"),
+    ("what does gps stand for",             "gps"),
+    # "how BIG is X" — big/hot/cold/heavy now in measurement word list
+    ("how big is the sun",                  "sun"),
+    ("how hot is the sun",                  "sun"),
+    ("how cold is space",                   "space"),
+    ("how heavy is the earth",              "earth"),
+    ("how huge is the universe",            "universe"),
+])
+def test_batch18_subject_extraction(question, expected):
+    """Batch 18: eat/hunt, do-opener, won/ruled, stand-for, big/hot/cold."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

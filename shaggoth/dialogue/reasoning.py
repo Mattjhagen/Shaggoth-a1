@@ -271,7 +271,8 @@ def subject_of(question: str) -> str:
         # Optional degree/temporal word after "how"/"what": "how many X", "how long does X",
         # "how fast does X", "how quickly does X" (any -ly adverb), "what year was X".
         r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low|"
-        r"year|century|decade|date)|\w+ly)?\s*"
+        r"big|huge|tiny|heavy|hot|cold|"
+        r"year|century|decade|date)\b|\w+ly)?\s*"
         r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
     )
@@ -285,6 +286,7 @@ def subject_of(question: str) -> str:
     text = re.sub(
         r"^(?:invented?|discover(?:ed|s)?|found(?:ed|s)?|built|creat(?:ed|es?)|"
         r"wrote|written|painted?|composed?|designed?|develop(?:ed|s)?|"
+        r"won|ruled|fought|signed|explored|colonized?|commanded?|"
         r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
         r"brought\s+about)\s+",
         "", text, flags=re.I,
@@ -303,11 +305,15 @@ def subject_of(question: str) -> str:
     text = re.sub(
         r"^(?:why|what|how|who|when|where)\s+"
         r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low|"
-        r"year|century|decade|date)|\w+ly)?\s*"
+        r"big|huge|tiny|heavy|hot|cold|"
+        r"year|century|decade|date)\b|\w+ly)?\s*"
         r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
     )
     text = re.sub(r"^not\s+", "", text, flags=re.I)
+    # Bare yes/no opener: "do humans have tails" → "humans have tails",
+    # "does a spider have a brain" → "spider have a brain" (article strip follows).
+    text = re.sub(r"^(?:does|do|did)\s+(?:a\s+|an\s+|the\s+)?", "", text, flags=re.I)
     # Leading bare quantifier/qualifier left after stripping "what are":
     # "what are some programming languages" → "some programming languages" →
     # strip "some " → "programming languages".
@@ -453,7 +459,7 @@ def subject_of(question: str) -> str:
         r"pump[s]?|process(?:es)?|connect[s]?|"
         r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|"
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"
-        r"erupt[s]?|"
+        r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|"
         r"have\b|has\b|"
         r"grow[s]?|spread[s]?|evolve[s]?|"
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
@@ -487,6 +493,8 @@ def subject_of(question: str) -> str:
         r")\b.*$",
         "", text, flags=re.I,
     )
+    # "what does nasa stand for" → "nasa stand for" → strip "stand for" → "nasa"
+    text = re.sub(r"\s+stands?\s+for\s*$", "", text, flags=re.I)
     # "what country/continent is X in/on" → X.
     # After "what " is stripped, text may be "country is tokyo in" etc.
     _m_loc_noun = re.match(
