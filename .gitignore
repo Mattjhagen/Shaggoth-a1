@@ -7,6 +7,7 @@ dist/
 venv/
 
 # Runtime artifacts
+data/eval/runs/
 data/*.db
 data/*.db-journal
 var/
