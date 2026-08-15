@@ -562,7 +562,9 @@ def subject_of(question: str) -> str:
         r"inventor|discoverer|author|composer|painter|creator|"
         r"history|future|meaning(?!\s+of\s+life)|definition|significance|importance|symbol|flag|currency|language|"
         # Literary/art property nouns: "theme of hamlet" → "hamlet", "plot of X" → X
-        r"theme|plot|story|narrative|setting|style|genre|format|"
+        # "myth of sisyphus" → "sisyphus"; "legend of king arthur" → "king arthur"
+        # "holy book of islam" → "islam" (with optional adjective "holy" captured above)
+        r"theme|plot|story|narrative|myth|legend|fable|tale|lore|setting|style|genre|format|book|text|scripture|"
         # Measurement/property compounds: "boiling point of water" → "water"
         # "half life of carbon 14" → "carbon 14"
         r"point|rate|level|amount|number|count|percentage|quantity|fraction|proportion|"
@@ -993,7 +995,7 @@ def subject_of(question: str) -> str:
         # Migration / movement verbs: "how do birds migrate"
         r"migrate[sd]?|"
         # Passive attribution: "when was X invented", "where was Y discovered/located/born/found"
-        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|sign(?:ed|s)?|locat(?:ed|es)?|born|found\b|establish(?:ed|es)?|"
+        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|sign(?:ed|s)?|locat(?:ed|es)?|born|found\b|establish(?:ed|es)?|practi(?:s|c)ed|worship(?:p?ed|s)?|celerat(?:ed|es)?|"
         # Assistance verbs: "how does sleep help the brain"
         r"help[s]?|assist[s]?|support[s]?|"
         # Comparison verbs: "how does X differ from Y" / "how does X compare to Y" → "X"

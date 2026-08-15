@@ -5749,3 +5749,34 @@ def test_batch134_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is buddhism",                                   "buddhism"),
+    ("what is hinduism",                                   "hinduism"),
+    ("what is islam",                                      "islam"),
+    ("what is christianity",                               "christianity"),
+    ("what is atheism",                                    "atheism"),
+    ("what is mythology",                                  "mythology"),
+    ("what is a myth",                                     "myth"),
+    ("what is karma",                                      "karma"),
+    ("what is nirvana",                                    "nirvana"),
+    ("who is zeus",                                        "zeus"),
+    ("who is thor",                                        "thor"),
+    ("who is allah",                                       "allah"),
+    ("who is buddha",                                      "buddha"),
+    ("who is krishna",                                     "krishna"),
+    ("what is the story of prometheus",                    "prometheus"),
+    ("what is the myth of sisyphus",                       "sisyphus"),
+    ("what is the legend of king arthur",                  "king arthur"),
+    ("what religion is hinduism",                          "hinduism"),
+    ("where is hinduism practiced",                        "hinduism"),
+    ("what are the beliefs of buddhism",                   "buddhism"),
+    ("what is the holy book of islam",                     "islam"),
+])
+def test_batch135_subject_extraction(question, expected):
+    """Batch 135: religion/mythology — myth/legend strip, 'practiced' trailing verb, 'holy book of' strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
