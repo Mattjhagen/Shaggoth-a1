@@ -827,6 +827,14 @@ def subject_of(question: str) -> str:
                                 r"bite|sip|drop|pinch|dash|stick|bar|block)\s+of\s+",
                                 "", text, flags=re.I,
                             )
+                        else:
+                            # "how many cups in a gallon" → "gallon" (unit conversion, no "are")
+                            _m_many_unit_in = re.match(
+                                r"^\w+(?:\s+\w+)?\s+in\s+(?:a|an|one)\s+(.+)$",
+                                text, re.I,
+                            )
+                            if _m_many_unit_in:
+                                text = _m_many_unit_in.group(1)
     else:
         _m = re.match(
             r"^(\w+(?:\s+\w+){0,2})\s+(?:are|were|is|was)\s+(?:in|inside|within|found in|part of)\s+(.+)$",
@@ -997,6 +1005,29 @@ def subject_of(question: str) -> str:
     )
     if _m_way_to:
         text = _m_way_to.group(1)
+    # "healthiest food" → "food": leading superlative adj before a category noun.
+    # Fires after trailing infinitive has been stripped, leaving "SUPERLATIVE CATEGORY".
+    _m_super_cat_lead = re.match(
+        r"^(?:best|worst|most\s+\w+|least\s+\w+|"
+        r"largest?|biggest?|smallest?|tallest?|shortest?|longest?|"
+        r"fastest?|slowest?|highest?|lowest?|richest?|poorest?|"
+        r"hottest?|coldest?|brightest?|darkest?|strongest?|weakest?|"
+        r"deepest?|widest?|heaviest?|lightest?|oldest?|newest?|"
+        r"closest?|nearest?|cheapest?|safest?|healthiest?|tastiest?|"
+        r"spiciest?|crispiest?|freshest?|warmest?|coolest?|sweetest?|"
+        r"hardest?|softest?|easiest?|simplest?)\s+"
+        r"((?:planet|star|animal|country|city|language|sport|food|drink|"
+        r"ocean|sea|lake|river|mountain|desert|forest|island|element|"
+        r"metal|mineral|substance|species|mammal|reptile|bird|fish|insect|"
+        r"drug|disease|galaxy|rock|gem|continent|region|nationality|organism|"
+        r"creature|thing|person|way|place|type|kind|diet|meal|fruit|vegetable|"
+        r"grain|vitamin|nutrient|exercise|workout|treatment|remedy|medicine|"
+        r"source|option|method|approach|strategy|solution|alternative|choice)"
+        r"(?:\s+\w+)?)\s*$",
+        text, re.I,
+    )
+    if _m_super_cat_lead:
+        text = _m_super_cat_lead.group(1)
     # Trailing passive progressive: "amazon rainforest being destroyed" → "amazon rainforest"
     # Fires before the main trailing-verb strip, which only matches single active verbs.
     text = re.sub(r"\s+being\s+\w+(?:ed|en)\s*$", "", text, flags=re.I)

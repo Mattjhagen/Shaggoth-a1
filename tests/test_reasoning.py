@@ -6421,3 +6421,43 @@ def test_batch153_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is a calorie",                                   "calorie"),
+    ("what is gluten",                                      "gluten"),
+    ("what is fermentation",                                "fermentation"),
+    ("what is a probiotic",                                 "probiotic"),
+    ("what is a carbohydrate",                              "carbohydrate"),
+    ("what is protein",                                     "protein"),
+    ("what is a vitamin",                                   "vitamin"),
+    ("what is fiber",                                       "fiber"),
+    # "how do you cook/make/bake X" → X
+    ("how do you cook rice",                                "rice"),
+    ("how do you make pasta",                               "pasta"),
+    ("how do you bake bread",                               "bread"),
+    # "what does X contain" → X
+    ("what does coffee contain",                            "coffee"),
+    # "how long does it take to cook X" → X
+    ("how long does it take to cook chicken",               "chicken"),
+    # "how many calories in an/a X" → X
+    ("how many calories in an apple",                       "apple"),
+    ("how many calories in a banana",                       "banana"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between vegan and vegetarian", "vegan and vegetarian"),
+    # "what food is X found in" → X
+    ("what food is vitamin c found in",                     "vitamin c"),
+    # "why do X make you cry" → X
+    ("why do onions make you cry",                          "onions"),
+    # superlative + category: leading superlative adj stripped
+    ("what is the healthiest food to eat",                  "food"),
+    # unit conversion: "how many UNIT in a CONTAINER" → CONTAINER
+    ("how many cups in a gallon",                           "gallon"),
+])
+def test_batch154_subject_extraction(question, expected):
+    """Batch 154: food/nutrition — superlative-leading strip, unit conversion, cooking."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
