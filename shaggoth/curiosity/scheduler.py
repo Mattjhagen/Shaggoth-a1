@@ -262,15 +262,17 @@ class CuriosityScheduler:
         if not topics:
             return {"triggered": False, "reason": "no unknown topics found"}
 
-        with self._lock:
-            del self._message_buffer[:consumed]
-
+        # Drain *after* a successful research kick-off, not before it.
+        # If research_topic() raises, messages stay in the buffer so the
+        # next trigger() call can retry them.
         episode = self.curiosity.research_topic(
             topics[0],
             max_results=self.config.max_results_per_topic,
             max_pages=self.config.max_pages_per_topic,
             background=True,
         )
+        with self._lock:
+            del self._message_buffer[:consumed]
 
         return {
             "triggered": True,

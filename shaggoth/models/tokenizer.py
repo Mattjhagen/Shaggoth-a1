@@ -8,7 +8,7 @@ from collections import defaultdict, Counter
 from pathlib import Path
 
 
-_PATTERN = re.compile(r"""'(?:[sdmt]|ll|ve|re|ll|ve)| ?\w+| ?\S+""")
+_PATTERN = re.compile(r"""'(?:[sdmt]|ll|ve|re)| ?\w+| ?\S+""")
 
 
 class BPETokenizer:

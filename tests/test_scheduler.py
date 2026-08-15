@@ -248,3 +248,26 @@ def test_trigger_returns_false_when_no_topics():
     result = sched.trigger()
     assert result["triggered"] is False
     assert sched.status()["buffered_messages"] == 1
+
+
+def test_trigger_keeps_messages_when_research_fails():
+    """Messages must survive a trigger() in which research_topic() raises.
+
+    The drain used to happen before research_topic(), so an exception there
+    permanently discarded the messages -- the user's questions were gone but
+    nothing had actually been researched.
+    """
+    class _FailCuriosity(FakeCuriosity):
+        def research_topic(self, topic, **kwargs):
+            raise RuntimeError("simulated research failure")
+
+    sched = _scheduler(_FailCuriosity(), min_message_count=1)
+    sched.record_message("gravity")
+
+    try:
+        sched.trigger()
+    except RuntimeError:
+        pass  # the exception propagates; that's expected
+
+    # The message must still be in the buffer for the next trigger call.
+    assert sched.status()["buffered_messages"] == 1
