@@ -549,6 +549,13 @@ def subject_of(question: str) -> str:
     # "what happens to X when/if it VERBS" → strip leading "to " → "X when it VERBS"
     # then strip trailing "when/if it VERB" clause.
     text = re.sub(r"^to\s+", "", text, flags=re.I)
+    # "where in the world is X" / "where on earth is X" → after "where" stripped:
+    # "in the world is X" → strip "in the world is [article]" → X.
+    # Must fire BEFORE the generic ^in strip to consume the full idiom.
+    text = re.sub(
+        r"^(?:in\s+(?:the\s+)?(?:world|earth)|on\s+earth)\s+(?:is|are|was|were)\s+(?:the\s+|a\s+|an\s+)?",
+        "", text, flags=re.I,
+    )
     # "they speak in brazil" → pronoun+verb strip → "in brazil" → strip leading "in " → "brazil"
     # Safe: no subject begins with the preposition "in " (words like "insulin" have no space).
     text = re.sub(r"^in\s+(?:the\s+|a\s+|an\s+)?", "", text, flags=re.I)

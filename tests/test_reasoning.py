@@ -3345,3 +3345,46 @@ def test_batch74_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 75: "where in the world is X" / "where on earth is X" (in-the-world
+#           filler phrase stripped before generic ^in strip)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "where in the world is X" → X
+    ("where in the world is patagonia",             "patagonia"),
+    # "where in the world is the SUPERLATIVE NOUN" → NOUN (superlative leading adj stripped)
+    ("where in the world is the deepest cave",      "cave"),
+    # "where is X" — regression guards
+    ("where is the amazon river",                   "amazon river"),
+    ("where is the eiffel tower",                   "eiffel tower"),
+    ("where is the great barrier reef",             "great barrier reef"),
+    ("where is the sahara desert",                  "sahara desert"),
+    # "where are X" — regression guards
+    ("where are the galapagos islands",             "galapagos islands"),
+    ("where are the rocky mountains",               "rocky mountains"),
+    # "where was X born" — regression guards
+    ("where was einstein born",                     "einstein"),
+    ("where was shakespeare born",                  "shakespeare"),
+    # "where does X live" — regression guards
+    ("where does the giant panda live",             "giant panda"),
+    ("where does the snow leopard live",            "snow leopard"),
+    # "where do X come from" — regression guards
+    ("where do diamonds come from",                 "diamonds"),
+    # "where can you find X" — regression guards
+    ("where can you find gold",                     "gold"),
+    # "where is X found in nature" — regression guards
+    ("where is uranium found in nature",            "uranium"),
+    # "where did X originate" — regression guards
+    ("where did the roman empire originate",        "roman empire"),
+    ("where did chess originate",                   "chess"),
+])
+def test_batch75_subject_extraction(question, expected):
+    """Batch 75: 'where in the world/on earth is X' filler strip; where regression guards."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
