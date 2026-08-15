@@ -1784,3 +1784,46 @@ def test_batch27_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Technology / computing
+    ("how does a computer process data",            "computer"),
+    ("how does the internet work",                  "internet"),
+    ("what is machine learning",                    "machine learning"),
+    ("how does artificial intelligence learn",      "artificial intelligence"),
+    ("what is blockchain technology",               "blockchain technology"),
+    # Human body
+    ("how does the human immune system work",       "human immune system"),
+    ("why do humans need sleep",                    "humans"),
+    ("how does the nervous system work",            "nervous system"),
+    ("why do we get hungry",                        "hungry"),
+    ("why do we yawn",                              "yawn"),
+    # Biology
+    ("how do plants make food",                     "plants"),
+    ("how do bacteria become resistant to antibiotics", "bacteria"),
+    ("how do viruses mutate",                       "viruses"),
+    ("what do mitochondria do",                     "mitochondria"),
+    # Economics / social
+    ("what causes inflation",                       "inflation"),
+    ("why does inflation happen",                   "inflation"),
+    ("what is the gdp of a country",                "gdp"),
+    # Physics
+    ("what is quantum entanglement",                "quantum entanglement"),
+    ("how does nuclear fission work",               "nuclear fission"),
+    ("what is electromagnetic radiation",           "electromagnetic radiation"),
+    # Chemistry
+    ("what happens when you mix bleach and ammonia",  "bleach and ammonia"),
+    ("why does iron rust in water",                 "iron"),
+    ("how do acids and bases neutralize each other",  "acids and bases"),
+    # Astronomy
+    ("what is a neutron star",                      "neutron star"),
+    ("how do stars form",                           "stars"),
+    ("what causes a solar eclipse",                 "solar eclipse"),
+])
+def test_batch28_subject_extraction(question, expected):
+    """Batch 28: learn/mutate/neutralize verbs, orphaned 'of' strip, compound subject retention."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

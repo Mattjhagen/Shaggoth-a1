@@ -580,7 +580,8 @@ def subject_of(question: str) -> str:
         r"originate[sd]?|"
         # Intransitive motion/perception/existence verbs: "why do stars twinkle",
         # "how fast does light travel", "why do we dream", "how does sound travel"
-        r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|"
+        r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|"
+        r"mutate[sd]?|neutralize[sd]?|"
         r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
@@ -627,6 +628,8 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+(?:does|did|do|can|could|should|would|has|had|have)\s*$", "", text, flags=re.I)
     # "what does nasa stand for" → "nasa stand for" → strip "stand for" → "nasa"
     text = re.sub(r"\s+stands?\s+for\s*$", "", text, flags=re.I)
+    # "gdp of" → "gdp"  (orphaned preposition after causal-noun strip)
+    text = re.sub(r"\s+of\s*$", "", text, flags=re.I)
     # "what country/continent is X in/on" → X.
     # After "what " is stripped, text may be "country is tokyo in" etc.
     _m_loc_noun = re.match(
