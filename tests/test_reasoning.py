@@ -2337,3 +2337,35 @@ def test_batch40_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what affects/determines/produces/controls/influences/allows X" → X
+    ("what causes earthquakes",                     "earthquakes"),
+    ("what causes climate change",                  "climate change"),
+    ("what triggers an allergic reaction",          "allergic reaction"),
+    ("what affects blood pressure",                 "blood pressure"),
+    ("what affects sleep quality",                  "sleep quality"),
+    ("what determines eye color",                   "eye color"),
+    ("what determines intelligence",                "intelligence"),
+    ("what prevents cancer",                        "cancer"),
+    ("what prevents heart disease",                 "heart disease"),
+    ("what produces atp in cells",                  "atp"),
+    ("what produces insulin in the body",           "insulin"),
+    ("what controls body temperature",              "body temperature"),
+    ("what controls the weather",                   "weather"),
+    ("what influences human behavior",              "human behavior"),
+    ("what influences stock prices",                "stock prices"),
+    # "what makes X a ADJ NOUN" → X  (predicate-nominal complement stripped)
+    ("what makes water a good solvent",             "water"),
+    ("what makes humans unique",                    "humans"),
+    # "what allows X to VERB" → X  (to stripped after verb-strip)
+    ("what allows birds to fly",                    "birds"),
+    ("what allows fish to breathe underwater",      "fish"),
+])
+def test_batch41_subject_extraction(question, expected):
+    """Batch 41: what-VERB-X action patterns; trailing-to strip; predicate-nominal strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
