@@ -9810,3 +9810,33 @@ def test_batch253_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a cantilever",                                     "cantilever"),
+    ("what is a truss",                                          "truss"),
+    ("what is a load bearing wall",                              "load bearing wall"),
+    ("what is reinforced concrete",                              "reinforced concrete"),
+    ("what is a suspension bridge",                              "suspension bridge"),
+    ("what is the golden ratio",                                 "golden ratio"),
+    ("what is structural engineering",                           "structural engineering"),
+    ("what is civil engineering",                                "civil engineering"),
+    ("what is urban planning",                                   "urban planning"),
+    ("what is green architecture",                               "green architecture"),
+    ("what is passive solar design",                             "passive solar design"),
+    ("what is bim",                                              "bim"),
+    ("what is a foundation",                                     "foundation"),
+    ("what is a facade",                                         "facade"),
+    ("how does a arch work",                                     "arch"),
+    ("what is seismic design",                                   "seismic design"),
+    ("what is a flying buttress",                                "flying buttress"),
+    ("what is brutalist architecture",                           "brutalist architecture"),
+    ("what is art deco",                                         "art deco"),
+    ("what is gothic architecture",                              "gothic architecture"),
+])
+def test_batch254_subject_extraction(question, expected):
+    """Batch 254: architecture/engineering — design compounds, structures, styles."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

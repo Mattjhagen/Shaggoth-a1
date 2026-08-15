@@ -1202,7 +1202,8 @@ def subject_of(question: str) -> str:
         # Migration / movement verbs: "how do birds migrate"
         r"migrate[sd]?|"
         # Passive attribution: "when was X invented", "where was Y discovered/located/born/found"
-        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|sign(?:ed|s)?|locat(?:ed|es)?|born|found\b|establish(?:ed|es)?|practi(?:s|c)ed|worship(?:p?ed|s)?|celerat(?:ed|es)?|elect(?:ed|s)?|appoint(?:ed|s)?|"
+        # "passive solar design", "seismic design", "web design", "interior design" etc. are noun compounds.
+        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|(?<!solar\s)(?<!seismic\s)(?<!web\s)(?<!interior\s)(?<!graphic\s)(?<!industrial\s)(?<!architectural\s)(?<!urban\s)(?<!landscape\s)(?<!structural\s)design(?:ed|s)?|sign(?:ed|s)?|locat(?:ed|es)?|born|found\b|establish(?:ed|es)?|practi(?:s|c)ed|worship(?:p?ed|s)?|celerat(?:ed|es)?|elect(?:ed|s)?|appoint(?:ed|s)?|"
         # Assistance verbs: "how does sleep help the brain"
         r"help[s]?|assist[s]?|support[s]?|"
         # Comparison verbs: "how does X differ from Y" / "how does X compare to Y" → "X"
