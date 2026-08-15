@@ -3513,3 +3513,49 @@ def test_batch78_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 79: historical "when/what happened/during" patterns;
+#            "what year was X signed/discovered"; trailing orphaned-adverb strip;
+#            happens-inside-happened word-boundary QW-strip fix
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "when did X happen/start/end" → X
+    ("when did the french revolution start",        "french revolution"),
+    ("when did the dinosaurs go extinct",           "dinosaurs"),
+    ("when did world war 2 end",                    "world war 2"),
+    # "when did X first VERB" → X (orphaned "first" adverb stripped)
+    ("when did humans first walk on the moon",      "humans"),
+    # "when was X invented/discovered/born/built" → X
+    ("when was the internet invented",              "internet"),
+    ("when was penicillin discovered",              "penicillin"),
+    ("when was einstein born",                      "einstein"),
+    ("when was the eiffel tower built",             "eiffel tower"),
+    # "when will X happen/return" → X
+    ("when will the next solar eclipse happen",     "solar eclipse"),
+    ("when will halley's comet return",             "halley's comet"),
+    # "when does X occur/develop" → X (trailing adverb "fully" stripped)
+    ("when does a lunar eclipse occur",             "lunar eclipse"),
+    ("when does the human brain fully develop",     "human brain"),
+    # "what year was X signed/discovered" → X
+    ("what year was the magna carta signed",        "magna carta"),
+    ("what year was america discovered",            "america"),
+    # "what happened during X" → X (happened stripped by leading-verb strip)
+    ("what happened during the cold war",           "cold war"),
+    ("what happened during the black death",        "black death"),
+    # "what was X" → X (historical entity lookup)
+    ("what was the roman colosseum",                "roman colosseum"),
+    ("what was the silk road",                      "silk road"),
+    # "what is the history of X" → X
+    ("what is the history of chess",                "chess"),
+    ("what is the history of the olympic games",    "olympic games"),
+])
+def test_batch79_subject_extraction(question, expected):
+    """Batch 79: historical/when patterns; signed verb; fully adverb; happened leading strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

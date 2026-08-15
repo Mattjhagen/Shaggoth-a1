@@ -303,7 +303,7 @@ def subject_of(question: str) -> str:
         r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low|"
         r"big|huge|tiny|heavy|hot|cold|strong|hard|dense|loud|quiet|thick|thin|bright|dark|"
         r"year|century|decade|date|ago)\b|\w+ly)?\s*"
-        r"(?:is|are|was|were|has|have|had|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
+        r"(?:is|are|was|were|has|have|had|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?\b)?\s*",
         "", text, flags=re.I,
     )
     # "at what temperature does water freeze" → "water freeze" (QW strip missed "at what NOUN does")
@@ -325,7 +325,7 @@ def subject_of(question: str) -> str:
         r"wrote|written|painted?|composed?|designed?|develop(?:ed|s)?|"
         r"won|ruled|fought|signed|explored|colonized?|commanded?|"
         r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
-        r"caus(?:ed|es?)|brought\s+about|coined|named|"
+        r"caus(?:ed|es?)|brought\s+about|coined|named|happen(?:ed|s)?|occur(?:red|s)?|"
         # "what affects/determines/produces/controls/influences/allows X" → X
         r"affect(?:ed|s)?|determine[sd]?|produce[sd]?|control[sd]?|influence[sd]?|allow[sd]?)\s+",
         "", text, flags=re.I,
@@ -355,7 +355,7 @@ def subject_of(question: str) -> str:
         r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low|"
         r"big|huge|tiny|heavy|hot|cold|strong|hard|dense|loud|quiet|thick|thin|bright|dark|"
         r"year|century|decade|date|ago)\b|\w+ly)?\s*"
-        r"(?:is|are|was|were|has|have|had|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
+        r"(?:is|are|was|were|has|have|had|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?\b)?\s*",
         "", text, flags=re.I,
     )
     text = re.sub(r"^not\s+", "", text, flags=re.I)
@@ -748,7 +748,7 @@ def subject_of(question: str) -> str:
         # Migration / movement verbs: "how do birds migrate"
         r"migrate[sd]?|"
         # Passive attribution: "when was X invented", "where was Y discovered/located/born/found"
-        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|locat(?:ed|es)?|born|found\b|"
+        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|sign(?:ed|s)?|locat(?:ed|es)?|born|found\b|"
         # Assistance verbs: "how does sleep help the brain"
         r"help[s]?|assist[s]?|support[s]?|"
         # Comparison verbs: "how does X differ from Y" / "how does X compare to Y" → "X"
@@ -975,7 +975,7 @@ def subject_of(question: str) -> str:
     # Strip orphaned adverbs that remain after the trailing-verb strip removed the verb:
     # "when did humans first appear" → "humans first appear" → verb strip → "humans first"
     # → strip trailing "first" → "humans".
-    text = re.sub(r"\s+(?:first|last|now|still|already|yet|ever|always|never|once|again|eventually|soon|someday|sometime)\s*$", "", text, flags=re.I)
+    text = re.sub(r"\s+(?:first|last|now|still|already|yet|ever|always|never|once|again|eventually|soon|someday|sometime|fully|completely|partly|partially|finally|nearly|barely|rapidly|gradually|commonly|typically)\s*$", "", text, flags=re.I)
     # "leaves change color" → "leaves", "sun change seasons" → "sun".
     # Only fires when "change OBJECT" is at end of string (after location strips),
     # so "climate change" (no object) and "climate change affect X" (affect already
