@@ -776,9 +776,6 @@ def subject_of(question: str) -> str:
     )
     if _m_loc_noun:
         text = _m_loc_noun.group(1)
-    # "moon's surface like" → strip trailing "like" (question particle: "what is X like")
-    # Must run BEFORE the "on X" strip so "life on mars like" → "life on mars", not "life".
-    text = re.sub(r"\s+like\s*$", "", text, flags=re.I)
     # "X on <modifier>" → X  (e.g. "effect of gravity on time" → "gravity")
     # Only strip trailing "on <1-3 words>" — not "on" inside a topic name.
     text = re.sub(r"\s+on\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
@@ -874,6 +871,12 @@ def subject_of(question: str) -> str:
     # so "climate change" (no object) and "climate change affect X" (affect already
     # stripped by the verb list above) are not affected.
     text = re.sub(r"^(.+?)\s+change[s]?\s+\w+\s*$", r"\1", text, flags=re.I)
+    # Strip trailing "like" that remains after location strips ate the rest of the tail:
+    # "what is the weather like in london" → location strip removes " in london"
+    # → "the weather like" → strip " like" → "the weather" → article strip → "weather"
+    # (The "what is X like" early-exit handles the simpler case where "like" is at the end
+    # of the full question before any stripping; this handles residual "like" after stripping.)
+    text = re.sub(r"\s+like\s*$", "", text, flags=re.I)
     # Strip a leading bare article that remains after all other strips:
     # "what is the speed of light" → after verb strip → "the speed of light" → "speed of light"
     # "how does the immune system work" → "the immune system" → "immune system"

@@ -2922,3 +2922,41 @@ def test_batch59_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X like" early-exit: "like" at end, even with compound subject including "on"
+    ("what is life on mars like",                          "life on mars"),
+    ("what is the surface of the moon like",               "surface of the moon"),
+    ("what is mercury like",                               "mercury"),
+    # "what is the weather like in LOC" → location stripped first, then trailing "like" → topic
+    ("what is the weather like in london",                 "weather"),
+    ("what is the climate like in the sahara",             "climate"),
+    ("what are the working conditions like",               "working conditions"),
+    # "where does X come from" → X
+    ("where does milk come from",                          "milk"),
+    ("where does oil come from",                           "oil"),
+    ("where does lightning come from",                     "lightning"),
+    # "where do X live" → X
+    ("where do penguins live",                             "penguins"),
+    ("where do elephants live",                            "elephants"),
+    # "when did X Y" → X
+    ("when did the dinosaurs go extinct",                  "dinosaurs"),
+    ("when did the first world war end",                   "first world war"),
+    # "when was X VERB" → X
+    ("when was the eiffel tower built",                    "eiffel tower"),
+    ("when was penicillin discovered",                     "penicillin"),
+    # "who discovered/invented/wrote X" → X
+    ("who discovered penicillin",                          "penicillin"),
+    ("who invented the telephone",                         "telephone"),
+    ("who wrote hamlet",                                   "hamlet"),
+    # "who was X" → X
+    ("who was cleopatra",                                  "cleopatra"),
+    ("who was nikola tesla",                               "nikola tesla"),
+])
+def test_batch62_subject_extraction(question, expected):
+    """Batch 62: 'what is X like' early-exit; weather-like-in-LOC; where/when/who patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
