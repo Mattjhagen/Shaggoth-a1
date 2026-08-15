@@ -1193,7 +1193,8 @@ def subject_of(question: str) -> str:
         # "commercial break", "prison break", "lunch break") — guard those prefixes.
         r"(?<!tax\s)(?<!spring\s)(?<!coffee\s)(?<!commercial\s)(?<!lunch\s)(?<!winter\s)(?<!summer\s)(?<!prison\s)break[s]?|"
         # Physical / chemical state-change verbs: "why does ice float", "what makes iron rust"
-        r"float[s]?|sink[s]?|rust[s]?|boil[s]?|melt[s]?|freeze[sd]?|evaporate[sd]?|"
+        # "carbon sink" and "heat sink" are noun compounds — guard those prefixes.
+        r"float[s]?|(?<!carbon\s)(?<!heat\s)sink[s]?|rust[s]?|boil[s]?|melt[s]?|freeze[sd]?|evaporate[sd]?|"
         r"condense[sd]?|expand[s]?|(?<!social\s)(?<!labor\s)(?<!labour\s)contract[s]?(?!\s+(?:theory|law|clause|principle|agreement))|ignite[sd]?|dissolve[sd]?|"
         # Mass/cost verbs: "how much does a blue whale weigh" → "blue whale"
         r"weigh[s]?|cost[s]?|"
@@ -1237,7 +1238,8 @@ def subject_of(question: str) -> str:
         # Extinction/movement verbs. Use negative lookahead (?!\s+of) so that
         # noun forms like "the fall of X" and "the collapse of Y" are preserved —
         # only the trailing verb use ("how did Rome fall") should be stripped.
-        r"go\s+extinct|fall[s]?(?!\s+of)|collapse[sd]?(?!\s+of)|rise[sd]?(?!\s+of)|"
+        # "sea level rise", "temperature rise", "price rise" are noun compounds — guard level/price/wage.
+        r"go\s+extinct|fall[s]?(?!\s+of)|collapse[sd]?(?!\s+of)|(?<!level\s)(?<!price\s)(?<!wage\s)rise[sd]?(?!\s+of)|"
         r"work[s]?"
         r")\b.*$",
         "", text, flags=re.I,

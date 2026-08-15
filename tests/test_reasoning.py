@@ -9660,3 +9660,33 @@ def test_batch248_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is climate change",                                   "climate change"),
+    ("what is global warming",                                   "global warming"),
+    ("what is the greenhouse effect",                            "greenhouse effect"),
+    ("what is carbon dioxide",                                   "carbon dioxide"),
+    ("what is the ozone layer",                                  "ozone layer"),
+    ("what is acid rain",                                        "acid rain"),
+    ("what is biodiversity",                                     "biodiversity"),
+    ("what is a carbon footprint",                               "carbon footprint"),
+    ("what is renewable energy",                                 "renewable energy"),
+    ("what is solar energy",                                     "solar energy"),
+    ("what is wind energy",                                      "wind energy"),
+    ("what is deforestation",                                    "deforestation"),
+    ("what is desertification",                                  "desertification"),
+    ("what is ocean acidification",                              "ocean acidification"),
+    ("what is eutrophication",                                   "eutrophication"),
+    ("how does the water cycle work",                            "water cycle"),
+    ("what is carbon capture",                                   "carbon capture"),
+    ("what is a carbon sink",                                    "carbon sink"),
+    ("what causes sea level rise",                               "sea level rise"),
+    ("what is an ecosystem service",                             "ecosystem service"),
+])
+def test_batch249_subject_extraction(question, expected):
+    """Batch 249: environmental science — climate, greenhouse effect, carbon, sea level."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
