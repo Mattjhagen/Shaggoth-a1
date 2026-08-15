@@ -2643,3 +2643,43 @@ def test_batch51_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 52: "coined the term X"; "it takes to VERB to X" destination strip;
+#           possessive concept preservation; how-many/largest/symptoms
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "who coined the term X" → X (coined added to attribution verbs; term strip)
+    ("who coined the term photosynthesis",             "photosynthesis"),
+    ("who coined the term evolution",                  "evolution"),
+    # "how long does it take to VERB to PLACE" → PLACE
+    ("how long does it take to fly to the moon",       "moon"),
+    # possessive concept stays whole (not stripped by possessive-attr rule)
+    ("what is darwin's theory of evolution",           "darwin's theory of evolution"),
+    ("what is newton's law of gravity",                "newton's law of gravity"),
+    # how-long it-takes
+    ("how long does it take to boil an egg",           "egg"),
+    ("how long does it take light to reach earth",     "light"),
+    # "what does it mean when X" → X
+    ("what does it mean when your ears ring",          "ears"),
+    # how-many
+    ("how many planets are there in the solar system", "planets"),
+    ("how many bones are there in the human body",     "bones"),
+    # "what is the largest/smallest X" → X
+    ("what is the largest planet",                     "planet"),
+    ("what is the smallest country",                   "country"),
+    # "what are the main NOUN of X" → X
+    ("what are the main causes of climate change",     "climate change"),
+    ("what are the main effects of global warming",    "global warming"),
+    # "what are the symptoms of X" → X
+    ("what are the symptoms of diabetes",              "diabetes"),
+])
+def test_batch52_subject_extraction(question, expected):
+    """Batch 52: coined/term strip; it-takes-to-fly destination; possessive concept guard."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

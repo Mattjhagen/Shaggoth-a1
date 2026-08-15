@@ -313,7 +313,7 @@ def subject_of(question: str) -> str:
         r"wrote|written|painted?|composed?|designed?|develop(?:ed|s)?|"
         r"won|ruled|fought|signed|explored|colonized?|commanded?|"
         r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
-        r"caus(?:ed|es?)|brought\s+about|"
+        r"caus(?:ed|es?)|brought\s+about|coined|named|"
         # "what affects/determines/produces/controls/influences/allows X" → X
         r"affect(?:ed|s)?|determine[sd]?|produce[sd]?|control[sd]?|influence[sd]?|allow[sd]?)\s+",
         "", text, flags=re.I,
@@ -369,6 +369,10 @@ def subject_of(question: str) -> str:
     # The end-of-function strip is kept as a second pass for subjects that arrive
     # there via different code paths.
     text = re.sub(r"^(?:the|a|an)\s+", "", text, flags=re.I)
+    # "coined the term photosynthesis" → after "coined " stripped → "the term photosynthesis"
+    # → article strip → "term photosynthesis" → strip "term " → "photosynthesis"
+    # Guard against "term for X" / "term of X" (prepositions = different pattern).
+    text = re.sub(r"^(?:term|word|phrase)\s+(?!(?:for|of|is|are|was|were)\b)", "", text, flags=re.I)
     # Numeric quantifier: "3 states of matter" → "states of matter" → "matter";
     # "4 blood types" → "blood types". Also strips named quantifiers left after
     # stripping "what are".
@@ -544,6 +548,8 @@ def subject_of(question: str) -> str:
     _m_it_takes = re.match(r"^it\s+takes?\s+to\s+\w+\s+(.+)$", text, re.I)
     if _m_it_takes:
         text = _m_it_takes.group(1)
+        # "to fly to the moon" → captures "to the moon"; strip leading "to [article]"
+        text = re.sub(r"^to\s+(?:the\s+|a\s+|an\s+)?", "", text, flags=re.I)
     else:
         _m_it_takes_for = re.match(r"^it\s+takes?\s+for\s+(?:a|an|the\s+)?\s*(.+?)\s+to\s+\w+\s*$", text, re.I)
         if _m_it_takes_for:
