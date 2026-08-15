@@ -289,7 +289,7 @@ def subject_of(question: str) -> str:
         # Optional degree/temporal word after "how"/"what": "how many X", "how long does X",
         # "how fast does X", "how quickly does X" (any -ly adverb), "what year was X".
         r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low|"
-        r"big|huge|tiny|heavy|hot|cold|"
+        r"big|huge|tiny|heavy|hot|cold|strong|hard|dense|loud|quiet|thick|thin|bright|dark|"
         r"year|century|decade|date|ago)\b|\w+ly)?\s*"
         r"(?:is|are|was|were|has|have|had|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
@@ -337,7 +337,7 @@ def subject_of(question: str) -> str:
     text = re.sub(
         r"^(?:why|what|how|who|when|where)\s+"
         r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low|"
-        r"big|huge|tiny|heavy|hot|cold|"
+        r"big|huge|tiny|heavy|hot|cold|strong|hard|dense|loud|quiet|thick|thin|bright|dark|"
         r"year|century|decade|date|ago)\b|\w+ly)?\s*"
         r"(?:is|are|was|were|has|have|had|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
@@ -394,7 +394,7 @@ def subject_of(question: str) -> str:
         r"fall|collapse|rise|decline|end|defeat|death|birth|founding|"
         # Factual property nouns: "capital of france" → "france"
         r"capital|population|area|size|location|height|depth|width|length|"
-        r"distance|temperature|density|mass|weight|volume|age|name|"
+        r"distance|speed|temperature|density|mass|weight|volume|age|name|"
         # Role/title nouns: "president of france" → "france"
         r"president|prime\s+minister|king|queen|ruler|leader|founder|director|"
         r"inventor|discoverer|author|composer|painter|creator|"
@@ -532,6 +532,10 @@ def subject_of(question: str) -> str:
     _m_we = re.match(r"^(?:we|us|you|one|people)\s+(\w+)\s*$", text, re.I)
     if _m_we:
         text = _m_we.group(1)
+    # "distance from X to Y" → X  (must fire before "to <verb>" strip below)
+    _m_dist_from = re.match(r"^distance\s+from\s+(?:the\s+|a\s+)?(.+?)\s+to\b", text, re.I)
+    if _m_dist_from:
+        text = _m_dist_from.group(1)
     # "the temperature to rise" → strip "to <verb>" infinitive phrase at end
     text = re.sub(r"\s+to\s+\w+(?:ing)?\s*$", "", text, flags=re.I)
     text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)

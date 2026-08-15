@@ -1075,7 +1075,7 @@ def test_classify_what_x_are_there_is_enumerate(question):
     ("how far is the moon from earth", Intent.CAUSAL, "moon"),
     ("how slowly does a glacier move", Intent.CAUSAL, "glacier"),
     # Leading "the" strip
-    ("what is the speed of light", Intent.DEFINE, "speed of light"),
+    ("what is the speed of light", Intent.DEFINE, "light"),
     ("how does the immune system work", Intent.CAUSAL, "immune system"),
     ("what caused the great depression", Intent.CAUSAL, "great depression"),
     # Leading "a/an" strip
@@ -2085,6 +2085,44 @@ def test_batch33_subject_extraction(question, expected):
 ])
 def test_batch34_subject_extraction(question, expected):
     """Batch 34: known-for strip, language scaffold, time-zone loc-noun."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Batch 35: speed/distance causal-noun, "how strong is X", distance-from-X-to-Y
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is the speed of X" → X  (speed added to causal-noun list)
+    ("what is the speed of light",                  "light"),
+    ("what is the speed of sound",                  "sound"),
+    # causal-noun compounds (size/weight/height/temperature/age already covered)
+    ("what is the size of the universe",            "universe"),
+    ("what is the weight of a blue whale",          "blue whale"),
+    ("what is the height of mount everest",         "mount everest"),
+    ("what is the temperature of the sun",          "sun"),
+    ("what is the age of the universe",             "universe"),
+    # "distance from X to Y" → X
+    ("what is the distance from earth to the moon", "earth"),
+    ("what is the distance from the sun to earth",  "sun"),
+    # "what is the meaning of X" → X
+    ("what is the meaning of democracy",            "democracy"),
+    ("what is the meaning of entropy",              "entropy"),
+    # "how long does X take" → X
+    ("how long does pregnancy take",                "pregnancy"),
+    # "how old/big is X" → X  (degree-word list: old, big)
+    ("how old is the universe",                     "universe"),
+    ("how big is the sun",                          "sun"),
+    # "how strong is X" → X  (strong added to degree-word list)
+    ("how strong is a magnetic field",              "magnetic field"),
+    ("how strong is the human skull",               "human skull"),
+])
+def test_batch35_subject_extraction(question, expected):
+    """Batch 35: speed/distance causal-nouns, strong degree-word, distance-from-X-to-Y."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
