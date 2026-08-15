@@ -1043,7 +1043,7 @@ def subject_of(question: str) -> str:
         # Migration / movement verbs: "how do birds migrate"
         r"migrate[sd]?|"
         # Passive attribution: "when was X invented", "where was Y discovered/located/born/found"
-        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|sign(?:ed|s)?|locat(?:ed|es)?|born|found\b|establish(?:ed|es)?|practi(?:s|c)ed|worship(?:p?ed|s)?|celerat(?:ed|es)?|"
+        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|sign(?:ed|s)?|locat(?:ed|es)?|born|found\b|establish(?:ed|es)?|practi(?:s|c)ed|worship(?:p?ed|s)?|celerat(?:ed|es)?|elect(?:ed|s)?|appoint(?:ed|s)?|"
         # Assistance verbs: "how does sleep help the brain"
         r"help[s]?|assist[s]?|support[s]?|"
         # Comparison verbs: "how does X differ from Y" / "how does X compare to Y" → "X"
@@ -1392,6 +1392,9 @@ def subject_of(question: str) -> str:
     # so "climate change" (no object) and "climate change affect X" (affect already
     # stripped by the verb list above) are not affected.
     text = re.sub(r"^(.+?)\s+change[s]?\s+\w+\s*$", r"\1", text, flags=re.I)
+    # Strip trailing relative pronoun "that" orphaned by the verb strip:
+    # "law that has been passed called" → verb strip removes " has been passed called" → "law that"
+    text = re.sub(r"\s+that\s*$", "", text, flags=re.I)
     # Strip trailing "like" that remains after location strips ate the rest of the tail:
     # "what is the weather like in london" → location strip removes " in london"
     # → "the weather like" → strip " like" → "the weather" → article strip → "weather"

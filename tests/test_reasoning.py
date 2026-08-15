@@ -6373,3 +6373,51 @@ def test_batch152_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 153: law / politics — democracy, rights, elections, legal terms
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is democracy",                                   "democracy"),
+    ("what is the constitution",                            "constitution"),
+    ("what is the bill of rights",                          "bill of rights"),
+    ("what is the supreme court",                           "supreme court"),
+    ("what is habeas corpus",                               "habeas corpus"),
+    ("what is the separation of powers",                    "separation of powers"),
+    # causal-noun strip: "rule of X" → X  (rule is a property noun here)
+    ("what is the rule of law",                             "law"),
+    ("what is civil law",                                   "civil law"),
+    ("what is criminal law",                                "criminal law"),
+    # "how does X work" → X
+    ("how does the electoral college work",                 "electoral college"),
+    ("how does congress work",                              "congress"),
+    # "what are X" → X
+    ("what are human rights",                               "human rights"),
+    ("what are civil rights",                               "civil rights"),
+    # causal-noun strip: "president of X" → X (consistent with other ROLE-OF patterns)
+    ("who is the president of the united states",           "united states"),
+    # difference between → joined
+    ("what is the difference between a democracy and a republic",   "democracy and republic"),
+    # "what does X mean" → X
+    ("what does impeachment mean",                          "impeachment"),
+    # "what is the purpose of X" → X
+    ("what is the purpose of the united nations",           "united nations"),
+    # trailing passive participle "elected" now stripped
+    ("how is the president elected",                        "president"),
+    # "what rights does X have" → X
+    ("what rights does an accused person have",             "accused person"),
+    # "what is X in politics" → X
+    ("what is lobbying in politics",                        "lobbying"),
+    # trailing relative "that" stripped after verb strip
+    ("what is a law that has been passed called",           "law"),
+])
+def test_batch153_subject_extraction(question, expected):
+    """Batch 153: law/politics — elected strip, trailing-that strip, rights and legal terms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
