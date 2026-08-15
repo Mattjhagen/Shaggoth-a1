@@ -333,7 +333,7 @@ def subject_of(question: str) -> str:
     text = re.sub(
         r"^(?:invented?|discover(?:ed|s)?|found(?:ed|s)?|built|creat(?:ed|es?)|"
         r"wrote|written|painted?|composed?|designed?|develop(?:ed|s)?|"
-        r"won|ruled|fought|signed|explored|colonized?|commanded?|"
+        r"won(?!\s+(?:the\s+)?most)|ruled|fought|signed|explored|colonized?|commanded?|"
         r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
         r"caus(?:ed|es?)|brought\s+about|coined|named|happen(?:ed|s)?|occur(?:red|s)?|"
         # Media/entertainment leading verbs: "who sang X" / "who directed X" → X
@@ -579,9 +579,10 @@ def subject_of(question: str) -> str:
     # → strip "you VERB " (generic pronoun + one verb) → "baking soda and vinegar".
     text = re.sub(r"^(?:you|we|they|people|someone|a\s+person)\s+\w+\s+", "", text, flags=re.I)
     # "what country has won the most world cups" → "world cups"
-    # (NOUN ha[sd] won the most X → X, the competition being asked about)
+    # "who has won the most grand slams" → after QW strips "who", bare "has won the most X"
+    # also matches (subject group is now optional).
     _m_has_won_most = re.match(
-        r"^\w+(?:\s+\w+)?\s+ha(?:s|ve|d)\s+won\s+(?:the\s+)?most\s+(.+)$",
+        r"^(?:\w+(?:\s+\w+)?\s+)?(?:ha(?:s|ve|d)\s+)?won\s+(?:the\s+)?most\s+(.+)$",
         text, re.I,
     )
     if _m_has_won_most:
@@ -772,7 +773,7 @@ def subject_of(question: str) -> str:
         r"country|city|continent|region|language|sport|food|drug|disease|"
         r"ocean|sea|lake|river|mountain|desert|forest|island|peninsula|canyon|"
         r"rock|mineral|gem|star|planet|galaxy|force|wave|particle|radiation|"
-        r"nationality|genre|style|medium|technique|movement|era|format|type|color|colour|shape|material|occupation|religion)\s+(?:is|was|are|were)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
+        r"nationality|genre|style|medium|technique|movement|era|format|type|color|colour|shape|material|occupation|religion|position|role|title)\s+(?:is|was|are|were|does|did)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
         text, re.I,
     )
     if _m_cat_is:
@@ -967,7 +968,7 @@ def subject_of(question: str) -> str:
         r"country|city|continent|region|language|sport|food|drug|disease|"
         r"ocean|sea|lake|river|mountain|desert|forest|island|peninsula|canyon|"
         r"rock|mineral|gem|star|planet|galaxy|force|wave|particle|radiation|"
-        r"nationality|genre|style|medium|technique|movement|era|format|type|color|colour|shape|material|occupation|religion)\s+(?:is|was|are|were)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
+        r"nationality|genre|style|medium|technique|movement|era|format|type|color|colour|shape|material|occupation|religion|position|role|title)\s+(?:is|was|are|were|does|did)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
         text, re.I,
     )
     if _m_cat_is2:
@@ -1246,6 +1247,14 @@ def subject_of(question: str) -> str:
         r"strongest?|weakest?|closest?|nearest?|farthest?|"
         r"deepest?|widest?|narrowest?|lightest?|heaviest?|oldest?|youngest?|newest?|"
         r"most\s+\w+|least\s+\w+)\s+",
+        "", text, flags=re.I,
+    )
+    # Residual participial adjective after superlative strip:
+    # "highest scoring sport" → "highest" stripped → "scoring sport" → strip "scoring " → "sport"
+    # "highest grossing film" → "highest" stripped → "grossing film" → strip "grossing " → "film"
+    text = re.sub(
+        r"^(?:scoring|grossing|earning|selling|paying|growing|winning|losing|"
+        r"performing|producing|consuming|emitting|generating|earning)\s+",
         "", text, flags=re.I,
     )
     # Bare "most/least" quantifier that superlative strip left because it had no

@@ -4660,3 +4660,41 @@ def test_batch107_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question, expected", [
+    # "what is X" sports concepts
+    ("what is the offside rule",                        "offside rule"),
+    ("what is a grand slam in tennis",                  "grand slam"),
+    ("what is the super bowl",                          "super bowl"),
+    ("what is the world cup",                           "world cup"),
+    ("what is the nba",                                 "nba"),
+    # "how many X are in Y" — team composition (sport name extracted, team-noun suffix stripped)
+    ("how many players are on a basketball team",       "basketball"),
+    ("how many players are on a soccer team",           "soccer"),
+    ("how many innings are in a baseball game",         "baseball game"),
+    # "how long is X"
+    ("how long is a marathon",                          "marathon"),
+    ("how long is a basketball game",                   "basketball game"),
+    # "when did X start/begin"
+    ("when did the olympics start",                     "olympics"),
+    ("when did the world cup start",                    "world cup"),
+    # "who has won the most X" — optional subject + optional "has"
+    ("who has won the most world cups",                 "world cups"),
+    ("who has won the most grand slams",                "grand slams"),
+    # "what sport/position does X play" — category-is pattern with does/did
+    ("what sport does lebron james play",               "lebron james"),
+    ("what position does lebron james play",            "lebron james"),
+    # "how do you play X"
+    ("how do you play chess",                           "chess"),
+    ("how do you play poker",                           "poker"),
+    # superlative + participial-adj strip
+    ("what is the fastest sport",                       "sport"),
+    ("what is the highest scoring sport",               "sport"),
+])
+def test_batch108_subject_extraction(question, expected):
+    """Batch 108: sports/fitness — concepts, team size, historical firsts, who-won-most, category-is with does/did."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
