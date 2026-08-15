@@ -7651,3 +7651,154 @@ def test_batch183_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "when did X happen" → X
+    ("when did world war 2 end",                                "world war 2"),
+    ("when did the french revolution start",                    "french revolution"),
+    ("when did the dinosaurs go extinct",                       "dinosaurs"),
+    # "who started/founded X" → X
+    ("who started world war 1",                                 "world war 1"),
+    ("who founded the united states",                           "united states"),
+    # "what caused X" → X
+    ("what caused the fall of the roman empire",                "roman empire"),
+    ("what caused the great depression",                        "great depression"),
+    ("what caused world war 1",                                 "world war 1"),
+    # "who was X" → X
+    ("who was napoleon",                                        "napoleon"),
+    ("who was julius caesar",                                   "julius caesar"),
+    ("who was cleopatra",                                       "cleopatra"),
+    # "what was X" → X
+    ("what was the cold war",                                   "cold war"),
+    ("what was the renaissance",                                "renaissance"),
+    ("what was the black death",                                "black death"),
+    # "when was X built/discovered" → X
+    ("when was the great wall of china built",                  "great wall of china"),
+    ("when was the eiffel tower built",                         "eiffel tower"),
+    ("when was america discovered",                             "america"),
+    # event queries
+    ("how did the roman empire fall",                           "roman empire"),
+    ("what happened during world war 2",                        "world war 2"),
+    ("who won world war 2",                                     "world war 2"),
+])
+def test_batch184_subject_extraction(question, expected):
+    """Batch 184: history/timeline �� events, causes, people, eras."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X (biology concepts)
+    ("what is photosynthesis",                                  "photosynthesis"),
+    ("what is mitosis",                                         "mitosis"),
+    ("what is meiosis",                                         "meiosis"),
+    ("what is dna",                                             "dna"),
+    ("what is rna",                                             "rna"),
+    ("what is evolution",                                       "evolution"),
+    ("what is natural selection",                               "natural selection"),
+    # "how does X work" → X
+    ("how does photosynthesis work",                            "photosynthesis"),
+    ("how does the immune system work",                         "immune system"),
+    # "what is the difference between X and Y" → X and Y
+    ("what is the difference between mitosis and meiosis",      "mitosis and meiosis"),
+    ("what is the difference between dna and rna",              "dna and rna"),
+    # "what do X eat" → X
+    ("what do pandas eat",                                      "pandas"),
+    ("what do sharks eat",                                      "sharks"),
+    # "how long do X live" → X
+    ("how long do elephants live",                              "elephants"),
+    ("how long do turtles live",                                "turtles"),
+    # "what is the largest X" → X
+    ("what is the largest mammal",                              "mammal"),
+    ("what is the largest animal",                              "animal"),
+    # "how many X does Y have" → Y
+    ("how many legs does a spider have",                        "spider"),
+    ("how many chambers does the heart have",                   "heart"),
+    # "what is X made of" → X
+    ("what is bone made of",                                    "bone"),
+])
+def test_batch185_subject_extraction(question, expected):
+    """Batch 185: biology/life-sciences — concepts, behaviors, anatomy."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X (chemistry concepts)
+    ("what is a chemical reaction",                             "chemical reaction"),
+    ("what is an acid",                                         "acid"),
+    ("what is a base in chemistry",                             "base"),
+    ("what is osmosis",                                         "osmosis"),
+    ("what is oxidation",                                       "oxidation"),
+    ("what is an element",                                      "element"),
+    ("what is a compound",                                      "compound"),
+    ("what is a molecule",                                      "molecule"),
+    # "what is the chemical formula for X" → X
+    ("what is the chemical formula for water",                  "water"),
+    ("what is the chemical formula for carbon dioxide",         "carbon dioxide"),
+    ("what is the chemical formula for glucose",                "glucose"),
+    # "how does X react with Y" → X
+    ("how does acid react with metal",                          "acid"),
+    ("how does hydrogen react with oxygen",                     "hydrogen"),
+    # "what is the atomic number of X" → X
+    ("what is the atomic number of gold",                       "gold"),
+    ("what is the atomic number of carbon",                     "carbon"),
+    # "what is X made of" → X
+    ("what is water made of",                                   "water"),
+    ("what is steel made of",                                   "steel"),
+    # "what happens when X is/does Y" → X
+    ("what happens when ice is heated",                         "ice"),
+    ("what happens when water boils",                           "water"),
+    # "what is the boiling point of X" → X
+    ("what is the boiling point of water",                      "water"),
+])
+def test_batch186_subject_extraction(question, expected):
+    """Batch 186: chemistry — reactions, formulas, elements, state changes."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X (physics concepts)
+    ("what is gravity",                                         "gravity"),
+    ("what is friction",                                        "friction"),
+    ("what is inertia",                                         "inertia"),
+    ("what is momentum",                                        "momentum"),
+    ("what is kinetic energy",                                  "kinetic energy"),
+    ("what is potential energy",                                "potential energy"),
+    ("what is thermodynamics",                                  "thermodynamics"),
+    ("what is quantum mechanics",                               "quantum mechanics"),
+    # "what is the speed of X" → speed of X (canonical constant, no article)
+    ("what is the speed of light",                              "speed of light"),
+    ("what is the speed of sound",                              "speed of sound"),
+    # "how does X work" → X
+    ("how does gravity work",                                   "gravity"),
+    ("how does a magnet work",                                  "magnet"),
+    # "what is X energy" → X energy
+    ("what is nuclear energy",                                  "nuclear energy"),
+    ("what is solar energy",                                    "solar energy"),
+    # "how fast does X travel" → X
+    ("how fast does light travel",                              "light"),
+    ("how fast does sound travel",                              "sound"),
+    # "what is the theory of X" → theory of X
+    ("what is the theory of relativity",                        "theory of relativity"),
+    # "what is newton's X law" → newton's X law
+    ("what is newton's third law",                              "newton's third law"),
+    # "how much does X weigh" → X
+    ("how much does the earth weigh",                           "earth"),
+    # "what is the force of X" → X (force is a property noun)
+    ("what is the force of gravity",                            "gravity"),
+])
+def test_batch187_subject_extraction(question, expected):
+    """Batch 187: physics — forces, energy, constants, laws, theory of relativity."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
