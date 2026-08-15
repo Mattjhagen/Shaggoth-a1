@@ -5875,3 +5875,34 @@ def test_batch138_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is dna",                                        "dna"),
+    ("what is rna",                                        "rna"),
+    ("what is photosynthesis",                             "photosynthesis"),
+    ("what is mitosis",                                    "mitosis"),
+    ("what is meiosis",                                    "meiosis"),
+    ("what is a chromosome",                               "chromosome"),
+    ("what is a gene",                                     "gene"),
+    ("what is natural selection",                          "natural selection"),
+    ("what is evolution",                                  "evolution"),
+    ("what is the function of mitochondria",               "mitochondria"),
+    ("what is the role of insulin",                        "insulin"),
+    ("what is the structure of dna",                       "dna"),
+    ("what is diabetes",                                   "diabetes"),
+    ("what is cancer",                                     "cancer"),
+    ("what is alzheimer's disease",                        "alzheimer's disease"),
+    ("how does the immune system work",                    "immune system"),
+    ("how does the heart work",                            "heart"),
+    ("how does the brain work",                            "brain"),
+    ("what are the symptoms of diabetes",                  "diabetes"),
+    ("what are the symptoms of covid",                     "covid"),
+    ("how many bones are in the human body",               "human body"),
+])
+def test_batch139_subject_extraction(question, expected):
+    """Batch 139: medicine/biology — DNA, diseases, organ function, symptoms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
