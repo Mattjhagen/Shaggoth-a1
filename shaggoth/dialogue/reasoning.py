@@ -328,8 +328,9 @@ def subject_of(question: str) -> str:
     )
     text = re.sub(r"^not\s+", "", text, flags=re.I)
     # Bare yes/no or modal opener: "do humans have tails" → "humans have tails",
-    # "can fish drown" → "fish drown", "is the earth flat" → "earth flat".
-    text = re.sub(r"^(?:is|are|was|were|does|do|did|can|could|would|should)\s+(?:a\s+|an\s+|the\s+)?", "", text, flags=re.I)
+    # "can fish drown" → "fish drown", "is the earth flat" → "earth flat",
+    # "will the sun explode" → "the sun explode" → "sun explode".
+    text = re.sub(r"^(?:is|are|was|were|does|do|did|can|could|would|should|will)\s+(?:a\s+|an\s+|the\s+)?", "", text, flags=re.I)
     # After "how long" is stripped, "ago" sometimes leads: "how long ago did X Y"
     # → "ago did X Y". Strip "ago" plus any following auxiliary in one shot so the
     # bare-opener strip doesn't need to run twice.
@@ -408,6 +409,16 @@ def subject_of(question: str) -> str:
         r"^(?:leads?|led|trigger[sd]?|drove|drives?|prompts?)\s+(?:to\s+)?",
         "", text, flags=re.I,
     )
+    # "what role does insulin play in the body" → after "what" stripped → "role does insulin play"
+    # strip "role does ARTICLE?" leaving "insulin play" → "play" removed by trailing verb strip.
+    text = re.sub(
+        r"^(?:role|part|function)\s+(?:does|do|did)\s+(?:the\s+|a\s+|an\s+)?",
+        "", text, flags=re.I,
+    )
+    # "what happens to X when/if it VERBS" → strip leading "to " → "X when it VERBS"
+    # then strip trailing "when/if it VERB" clause.
+    text = re.sub(r"^to\s+", "", text, flags=re.I)
+    text = re.sub(r"\s+(?:when|if|once)\s+(?:it|they|you|we)\s+\w+\s*$", "", text, flags=re.I)
     # After "led to" is stripped, "the fall of the Roman Empire" remains.
     # Strip the event noun (fall/collapse/etc.) and its "of" connector so only
     # the core entity remains.  This is a second pass that can't be folded into
@@ -545,8 +556,10 @@ def subject_of(question: str) -> str:
         r"migrate[sd]?|"
         # Passive attribution: "when was X invented", "where was Y discovered/located/born"
         r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|locat(?:ed|es)?|born|"
-        # Comparison verb: "how does mitosis differ from meiosis" → "mitosis"
-        r"differ[sd]?|"
+        # Comparison verbs: "how does X differ from Y" / "how does X compare to Y" → "X"
+        r"differ[sd]?|compare[sd]?|"
+        # Role verb: "what role does insulin play in the body" → after leading strip → "play"
+        r"play(?:s|ed)?|"
         # Origin verb: "where did humans originate"
         r"originate[sd]?|"
         # Intransitive motion/perception/existence verbs: "why do stars twinkle",
@@ -637,7 +650,9 @@ def subject_of(question: str) -> str:
         r"transparent|opaque|flammable|volatile|reactive|inert|radioactive|"
         r"valuable|expensive|cheap|rare|common|strong|weak|dense|flat|round|curved|"
         r"sticky|slippery|rough|smooth|thin|thick|narrow|tall|short|"
-        r"similar|different|related|connected|distinct|unique|identical)\s*$",
+        r"similar|different|related|connected|distinct|unique|identical|"
+        r"dangerous|harmful|safe|harmless|poisonous|helpful|useful|effective|"
+        r"hard|soft|tough|fragile|brittle|flexible|rigid|elastic)\s*$",
         "", text, flags=re.I,
     )
     # Strip a trailing "not" that can remain after the negated auxiliary was
@@ -651,7 +666,7 @@ def subject_of(question: str) -> str:
     # Strip orphaned adverbs that remain after the trailing-verb strip removed the verb:
     # "when did humans first appear" → "humans first appear" → verb strip → "humans first"
     # → strip trailing "first" → "humans".
-    text = re.sub(r"\s+(?:first|last|now|still|already|yet|ever|always|never|once|again)\s*$", "", text, flags=re.I)
+    text = re.sub(r"\s+(?:first|last|now|still|already|yet|ever|always|never|once|again|eventually|soon|someday|sometime)\s*$", "", text, flags=re.I)
     # "leaves change color" → "leaves", "sun change seasons" → "sun".
     # Only fires when "change OBJECT" is at end of string (after location strips),
     # so "climate change" (no object) and "climate change affect X" (affect already

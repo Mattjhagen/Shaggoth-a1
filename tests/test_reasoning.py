@@ -1655,3 +1655,28 @@ def test_batch23_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # compare to
+    ("how does nuclear energy compare to solar energy",  "nuclear energy"),
+    ("how does python compare to java",                  "python"),
+    # trailing dangerous/hard adj
+    ("what makes plutonium dangerous",                   "plutonium"),
+    ("what makes diamonds hard",                         "diamonds"),
+    # what role does X play in Y
+    ("what role does insulin play in the body",          "insulin"),
+    ("what role does the liver play in digestion",       "liver"),
+    # will-future opener
+    ("will the sun eventually explode",                  "sun"),
+    ("will humans ever live on mars",                    "humans"),
+    # what happens to X when it VERBS
+    ("what happens to metal when it rusts",              "metal"),
+    ("what happens to food when it rots",                "food"),
+])
+def test_batch24_subject_extraction(question, expected):
+    """Batch 24: compare-to verb, dangerous/hard adj, role-does-play, will-opener, happens-to."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
