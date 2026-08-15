@@ -1167,7 +1167,8 @@ def subject_of(question: str) -> str:
         r"form[s]?|make[s]?|replicate[s]?|(?<!bullet )(?<!maglev )(?<!steam )(?<!freight )(?<!commuter )(?<!fastest )train[s]?|take[s]?|"
         # "heat pump", "sump pump", "water pump", "fuel pump" are noun compounds.
         r"(?<!heat\s)(?<!sump\s)(?<!water\s)(?<!fuel\s)(?<!vacuum\s)pump[s]?|(?<!due )process(?:es)?|connect[s]?|"
-        r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|consume[sd]?|"
+        # Guard "cash flow" compound noun from being stripped.
+        r"filter[s]?|(?<!cash\s)flow[s]?|carry|carries|digest[s]?|regulate[s]?|consume[sd]?|"
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"
         r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|catch(?:es)?|caught|"
         r"come[s]?\s+from|get[s]?|navigate[sd]?|find[s]?|"
@@ -1202,7 +1203,8 @@ def subject_of(question: str) -> str:
         r"float[s]?|(?<!carbon\s)(?<!heat\s)sink[s]?|rust[s]?|boil[s]?|melt[s]?|freeze[sd]?|evaporate[sd]?|"
         r"condense[sd]?|expand[s]?|(?<!social\s)(?<!labor\s)(?<!labour\s)contract[s]?(?!\s+(?:theory|law|clause|principle|agreement))|ignite[sd]?|dissolve[sd]?|"
         # Mass/cost verbs: "how much does a blue whale weigh" → "blue whale"
-        r"weigh[s]?|cost[s]?|"
+        # Guard "dollar cost averaging" compound noun.
+        r"weigh[s]?|(?<!dollar\s)cost[s]?|"
         # Migration / movement verbs: "how do birds migrate"
         r"migrate[sd]?|"
         # Passive attribution: "when was X invented", "where was Y discovered/located/born/found"
@@ -1231,8 +1233,8 @@ def subject_of(question: str) -> str:
         # Note: bare "rate" and plural "rates" are NOT here — they are almost always nouns
         # (interest rates, poverty rates, crime rates, exchange rates).
         # Only "rated" (passive participle, clearly a verb) is stripped.
-        # Guard "margin call", "roll call", "curtain call" compound nouns from being stripped.
-        r"measure[sd]?|classif(?:ied|y|ies)?|(?<!margin\s)(?<!roll\s)(?<!curtain\s)call(?:ed|s)?|rank(?:ed|s)?|rated|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
+        # Guard "margin call", "roll call", "curtain call", "covered call" compound nouns from being stripped.
+        r"measure[sd]?|classif(?:ied|y|ies)?|(?<!margin\s)(?<!roll\s)(?<!curtain\s)(?<!covered\s)call(?:ed|s)?|rank(?:ed|s)?|rated|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
         r"turn[s]?|transform[sd]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
@@ -1461,7 +1463,8 @@ def subject_of(question: str) -> str:
     )
     # "X on <modifier>" → X  (e.g. "effect of gravity on time" → "gravity")
     # Only strip trailing "on <1-3 words>" — not "on" inside a topic name.
-    text = re.sub(r"\s+on\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
+    # Guard "return on investment/equity/assets/capital" financial compound nouns.
+    text = re.sub(r"(?<!return)\s+on\s+(?!investment\b|equity\b|assets\b|capital\b)\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
     # "quantum physics in simple terms" → "quantum physics"  (explanation-register qualifier)
     text = re.sub(r"\s+in\s+(?:simple|plain|basic|easy|everyday|lay(?:man[\'s]*)?)\s+terms\s*$", "", text, flags=re.I)
     # "largest country in africa" / "most popular sport in brazil" / "tallest mountain in the world"

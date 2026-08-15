@@ -10470,3 +10470,63 @@ def test_batch275_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is greenhouse gas",                                  "greenhouse gas"),
+    ("what is the greenhouse effect",                           "greenhouse effect"),
+    ("what is climate change",                                  "climate change"),
+    ("what is global warming",                                  "global warming"),
+    ("what is carbon footprint",                                "carbon footprint"),
+    ("what is acid rain",                                       "acid rain"),
+    ("what is the ozone layer",                                 "ozone layer"),
+    ("what is biodiversity loss",                               "biodiversity loss"),
+    ("what is deforestation",                                   "deforestation"),
+    ("what is ocean acidification",                             "ocean acidification"),
+    ("what is carbon capture",                                  "carbon capture"),
+    ("what is a carbon sink",                                   "carbon sink"),
+    ("what is renewable energy",                                "renewable energy"),
+    ("what is solar energy",                                    "solar energy"),
+    ("what is wind energy",                                     "wind energy"),
+    ("what is a carbon tax",                                    "carbon tax"),
+    ("what is sea level rise",                                  "sea level rise"),
+    ("what is permafrost",                                      "permafrost"),
+    ("what is coral bleaching",                                 "coral bleaching"),
+    ("what is the water cycle",                                 "water cycle"),
+])
+def test_batch276_subject_extraction(question, expected):
+    """Batch 276: climate/environmental science — compound terms and named phenomena."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a ponzi scheme",                                  "ponzi scheme"),
+    ("what is short selling",                                   "short selling"),
+    ("what is a leverage buyout",                               "leverage buyout"),
+    ("what is dollar cost averaging",                           "dollar cost averaging"),
+    ("what is a dividend yield",                                "dividend yield"),
+    ("what is market volatility",                               "market volatility"),
+    ("what is a credit default swap",                           "credit default swap"),
+    ("what is algorithmic trading",                             "algorithmic trading"),
+    ("what is high frequency trading",                          "high frequency trading"),
+    ("what is a covered call",                                  "covered call"),
+    ("what is a put option",                                    "put option"),
+    ("what is a call option",                                   "call option"),
+    ("what is insider trading",                                 "insider trading"),
+    ("what is a price to earnings ratio",                       "price to earnings ratio"),
+    ("what is return on investment",                            "return on investment"),
+    ("what is a balance sheet",                                 "balance sheet"),
+    ("what is cash flow",                                       "cash flow"),
+    ("what is a fiscal cliff",                                  "fiscal cliff"),
+    ("what is quantitative tightening",                         "quantitative tightening"),
+    ("what is stagflation",                                     "stagflation"),
+])
+def test_batch277_subject_extraction(question, expected):
+    """Batch 277: finance/investing — compound terms, named concepts, financial instruments."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
