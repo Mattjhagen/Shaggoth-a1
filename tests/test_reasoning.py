@@ -1998,3 +1998,45 @@ def test_batch32_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what effect/impact does X have on Y" → X
+    ("what effect does smoking have on the lungs",  "smoking"),
+    ("what effect does exercise have on sleep",     "exercise"),
+    # "how fast does X travel"
+    ("how fast does light travel",                  "light"),
+    ("how fast does sound travel",                  "sound"),
+    # "how hot/cold/deep is X at/during TIME"
+    ("how hot is the sun",                          "sun"),
+    ("how cold is the moon at night",               "moon"),
+    ("how deep is the mariana trench",              "mariana trench"),
+    ("how far is mars from earth",                  "mars"),
+    # "what is the capital/population of X"
+    ("what is the capital of france",               "france"),
+    ("what is the capital of japan",                "japan"),
+    ("what is the population of china",             "china"),
+    ("what is the population of the world",         "world"),
+    # "what percentage of X is/does Y" → X
+    ("what percentage of the earth is covered by water", "earth"),
+    ("what percentage of the human body is water",  "human body"),
+    # "how many X (of Y) are there" → "X of Y"
+    ("how many species of birds are there",         "species of birds"),
+    ("how many cells are in the human body",        "cells"),
+    # "at what temperature/speed does X VERB"
+    ("at what temperature does water freeze",       "water"),
+    ("at what temperature does iron melt",          "iron"),
+    # "difference between X and Y" — article strip guard keeps "and Y"
+    ("what is the difference between a virus and a bacteria", "virus and a bacteria"),
+    # "how do X and Y differ" → subject_of returns the full conjunction
+    ("how do plants and animals differ",            "plants and animals"),
+    # "what are the types of X"
+    ("what are the types of renewable energy",      "renewable energy"),
+    ("what are the types of memory in the brain",   "memory"),
+])
+def test_batch33_subject_extraction(question, expected):
+    """Batch 33: effect/impact strip, at-what-temp opener, at-night tail, a/an guard."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

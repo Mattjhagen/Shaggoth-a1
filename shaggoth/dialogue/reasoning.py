@@ -294,6 +294,11 @@ def subject_of(question: str) -> str:
         r"(?:is|are|was|were|has|have|had|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
     )
+    # "at what temperature does water freeze" → "water freeze" (QW strip missed "at what NOUN does")
+    text = re.sub(
+        r"^at\s+what\s+\w+(?:\s+\w+)?\s+(?:does|do|did|is|are|was|were)\s+",
+        "", text, flags=re.I,
+    )
     # Residual "not" after stripping the auxiliary: "why does not ice float" →
     # strips "why does " → "not ice float" → strip leading "not" → "ice float"
     text = re.sub(r"^not\s+", "", text, flags=re.I)
@@ -424,7 +429,7 @@ def subject_of(question: str) -> str:
     # "what role does insulin play in the body" → after "what" stripped → "role does insulin play"
     # strip "role does ARTICLE?" leaving "insulin play" → "play" removed by trailing verb strip.
     text = re.sub(
-        r"^(?:role|part|function)\s+(?:does|do|did)\s+(?:the\s+|a\s+|an\s+)?",
+        r"^(?:role|part|function|effect|impact|influence)\s+(?:does|do|did)\s+(?:the\s+|a\s+|an\s+)?",
         "", text, flags=re.I,
     )
     # "what happens to X when/if it VERBS" → strip leading "to " → "X when it VERBS"
@@ -590,6 +595,7 @@ def subject_of(question: str) -> str:
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
         r"stop(?:ped|s)?|end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?|"
+        r"cover(?:ed|s)?|surround(?:ed|s)?|fill(?:ed|s)?|"
         # Duration/persistence verbs: "how long does pregnancy last" → "pregnancy"
         r"last[s]?|persist[s]?|remain[s]?|"
         # Extinction/movement verbs. Use negative lookahead (?!\s+of) so that
@@ -624,7 +630,11 @@ def subject_of(question: str) -> str:
     # "is pluto a planet" → bare opener → "pluto a planet" → strip trailing "a/an NOUN" → "pluto".
     # "sleep does a person need" → verb strip → "sleep does a person" → strip "a person" → "sleep does"
     # → secondary strips below finish it off.
+    # Guard: don't strip when result would end with bare "and" (e.g. "virus and a bacteria" → keep as-is)
+    _before_an_strip = text
     text = re.sub(r"\s+(?:a|an)\s+\w+\s*$", "", text, flags=re.I)
+    if re.search(r"\s+and\s*$", text, re.I):
+        text = _before_an_strip
     # Secondary cleanup for residual "modal PRONOUN" (verb already stripped by main verb block):
     # "water should you" (drink was stripped) → "water".
     text = re.sub(
@@ -671,6 +681,11 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+in\s+(?!the\b)\w+\s*$", "", text, flags=re.I)
     # "X from <place>" → X  (e.g. "moon from earth" → "moon")
     text = re.sub(r"\s+from\s+\w+(?:\s+\w+){0,1}\s*$", "", text, flags=re.I)
+    # "moon at night" → "moon"  (time-of-day qualifier at tail)
+    text = re.sub(
+        r"\s+at\s+(?:night|day|dawn|dusk|noon|midnight|sunrise|sunset|daytime|nighttime)\s*$",
+        "", text, flags=re.I,
+    )
     # "oceans of the world" → "oceans", "continents of the world" → "continents".
     # Only fires when the causal-noun strip above did NOT already handle "of the X"
     # (e.g. "role of the king" → causal strip → "king" before we reach here).
