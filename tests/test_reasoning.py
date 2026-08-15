@@ -12769,3 +12769,34 @@ def test_batch352_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a quarter rest",                                   "quarter rest"),
+    ("what is a half rest",                                      "half rest"),
+    ("what is a whole rest",                                     "whole rest"),
+    ("what is a quarter note",                                   "quarter note"),
+    ("what is a half note",                                      "half note"),
+    ("what is a grace note",                                     "grace note"),
+    ("what is a downbeat",                                       "downbeat"),
+    ("what is an upbeat",                                        "upbeat"),
+    ("what is a backbeat",                                       "backbeat"),
+    ("what is a chocolate bar",                                  "chocolate bar"),
+    ("what is a crowbar",                                        "crowbar"),
+    ("what is a handlebar",                                      "handlebar"),
+    ("what is a major scale",                                    "major scale"),
+    ("what is a minor scale",                                    "minor scale"),
+    ("what is a ring tone",                                      "ring tone"),
+    ("what is a dial tone",                                      "dial tone"),
+    ("what is a low tide",                                       "low tide"),
+    ("what is a high tide",                                      "high tide"),
+    ("what is a riptide",                                        "riptide"),
+    ("what is a thunderstorm",                                   "thunderstorm"),
+    ("what is a brain storm",                                    "brain storm"),
+])
+def test_batch353_subject_extraction(question, expected):
+    """Batch 353: music/arts and nature compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
