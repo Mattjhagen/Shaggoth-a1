@@ -1644,7 +1644,9 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+and\s+(?:the|a|an)\s+", " and ", text, flags=re.I)
     # Strip qualifier adjective exposed after the article: "the main programming languages"
     # → "main programming languages" → "programming languages".
-    text = re.sub(r"^(?:different|main|major|key(?!\s+(?:signature|change))|various|multiple)\s+", "", text, flags=re.I)
+    # Guard "multiple" against medical compound names: "multiple sclerosis" and "multiple myeloma"
+    # must not lose "multiple" (it is part of the proper disease name, not a generic qualifier).
+    text = re.sub(r"^(?:different|main|major|key(?!\s+(?:signature|change))|various|multiple(?!\s+(?:sclerosis|myeloma)))\s+", "", text, flags=re.I)
     # Strip leading superlative/comparative adjective: "largest ocean" → "ocean",
     # "fastest animal" → "animal", "most common element" → "element".
     _before_super = text
