@@ -12522,3 +12522,33 @@ def test_batch344_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a human being",                                    "human being"),
+    ("what is a sentient being",                                 "sentient being"),
+    ("what is a gut feeling",                                    "gut feeling"),
+    ("what is an emotional feeling",                             "emotional feeling"),
+    ("what is critical thinking",                                "critical thinking"),
+    ("what is lateral thinking",                                 "lateral thinking"),
+    ("what is wishful thinking",                                 "wishful thinking"),
+    ("what is a basic need",                                     "basic need"),
+    ("what is special need",                                     "special need"),
+    ("what is health care",                                      "health care"),
+    ("what is intensive care",                                   "intensive care"),
+    ("what is parental leave",                                   "parental leave"),
+    ("what is sick leave",                                       "sick leave"),
+    ("what is maternity leave",                                  "maternity leave"),
+    ("what is a power move",                                     "power move"),
+    ("what is a chess move",                                     "chess move"),
+    ("what is a commercial break",                               "commercial break"),
+    ("what is a lunch break",                                    "lunch break"),
+    ("what is a prison break",                                   "prison break"),
+    ("what is drug use",                                         "drug use"),
+])
+def test_batch345_subject_extraction(question, expected):
+    """Batch 345: adversarial — heads matching common verbs/function words."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

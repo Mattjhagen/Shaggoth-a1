@@ -1182,7 +1182,7 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+being\s+\w+(?:ed|en)\s*$", "", text, flags=re.I)
     text = re.sub(
         # Negative lookbehind: don't strip "needs" in "hierarchy of needs" (noun phrase).
-        r"(?<!of)\s+(?:need|needs|require|requires|use[sd]?|produce[sd]?|"
+        r"(?<!of)(?<!basic)(?<!special)\s+(?:need|needs|require|requires|(?<!drug\s)(?<!land\s)use[sd]?|produce[sd]?|"
         r"happen(?:ed|s)?|occur(?:red|s)?|exist(?:ed|s)?|"
         r"made|created|formed|produced|compos(?:ed|es?)?|prevented|caused|built|done|founded|"
         # Irregular past-tense verbs common in hypothetical "if X lost/became Y" questions:
@@ -1270,7 +1270,7 @@ def subject_of(question: str) -> str:
         # Guard "U turn", "about turn", "downturn", "upturn" compound nouns.
         r"(?<!U\s)(?<!u\s)(?<!about\s)turn[s]?|transform[sd]?|"
         # Guard "rug burn", "chemical burn", "road burn" compound nouns.
-        r"shine[sd]?|glow[s]?|(?<!rug\s)(?<!chemical\s)(?<!road\s)burn[s]?|move[sd]?|"
+        r"shine[sd]?|glow[s]?|(?<!rug\s)(?<!chemical\s)(?<!road\s)burn[s]?|(?<!power\s)(?<!chess\s)(?<!counter\s)move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|(?<!quantum\s)(?<!back\s)(?<!top\s)spin[s]?|live[sd]?|breathe[sd]?|"
         # "stock market crash" is a noun compound: guard crash with (?=\s) so it only
         # strips as a verb when followed by more content (e.g. "crash and lose data").
