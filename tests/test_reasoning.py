@@ -13368,3 +13368,81 @@ def test_batch368_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # war compound nouns
+    ("what is a cold war",                                       "cold war"),
+    ("what is a civil war",                                      "civil war"),
+    ("what is a world war",                                      "world war"),
+    ("what is a proxy war",                                      "proxy war"),
+    ("what is a star wars",                                      "star wars"),
+    # revolution/uprising
+    ("what is a revolution",                                     "revolution"),
+    ("what is an uprising",                                      "uprising"),
+    ("what is a coup",                                           "coup"),
+    # historical eras
+    ("what is the stone age",                                    "stone age"),
+    ("what is the bronze age",                                   "bronze age"),
+    ("what is the iron age",                                     "iron age"),
+    ("what is the dark ages",                                    "dark ages"),
+    ("what is the ice age",                                      "ice age"),
+    ("what is the space age",                                    "space age"),
+    # "empire" compound nouns
+    ("what is the roman empire",                                 "roman empire"),
+    ("what is the ottoman empire",                               "ottoman empire"),
+    # "treaty" compound nouns
+    ("what is a peace treaty",                                   "peace treaty"),
+    ("what is a trade treaty",                                   "trade treaty"),
+    # civilization concepts
+    ("what is democracy",                                        "democracy"),
+    ("what is feudalism",                                        "feudalism"),
+    ("what is capitalism",                                       "capitalism"),
+    ("what is communism",                                        "communism"),
+    ("what is colonialism",                                      "colonialism"),
+])
+def test_batch369_subject_extraction(question, expected):
+    """Batch 369: history/events compound nouns and civilization terms — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # religious concepts
+    ("what is monotheism",                                       "monotheism"),
+    ("what is polytheism",                                       "polytheism"),
+    ("what is atheism",                                          "atheism"),
+    ("what is agnosticism",                                      "agnosticism"),
+    ("what is reincarnation",                                    "reincarnation"),
+    ("what is karma",                                            "karma"),
+    ("what is nirvana",                                          "nirvana"),
+    ("what is jihad",                                            "jihad"),
+    # "faith" compound nouns
+    ("what is blind faith",                                      "blind faith"),
+    ("what is a leap of faith",                                  "leap of faith"),
+    # philosophical isms
+    ("what is nihilism",                                         "nihilism"),
+    ("what is existentialism",                                   "existentialism"),
+    ("what is stoicism",                                         "stoicism"),
+    ("what is empiricism",                                       "empiricism"),
+    ("what is rationalism",                                      "rationalism"),
+    ("what is utilitarianism",                                   "utilitarianism"),
+    # ethical concepts
+    ("what is free will",                                        "free will"),
+    ("what is determinism",                                      "determinism"),
+    ("what is moral relativism",                                 "moral relativism"),
+    # philosophy compound nouns
+    ("what is a thought experiment",                             "thought experiment"),
+    ("what is the trolley problem",                              "trolley problem"),
+    # "soul" compound nouns
+    ("what is a soulmate",                                       "soulmate"),
+    ("what is soul food",                                        "soul food"),
+])
+def test_batch370_subject_extraction(question, expected):
+    """Batch 370: religion, philosophy and ethics compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
