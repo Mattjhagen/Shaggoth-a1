@@ -13213,3 +13213,83 @@ def test_batch364_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "wall" compound nouns
+    ("what is a firewall",                                       "firewall"),
+    ("what is drywall",                                          "drywall"),
+    ("what is a retaining wall",                                 "retaining wall"),
+    ("what is a stonewall",                                      "stonewall"),
+    # "floor" compound nouns
+    ("what is a subfloor",                                       "subfloor"),
+    ("what is a hardwood floor",                                 "hardwood floor"),
+    # "roof" compound nouns
+    ("what is a rooftop",                                        "rooftop"),
+    ("what is a sunroof",                                        "sunroof"),
+    # "door" compound nouns
+    ("what is a trapdoor",                                       "trapdoor"),
+    ("what is a revolving door",                                 "revolving door"),
+    ("what is a sliding door",                                   "sliding door"),
+    # "window" compound nouns
+    ("what is a skylight",                                       "skylight"),
+    ("what is a stained glass window",                           "stained glass window"),
+    # materials
+    ("what is concrete",                                         "concrete"),
+    ("what is reinforced concrete",                              "reinforced concrete"),
+    ("what is fiberglass",                                       "fiberglass"),
+    ("what is plywood",                                          "plywood"),
+    # "wood" compound nouns
+    ("what is driftwood",                                        "driftwood"),
+    ("what is deadwood",                                         "deadwood"),
+    ("what is firewood",                                         "firewood"),
+    ("what is hardwood",                                         "hardwood"),
+    ("what is softwood",                                         "softwood"),
+    # "iron" compound nouns
+    ("what is cast iron",                                        "cast iron"),
+    ("what is wrought iron",                                     "wrought iron"),
+])
+def test_batch365_subject_extraction(question, expected):
+    """Batch 365: construction/architecture and materials compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "car" compound nouns
+    ("what is a race car",                                       "race car"),
+    ("what is a stock car",                                      "stock car"),
+    ("what is a sidecar",                                        "sidecar"),
+    ("what is a cable car",                                      "cable car"),
+    ("what is a boxcar",                                         "boxcar"),
+    # "boat" compound nouns
+    ("what is a sailboat",                                       "sailboat"),
+    ("what is a motorboat",                                      "motorboat"),
+    ("what is a speedboat",                                      "speedboat"),
+    ("what is a rowboat",                                        "rowboat"),
+    ("what is a tugboat",                                        "tugboat"),
+    ("what is a houseboat",                                      "houseboat"),
+    # "ship" compound nouns
+    ("what is a warship",                                        "warship"),
+    ("what is a spaceship",                                      "spaceship"),
+    ("what is a battleship",                                     "battleship"),
+    ("what is a flagship",                                       "flagship"),
+    # "plane" compound nouns
+    ("what is a biplane",                                        "biplane"),
+    ("what is an airplane",                                      "airplane"),
+    ("what is a warplane",                                       "warplane"),
+    # transport concepts
+    ("what is a roundabout",                                     "roundabout"),
+    ("what is a motorway",                                       "motorway"),
+    ("what is a freeway",                                        "freeway"),
+    ("what is a highway",                                        "highway"),
+    ("what is a toll road",                                      "toll road"),
+])
+def test_batch366_subject_extraction(question, expected):
+    """Batch 366: vehicle/transportation compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
