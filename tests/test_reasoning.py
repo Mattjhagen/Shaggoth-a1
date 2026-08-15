@@ -1869,3 +1869,46 @@ def test_batch29_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Food / nutrition
+    ("what is gluten",                              "gluten"),
+    ("why is sugar bad for you",                    "sugar"),
+    ("what foods are high in protein",              "foods"),
+    ("how much protein does the body need",         "protein"),
+    ("what vitamins does the body need",            "vitamins"),
+    ("how does caffeine affect the body",           "caffeine"),
+    ("what is the difference between carbs and fat", "carbs and fat"),
+    # Animals / wildlife
+    ("why do cats purr",                            "cats"),
+    ("why do dogs wag their tails",                 "dogs"),
+    ("how do birds navigate during migration",      "birds"),
+    ("why do whales beach themselves",              "whales"),
+    ("how do bees make honey",                      "bees"),
+    ("why are bees important to the ecosystem",     "bees"),
+    ("how do spiders spin webs",                    "spiders"),
+    # Technology / internet
+    ("how does wi-fi work",                         "wi-fi"),
+    ("what is a computer virus",                    "computer virus"),
+    ("how does encryption work",                    "encryption"),
+    ("what is the dark web",                        "dark web"),
+    ("how does gps work",                           "gps"),
+    # Space / planets
+    ("why is pluto not a planet",                   "pluto"),
+    ("how far is the moon from the earth",          "moon"),
+    ("what is a black hole",                        "black hole"),
+    ("how hot is the sun",                          "sun"),
+    ("how long does it take light to reach earth from the sun", "light"),
+    # Social / political
+    ("what is democracy",                           "democracy"),
+    ("what is communism",                           "communism"),
+    ("what causes poverty",                         "poverty"),
+    ("what is the stock market",                    "stock market"),
+])
+def test_batch30_subject_extraction(question, expected):
+    """Batch 30: does-the-body strip, wag/beach verbs, adj-for/to phrase strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

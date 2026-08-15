@@ -582,7 +582,7 @@ def subject_of(question: str) -> str:
         # "how fast does light travel", "why do we dream", "how does sound travel"
         r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
-        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|"
+        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
         r"stop(?:ped|s)?|end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?|"
@@ -626,6 +626,18 @@ def subject_of(question: str) -> str:
     )
     # Bare trailing auxiliary: "sleep does" → "sleep".
     text = re.sub(r"\s+(?:does|did|do|can|could|should|would|has|had|have)\s*$", "", text, flags=re.I)
+    # "protein does the body" / "vitamins does the body" → "protein" / "vitamins"
+    # (verb stripped by main block, but "does/do/did the/a/an NOUN" residue remains)
+    text = re.sub(
+        r"\s+(?:does|do|did|can|will|would|should|must)\s+(?:the|a|an)\s+\w+\s*$",
+        "", text, flags=re.I,
+    )
+    # "bees important to the ecosystem" → "bees"  (adj with prepositional complement)
+    text = re.sub(
+        r"\s+(?:important|essential|critical|vital|useful|helpful|harmful|dangerous|safe|"
+        r"beneficial|effective|necessary|good|bad|healthy|unhealthy)\s+(?:to|for)\b.*$",
+        "", text, flags=re.I,
+    )
     # "what does nasa stand for" → "nasa stand for" → strip "stand for" → "nasa"
     text = re.sub(r"\s+stands?\s+for\s*$", "", text, flags=re.I)
     # "gdp of" → "gdp"  (orphaned preposition after causal-noun strip)
