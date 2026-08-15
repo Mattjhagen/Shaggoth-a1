@@ -12831,3 +12831,34 @@ def test_batch354_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a setback",                                        "setback"),
+    ("what is a drawback",                                       "drawback"),
+    ("what is feedback",                                         "feedback"),
+    ("what is a flashback",                                      "flashback"),
+    ("what is payback",                                          "payback"),
+    ("what is a cutback",                                        "cutback"),
+    ("what is a dataset",                                        "dataset"),
+    ("what is a mindset",                                        "mindset"),
+    ("what is an offset",                                        "offset"),
+    ("what is a skill set",                                      "skill set"),
+    ("what is a trademark",                                      "trademark"),
+    ("what is a benchmark",                                      "benchmark"),
+    ("what is a hallmark",                                       "hallmark"),
+    ("what is a postmark",                                       "postmark"),
+    ("what is a watermark",                                      "watermark"),
+    ("what is an intake",                                        "intake"),
+    ("what is a mistake",                                        "mistake"),
+    ("what is an outtake",                                       "outtake"),
+    ("what is a broadcast",                                      "broadcast"),
+    ("what is a podcast",                                        "podcast"),
+    ("what is overcast",                                         "overcast"),
+])
+def test_batch355_subject_extraction(question, expected):
+    """Batch 355: back/set/mark/cast compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
