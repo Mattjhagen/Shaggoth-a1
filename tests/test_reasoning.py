@@ -11490,3 +11490,93 @@ def test_batch310_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a blind taste test",                             "blind taste test"),
+    ("what is a taste bud",                                    "taste bud"),
+    ("what is umami",                                          "umami"),
+    ("what is a marinade",                                     "marinade"),
+    ("what is a brine",                                        "brine"),
+    ("what is emulsification",                                 "emulsification"),
+    ("what is a colloid",                                      "colloid"),
+    ("what is a reduction sauce",                              "reduction sauce"),
+    ("what is a roux",                                         "roux"),
+    ("what is a mise en place",                                "mise en place"),
+    ("what is a julienne cut",                                 "julienne cut"),
+    ("what is a brunoise cut",                                 "brunoise cut"),
+    ("what is al dente",                                       "al dente"),
+    ("what is a sous vide",                                    "sous vide"),
+    ("what is a bain marie",                                   "bain marie"),
+    ("what is blanching",                                      "blanching"),
+    ("what is a food pyramid",                                 "food pyramid"),
+    ("what is a calorie",                                      "calorie"),
+    ("what is a macronutrient",                                "macronutrient"),
+    ("what is a micronutrient",                                "micronutrient"),
+])
+def test_batch311_subject_extraction(question, expected):
+    """Batch 311: food/culinary science — cooking techniques, nutrition, and terms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a tectonic plate",                               "tectonic plate"),
+    ("what is a fault line",                                   "fault line"),
+    ("what is a seismic wave",                                 "seismic wave"),
+    ("what is a richter scale",                                "richter scale"),
+    ("what is a tsunami",                                      "tsunami"),
+    ("what is a tidal wave",                                   "tidal wave"),
+    ("what is a storm surge",                                  "storm surge"),
+    ("what is a trade wind",                                   "trade wind"),
+    ("what is a jet stream",                                   "jet stream"),
+    ("what is a continental shelf",                            "continental shelf"),
+    ("what is a coral reef",                                   "coral reef"),
+    ("what is a river delta",                                  "river delta"),
+    ("what is a water table",                                  "water table"),
+    ("what is an aquifer",                                     "aquifer"),
+    ("what is a watershed",                                    "watershed"),
+    ("what is a time zone",                                    "time zone"),
+    ("what is a magnetic field",                               "magnetic field"),
+    ("what is the water cycle",                                "water cycle"),
+    ("what is a nitrogen cycle",                               "nitrogen cycle"),
+    ("what is a carbon cycle",                                 "carbon cycle"),
+])
+def test_batch312_subject_extraction(question, expected):
+    """Batch 312: geography/earth science — geological, meteorological, and cycle terms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a speed read",                                   "speed read"),
+    ("what is a cold read",                                    "cold read"),
+    ("what is a lip read",                                     "lip read"),
+    ("what is a ghostwrite",                                   "ghostwrite"),
+    ("what is a handwrite",                                    "handwrite"),
+    ("what is doublespeak",                                    "doublespeak"),
+    ("what is newspeak",                                       "newspeak"),
+    ("what is plain speak",                                    "plain speak"),
+    ("what is a pep talk",                                     "pep talk"),
+    ("what is a pillow talk",                                  "pillow talk"),
+    ("what is a small talk",                                   "small talk"),
+    ("what is a know how",                                     "know how"),
+    ("what is a think tank",                                   "think tank"),
+    ("what is an oversight",                                   "oversight"),
+    ("what is a foresee",                                      "foresee"),
+    ("what is a gut feel",                                     "gut feel"),
+    ("what is an outlook",                                     "outlook"),
+    ("what is a look out",                                     "look out"),
+    ("what is a stopwatch",                                    "stopwatch"),
+    ("what is a wristwatch",                                   "wristwatch"),
+])
+def test_batch313_subject_extraction(question, expected):
+    """Batch 313: adversarial — read/speak/talk/feel/look verb forms as noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

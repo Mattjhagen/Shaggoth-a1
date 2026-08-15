@@ -1184,7 +1184,7 @@ def subject_of(question: str) -> str:
         r"benefit[s]?|harm[s]?|hurt[s]?|help[s]?|aid[s]?|support[s]?|boost[s]?|"
         r"improv(?:e[sd]?|es)|strengthen[s]?|weaken[s]?|enhanc(?:e[sd]?|es)|"
         # Sensory/cognitive/existence verbs
-        r"feel[s]?|sense[s]?|think[s]?|perceive[s]?|drown[s]?|survive[sd]?|"
+        r"(?<!gut\s)feel[s]?|sense[s]?|think[s]?|perceive[s]?|drown[s]?|survive[sd]?|"
         r"appear[s]?|disappear(?:s|ed)?|vanish(?:es|ed)?|reproduct[s]?|reproduce[sd]?|"
         r"behave[sd]?|communicate[sd]?|"
         r"have\b|has\b|be\b|become[s]?|doing\b|"
@@ -1235,8 +1235,8 @@ def subject_of(question: str) -> str:
         # Guard "run" against compound nouns: "home run", "mile run", "fun run", "dry run",
         # "ski run", "test run", "bull run", "milk run", "trial run" must not be stripped.
         r"(?<!home )(?<!mile )(?<!fun )(?<!dry )(?<!ski )(?<!test )(?<!long )(?<!bull )(?<!milk )(?<!trial )run[s]?|"
-        r"jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|return[s]?|arrive[sd]?|(?<!the )(?<!arithmetic )mean[s]?|"
-        r"smell[s]?|taste[s]?|see[s]?|hear[s]?|sense[s]?|read[s]?|writ(?:e[s]?|ten)|coexist[s]?|"
+        r"jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|(?<!plain\s)speak[s]?|(?<!pep\s)(?<!pillow\s)(?<!small\s)talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|return[s]?|arrive[sd]?|(?<!the )(?<!arithmetic )mean[s]?|"
+        r"smell[s]?|(?<!blind\s)taste[s]?|see[s]?|hear[s]?|sense[s]?|(?<!speed\s)(?<!cold\s)(?<!lip\s)read[s]?|writ(?:e[s]?|ten)|coexist[s]?|"
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
         # Note: bare "rate" and plural "rates" are NOT here — they are almost always nouns
         # (interest rates, poverty rates, crime rates, exchange rates).
