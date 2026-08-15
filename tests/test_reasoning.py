@@ -5842,3 +5842,36 @@ def test_batch137_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is soccer",                                     "soccer"),
+    ("what is basketball",                                 "basketball"),
+    ("what is cricket",                                    "cricket"),
+    ("what is tennis",                                     "tennis"),
+    ("what is the offside rule",                           "offside rule"),
+    ("what is a slam dunk",                                "slam dunk"),
+    ("what is a grand slam",                               "grand slam"),
+    ("who is ronaldo",                                     "ronaldo"),
+    ("who is lebron james",                                "lebron james"),
+    ("who is tiger woods",                                 "tiger woods"),
+    ("who is usain bolt",                                  "usain bolt"),
+    ("who won the world cup",                              "world cup"),
+    ("who won the superbowl",                              "superbowl"),
+    # "_m_team_count" extracts sport name, stripping "team": "football team" → "football"
+    ("how many players are on a football team",            "football"),
+    ("what is the offside rule in soccer",                 "soccer"),
+    # "_m_record_for" extracts the category, stripping "most": "most goals" → "goals"
+    ("who holds the record for most goals",                "goals"),
+    ("when is the next olympics",                          "olympics"),
+    ("what sport does lebron james play",                  "lebron james"),
+    ("what is a penalty in soccer",                        "penalty"),
+    ("how long is a basketball game",                      "basketball game"),
+    ("what is the premier league",                         "premier league"),
+])
+def test_batch138_subject_extraction(question, expected):
+    """Batch 138: sports — rules, athletes, records; _m_team_count and _m_record_for verified."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
