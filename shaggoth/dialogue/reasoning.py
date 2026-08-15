@@ -412,7 +412,7 @@ def subject_of(question: str) -> str:
         r"fall|collapse|rise|decline|end|defeat|death|birth|founding|"
         # Factual property nouns: "capital of france" → "france"
         r"capital|population|area|size|location|height|depth|width|length|"
-        r"distance|speed|temperature|density|mass|weight|volume|age|name|"
+        r"distance|temperature|density|mass|weight|volume|age|name|"
         # Role/title nouns: "president of france" → "france"
         r"president|prime\s+minister|king|queen|ruler|leader|founder|director|"
         r"inventor|discoverer|author|composer|painter|creator|"
@@ -433,6 +433,9 @@ def subject_of(question: str) -> str:
         text = re.sub(r"\s+(?:in|on)\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
         # "percentage of the earth is water" → strip copula predicate after causal noun removed
         text = re.sub(r"\s+(?:is|are|was|were)\s+\w+\s*$", "", text, flags=re.I)
+    # "speed of a cheetah" → "cheetah", "speed of the internet" → "internet",
+    # but "speed of light" / "speed of sound" stay intact (no article = canonical constant).
+    text = re.sub(r"^speed\s+of\s+(?:a|an|the)\s+", "", text, flags=re.I)
     # Leading temporal/locative/conditional conjunction left over after stripping
     # "what happens during/when/if X" → strip the conjunction.
     text = re.sub(r"^(?:during|when|if)\s+", "", text, flags=re.I)
@@ -670,6 +673,13 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+known\s+for\b.*$", "", text, flags=re.I)
     # "eiffel tower named after" / "moon named after gustave eiffel" → "eiffel tower" / "moon"
     text = re.sub(r"\s+named\s+(?:after|for)\b.*$", "", text, flags=re.I)
+    # "superman's real name" → "superman"  (possessive owner + generic attribute noun tail)
+    text = re.sub(
+        r"'s\s+(?:real\s+|secret\s+|true\s+|original\s+|actual\s+|full\s+|official\s+)?(?:name|age|"
+        r"height|weight|birthday|birthdate|birthplace|nationality|occupation|job|career|"
+        r"role|story|biography|background|origin|power|ability|weakness|identity|personality)\s*$",
+        "", text, flags=re.I,
+    )
     # "what if humans could photosynthesize" → after "what if" stripped, "humans could
     # photosynthesize". Trailing modal+verb: strip "could/would/can/might VERB" at end.
     text = re.sub(

@@ -1075,7 +1075,7 @@ def test_classify_what_x_are_there_is_enumerate(question):
     ("how far is the moon from earth", Intent.CAUSAL, "moon"),
     ("how slowly does a glacier move", Intent.CAUSAL, "glacier"),
     # Leading "the" strip
-    ("what is the speed of light", Intent.DEFINE, "light"),
+    ("what is the speed of light", Intent.DEFINE, "speed of light"),
     ("how does the immune system work", Intent.CAUSAL, "immune system"),
     ("what caused the great depression", Intent.CAUSAL, "great depression"),
     # Leading "a/an" strip
@@ -2097,9 +2097,9 @@ def test_batch34_subject_extraction(question, expected):
 
 
 @pytest.mark.parametrize("question,expected", [
-    # "what is the speed of X" → X  (speed added to causal-noun list)
-    ("what is the speed of light",                  "light"),
-    ("what is the speed of sound",                  "sound"),
+    # "what is the speed of X" → "speed of X" when X has no article (canonical constant)
+    ("what is the speed of light",                  "speed of light"),
+    ("what is the speed of sound",                  "speed of sound"),
     # causal-noun compounds (size/weight/height/temperature/age already covered)
     ("what is the size of the universe",            "universe"),
     ("what is the weight of a blue whale",          "blue whale"),
@@ -2600,6 +2600,45 @@ def test_batch49_subject_extraction(question, expected):
 ])
 def test_batch50_subject_extraction(question, expected):
     """Batch 50: nationality _m_cat_is; named-after tail; biographical/classification patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Batch 51: possessive-attribute strip; speed-of canonical constant guard;
+#           how-[degree]-is biographical/measurement patterns
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Possessive attribute: "X's [adj] name/age/..." → X
+    ("what is superman's real name",                   "superman"),
+    ("what is batman's real name",                     "batman"),
+    # speed-of canonical: no article → keep "speed of X" intact
+    ("how fast is the speed of light",                 "speed of light"),
+    ("what is the speed of light",                     "speed of light"),
+    ("what is the speed of sound",                     "speed of sound"),
+    # speed-of with article: strip "speed of a/an/the" → object
+    ("what is the speed of a cheetah",                 "cheetah"),
+    # biographical date questions
+    ("what year was einstein born",                    "einstein"),
+    ("when was beethoven born",                        "beethoven"),
+    ("when did newton die",                            "newton"),
+    # birthplace
+    ("where was mozart born",                          "mozart"),
+    # how-[degree]-is measurement questions
+    ("how tall is mount everest",                      "mount everest"),
+    ("how tall is the eiffel tower",                   "eiffel tower"),
+    ("how old is the universe",                        "universe"),
+    ("how deep is the mariana trench",                 "mariana trench"),
+    ("how long is the great wall of china",            "great wall of china"),
+    ("how far is the moon from the earth",             "moon"),
+    ("how far is mars from the sun",                   "mars"),
+])
+def test_batch51_subject_extraction(question, expected):
+    """Batch 51: possessive attribute strip; speed-of canonical guard; measurement questions."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
