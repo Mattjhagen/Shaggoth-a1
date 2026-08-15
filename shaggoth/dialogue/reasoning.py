@@ -1200,7 +1200,7 @@ def subject_of(question: str) -> str:
         r"filter[s]?|(?<!cash\s)(?<!data\s)(?<!control\s)(?<!lava\s)flow[s]?|carry|carries|digest[s]?|regulate[s]?|consume[sd]?|"
         # Guard "muscle pull" compound noun from being stripped.
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|(?<!muscle\s)(?<!hamstring\s)(?<!gravitational\s)(?<!groin\s)pull[s]?|"
-        r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|(?<!cake\s)(?<!trail\s)(?<!dry\s)(?<!brownie\s)(?<!cookie\s)mix(?:es)?|(?<!safety\s)(?<!blind\s)catch(?:es)?|caught|"
+        r"erupt[s]?|eat[s]?|(?<!news\s)(?<!rss\s)(?<!data\s)(?<!live\s)feed[s]?|hunt[s]?|drink[s]?|(?<!cake\s)(?<!trail\s)(?<!dry\s)(?<!brownie\s)(?<!cookie\s)mix(?:es)?|(?<!safety\s)(?<!blind\s)catch(?:es)?|caught|"
         r"come[s]?\s+from|get[s]?|navigate[sd]?|find[s]?|"
         r"purr[s]?|bark[s]?|meow[s]?|howl[s]?|chirp[s]?|sing[s]?|hum[s]?|roar[s]?|growl[s]?|"
         r"regrow[s]?|regenerate[sd]?|hibernate[sd]?|camouflage[sd]?|photosynthesize[sd]?|"

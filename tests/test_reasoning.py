@@ -12800,3 +12800,34 @@ def test_batch353_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a keyboard",                                       "keyboard"),
+    ("what is a clipboard",                                      "clipboard"),
+    ("what is a whiteboard",                                     "whiteboard"),
+    ("what is a surfboard",                                      "surfboard"),
+    ("what is a skateboard",                                     "skateboard"),
+    ("what is a chessboard",                                     "chessboard"),
+    ("what is cardboard",                                        "cardboard"),
+    ("what is the internet",                                     "internet"),
+    ("what is a dragnet",                                        "dragnet"),
+    ("what is a hairnet",                                        "hairnet"),
+    ("what is a fishing net",                                    "fishing net"),
+    ("what is a news feed",                                      "news feed"),
+    ("what is a rss feed",                                       "rss feed"),
+    ("what is a live stream",                                    "live stream"),
+    ("what is mainstream",                                       "mainstream"),
+    ("what is a data stream",                                    "data stream"),
+    ("what is email",                                            "email"),
+    ("what is voicemail",                                        "voicemail"),
+    ("what is blackmail",                                        "blackmail"),
+    ("what is junk mail",                                        "junk mail"),
+    ("what is air mail",                                         "air mail"),
+])
+def test_batch354_subject_extraction(question, expected):
+    """Batch 354: board/net/feed/stream compound nouns; news/rss feed guard."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
