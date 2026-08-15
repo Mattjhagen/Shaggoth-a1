@@ -9479,3 +9479,33 @@ def test_batch242_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is quantum computing",                                "quantum computing"),
+    ("what is a qubit",                                          "qubit"),
+    ("what is quantum entanglement",                             "quantum entanglement"),
+    ("what is quantum superposition",                            "quantum superposition"),
+    ("what is quantum tunneling",                                "quantum tunneling"),
+    ("what is quantum decoherence",                              "quantum decoherence"),
+    ("what is a quantum gate",                                   "quantum gate"),
+    ("what is quantum error correction",                         "quantum error correction"),
+    ("what is shor's algorithm",                                 "shor's algorithm"),
+    ("what is grover's algorithm",                               "grover's algorithm"),
+    ("how does quantum computing work",                          "quantum computing"),
+    ("how does quantum entanglement work",                       "quantum entanglement"),
+    ("what is a quantum circuit",                                "quantum circuit"),
+    ("what is quantum supremacy",                                "quantum supremacy"),
+    ("what is a quantum computer",                               "quantum computer"),
+    ("how many qubits does a quantum computer need",             "quantum computer"),
+    ("what is quantum cryptography",                             "quantum cryptography"),
+    ("what is quantum key distribution",                         "quantum key distribution"),
+    ("what is post-quantum cryptography",                        "post-quantum cryptography"),
+    ("can quantum computers break encryption",                   "quantum computers"),
+])
+def test_batch243_subject_extraction(question, expected):
+    """Batch 243: quantum computing — qubits, entanglement, algorithms, cryptography."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

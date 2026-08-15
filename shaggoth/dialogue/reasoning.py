@@ -1189,6 +1189,9 @@ def subject_of(question: str) -> str:
         # protect those by requiring it not be preceded by a condition noun.
         r"fight[s]?|(?<!asthma\s)(?<!heart\s)(?<!panic\s)(?<!anxiety\s)attack[s]?|"
         r"defend[s]?|protect[s]?|affect[s]?|impact[s]?|"
+        # "break" is also a compound-noun tail ("tax break", "spring break", "coffee break",
+        # "commercial break", "prison break", "lunch break") — guard those prefixes.
+        r"(?<!tax\s)(?<!spring\s)(?<!coffee\s)(?<!commercial\s)(?<!lunch\s)(?<!winter\s)(?<!summer\s)(?<!prison\s)break[s]?|"
         # Physical / chemical state-change verbs: "why does ice float", "what makes iron rust"
         r"float[s]?|sink[s]?|rust[s]?|boil[s]?|melt[s]?|freeze[sd]?|evaporate[sd]?|"
         r"condense[sd]?|expand[s]?|(?<!social\s)(?<!labor\s)(?<!labour\s)contract[s]?(?!\s+(?:theory|law|clause|principle|agreement))|ignite[sd]?|dissolve[sd]?|"
