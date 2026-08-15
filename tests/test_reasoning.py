@@ -13016,3 +13016,80 @@ def test_batch359_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "rate" compound nouns
+    ("what is an interest rate",                                 "interest rate"),
+    ("what is an exchange rate",                                 "exchange rate"),
+    ("what is an inflation rate",                                "inflation rate"),
+    ("what is a mortgage rate",                                  "mortgage rate"),
+    ("what is a tax rate",                                       "tax rate"),
+    # "fund" compound nouns
+    ("what is a hedge fund",                                     "hedge fund"),
+    ("what is a mutual fund",                                    "mutual fund"),
+    ("what is a pension fund",                                   "pension fund"),
+    ("what is a trust fund",                                     "trust fund"),
+    # "market" compound nouns
+    ("what is a stock market",                                   "stock market"),
+    ("what is a bear market",                                    "bear market"),
+    ("what is a bull market",                                    "bull market"),
+    ("what is a black market",                                   "black market"),
+    # "bond" compound nouns
+    ("what is a treasury bond",                                  "treasury bond"),
+    ("what is a corporate bond",                                 "corporate bond"),
+    ("what is a savings bond",                                   "savings bond"),
+    # economic concepts
+    ("what is gross domestic product",                           "gross domestic product"),
+    ("what is gdp",                                              "gdp"),
+    ("what is supply and demand",                                "supply and demand"),
+    ("what is a recession",                                      "recession"),
+    ("what is a budget deficit",                                 "budget deficit"),
+    ("what is monetary policy",                                  "monetary policy"),
+])
+def test_batch360_subject_extraction(question, expected):
+    """Batch 360: finance/economics compound nouns and concepts — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # climate concepts
+    ("what is global warming",                                   "global warming"),
+    ("what is climate change",                                   "climate change"),
+    ("what is the greenhouse effect",                            "greenhouse effect"),
+    ("what is carbon dioxide",                                   "carbon dioxide"),
+    ("what is the ozone layer",                                  "ozone layer"),
+    # "wave" compound nouns
+    ("what is a heat wave",                                      "heat wave"),
+    ("what is a cold wave",                                      "cold wave"),
+    ("what is a microwave",                                      "microwave"),
+    ("what is a shockwave",                                      "shockwave"),
+    # "fall" compound nouns
+    ("what is a waterfall",                                      "waterfall"),
+    ("what is downfall",                                         "downfall"),
+    ("what is a pitfall",                                        "pitfall"),
+    ("what is rainfall",                                         "rainfall"),
+    ("what is a landfall",                                       "landfall"),
+    # "land" compound nouns
+    ("what is a wetland",                                        "wetland"),
+    ("what is a highland",                                       "highland"),
+    ("what is a grassland",                                      "grassland"),
+    ("what is a wasteland",                                      "wasteland"),
+    # "field" compound nouns
+    ("what is an airfield",                                      "airfield"),
+    ("what is a minefield",                                      "minefield"),
+    ("what is a cornfield",                                      "cornfield"),
+    # weather phenomena
+    ("what is a blizzard",                                       "blizzard"),
+    ("what is a monsoon",                                        "monsoon"),
+    ("what is a tornado",                                        "tornado"),
+])
+def test_batch361_subject_extraction(question, expected):
+    """Batch 361: climate/environment and geography compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
