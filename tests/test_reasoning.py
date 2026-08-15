@@ -8012,3 +8012,48 @@ def test_batch192_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "who wrote X" → X
+    ("who wrote hamlet",                                        "hamlet"),
+    ("who wrote 1984",                                          "1984"),
+    ("who wrote pride and prejudice",                           "pride and prejudice"),
+    # "to kill a mockingbird" keeps the leading "to" (it's part of the title)
+    ("who wrote to kill a mockingbird",                         "to kill a mockingbird"),
+    # "what is X about" → X
+    ("what is hamlet about",                                    "hamlet"),
+    ("what is 1984 about",                                      "1984"),
+    # "when was X published" → X
+    ("when was hamlet published",                               "hamlet"),
+    ("when was 1984 published",                                 "1984"),
+    # "what genre is X" → X
+    ("what genre is 1984",                                      "1984"),
+    # "how many chapters are in X" → X
+    ("how many chapters are in moby dick",                      "moby dick"),
+    # "who is the main character in X" → X (scaffold strips "main"; role-in-work strips "character in")
+    ("who is the main character in hamlet",                     "hamlet"),
+    # "what is the plot of X" / "theme of X" → X
+    ("what is the plot of hamlet",                              "hamlet"),
+    ("what is the theme of 1984",                               "1984"),
+    # "what does X symbolize in Y" → X  ("in Y" stripped then trailing "symbolize" stripped)
+    ("what does the green light symbolize in the great gatsby", "green light"),
+    # "who is the author of X" → X
+    ("who is the author of hamlet",                             "hamlet"),
+    # "what year was X written" → X
+    ("what year was hamlet written",                            "hamlet"),
+    # "how long is X" → X
+    ("how long is moby dick",                                   "moby dick"),
+    # "what is X a metaphor for" → X
+    ("what is the white whale a metaphor for",                  "white whale"),
+    # "is X fiction or nonfiction" → X
+    ("is 1984 fiction or nonfiction",                           "1984"),
+    # "who narrates X" → X
+    ("who narrates moby dick",                                  "moby dick"),
+])
+def test_batch193_subject_extraction(question, expected):
+    """Batch 193: literature/books — authorship, plot, symbolism, genre."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

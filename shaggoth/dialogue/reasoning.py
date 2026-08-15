@@ -346,7 +346,7 @@ def subject_of(question: str) -> str:
         r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
         r"caus(?:ed|es?)|brought\s+about|coined|named|happen(?:ed|s)?|occur(?:red|s)?|"
         # Media/entertainment leading verbs: "who sang X" / "who directed X" → X
-        r"sang|direct(?:ed|s)?|starred\s+in|play(?:ed|s)?|voice(?:d|s)?|portray(?:ed|s)?|"
+        r"sang|direct(?:ed|s)?|starred\s+in|play(?:ed|s)?|voice(?:d|s)?|portray(?:ed|s)?|narrate[sd]?|"
         # Political/civic verbs: "who elects the president" → "president"
         r"elect(?:s|ed)?|appoint(?:s|ed)?|nominate[sd]?|impeach(?:es|ed)?|ratif(?:y|ied|ies)?|"
         # "what affects/determines/produces/controls/influences/allows X" → X
@@ -1411,6 +1411,12 @@ def subject_of(question: str) -> str:
     )
     if _m_adj_in:
         text = _m_adj_in.group(1)
+    # "character in hamlet" → "hamlet"  (scaffold stripped "main" earlier; now WORK is the subject)
+    # "protagonist in 1984" / "narrator in moby dick" → the work title
+    text = re.sub(
+        r"^(?:character|protagonist|antagonist|villain|hero|heroine|narrator|author)\s+in\s+",
+        "", text, flags=re.I,
+    )
     # "X in <word>" → X  (e.g. "turbulence in planes" → "turbulence",
     # "pain in joints" → "pain"). Only strip a single word to avoid eating
     # compound subjects; "in the ..." is already handled above.
@@ -1520,6 +1526,13 @@ def subject_of(question: str) -> str:
     )
     # "what is X about" → strip trailing " about" (topic preposition orphaned after QW strip)
     text = re.sub(r"\s+about\s*$", "", text, flags=re.I)
+    # "green light symbolize" → "green light"  (predicate verb left after "in the great gatsby" stripped)
+    text = re.sub(r"\s+(?:symbolize[sd]?|represent[sd]?|signif(?:y|ies|ied))\s*$", "", text, flags=re.I)
+    # "white whale a metaphor for" → "white whale"
+    # "climate change a symbol for" → "climate change"
+    text = re.sub(r"\s+a\s+(?:metaphor|symbol|allegory|analogy|euphemism|substitute)\s+for\s*$", "", text, flags=re.I)
+    # "1984 fiction or nonfiction" → "1984"
+    text = re.sub(r"\s+(?:fiction\s+or\s+nonfiction|non-?fiction)\s*$", "", text, flags=re.I)
     # "greatest X of all time" → "X" — strip the superlative + temporal qualifier
     text = re.sub(r"\s+of\s+all\s+time\s*$", "", text, flags=re.I)
     # Guard: don't strip "best/greatest" when original was an award-category query.
