@@ -9057,3 +9057,123 @@ def test_batch228_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a documentary",                                    "documentary"),
+    ("what is cinematography",                                   "cinematography"),
+    ("what is a screenplay",                                     "screenplay"),
+    ("what is a genre",                                          "genre"),
+    ("what is a blockbuster",                                    "blockbuster"),
+    ("who directed inception",                                   "inception"),
+    ("who directed the godfather",                               "godfather"),
+    ("what is a close-up in film",                               "close-up"),
+    ("what is a montage in film",                                "montage"),
+    ("what is animation",                                        "animation"),
+    ("what is a sequel",                                         "sequel"),
+    ("what is a prequel",                                        "prequel"),
+    ("what is the golden age of hollywood",                      "hollywood"),
+    ("what is film noir",                                        "film noir"),
+    ("what is a director",                                       "director"),
+    ("what is an oscar",                                         "oscar"),
+    ("how does animation work",                                  "animation"),
+    ("what is the box office",                                   "box office"),
+    ("what is a cult classic",                                   "cult classic"),
+    ("what is virtual reality",                                  "virtual reality"),
+])
+def test_batch229_subject_extraction(question, expected):
+    """Batch 229: film/cinema — documentaries, animation, film noir, directors."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is depression",                                       "depression"),
+    ("what is anxiety",                                          "anxiety"),
+    ("what is schizophrenia",                                    "schizophrenia"),
+    ("what is bipolar disorder",                                 "bipolar disorder"),
+    ("what is obsessive compulsive disorder",                    "obsessive compulsive disorder"),
+    ("what is post traumatic stress disorder",                   "post traumatic stress disorder"),
+    ("what is autism spectrum disorder",                         "autism spectrum disorder"),
+    ("what is cognitive behavioral therapy",                     "cognitive behavioral therapy"),
+    ("what is psychotherapy",                                    "psychotherapy"),
+    ("what is mindfulness",                                      "mindfulness"),
+    ("what is cognitive dissonance",                             "cognitive dissonance"),
+    ("what is the placebo effect",                               "placebo effect"),
+    ("what is emotional intelligence",                           "emotional intelligence"),
+    ("what is self esteem",                                      "self esteem"),
+    ("how does the placebo effect work",                         "placebo effect"),
+    ("how does therapy help",                                    "therapy"),
+    ("what causes depression",                                   "depression"),
+    ("what is addiction",                                        "addiction"),
+    ("what is trauma",                                           "trauma"),
+    ("what is the unconscious mind",                             "unconscious mind"),
+])
+def test_batch230_subject_extraction(question, expected):
+    """Batch 230: psychology/clinical — disorders, therapies, cognitive concepts."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a hurricane",                                      "hurricane"),
+    ("what is a tornado",                                        "tornado"),
+    ("what is a typhoon",                                        "typhoon"),
+    ("what is a blizzard",                                       "blizzard"),
+    ("what is a thunderstorm",                                   "thunderstorm"),
+    ("how does a hurricane form",                                "hurricane"),
+    ("how does a tornado form",                                  "tornado"),
+    ("what causes lightning",                                    "lightning"),
+    ("what is weather",                                          "weather"),
+    ("what is climate",                                          "climate"),
+    ("what is climate change",                                   "climate change"),
+    ("what is global warming",                                   "global warming"),
+    ("what is the greenhouse effect",                            "greenhouse effect"),
+    ("what is humidity",                                         "humidity"),
+    ("what is barometric pressure",                              "barometric pressure"),
+    ("what is el nino",                                          "el nino"),
+    ("what is a drought",                                        "drought"),
+    ("what is fog",                                              "fog"),
+    ("how does snow form",                                       "snow"),
+    ("what is a weather forecast",                               "weather forecast"),
+])
+def test_batch231_subject_extraction(question, expected):
+    """Batch 231: meteorology/weather — hurricanes, climate, greenhouse effect."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is an internal combustion engine",                    "internal combustion engine"),
+    ("what is horsepower",                                       "horsepower"),
+    ("what is torque",                                           "torque"),
+    ("what is a hybrid car",                                     "hybrid car"),
+    ("what is an electric vehicle",                              "electric vehicle"),
+    ("how does a car engine work",                               "car engine"),
+    ("how does a transmission work",                             "transmission"),
+    ("how does regenerative braking work",                       "regenerative braking"),
+    ("what is fuel efficiency",                                  "fuel efficiency"),
+    ("what is a catalytic converter",                            "catalytic converter"),
+    ("what is a bullet train",                                   "bullet train"),
+    ("what is public transportation",                            "public transportation"),
+    ("what is autonomous driving",                               "autonomous driving"),
+    ("how does a plane fly",                                     "plane"),
+    ("what is aerodynamics",                                     "aerodynamics"),
+    ("what is a submarine",                                      "submarine"),
+    ("how does a submarine work",                                "submarine"),
+    ("what is logistics",                                        "logistics"),
+    ("what is supply chain",                                     "supply chain"),
+    ("what is a traffic jam",                                    "traffic jam"),
+])
+def test_batch232_subject_extraction(question, expected):
+    """Batch 232: automotive/transportation — engines, EVs, planes, trains."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
