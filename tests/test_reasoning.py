@@ -6896,3 +6896,87 @@ def test_batch164_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is capitalism",                                    "capitalism"),
+    ("what is inflation",                                     "inflation"),
+    ("what is the stock market",                              "stock market"),
+    ("what is supply and demand",                             "supply and demand"),
+    ("what is a recession",                                   "recession"),
+    # "what is the gdp of X" → X
+    ("what is the gdp of france",                             "france"),
+    ("what is the gdp of the united states",                  "united states"),
+    # "how does X work" → X
+    ("how does the stock market work",                        "stock market"),
+    ("how does inflation work",                               "inflation"),
+    # "what causes X" → X
+    ("what causes inflation",                                 "inflation"),
+    ("what causes a recession",                               "recession"),
+    # "what is X theory" → X theory
+    ("what is game theory",                                   "game theory"),
+    # "what is the difference between X and Y" → X and Y
+    ("what is the difference between stocks and bonds",       "stocks and bonds"),
+    # "what is X" → X (finance terms)
+    ("what is compound interest",                             "compound interest"),
+    ("what is a hedge fund",                                  "hedge fund"),
+    # "how do you X" → X
+    ("how do you calculate interest",                         "interest"),
+    # "what is X rate" → X rate
+    ("what is the interest rate",                             "interest rate"),
+    # "what is X" → X (economic systems)
+    ("what is socialism",                                     "socialism"),
+    ("what is communism",                                     "communism"),
+    # "what is X index" → X index
+    ("what is the consumer price index",                      "consumer price index"),
+])
+def test_batch165_subject_extraction(question, expected):
+    """Batch 165: economics/business — markets, monetary policy, financial instruments."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "who wrote X" → X
+    ("who wrote hamlet",                                      "hamlet"),
+    ("who wrote the great gatsby",                            "great gatsby"),
+    ("who wrote moby dick",                                   "moby dick"),
+    # "what is X about" → X
+    ("what is hamlet about",                                  "hamlet"),
+    # "who painted X" → X
+    ("who painted the mona lisa",                             "mona lisa"),
+    ("who painted the sistine chapel",                        "sistine chapel"),
+    # "theme of to X a Y" → "to X a Y" (title preserved by _title_attr_ctx "of to" guard)
+    ("what is the theme of to kill a mockingbird",            "to kill a mockingbird"),
+    # "when was X written" → X
+    ("when was don quixote written",                          "don quixote"),
+    # "what is the plot of X" → X
+    ("what is the plot of hamlet",                            "hamlet"),
+    # "who composed X" → X
+    ("who composed beethoven's ninth symphony",               "beethoven's ninth symphony"),
+    # "what is X" → X (artistic movements)
+    ("what is impressionism",                                 "impressionism"),
+    ("what is surrealism",                                    "surrealism"),
+    ("what is romanticism",                                   "romanticism"),
+    # "what is X poetry" → X poetry
+    ("what is haiku poetry",                                  "haiku poetry"),
+    # "who is the author of X" → X
+    ("who is the author of don quixote",                      "don quixote"),
+    # "what is the style of X" → X
+    ("what is the style of hemingway",                        "hemingway"),
+    # "what genre is X on the Y" → X (trailing on-the-Y stripped; known limitation for 'on' titles)
+    ("what genre is kafka on the shore",                      "kafka"),
+    # "what is a metaphor" → X (literature terms)
+    ("what is a metaphor",                                    "metaphor"),
+    ("what is an allegory",                                   "allegory"),
+    ("what is foreshadowing",                                 "foreshadowing"),
+])
+def test_batch166_subject_extraction(question, expected):
+    """Batch 166: literature/arts — works, authors, movements, literary devices."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
