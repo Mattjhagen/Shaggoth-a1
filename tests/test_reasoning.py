@@ -7926,3 +7926,45 @@ def test_batch190_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X (government concepts)
+    ("what is democracy",                                       "democracy"),
+    ("what is communism",                                       "communism"),
+    ("what is capitalism",                                      "capitalism"),
+    ("what is socialism",                                       "socialism"),
+    ("what is federalism",                                      "federalism"),
+    # "what is the role of X" → X
+    ("what is the role of the president",                       "president"),
+    ("what is the role of the supreme court",                   "supreme court"),
+    # "how does X work" → X
+    ("how does the electoral college work",                     "electoral college"),
+    ("how does congress work",                                  "congress"),
+    # "who is the head of state" → "head of state" (the position is the topic)
+    ("who is the head of state",                                "head of state"),
+    # "how many branches of government are there" → "branches of government"
+    ("how many branches of government are there",               "branches of government"),
+    # "what is the difference between X and Y" → X and Y
+    ("what is the difference between a republic and a democracy", "republic and democracy"),
+    # "who has the power to X" → "power to X"
+    ("who has the power to declare war",                        "power to declare war"),
+    # "what is the X amendment" → X amendment
+    ("what is the first amendment",                             "first amendment"),
+    ("what is the second amendment",                            "second amendment"),
+    # "how long is a X term" → X term
+    ("how long is a presidential term",                         "presidential term"),
+    # "who elects X" → X (civic verb stripped)
+    ("who elects the president",                                "president"),
+    # "what is X" → X
+    ("what is a veto",                                          "veto"),
+    ("what is impeachment",                                     "impeachment"),
+    # "how do you become a X" → X
+    ("how do you become a senator",                             "senator"),
+])
+def test_batch191_subject_extraction(question, expected):
+    """Batch 191: politics/government — concepts, roles, civic verbs, amendments."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

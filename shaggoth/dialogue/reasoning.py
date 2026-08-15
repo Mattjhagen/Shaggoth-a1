@@ -347,6 +347,8 @@ def subject_of(question: str) -> str:
         r"caus(?:ed|es?)|brought\s+about|coined|named|happen(?:ed|s)?|occur(?:red|s)?|"
         # Media/entertainment leading verbs: "who sang X" / "who directed X" → X
         r"sang|direct(?:ed|s)?|starred\s+in|"
+        # Political/civic verbs: "who elects the president" → "president"
+        r"elect(?:s|ed)?|appoint(?:s|ed)?|nominate[sd]?|impeach(?:es|ed)?|ratif(?:y|ied|ies)?|"
         # "what affects/determines/produces/controls/influences/allows X" → X
         r"affect(?:ed|s)?|determine[sd]?|produce[sd]?|control[sd]?|influence[sd]?|allow[sd]?)\s+",
         "", text, flags=re.I,
@@ -861,6 +863,16 @@ def subject_of(question: str) -> str:
                                 )
                                 if _m_many_unit_is:
                                     text = _m_many_unit_is.group(1)
+                                else:
+                                    # "how many branches of government are there" — the scaffold
+                                    # strip ran before _is_how_many so "branches of" was lost.
+                                    # Recover the counted-noun phrase from the pre-scaffold text.
+                                    _pre_there = re.sub(
+                                        r"\s+are\s+there\s*$", "",
+                                        _before_scaffold_strip, flags=re.I,
+                                    )
+                                    if _pre_there != _before_scaffold_strip:
+                                        text = _pre_there
     else:
         _m = re.match(
             r"^(\w+(?:\s+\w+){0,2})\s+(?:are|were|is|was)\s+(?:in|inside|within|found in|part of)\s+(.+)$",
