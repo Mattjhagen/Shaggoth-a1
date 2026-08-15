@@ -430,6 +430,18 @@ def subject_of(question: str) -> str:
         )
         if _m_poss_rel:
             text = _m_poss_rel.group(1)
+        # Pattern C: possessive + abstract intellectual noun (no preposition required)
+        # "plato's philosophy" → "plato", "nietzsche's worldview" → "nietzsche"
+        _m_poss_abstract = re.match(
+            r"^(\w+(?:\s+\w+)?)'s\s+"
+            r"(?:philosophy|theory|doctrine|ideology|teaching|belief|"
+            r"worldview|outlook|approach|opinion|view|thought|idea|"
+            r"work|writing|legacy|contribution|method|methodology|"
+            r"ethics|logic|rhetoric|politics|metaphysics|epistemology)\s*$",
+            text, re.I,
+        )
+        if _m_poss_abstract:
+            text = _m_poss_abstract.group(1)
     # After "how long" is stripped, "ago" sometimes leads: "how long ago did X Y"
     # → "ago did X Y". Strip "ago" plus any following auxiliary in one shot so the
     # bare-opener strip doesn't need to run twice.
@@ -481,7 +493,9 @@ def subject_of(question: str) -> str:
         r"symptoms?|signs?|benefits?|causes?|effects?|features?|"
         r"properties|characteristics|risks?|advantages?|disadvantages?|uses?|"
         # Plural only: singular "law of X", "rule of X", "principle of X" etc. may be topic titles
-        r"laws|rules|principles|theories|concepts|aspects|applications|facts)"
+        r"laws|rules|principles|theories|concepts|aspects|applications|facts|"
+        # Religion/ideology scaffold nouns: "beliefs of buddhism" → "buddhism"
+        r"beliefs?|teachings?|tenets?|practices?|doctrines?|rituals?)"
         r"\s+of\s+", "", text, flags=re.I
     )
     # When scaffold strip fired, trailing "on/in <context>" is scaffolding too:
@@ -810,7 +824,7 @@ def subject_of(question: str) -> str:
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
         # Note: bare "rate" is NOT here — it's almost always a noun (interest rate, poverty rate).
         # Only inflected forms "rated"/"rates" used as verbs are stripped.
-        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rat(?:ed|es)|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|"
+        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rat(?:ed|es)|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|"
         r"turn[s]?|transform[sd]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"

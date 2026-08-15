@@ -4002,3 +4002,43 @@ def test_batch90_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what did X believe" → X
+    ("what did socrates believe",                      "socrates"),
+    ("what did aristotle believe",                     "aristotle"),
+    # "what is X's philosophy/theory" (Pattern C) → X
+    ("what is plato's philosophy",                     "plato"),
+    ("what is nietzsche's philosophy",                 "nietzsche"),
+    # "what is X" (philosophy) → X
+    ("what is existentialism",                         "existentialism"),
+    ("what is utilitarianism",                         "utilitarianism"),
+    ("what is stoicism",                               "stoicism"),
+    ("what is consciousness",                          "consciousness"),
+    ("what is free will",                              "free will"),
+    # "what is X" (religion) → X
+    ("what is buddhism",                               "buddhism"),
+    ("what is hinduism",                               "hinduism"),
+    ("what is islam",                                  "islam"),
+    # "what are the beliefs of X" → X (beliefs scaffold noun)
+    ("what are the beliefs of buddhism",               "buddhism"),
+    ("what are the beliefs of christianity",           "christianity"),
+    # "what is the meaning of X" → X
+    ("what is the meaning of life",                    "life"),
+    # "what is the purpose of X" → X
+    ("what is the purpose of art",                     "art"),
+    ("what is the purpose of religion",                "religion"),
+    # "does X exist" → X
+    ("does god exist",                                 "god"),
+    ("does free will exist",                           "free will"),
+    # "what is the difference between X and Y" (philosophy) → "X and Y"
+    ("what is the difference between ethics and morality",
+                                                       "ethics and morality"),
+])
+def test_batch91_subject_extraction(question, expected):
+    """Batch 91: philosophy & religion — believe verb, possessive abstract noun, beliefs scaffold."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
