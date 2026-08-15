@@ -662,6 +662,17 @@ def subject_of(question: str) -> str:
         "", text, flags=re.I,
     )
     text = re.sub(r"^behind\s+", "", text, flags=re.I)
+    # "what programming language is used for web development" → "web development"
+    # "NOUN is/are used for/in/to PURPOSE" → PURPOSE (the use-case is the lookup subject)
+    # Guard: requires "is/are/was/were" so "python used for" (no copula) falls through to
+    # the trailing-verb strip which correctly strips "used for" → "python".
+    _m_used_for = re.match(
+        r"^.+?\s+(?:is|are|was|were)\s+(?:(?:mainly|primarily|commonly|often|usually)\s+)?"
+        r"used\s+(?:for|in|to)\s+(.+)$",
+        text, re.I,
+    )
+    if _m_used_for:
+        text = _m_used_for.group(1)
     # "what elements are in water" → after "what " is stripped → "elements are in water"
     # → look up "water" (the container), not "elements" (the thing counted).
     _is_how_many = bool(re.match(r"^\s*(?:and |but |so )?how\s+many\b", _original, re.I))
@@ -1016,22 +1027,24 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+on\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
     # "quantum physics in simple terms" → "quantum physics"  (explanation-register qualifier)
     text = re.sub(r"\s+in\s+(?:simple|plain|basic|easy|everyday|lay(?:man[\'s]*)?)\s+terms\s*$", "", text, flags=re.I)
-    # "X in the <location>" → X  (e.g. "planets in the solar system" → "planets")
-    # Require "in the" so bare "animals in water" is not affected.
-    text = re.sub(r"\s+in\s+the\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
-    # Second-pass work[s] strip: "voting work" → "voting" when "in the X" was just removed.
-    # The primary work strip at line 717 fires before location strips, so it misses this residue.
-    text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
+    # "largest country in africa" / "most popular sport in brazil" / "tallest mountain in the world"
+    # → location after "in [the]".  Must fire BEFORE the "in the <X>" strip below so that
+    # superlative+category phrases don't lose their location context ("tallest mountain" → "mountain").
     # "largest country in africa" / "most popular sport in brazil" → location after "in".
-    # Must fire BEFORE the bare "in <word>" strip below, which would otherwise remove
-    # the location and leave the superlative+category for the superlative strip to
-    # reduce to just the category noun (e.g. "largest country" → "country").
+    # Exclude "in the ..." (solar system, world, universe etc.) — those are universal
+    # scope qualifiers, not meaningful lookup contexts; they're handled by the "in the" strip below.
     _m_super_in = re.match(
         r"^(?:most\s+\w+|\w+est)\s+\w+(?:\s+\w+)?\s+in\s+(?!the\b)(.+)$",
         text, re.I,
     )
     if _m_super_in:
         text = _m_super_in.group(1)
+    # "X in the <location>" → X  (e.g. "planets in the solar system" → "planets")
+    # Require "in the" so bare "animals in water" is not affected.
+    text = re.sub(r"\s+in\s+the\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
+    # Second-pass work[s] strip: "voting work" → "voting" when "in the X" was just removed.
+    # The primary work strip at line 717 fires before location strips, so it misses this residue.
+    text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
     # "X in <word>" → X  (e.g. "turbulence in planes" → "turbulence",
     # "pain in joints" → "pain"). Only strip a single word to avoid eating
     # compound subjects; "in the ..." is already handled above.

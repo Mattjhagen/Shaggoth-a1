@@ -3992,7 +3992,7 @@ def test_batch89_subject_extraction(question, expected):
     ("when was the internet invented",                 "internet"),
     ("when was the telephone invented",                "telephone"),
     # "what programming language is used for X" → category noun (grammar subject)
-    ("what programming language is used for machine learning", "programming language"),
+    ("what programming language is used for machine learning", "machine learning"),
     # "what is a X" → X
     ("what is a large language model",                 "large language model"),
 ])
@@ -4277,6 +4277,78 @@ def test_batch96_subject_extraction(question, expected):
 ])
 def test_batch97_subject_extraction(question, expected):
     """Batch 97: sports — team-count, record-holder, offside rule, positions-in-sport, has-won-most."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # capital / population / currency causal nouns
+    ("what is the capital of france",                  "france"),
+    ("what is the capital of australia",               "australia"),
+    ("what is the population of china",                "china"),
+    ("what is the currency of japan",                  "japan"),
+    # language passive construction
+    ("what language is spoken in brazil",              "brazil"),
+    ("what language do people speak in switzerland",   "switzerland"),
+    # where-is → entity
+    ("where is the amazon river",                      "amazon river"),
+    ("where is the eiffel tower",                      "eiffel tower"),
+    # "what country/continent is X in" → X
+    ("what country is the amazon river in",            "amazon river"),
+    ("what country is mount everest in",               "mount everest"),
+    ("what continent is brazil in",                    "brazil"),
+    ("what continent is egypt in",                     "egypt"),
+    # superlative + real location → location (africa, south america)
+    ("what is the largest country in africa",          "africa"),
+    ("what is the largest country in south america",   "south america"),
+    # superlative + universal scope → category noun
+    ("what is the tallest mountain in the world",      "mountain"),
+    # how-many countries → container
+    ("how many countries are in europe",               "europe"),
+    ("how many countries are in africa",               "africa"),
+])
+def test_batch98_subject_extraction(question, expected):
+    """Batch 98: geography — capital/population/language, where-is, country-in, superlative-in-location."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # basic concepts
+    ("what is the internet",                           "internet"),
+    ("what is artificial intelligence",                "artificial intelligence"),
+    ("what is machine learning",                       "machine learning"),
+    ("what is blockchain",                             "blockchain"),
+    ("what is an algorithm",                           "algorithm"),
+    # "how does X work" → X
+    ("how does wifi work",                             "wifi"),
+    ("how does encryption work",                       "encryption"),
+    ("how does a computer processor work",             "computer processor"),
+    # difference-between
+    ("what is the difference between ram and rom",     "ram and rom"),
+    ("what is the difference between http and https",  "http and https"),
+    # "is used for PURPOSE" → PURPOSE (copula required)
+    ("what programming language is used for web development",   "web development"),
+    ("what programming language is used for data science",      "data science"),
+    ("what programming language is used for machine learning",  "machine learning"),
+    # "X used for" (no copula) → X
+    ("what is python used for",                        "python"),
+    ("what is sql used for",                           "sql"),
+    # leading-verb strip → topic
+    ("who invented the internet",                      "internet"),
+    ("who invented the telephone",                     "telephone"),
+    # types scaffold
+    ("what are the types of networks",                 "networks"),
+    ("what are the types of programming languages",    "programming languages"),
+    # how-do-you install
+    ("how do you install python",                      "python"),
+])
+def test_batch99_subject_extraction(question, expected):
+    """Batch 99: technology — concepts, used-for purpose, invented, types, install."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
