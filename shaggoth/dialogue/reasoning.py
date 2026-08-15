@@ -393,7 +393,9 @@ def subject_of(question: str) -> str:
         r"overview|summary|summaries|introduction|definition|explanation|description|"
         # Medical/descriptive noun scaffolding: "what are the symptoms of X" → "X"
         r"symptoms?|signs?|benefits?|causes?|effects?|features?|"
-        r"properties|characteristics|risks?|advantages?|disadvantages?|uses?)"
+        r"properties|characteristics|risks?|advantages?|disadvantages?|uses?|"
+        # Plural only: singular "law of X", "rule of X", "principle of X" etc. may be topic titles
+        r"laws|rules|principles|theories|concepts|aspects|applications|facts)"
         r"\s+of\s+", "", text, flags=re.I
     )
     # When scaffold strip fired, trailing "on/in <context>" is scaffolding too:

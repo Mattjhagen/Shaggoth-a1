@@ -2490,3 +2490,30 @@ def test_batch46_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "laws/principles/theories of X" → X  (plural scaffold nouns added)
+    ("what are the laws of thermodynamics",                "thermodynamics"),
+    ("what are the laws of motion",                        "motion"),
+    ("what are the principles of thermodynamics",          "thermodynamics"),
+    ("what are the principles of evolution",               "evolution"),
+    # "what is the composition/structure/formula of X" → X
+    ("what is the composition of the atmosphere",          "atmosphere"),
+    ("what is the structure of dna",                       "dna"),
+    ("what is the formula for water",                      "water"),
+    # "what is the impact of X on Y" → X  (causal-noun strip fires on "impact")
+    ("what is the impact of climate change on biodiversity", "climate change"),
+    ("what is the impact of exercise on mental health",    "exercise"),
+    # "what is the process/mechanism of X" → X
+    ("what is the process of photosynthesis",              "photosynthesis"),
+    ("what is the mechanism of natural selection",         "natural selection"),
+    # regression guard: singular "law of X" must NOT be scaffold-stripped
+    ("what is the law of conservation of energy",         "law of conservation of energy"),
+])
+def test_batch47_subject_extraction(question, expected):
+    """Batch 47: plural scaffold nouns (laws/principles/theories/etc); singular law guard."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
