@@ -1254,7 +1254,17 @@ def subject_of(question: str) -> str:
     # Guard: don't strip when in title-attribution context (e.g. "kill a mockingbird" should stay intact)
     _before_an_strip = text
     if not (_title_attr_ctx and len(text.split()) >= 3):
-        text = re.sub(r"\s+(?:a|an)\s+\w+\s*$", "", text, flags=re.I)
+        # Preserve "X of a SHAPE" for known geometric/mathematical shapes so that
+        # "area of a circle" → "area of a circle" (not "area") while still stripping
+        # generic qualifiers like "pluto a planet" → "pluto", "gdp of a country" → "gdp".
+        _m_geo_shape = re.search(
+            r"\bof\s+(?:a|an)\s+"
+            r"(?:circle|triangle|sphere|square|rectangle|cylinder|cone|cube|"
+            r"polygon|ellipse|hexagon|pentagon|octagon|pyramid|prism)\s*$",
+            text, re.I,
+        )
+        if not _m_geo_shape:
+            text = re.sub(r"\s+(?:a|an)\s+\w+\s*$", "", text, flags=re.I)
     if re.search(r"\s+and\s*$", text, re.I):
         text = _before_an_strip
     # "water a good solvent" (after "what makes water" QW strip) → "water"

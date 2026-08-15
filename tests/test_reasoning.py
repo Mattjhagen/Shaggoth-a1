@@ -4261,11 +4261,11 @@ def test_batch95_subject_extraction(question, expected):
     ("what is the square root of 2",                   "2"),
     # factorial — numeric quantifier strips "5"; "factorial" is the concept returned
     ("what is 5 factorial",                            "factorial"),
-    # "how do you calculate X" → X (the property)
-    ("how do you calculate the area of a circle",      "area"),
-    ("how do you calculate the volume of a sphere",    "volume"),
+    # "how do you calculate X" → X (the property, including shape qualifier)
+    ("how do you calculate the area of a circle",      "area of a circle"),
+    ("how do you calculate the volume of a sphere",    "volume of a sphere"),
     # formula causal noun
-    ("what is the formula for the area of a circle",   "area"),
+    ("what is the formula for the area of a circle",   "area of a circle"),
     ("what is the formula for compound interest",      "compound interest"),
     # difference-between → "X and Y"
     ("what is the difference between mean and median", "mean and median"),
@@ -4879,12 +4879,12 @@ def test_batch111_subject_extraction(question, expected):
     # "how fast does X travel" — trailing verb strip
     ("how fast does light travel",                       "light"),
     # "what is the formula for X" — formula property noun strips
-    ("what is the formula for the area of a circle",     "area"),
+    ("what is the formula for the area of a circle",     "area of a circle"),
     ("what is the formula for velocity",                 "velocity"),
     # "what does X mean" — trailing "mean" stripped
     ("what does e equals mc squared mean",               "e equals mc squared"),
     # "how do you calculate X" — area property noun strips
-    ("how do you calculate the area of a triangle",      "area"),
+    ("how do you calculate the area of a triangle",      "area of a triangle"),
     ("how do you calculate velocity",                    "velocity"),
     # difference
     ("what is the difference between mass and weight",   "mass and weight"),
@@ -5617,9 +5617,9 @@ def test_batch129_subject_extraction(question, expected):
     # "what is X formula/sequence"
     ("what is the quadratic formula",                       "quadratic formula"),
     ("what is the fibonacci sequence",                      "fibonacci sequence"),
-    # "how do you calculate the PROP of a SHAPE" → PROP (causal-noun strip fires first)
-    ("how do you calculate the area of a circle",           "area"),
-    ("how do you calculate the volume of a sphere",         "volume"),
+    # "how do you calculate the PROP of a SHAPE" → PROP of a SHAPE (geometry qualifier preserved)
+    ("how do you calculate the area of a circle",           "area of a circle"),
+    ("how do you calculate the volume of a sphere",         "volume of a sphere"),
     ("how do you calculate percentage",                     "percentage"),
     # "what is the square root of X" → X
     ("what is the square root of 144",                      "144"),
@@ -6228,9 +6228,9 @@ def test_batch147_subject_extraction(question, expected):
     ("what is the square root of 144",                     "144"),
     ("what is the derivative of x squared",                "x squared"),
     ("how do you solve a quadratic equation",              "quadratic equation"),
-    ("how do you find the area of a circle",               "area"),
+    ("how do you find the area of a circle",               "area of a circle"),
     ("what does infinity mean in math",                    "infinity"),
-    ("what is the formula for the area of a circle",       "area"),
+    ("what is the formula for the area of a circle",       "area of a circle"),
     ("who invented calculus",                              "calculus"),
     ("what is a vector in mathematics",                    "vector"),
     ("how many prime numbers are there",                   "prime numbers"),
@@ -6680,6 +6680,49 @@ def test_batch158_subject_extraction(question, expected):
 ])
 def test_batch159_subject_extraction(question, expected):
     """Batch 159: geography — capitals, borders, population, continent, distance."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is the pythagorean theorem",                        "pythagorean theorem"),
+    ("what is a prime number",                                 "prime number"),
+    ("what is calculus",                                       "calculus"),
+    ("what is the fibonacci sequence",                         "fibonacci sequence"),
+    # "how do you calculate X of a SHAPE" → X of a SHAPE (geometry qualifier preserved)
+    ("how do you calculate the area of a circle",              "area of a circle"),
+    ("how do you calculate compound interest",                 "compound interest"),
+    # "what is the formula for X" → X of a SHAPE preserved
+    ("what is the formula for the area of a triangle",         "area of a triangle"),
+    # "what is X in math" → X
+    ("what is a derivative in math",                           "derivative"),
+    ("what is an integral in math",                            "integral"),
+    # "how do you find X" → X
+    ("how do you find the square root of a number",            "square root"),
+    # "what does X mean in math" → X
+    ("what does pi mean in math",                              "pi"),
+    # "what is the value of X" → X
+    ("what is the value of pi",                                "pi"),
+    # "what is X used for" → X
+    ("what is algebra used for",                               "algebra"),
+    ("what is statistics used for",                            "statistics"),
+    # "how many degrees are in X" → X
+    ("how many degrees are in a circle",                       "circle"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between mean and median",         "mean and median"),
+    # "how do you solve X" → X
+    ("how do you solve a quadratic equation",                  "quadratic equation"),
+    # "what is X" → X (more math concepts)
+    ("what is a vector",                                       "vector"),
+    ("what is probability",                                    "probability"),
+    # "what are X" → X (plurals)
+    ("what are irrational numbers",                            "irrational numbers"),
+])
+def test_batch160_subject_extraction(question, expected):
+    """Batch 160: mathematics — theorems, formulas, geometry, concepts."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
