@@ -12462,3 +12462,63 @@ def test_batch342_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a stock market",                                   "stock market"),
+    ("what is a bull market",                                    "bull market"),
+    ("what is a bear market",                                    "bear market"),
+    ("what is a labor market",                                   "labor market"),
+    ("what is free trade",                                       "free trade"),
+    ("what is fair trade",                                       "fair trade"),
+    ("what is a trade war",                                      "trade war"),
+    ("what is an interest rate",                                 "interest rate"),
+    ("what is an exchange rate",                                 "exchange rate"),
+    ("what is an inflation rate",                                "inflation rate"),
+    ("what is a consumer price index",                           "consumer price index"),
+    ("what is a stock index",                                    "stock index"),
+    ("what is a bond yield",                                     "bond yield"),
+    ("what is a dividend yield",                                 "dividend yield"),
+    ("what is financial leverage",                               "financial leverage"),
+    ("what is a housing bubble",                                 "housing bubble"),
+    ("what is a stock bubble",                                   "stock bubble"),
+    ("what is a market crash",                                   "market crash"),
+    ("what is a stock crash",                                    "stock crash"),
+    ("what is a business cycle",                                 "business cycle"),
+])
+def test_batch343_subject_extraction(question, expected):
+    """Batch 343: economic/finance compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is game theory",                                      "game theory"),
+    ("what is string theory",                                    "string theory"),
+    ("what is chaos theory",                                     "chaos theory"),
+    ("what is conspiracy theory",                                "conspiracy theory"),
+    ("what is the uncertainty principle",                        "uncertainty principle"),
+    ("what is the peter principle",                              "peter principle"),
+    ("what is the pleasure principle",                           "pleasure principle"),
+    ("what is murphy's law",                                     "murphy's law"),
+    ("what is newton's law",                                     "newton's law"),
+    ("what is the fermi paradox",                                "fermi paradox"),
+    ("what is the twin paradox",                                 "twin paradox"),
+    ("what is the prisoner's dilemma",                           "prisoner's dilemma"),
+    ("what is the straw man fallacy",                            "straw man fallacy"),
+    ("what is the slippery slope fallacy",                       "slippery slope fallacy"),
+    ("what is the null hypothesis",                              "null hypothesis"),
+    ("what is the simulation hypothesis",                        "simulation hypothesis"),
+    ("what is the butterfly effect",                             "butterfly effect"),
+    ("what is the placebo effect",                               "placebo effect"),
+    ("what is confirmation bias",                                "confirmation bias"),
+    ("what is survivorship bias",                                "survivorship bias"),
+])
+def test_batch344_subject_extraction(question, expected):
+    """Batch 344: philosophy/abstract compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
