@@ -296,3 +296,68 @@ def test_conn_closes_connection_on_exception(scraper):
         pass
     with pytest.raises(sqlite3.ProgrammingError):
         conn.execute("SELECT 1")
+
+
+# ---------------------------------------------------------------------------
+# _html_to_text: paragraph preservation
+# ---------------------------------------------------------------------------
+
+
+def test_html_to_text_preserves_paragraph_breaks():
+    """Block elements must become newlines; previously _clean_text collapsed them."""
+    from shaggoth.scraper.engine import _html_to_text
+
+    html = "<p>First paragraph.</p><p>Second paragraph.</p>"
+    text = _html_to_text(html)
+    assert "\n" in text, "newlines must survive from <p> tags"
+    assert "First paragraph" in text
+    assert "Second paragraph" in text
+
+
+def test_html_to_text_closing_block_tags_become_newlines():
+    """</p>, </div> must also produce newlines (previously they became spaces)."""
+    from shaggoth.scraper.engine import _html_to_text
+
+    html = "<div>Alpha</div><div>Beta</div>"
+    text = _html_to_text(html)
+    assert "\n" in text
+    assert "Alpha" in text
+    assert "Beta" in text
+
+
+def test_html_to_text_strips_scripts_and_styles():
+    from shaggoth.scraper.engine import _html_to_text
+
+    html = "<script>alert('x')</script><style>.a{color:red}</style><p>Keep this.</p>"
+    text = _html_to_text(html)
+    assert "alert" not in text
+    assert "color" not in text
+    assert "Keep this" in text
+
+
+# ---------------------------------------------------------------------------
+# _extract_meta_charset
+# ---------------------------------------------------------------------------
+
+
+def test_extract_meta_charset_finds_charset_attribute():
+    from shaggoth.scraper.engine import _extract_meta_charset
+
+    html = '<html><head><meta charset="windows-1252"></head><body></body></html>'
+    assert _extract_meta_charset(html) == "windows-1252"
+
+
+def test_extract_meta_charset_case_insensitive():
+    from shaggoth.scraper.engine import _extract_meta_charset
+
+    html = '<META CHARSET="ISO-8859-1">'
+    result = _extract_meta_charset(html)
+    assert result is not None
+    assert result.upper() == "ISO-8859-1"
+
+
+def test_extract_meta_charset_returns_none_when_absent():
+    from shaggoth.scraper.engine import _extract_meta_charset
+
+    assert _extract_meta_charset("<html><head></head></html>") is None
+    assert _extract_meta_charset("") is None

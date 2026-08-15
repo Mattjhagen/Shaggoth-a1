@@ -878,7 +878,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 link_note = ""
                 url_in_message = extract_url(message)
                 if url_in_message:
-                    page = learner.scraper.fetch_page(url_in_message)
+                    try:
+                        page = learner.scraper.fetch_page(url_in_message)
+                    except Exception:
+                        page = None
                     if page and page.word_count:
                         title = clean_page_title(page.title) or url_in_message
                         engine.knowledge.add_entry(title, page.text)
@@ -925,7 +928,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 link_note = ""
                 url_in_message = extract_url(message)
                 if url_in_message and learner:
-                    page = learner.scraper.fetch_page(url_in_message)
+                    try:
+                        page = learner.scraper.fetch_page(url_in_message)
+                    except Exception:
+                        page = None
                     if page and page.word_count:
                         title = clean_page_title(page.title) or url_in_message
                         engine.knowledge.add_entry(title, page.text)
@@ -970,6 +976,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 meta = asdict(reply)
                 meta["reply"] = meta.pop("text")
                 self.wfile.write(f"data: {json.dumps({'done': True, **meta})}\n\n".encode())
+                self.wfile.flush()
                 return
 
             if path == "/guardrails/rules":
@@ -1062,6 +1069,8 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 body = self._read_json()
                 subscription = body.get("subscription") or body
                 session_id = body.get("session_id") or "default"
+                if not isinstance(subscription, dict):
+                    return self._send_json(400, {"error": "invalid subscription format"})
                 subscription["session_id"] = session_id
                 if not push.store.add(subscription):
                     return self._send_json(400, {"error": "invalid subscription"})
@@ -1219,7 +1228,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 topic = (body.get("topic") or "").strip()
                 if not topic:
                     return self._send_json(400, {"error": "topic is required"})
-                max_articles = body.get("max_articles", 3)
+                try:
+                    max_articles = max(1, min(int(body.get("max_articles", 3)), 20))
+                except (ValueError, TypeError):
+                    return self._send_json(400, {"error": "max_articles must be an integer"})
                 result = curiosity.ingest_wikipedia(topic, max_articles=max_articles)
                 return self._send_json(201, {"ok": True, "topic": topic, **result})
 
@@ -1227,7 +1239,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if not curiosity:
                     return self._send_json(501, {"error": "curiosity engine not initialized"})
                 body = self._read_json()
-                max_topics = body.get("max_topics", 3)
+                try:
+                    max_topics = max(1, min(int(body.get("max_topics", 3)), 20))
+                except (ValueError, TypeError):
+                    return self._send_json(400, {"error": "max_topics must be an integer"})
                 result = curiosity.refresh_stale(max_topics=max_topics)
                 return self._send_json(200, result)
 
@@ -1334,7 +1349,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
     return Handler
 
 
-def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api_key: str = "") -> None:
+def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api_key: str = API_KEY) -> None:
     learner = LearnerPipeline()
     curiosity = CuriosityEngine(knowledge=engine.knowledge, scraper=learner.scraper)
     # Share with builtin plugins so research triggered by the curiosity plugin

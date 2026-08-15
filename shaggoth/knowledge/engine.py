@@ -113,6 +113,7 @@ class KnowledgeBase:
         self._scan()
 
     def _scan(self) -> None:
+        scan_start = time.time()
         entries: list[KnowledgeEntry] = []
         # Every path this scan *considered*, including files skipped for being
         # empty. maybe_reload() compares against this, so it has to record what
@@ -170,7 +171,7 @@ class KnowledgeBase:
             self._entries = entries
             self._index = index
             self._known_paths = seen
-        self._last_scan = time.time()
+        self._last_scan = scan_start
 
     def _snapshot(self) -> tuple[list[KnowledgeEntry], dict[str, list[int]]]:
         """The current entries and index as a matched pair."""
@@ -285,7 +286,7 @@ class KnowledgeBase:
             return []
 
         total = len(entries)
-        avg_len = sum(e.word_count for e in entries) / total or 1.0
+        avg_len = sum(e.word_count for e in entries) / (total or 1)
 
         # Only documents containing at least one query term can score.
         candidates: set[int] = set()
@@ -317,6 +318,10 @@ class KnowledgeBase:
             return []
 
         results: list[tuple[KnowledgeEntry, float]] = []
+        # Track structural penalty per entry so the reranker can apply it to
+        # the chunk_rel component too -- otherwise a high-density disambiguation
+        # page can claw back its penalty through the unpenalized chunk score.
+        penalties: dict[str, float] = {}
         for idx in candidates:
             entry = entries[idx]
             # Term frequencies from the pre-extracted keyword list.
@@ -339,29 +344,37 @@ class KnowledgeBase:
             if overlap:
                 # Scale with how much of the query the title accounts for, so
                 # an exact title match dominates a single incidental word.
-                score += self._TITLE_BOOST * (overlap / len(query_words))
+                title_add = self._TITLE_BOOST * (overlap / len(query_words))
 
                 # Dilute by the qualifiers the query never mentioned, then
                 # reward a title with none left over. "Evolution" beats
                 # "Evolution Sabrina Carpenter Album" for the query
                 # "evolution"; asking about the album still surfaces it,
                 # because then those words are in the query too.
+                # Clamped to 0 so a long title never pushes an otherwise
+                # matching entry below zero and drops it from results.
                 leftover = len(self._topic_tokens(entry) - query_words)
                 if leftover:
-                    score -= self._TITLE_BOOST * (
+                    title_sub = self._TITLE_BOOST * (
                         leftover / (leftover + overlap)
                     ) * 0.5
+                    score += max(0.0, title_add - title_sub)
                 else:
-                    score += self._EXACT_TITLE_BOOST
+                    score += title_add + self._EXACT_TITLE_BOOST
 
+            penalty = 1.0
             if _DISAMBIGUATION_TOPIC.search(entry.topic):
                 score *= self._DISAMBIGUATION_PENALTY
+                penalty *= self._DISAMBIGUATION_PENALTY
 
             if _CHUNK_SUFFIX.search(entry.topic):
                 score *= self._CHUNK_PENALTY
+                penalty *= self._CHUNK_PENALTY
 
             if score > 0:
                 results.append((entry, score))
+                if penalty != 1.0:
+                    penalties[entry.topic] = penalty
 
         if not results:
             return []
@@ -372,6 +385,12 @@ class KnowledgeBase:
         for entry, bm25_raw in results:
             bm25_norm = bm25_raw / best_bm25
             chunk_rel = self._chunk_relevance(entry, query_words)
+            # Apply structural penalties to chunk_rel so a disambiguation page
+            # with dense, high-relevance content cannot recover the penalty
+            # it already received on the BM25 side through an unpenalized
+            # chunk_rel contribution.
+            if entry.topic in penalties:
+                chunk_rel *= penalties[entry.topic]
             combined = (
                 self._RERANK_BM25_WEIGHT * bm25_norm
                 + self._RERANK_CHUNK_WEIGHT * chunk_rel

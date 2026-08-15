@@ -106,6 +106,12 @@ def _clean_text(text: str) -> str:
     return text.strip()
 
 
+def _extract_meta_charset(html: str) -> str | None:
+    """Parse charset from an HTML <meta> tag; returns None if absent."""
+    m = re.search(r'<meta[^>]+charset=["\']?([^"\'>\s;]+)', html, re.IGNORECASE)
+    return m.group(1).strip().strip("\"'") if m else None
+
+
 def _html_to_text(html: str) -> str:
     """Extract visible text from HTML using regex. Robust against complex pages."""
     # Remove script, style, noscript blocks entirely
@@ -113,12 +119,18 @@ def _html_to_text(html: str) -> str:
     html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
     html = re.sub(r"<noscript[^>]*>.*?</noscript>", "", html, flags=re.DOTALL | re.IGNORECASE)
     html = re.sub(r"<!--.*?-->", "", html, flags=re.DOTALL)
-    # Replace block elements with newlines for paragraph breaks
-    html = re.sub(r"<(?:br|hr|p|div|h[1-6]|li|tr|blockquote)[^>]*>", "\n", html, flags=re.IGNORECASE)
+    # Replace block-level elements (opening AND closing) with newlines so that
+    # paragraph structure survives into the extracted text.
+    html = re.sub(r"</?(?:br|hr|p|div|h[1-6]|li|tr|blockquote)[^>]*>", "\n", html, flags=re.IGNORECASE)
     # Strip all remaining tags
     text = re.sub(r"<[^>]+>", " ", html)
     text = html_mod.unescape(text)
-    return _clean_text(text)
+    # Strip control characters and collapse horizontal whitespace, but preserve
+    # newlines so paragraph breaks remain in the corpus.
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
+    text = re.sub(r"[^\S\n]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 def _extract_title(html: str) -> str:
@@ -392,6 +404,17 @@ class ScraperEngine:
                     charset = "utf-8"
                 if media_type in ("text/html", "application/xhtml+xml"):
                     html = raw.decode(charset, errors="replace")
+                    # Honour <meta charset> when the HTTP header omitted it or
+                    # named a different codec -- common on older CMS platforms.
+                    meta_charset = _extract_meta_charset(html[:2048])
+                    if meta_charset:
+                        norm = lambda c: c.lower().replace("-", "")
+                        if norm(meta_charset) != norm(charset):
+                            try:
+                                "".encode(meta_charset)
+                                html = raw.decode(meta_charset, errors="replace")
+                            except LookupError:
+                                pass
                     title = _extract_title(html)
                     text = _html_to_text(html)
                 else:

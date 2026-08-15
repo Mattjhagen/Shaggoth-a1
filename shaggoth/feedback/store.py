@@ -23,6 +23,8 @@ getting attention instead of being permanently "done".
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import threading
 import time
 from dataclasses import asdict, dataclass, field
@@ -127,16 +129,27 @@ class FeedbackStore:
     def _save(self) -> None:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(
+            payload = (
                 json.dumps(
                     {
                         "feedback": [asdict(i) for i in self._items],
                         "repaired": self._repaired,
                     },
                     indent=2,
-                ) + "\n",
-                encoding="utf-8",
+                )
+                + "\n"
             )
+            fd, tmp = tempfile.mkstemp(dir=self.path.parent, prefix=".feedback-")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    fh.write(payload)
+                os.replace(tmp, self.path)
+            except Exception:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+                raise
         except OSError:
             pass
 

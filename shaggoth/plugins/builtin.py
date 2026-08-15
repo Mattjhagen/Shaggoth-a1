@@ -12,7 +12,7 @@ from datetime import datetime
 
 from . import PluginRegistry
 
-_MATH_RE = re.compile(r"^\s*(?:what(?:'s| is)\s+)?([\d\s+\-*/().%]+)\s*\??\s*$")
+_MATH_RE = re.compile(r"^\s*(?:what(?:'s| is)\s+)?([\d\s+\-*/().%]+)\s*\??\s*$", re.IGNORECASE)
 
 # Injected by server.py serve() so the curiosity plugin uses the shared engine
 # and fires the same deferred-answer and Slack callbacks as server-side research.
@@ -86,7 +86,9 @@ def build_registry() -> PluginRegistry:
             return None
         try:
             result = _safe_eval(expr)
-        except (ValueError, SyntaxError, ZeroDivisionError):
+        except ZeroDivisionError:
+            return "That's a division by zero — I can't compute that."
+        except (ValueError, SyntaxError):
             return None
         pretty = int(result) if isinstance(result, float) and result.is_integer() else result
         return f"{expr} = {pretty}"
@@ -154,6 +156,8 @@ def build_registry() -> PluginRegistry:
             topic = match.group(1).strip()
             engine = _curiosity_engine or CuriosityEngine()
             episode = engine.research_topic(topic, background=True)
+            if episode is None:
+                return f"I couldn't start research on \"{topic}\" right now."
             return f"I'm researching \"{topic}\" now — I'll let you know when I find something. (episode {episode.episode_id})"
         return None
 

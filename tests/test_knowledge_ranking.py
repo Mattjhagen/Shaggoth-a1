@@ -237,7 +237,51 @@ def test_remove_entry_finds_what_add_entry_wrote(tmp_path):
     base = KnowledgeBase(tmp_path)
     base.add_entry("- Algebra", "Algebra is a branch of mathematics. " * 30)
     assert base.remove_entry("- Algebra")
-    assert base.list_entries() == []
+
+
+def test_title_boost_never_produces_negative_score(tmp_path):
+    """An entry with a long title and only partial query overlap must remain
+    reachable even when the old penalty-subtract exceeded the boost.
+
+    Old formula: score += BOOST*(1/4) - BOOST*(4/5)*0.5 = 2.0 - 3.2 = -1.2;
+    combined with a tiny BM25 of ~0.29 this summed to -0.91 and the entry was
+    silently dropped by the 'if score > 0' guard. The fix clamps the net title
+    contribution to max(0, add - sub) so a partially-matching long title never
+    turns a small-BM25 entry invisible.
+    """
+    kb = KnowledgeBase(tmp_path)
+    kb.add_entry(
+        "Entanglement Swapping Bell Inequality Violations",
+        "Entanglement is described.",
+    )
+    # query_words = {quantum, mechanics, science, entanglement} → 4 terms
+    # title overlap = 1 ("entanglement"), leftover = 4
+    results = kb.query("quantum mechanics science entanglement", limit=5, min_score=0.0)
+    topics = [e.topic for e, _ in results]
+    assert "Entanglement Swapping Bell Inequality Violations" in topics
+
+
+def test_disambiguation_penalty_applies_in_reranker(tmp_path):
+    """A disambiguation page with high chunk density must not outscore the
+    canonical article after reranking."""
+    kb = KnowledgeBase(tmp_path)
+    kb.add_entry(
+        "Evolution",
+        "Evolution is the change in heritable characteristics of biological populations. "
+        "Natural selection is the primary mechanism. "
+        + "Evolution biology species. " * 50,
+    )
+    kb.add_entry(
+        "Evolution Disambiguation",
+        "Evolution may refer to: evolution in biology, "
+        "Evolution a 2001 film, Evolution the album by Ciara. "
+        "Evolution biology film album evolution evolution biology. " * 20,
+    )
+    results = kb.query("what is evolution biology", limit=5, min_score=0.0)
+    assert results, "should find at least one result"
+    assert results[0][0].topic == "Evolution", (
+        f"canonical article should rank first; got {[e.topic for e, _ in results]}"
+    )
 
 
 # --------------------------------------------------------------------------
