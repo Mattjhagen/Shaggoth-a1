@@ -351,6 +351,14 @@ def subject_of(question: str) -> str:
         r"affect(?:ed|s)?|determine[sd]?|produce[sd]?|control[sd]?|influence[sd]?|allow[sd]?)\s+",
         "", text, flags=re.I,
     )
+    # "who sang yesterday by the beatles" → after verb strip → "yesterday by the beatles"
+    # → strip trailing "by ARTIST" → "yesterday"
+    # Only fire when the original was a title-attribution question (wrote/sang/directed/etc.)
+    if re.search(
+        r"\b(?:wrote?|written|directed?|composed?|painted?|sang|authored?|filmed?)\b",
+        _original, re.I,
+    ):
+        text = re.sub(r"\s+by\s+(?:the\s+)?(?:\w+(?:\s+\w+){0,3})\s*$", "", text, flags=re.I)
     # "who was the first person to walk on the moon" → after QW strip:
     # "the first person to walk on the moon" → strip "the first NOUN to VERB [prep] [the]" → "moon"
     # "who was the first woman to win the nobel prize" → "nobel prize"

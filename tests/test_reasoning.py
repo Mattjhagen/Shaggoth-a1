@@ -5678,3 +5678,43 @@ def test_batch132_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # genres
+    ("what is jazz",                                        "jazz"),
+    ("what is hip hop",                                     "hip hop"),
+    ("what is classical music",                             "classical music"),
+    # music theory terms
+    ("what is a chord",                                     "chord"),
+    ("what is tempo",                                       "tempo"),
+    ("what is a symphony",                                  "symphony"),
+    # "who sang X" — trailing "by ARTIST" stripped
+    ("who sang bohemian rhapsody",                          "bohemian rhapsody"),
+    ("who sang imagine",                                    "imagine"),
+    ("who sang billie jean",                                "billie jean"),
+    ("who wrote yesterday by the beatles",                  "yesterday"),
+    # superlative
+    ("what is the most famous opera",                       "opera"),
+    # "what genre is X"
+    ("what genre is jazz",                                  "jazz"),
+    # instruments
+    ("what is a guitar",                                    "guitar"),
+    ("what is a violin",                                    "violin"),
+    ("what is a piano",                                     "piano"),
+    # "how do you play X"
+    ("how do you play guitar",                              "guitar"),
+    ("how do you play piano",                               "piano"),
+    # "what is the difference between X and Y"
+    ("what is the difference between violin and viola",     "violin and viola"),
+    # composers
+    ("who is beethoven",                                    "beethoven"),
+    ("who is bach",                                         "bach"),
+    ("who is mozart",                                       "mozart"),
+])
+def test_batch133_subject_extraction(question, expected):
+    """Batch 133: music — genres, instruments, composers, 'by ARTIST' strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
