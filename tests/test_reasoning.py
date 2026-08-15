@@ -2860,6 +2860,51 @@ def test_batch57_subject_extraction(question, expected):
 
 
 # --------------------------------------------------------------------------
+# Batch 149: astronomy / space — existential + category-superlative patterns
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is a black hole",                               "black hole"),
+    ("what is a neutron star",                             "neutron star"),
+    ("what is a supernova",                                "supernova"),
+    ("what is dark matter",                                "dark matter"),
+    ("what is dark energy",                                "dark energy"),
+    ("what is a galaxy",                                   "galaxy"),
+    ("what is the milky way",                              "milky way"),
+    ("what is the big bang",                               "big bang"),
+    ("what is a light year",                               "light year"),
+    # "how far is X from Y" → X
+    ("how far is the sun from earth",                      "sun"),
+    ("how far is the moon from earth",                     "moon"),
+    # "how big is X" → X
+    ("how big is the universe",                            "universe"),
+    ("how big is the sun",                                 "sun"),
+    # "what is the X of Y" → Y
+    ("what is the size of the universe",                   "universe"),
+    ("what is the age of the universe",                    "universe"),
+    # "how many X are there" → X
+    ("how many planets are there",                         "planets"),
+    ("how many galaxies are there",                        "galaxies"),
+    # "how long does it take to get to X" → X
+    ("how long does it take to get to mars",               "mars"),
+    # "what is the nearest X" → X
+    ("what is the nearest star to earth",                  "star"),
+    # existential: "is there NOUN on X" → X
+    ("is there life on mars",                              "mars"),
+    # category-superlative: "what CATEGORY is SUPERLATIVE" → CATEGORY
+    ("what planet is closest to the sun",                  "planet"),
+])
+def test_batch149_subject_extraction(question, expected):
+    """Batch 149: astronomy/space — existential + category-superlative patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+# --------------------------------------------------------------------------
 # Batch 58: can/would/do/does; regrow verb; category-noun strip (mammals etc)
 # --------------------------------------------------------------------------
 

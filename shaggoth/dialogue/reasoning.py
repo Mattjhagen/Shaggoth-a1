@@ -855,6 +855,24 @@ def subject_of(question: str) -> str:
     )
     if _m_media_is:
         text = _m_media_is.group(1)
+    # "what planet is closest to the sun" → "planet".
+    # After QW strips "what", "planet is closest to the sun" remains; _m_cat_is below would
+    # capture "closest to the sun" instead of the category.  Guard it: when the predicate of
+    # CATEGORY is SUPERLATIVE, return the category noun directly.
+    _m_cat_is_super = re.match(
+        r"^((?:planet|star|animal|country|city|language|sport|food|drink|"
+        r"ocean|sea|lake|river|mountain|desert|forest|island|element|metal|mineral|"
+        r"substance|species|mammal|reptile|bird|fish|insect|drug|disease|galaxy|"
+        r"rock|gem|continent|region|nationality|organism|creature)(?:\s+\w+)?)\s+"
+        r"(?:is|are|was|were)\s+(?:the\s+)?"
+        r"(?:largest?|biggest?|smallest?|tallest?|shortest?|longest?|fastest?|slowest?|"
+        r"highest?|lowest?|richest?|poorest?|hottest?|coldest?|brightest?|darkest?|"
+        r"strongest?|weakest?|closest?|nearest?|farthest?|deepest?|widest?|narrowest?|"
+        r"lightest?|heaviest?|oldest?|youngest?|newest?|most\s+\w+|least\s+\w+)\b",
+        text, re.I,
+    )
+    if _m_cat_is_super:
+        text = _m_cat_is_super.group(1)
     _m_cat_is = re.match(
         r"^(?:(?:programming|computer|natural|spoken|written|native|official|ancient|"
         r"modern|web|mobile|scripting|markup|query|functional|object|compiled|"
@@ -1193,6 +1211,15 @@ def subject_of(question: str) -> str:
     )
     if _m_prop_on:
         text = _m_prop_on.group(1)
+    # "there life on mars" (from "is there life on mars") → "mars".
+    # The bare modal strip removes "is " leaving "there life on mars"; catch it before
+    # the trailing "on X" strip would eat " on mars" and leave "there life".
+    _m_existential = re.match(
+        r"^there\s+\w+(?:\s+\w+)?\s+(?:on|in)\s+(?:the\s+)?(.+)$",
+        text, re.I,
+    )
+    if _m_existential:
+        text = _m_existential.group(1)
     # "X on <modifier>" → X  (e.g. "effect of gravity on time" → "gravity")
     # Only strip trailing "on <1-3 words>" — not "on" inside a topic name.
     text = re.sub(r"\s+on\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
