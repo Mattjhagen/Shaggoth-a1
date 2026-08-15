@@ -1827,3 +1827,45 @@ def test_batch28_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Historical / social science
+    ("what caused the french revolution",           "french revolution"),
+    ("what caused world war 2",                     "world war 2"),
+    ("who invented the telephone",                  "telephone"),
+    ("who discovered penicillin",                   "penicillin"),
+    ("when did the roman empire fall",              "roman empire"),
+    ("when did the cold war end",                   "cold war"),
+    ("what is the theory of relativity",            "theory of relativity"),
+    ("what is the big bang theory",                 "big bang theory"),
+    # Environment / geography
+    ("what is climate change",                      "climate change"),
+    ("what is global warming",                      "global warming"),
+    ("why is the amazon rainforest important",      "amazon rainforest"),
+    ("what is the greenhouse effect",               "greenhouse effect"),
+    ("why do volcanoes erupt",                      "volcanoes"),
+    ("how do earthquakes happen",                   "earthquakes"),
+    ("how do tsunamis form",                        "tsunamis"),
+    # Health / medicine
+    ("what is diabetes",                            "diabetes"),
+    ("what is alzheimer's disease",                 "alzheimer's disease"),
+    ("how does cancer spread",                      "cancer"),
+    ("what is a virus",                             "virus"),
+    ("how do vaccines work",                        "vaccines"),
+    # Mathematics / logic
+    ("what is the pythagorean theorem",             "pythagorean theorem"),
+    ("what is calculus",                            "calculus"),
+    ("what is the fibonacci sequence",              "fibonacci sequence"),
+    # Language / cognition
+    ("how does the brain process language",         "brain"),
+    ("what is consciousness",                       "consciousness"),
+    ("how do we form memories",                     "memories"),
+    ("how does sleep affect memory",                "sleep"),
+])
+def test_batch29_subject_extraction(question, expected):
+    """Batch 29: history, environment, health, maths, cognition patterns; end[s]? verb."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
