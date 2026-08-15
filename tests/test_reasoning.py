@@ -10260,3 +10260,33 @@ def test_batch268_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a rule of thumb",                                  "rule of thumb"),
+    ("what is a catch 22",                                       "catch 22"),
+    ("what is a red herring",                                    "red herring"),
+    ("what is a scapegoat",                                      "scapegoat"),
+    ("what is a straw man argument",                             "straw man argument"),
+    ("what is an ad hominem",                                    "ad hominem"),
+    ("what is a slippery slope",                                 "slippery slope"),
+    ("what is cognitive dissonance",                             "cognitive dissonance"),
+    ("what is a false dichotomy",                                "false dichotomy"),
+    ("what is confirmation bias",                                "confirmation bias"),
+    ("what is a self fulfilling prophecy",                       "self fulfilling prophecy"),
+    ("what is the dunning kruger effect",                        "dunning kruger effect"),
+    ("what is the bystander effect",                             "bystander effect"),
+    ("what is the streisand effect",                             "streisand effect"),
+    ("what is a paradigm shift",                                 "paradigm shift"),
+    ("what is occam's razor",                                    "occam's razor"),
+    ("what is a double bind",                                    "double bind"),
+    ("what is quid pro quo",                                     "quid pro quo"),
+    ("what is a zero sum game",                                  "zero sum game"),
+    ("what is a catch all term",                                 "catch all term"),
+])
+def test_batch269_subject_extraction(question, expected):
+    """Batch 269: idioms/fixed expressions — tricky English phrases and compound nouns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
