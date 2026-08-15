@@ -13293,3 +13293,78 @@ def test_batch366_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "difference between" pattern
+    ("what is the difference between a virus and a bacteria",    "virus and bacteria"),
+    ("what is the difference between dna and rna",               "dna and rna"),
+    ("what is the difference between tcp and udp",               "tcp and udp"),
+    ("what is the difference between a republic and a democracy","republic and democracy"),
+    # "vs" form
+    ("what is dna vs rna",                                       "dna vs rna"),
+    # "not" form — subject still extracted cleanly
+    ("what is not a planet",                                     "planet"),
+    # "how long does X take" → X
+    ("how long does photosynthesis take",                        "photosynthesis"),
+    ("how long does digestion take",                             "digestion"),
+    # "how far" → subject
+    ("how far is the moon",                                      "moon"),
+    ("how far is mars from earth",                               "mars"),
+    # "how tall" → subject
+    ("how tall is mount everest",                                "mount everest"),
+    ("how tall is the eiffel tower",                             "eiffel tower"),
+    # "how deep" → subject
+    ("how deep is the ocean",                                    "ocean"),
+    ("how deep is the mariana trench",                           "mariana trench"),
+    # "how fast" → subject
+    ("how fast does light travel",                               "light"),
+    ("how fast is a cheetah",                                    "cheetah"),
+    # "how many X does Y have" → Y (entity with the property)
+    ("how many chromosomes does a human have",                   "human"),
+    # "how many X are in Y" → Y (the container)
+    ("how many planets are in the solar system",                 "solar system"),
+])
+def test_batch367_subject_extraction(question, expected):
+    """Batch 367: comparison/intensifier/how-many question forms — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # elements
+    ("what is hydrogen",                                         "hydrogen"),
+    ("what is oxygen",                                           "oxygen"),
+    ("what is carbon",                                           "carbon"),
+    ("what is nitrogen",                                         "nitrogen"),
+    ("what is helium",                                           "helium"),
+    ("what is uranium",                                          "uranium"),
+    # particles
+    ("what is a molecule",                                       "molecule"),
+    ("what is an atom",                                          "atom"),
+    ("what is a photon",                                         "photon"),
+    ("what is an electron",                                      "electron"),
+    ("what is a neutron",                                        "neutron"),
+    ("what is a proton",                                         "proton"),
+    # units
+    ("what is a kilowatt hour",                                  "kilowatt hour"),
+    ("what is a decibel",                                        "decibel"),
+    ("what is a hertz",                                          "hertz"),
+    ("what is a joule",                                          "joule"),
+    ("what is a watt",                                           "watt"),
+    ("what is a pascal",                                         "pascal"),
+    # physics concepts
+    ("what is entropy",                                          "entropy"),
+    ("what is momentum",                                         "momentum"),
+    ("what is kinetic energy",                                   "kinetic energy"),
+    ("what is potential energy",                                 "potential energy"),
+    ("what is electromagnetic radiation",                        "electromagnetic radiation"),
+])
+def test_batch368_subject_extraction(question, expected):
+    """Batch 368: chemistry/physics concepts and unit names — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
