@@ -15,6 +15,7 @@ dropped when the push service says it is gone.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tempfile
 import threading
@@ -24,6 +25,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from ..config import CONFIG_DIR, DATA_DIR
+
+log = logging.getLogger(__name__)
 
 VAPID_PATH = CONFIG_DIR / "vapid.json"
 SUBSCRIPTIONS_PATH = DATA_DIR / "push_subscriptions.json"
@@ -239,14 +242,18 @@ class PushSender:
             return
         if not self._semaphore.acquire(blocking=False):
             return
-        payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
-        thread = threading.Thread(
-            target=self._guarded_send_all,
-            args=(payload, respect_rate_limit),
-            name="shaggoth-push",
-            daemon=True,
-        )
-        thread.start()
+        try:
+            payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
+            thread = threading.Thread(
+                target=self._guarded_send_all,
+                args=(payload, respect_rate_limit),
+                name="shaggoth-push",
+                daemon=True,
+            )
+            thread.start()
+        except Exception as exc:  # json/Thread/start failure before guarded wrapper runs
+            self._semaphore.release()
+            log.warning("[push] dispatch failed: %s", exc)
 
     def notify_session(self, session_id: str, title: str, body: str, url: str = "/",
                        tag: str = "shaggoth", respect_rate_limit: bool = True) -> None:
@@ -255,14 +262,18 @@ class PushSender:
             return
         if not self._semaphore.acquire(blocking=False):
             return
-        payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
-        thread = threading.Thread(
-            target=self._guarded_send_to_session,
-            args=(session_id, payload, respect_rate_limit),
-            name="shaggoth-push",
-            daemon=True,
-        )
-        thread.start()
+        try:
+            payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
+            thread = threading.Thread(
+                target=self._guarded_send_to_session,
+                args=(session_id, payload, respect_rate_limit),
+                name="shaggoth-push",
+                daemon=True,
+            )
+            thread.start()
+        except Exception as exc:
+            self._semaphore.release()
+            log.warning("[push] dispatch failed: %s", exc)
 
     def _guarded_send_all(self, payload: str, respect_rate_limit: bool) -> dict:
         try:

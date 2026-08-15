@@ -99,17 +99,21 @@ class CuriosityEngine:
         parent = self.history_path.parent
         parent.mkdir(parents=True, exist_ok=True)
         data = json.dumps(self._history, indent=2)
-        fd, tmp = tempfile.mkstemp(dir=str(parent), suffix=".tmp")
+        tmp: str | None = None
         try:
+            fd, tmp = tempfile.mkstemp(dir=str(parent), suffix=".tmp")
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 fh.write(data)
             os.replace(tmp, self.history_path)
-        except BaseException:
-            try:
-                os.unlink(tmp)
-            except OSError:
-                pass
-            raise
+            tmp = None  # adopted by os.replace; don't unlink
+        except OSError as exc:
+            log.warning("Could not save curiosity history: %s", exc)
+        finally:
+            if tmp is not None:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
 
     @property
     def is_running(self) -> bool:

@@ -244,16 +244,16 @@ class GuardrailEngine:
             elif rtype == "topic_refuse":
                 keywords = rule.get("keywords", [])
                 _articles = {"a", "an", "the"}
-                kw_patterns = [
-                    (kw, re.compile(
+                kw_patterns = []
+                for kw in keywords:
+                    words = [w for w in kw.lower().split() if w not in _articles]
+                    if not words:
+                        continue
+                    kw_patterns.append((kw, re.compile(
                         r"\b" + r"\s+(?:a\s+|an\s+|the\s+)?".join(
-                            re.escape(w)
-                            for w in kw.lower().split()
-                            if w not in _articles
+                            re.escape(w) for w in words
                         ) + r"\b"
-                    ))
-                    for kw in keywords
-                ]
+                    )))
                 matched_kws = [
                     (kw, m) for kw, pat in kw_patterns
                     if (m := pat.search(lowered))
