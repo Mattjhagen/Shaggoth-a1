@@ -114,9 +114,9 @@ def test_enumerating_questions(question):
 
 
 @pytest.mark.parametrize("question,expected", [
-    # "how many X are in Y" → subject is X
-    ("how many planets are in the solar system", "planets"),
-    ("how many bones are in the human body", "bones"),
+    # "how many X are in Y" → subject is Y (the container, better lookup key)
+    ("how many planets are in the solar system", "solar system"),
+    ("how many bones are in the human body", "human body"),
     # "how many X does Y have" → subject is Y (entity being described)
     ("how many moons does Jupiter have", "Jupiter"),
     # "how long does X take" → strip degree word + trailing "take"
@@ -2022,7 +2022,7 @@ def test_batch32_subject_extraction(question, expected):
     ("what percentage of the human body is water",  "human body"),
     # "how many X (of Y) are there" → "X of Y"
     ("how many species of birds are there",         "species of birds"),
-    ("how many cells are in the human body",        "cells"),
+    ("how many cells are in the human body",        "human body"),
     # "at what temperature/speed does X VERB"
     ("at what temperature does water freeze",       "water"),
     ("at what temperature does iron melt",          "iron"),
@@ -3180,6 +3180,33 @@ def test_batch68_subject_extraction(question, expected):
 ])
 def test_batch69_subject_extraction(question, expected):
     """Batch 69: fish classification; living-organisms compound; strike verb; regression guards."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "how long does it take for X to Y" — trailing content after the verb
+    ("how long does it take for light to travel from the sun",   "light"),
+    ("how long does it take for a wound to heal",                "wound"),
+    ("how long does it take for concrete to dry",                "concrete"),
+    # "how much time does it take to VERB X" — dummy-it idiom
+    ("how much time does it take to learn piano",                "piano"),
+    ("how much time does digestion take",                        "digestion"),
+    # "how many X are in Y" → Y (the container is the better lookup key)
+    ("how many bones are in the human body",                     "human body"),
+    ("how many planets are in the solar system",                 "solar system"),
+    # "how many X does Y have" → Y (unaffected by the container fix)
+    ("how many legs does a spider have",                         "spider"),
+    ("how many teeth does a shark have",                         "shark"),
+    ("how many chambers does the heart have",                    "heart"),
+    # "how old/big is X" — unchanged baseline
+    ("how old is the universe",                                  "universe"),
+    ("how big is the milky way",                                 "milky way"),
+])
+def test_batch70_subject_extraction(question, expected):
+    """Batch 70: it-takes-for trailing content; dummy-it time idiom; how-many-in container."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"

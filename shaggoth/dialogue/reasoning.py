@@ -393,7 +393,16 @@ def subject_of(question: str) -> str:
         text, re.I,
     )
     if _m_time_does:
-        text = _m_time_does.group(1)
+        _td_cap = _m_time_does.group(1)
+        if re.match(r'^it\b', _td_cap, re.I):
+            # "time does it take to learn piano" — dummy "it"; extract the object instead
+            _m_it_to = re.match(
+                r'^(?:\w+\s+){0,2}it\s+\S+\s+to\s+\w+\s+(.+)$', text, re.I
+            )
+            if _m_it_to:
+                text = _m_it_to.group(1)
+        else:
+            text = _td_cap
     # Targeted possessive strip — only fires for specific property patterns, NOT named
     # concepts ("alzheimer's disease", "darwin's theory") or owned entities ("earth's atmosphere").
     # Pattern A: ENTITY's [MODIFIER] MEASUREMENT_NOUN — "sun's core temperature" → "sun"
@@ -569,10 +578,17 @@ def subject_of(question: str) -> str:
     text = re.sub(r"^behind\s+", "", text, flags=re.I)
     # "what elements are in water" → after "what " is stripped → "elements are in water"
     # → look up "water" (the container), not "elements" (the thing counted).
-    # Guard: skip for "how many" count questions (e.g. "how many planets are in
-    # the solar system") where the counted noun IS the desired lookup subject.
     _is_how_many = bool(re.match(r"^\s*(?:and |but |so )?how\s+many\b", _original, re.I))
-    if not _is_how_many:
+    if _is_how_many:
+        # "how many bones are in the human body" → after QW strip: "bones are in the human body"
+        # → extract the container ("human body"), not the counted noun ("bones").
+        _m_many_in = re.match(
+            r"^\w+(?:\s+\w+)?\s+are\s+(?:in|inside|within)\s+(?:the\s+|a\s+|an\s+)?(.+)$",
+            text, re.I,
+        )
+        if _m_many_in:
+            text = _m_many_in.group(1)
+    else:
         _m = re.match(
             r"^(\w+(?:\s+\w+){0,2})\s+(?:are|were|is|was)\s+(?:in|inside|within|found in|part of)\s+(.+)$",
             text, re.I,
@@ -627,7 +643,7 @@ def subject_of(question: str) -> str:
         # "to fly to the moon" → captures "to the moon"; strip leading "to [article]"
         text = re.sub(r"^to\s+(?:the\s+|a\s+|an\s+)?", "", text, flags=re.I)
     else:
-        _m_it_takes_for = re.match(r"^it\s+takes?\s+for\s+(?:a|an|the\s+)?\s*(.+?)\s+to\s+\w+\s*$", text, re.I)
+        _m_it_takes_for = re.match(r"^it\s+takes?\s+for\s+(?:a|an|the\s+)?\s*(.+?)\s+to\s+\w+", text, re.I)
         if _m_it_takes_for:
             text = _m_it_takes_for.group(1)
         else:
