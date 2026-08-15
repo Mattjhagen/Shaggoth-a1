@@ -416,7 +416,7 @@ def subject_of(question: str) -> str:
         # Role/title nouns: "president of france" → "france"
         r"president|prime\s+minister|king|queen|ruler|leader|founder|director|"
         r"inventor|discoverer|author|composer|painter|creator|"
-        r"history|meaning|definition|significance|importance|symbol|flag|currency|language|"
+        r"history|future|meaning|definition|significance|importance|symbol|flag|currency|language|"
         # Measurement/property compounds: "boiling point of water" → "water"
         # "half life of carbon 14" → "carbon 14"
         r"point|rate|level|amount|number|count|percentage|quantity|fraction|proportion|"

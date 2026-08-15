@@ -2544,3 +2544,32 @@ def test_batch48_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is the future of X" → X  (future added to causal-noun list)
+    ("what is the future of artificial intelligence",  "artificial intelligence"),
+    ("what is the future of space exploration",        "space exploration"),
+    # "what are the applications of X" → X
+    ("what are the applications of machine learning",  "machine learning"),
+    ("what are the applications of nanotechnology",    "nanotechnology"),
+    # "what is X used for" → X
+    ("what is python used for",                        "python"),
+    ("what is graphene used for",                      "graphene"),
+    # "how does/do X work" → X
+    ("how does a nuclear reactor work",                "nuclear reactor"),
+    ("how do vaccines work",                           "vaccines"),
+    ("how do antibiotics work",                        "antibiotics"),
+    # "what caused the X" → X (named events)
+    ("what caused the great depression",               "great depression"),
+    ("what caused the french revolution",              "french revolution"),
+    # "what is the history of X" (compound subjects)
+    ("what is the history of world war 2",             "world war 2"),
+    ("what is the history of the internet",            "internet"),
+])
+def test_batch49_subject_extraction(question, expected):
+    """Batch 49: future causal-noun; applications scaffold; technology/history questions."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
