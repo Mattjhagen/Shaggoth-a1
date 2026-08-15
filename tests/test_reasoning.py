@@ -12252,3 +12252,63 @@ def test_batch335_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is cloud computing",                                  "cloud computing"),
+    ("what is cloud storage",                                    "cloud storage"),
+    ("what is a cloud server",                                   "cloud server"),
+    ("what is a neural network",                                 "neural network"),
+    ("what is a computer network",                               "computer network"),
+    ("what is a peer to peer network",                           "peer to peer network"),
+    ("what is a live stream",                                    "live stream"),
+    ("what is a data stream",                                    "data stream"),
+    ("what is firmware",                                         "firmware"),
+    ("what is malware",                                          "malware"),
+    ("what is spyware",                                          "spyware"),
+    ("what is ransomware",                                       "ransomware"),
+    ("what is source code",                                      "source code"),
+    ("what is machine code",                                     "machine code"),
+    ("what is a hyperlink",                                      "hyperlink"),
+    ("what is a deadlink",                                       "deadlink"),
+    ("what is a cache",                                          "cache"),
+    ("what is a memory cache",                                   "memory cache"),
+    ("what is a software patch",                                 "software patch"),
+    ("what is a hotfix patch",                                   "hotfix patch"),
+])
+def test_batch336_subject_extraction(question, expected):
+    """Batch 336: computing/tech compound nouns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a chest compress",                                 "chest compress"),
+    ("what is a cold compress",                                  "cold compress"),
+    ("what is a hot compress",                                   "hot compress"),
+    ("what is a hospital discharge",                             "hospital discharge"),
+    ("what is a nasal discharge",                                "nasal discharge"),
+    ("what is a medical treat",                                  "medical treat"),
+    ("what is a nerve block",                                    "nerve block"),
+    ("what is a heart block",                                    "heart block"),
+    ("what is a skin patch",                                     "skin patch"),
+    ("what is a nicotine patch",                                 "nicotine patch"),
+    ("what is a cochlear implant",                               "cochlear implant"),
+    ("what is a dental implant",                                 "dental implant"),
+    ("what is a heart bypass",                                   "heart bypass"),
+    ("what is a coronary bypass",                                "coronary bypass"),
+    ("what is a kidney transplant",                              "kidney transplant"),
+    ("what is a bone marrow transplant",                         "bone marrow transplant"),
+    ("what is a brain scan",                                     "brain scan"),
+    ("what is a ct scan",                                        "ct scan"),
+    ("what is a cancer screen",                                  "cancer screen"),
+    ("what is a lethal dose",                                    "lethal dose"),
+])
+def test_batch337_subject_extraction(question, expected):
+    """Batch 337: medical compound nouns with verb-like tails; treat guard."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
