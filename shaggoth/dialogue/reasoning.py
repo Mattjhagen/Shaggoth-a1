@@ -1103,7 +1103,7 @@ def subject_of(question: str) -> str:
         r"get\s+\w+ed|become|start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|train[s]?|take[s]?|"
-        r"pump[s]?|process(?:es)?|connect[s]?|"
+        r"pump[s]?|(?<!due )process(?:es)?|connect[s]?|"
         r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|consume[sd]?|"
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"
         r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|"

@@ -7228,3 +7228,78 @@ def test_batch172_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X (religions)
+    ("what is buddhism",                                         "buddhism"),
+    ("what is hinduism",                                         "hinduism"),
+    ("what is islam",                                            "islam"),
+    ("what is christianity",                                     "christianity"),
+    ("what is judaism",                                          "judaism"),
+    # "what do X believe" → X
+    ("what do buddhists believe",                                "buddhists"),
+    ("what do muslims believe",                                  "muslims"),
+    # "what is X" → X (religious texts)
+    ("what is the quran",                                        "quran"),
+    ("what is the bible",                                        "bible"),
+    ("what is the torah",                                        "torah"),
+    # "what is X" → X (philosophical concepts)
+    ("what is existentialism",                                   "existentialism"),
+    ("what is nihilism",                                         "nihilism"),
+    ("what is stoicism",                                         "stoicism"),
+    ("what is utilitarianism",                                   "utilitarianism"),
+    # "who is X" → X (philosophers)
+    ("who is socrates",                                          "socrates"),
+    ("who is plato",                                             "plato"),
+    ("who is aristotle",                                         "aristotle"),
+    # "what did X believe" → X
+    ("what did plato believe",                                   "plato"),
+    ("what did nietzsche believe",                               "nietzsche"),
+    # compound discipline: "philosophy of X" preserved as a named field
+    ("what is the philosophy of mind",                           "philosophy of mind"),
+])
+def test_batch173_subject_extraction(question, expected):
+    """Batch 173: religion/philosophy — faiths, texts, concepts, philosophers."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X (legal concepts)
+    ("what is a contract",                                       "contract"),
+    ("what is a lawsuit",                                        "lawsuit"),
+    ("what is habeas corpus",                                    "habeas corpus"),
+    ("what is due process",                                      "due process"),
+    ("what is the first amendment",                              "first amendment"),
+    # "what is X" → X (legal systems)
+    ("what is common law",                                       "common law"),
+    ("what is civil law",                                        "civil law"),
+    ("what is constitutional law",                               "constitutional law"),
+    # "what is X" → X (legal procedures)
+    ("what is an appeal",                                        "appeal"),
+    ("what is a subpoena",                                       "subpoena"),
+    ("what is an injunction",                                    "injunction"),
+    # "what is the difference between X and Y" → X and Y
+    ("what is the difference between civil and criminal law",    "civil and criminal law"),
+    # "what does X mean" → X (legal terms)
+    ("what does hearsay mean",                                   "hearsay"),
+    ("what does perjury mean",                                   "perjury"),
+    # "what is X" → X (legal roles)
+    ("what is a prosecutor",                                     "prosecutor"),
+    ("what is a defendant",                                      "defendant"),
+    # "how does X work" → X
+    ("how does the supreme court work",                          "supreme court"),
+    # "what is X" → X (legal documents/IP)
+    ("what is a will",                                           "will"),
+    ("what is a patent",                                         "patent"),
+    ("what is a copyright",                                      "copyright"),
+])
+def test_batch174_subject_extraction(question, expected):
+    """Batch 174: law/legal — concepts, systems, procedures, roles, documents."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
