@@ -414,6 +414,50 @@ class ConversationFlowTests(unittest.TestCase):
             self.assertIn("project", result.lower(), result)
             self.assertNotIn("finish", result.lower(), result)
 
+    def test_describe_unknown_fight_filtered(self):
+        """'fight' / 'fights' should not leak into the subject phrase."""
+        for _ in range(20):
+            result = describe_unknown(
+                "how does the immune system fight viruses", researching=False
+            )
+            self.assertIn("immune", result.lower(), result)
+            self.assertNotIn("fight", result.lower(), result)
+
+    def test_describe_unknown_affect_filtered(self):
+        """'affect' / 'affects' should not leak into the subject phrase."""
+        for _ in range(20):
+            result = describe_unknown(
+                "how does stress affect the body", researching=False
+            )
+            self.assertIn("stress", result.lower(), result)
+            self.assertNotIn("affect", result.lower(), result)
+
+    def test_describe_unknown_defend_filtered(self):
+        """'defends' / 'defend' should not leak into the subject phrase."""
+        for _ in range(20):
+            result = describe_unknown(
+                "how does the body defend against infection", researching=False
+            )
+            self.assertNotIn("defend", result.lower(), result)
+
+    def test_describe_unknown_developed_filtered(self):
+        """'developed' is a passive attribution verb that should be filtered."""
+        for _ in range(20):
+            result = describe_unknown(
+                "when was the internet developed", researching=False
+            )
+            self.assertIn("internet", result.lower(), result)
+            self.assertNotIn("developed", result.lower(), result)
+
+    def test_describe_unknown_designed_filtered(self):
+        """'designed' is a passive attribution verb that should be filtered."""
+        for _ in range(20):
+            result = describe_unknown(
+                "who designed the Eiffel Tower", researching=False
+            )
+            self.assertIn("eiffel", result.lower(), result)
+            self.assertNotIn("designed", result.lower(), result)
+
     def test_what_about_that_is_follow_up(self):
         self.assertTrue(is_follow_up("what about that"))
         self.assertTrue(is_follow_up("what about this?"))

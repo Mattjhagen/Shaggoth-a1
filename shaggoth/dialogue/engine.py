@@ -683,11 +683,9 @@ class DialogueEngine:
         richer material to construct a real answer rather than just
         parroting a definition.
         """
-        is_explanatory = bool(re.search(
-            r"(?i)^\s*(?:why|how)\b|"
-            r"\bwhat (?:causes|makes|happens|leads)\b",
-            query,
-        ))
+        is_explanatory = _classify_intent(query) in (
+            _Intent.CAUSAL, _Intent.ENUMERATE,
+        )
         max_sents = 5 if is_explanatory else 4
         max_ch = 900 if is_explanatory else 800
 
@@ -1897,6 +1895,20 @@ _DESCRIBE_FILTER = frozenset({
     "start", "starts", "started", "starting",
     "finish", "finishes", "finished", "finishing",
     "stop", "stops", "stopped", "stopping",
+    # Immune/conflict/effect verbs from "how does X fight/attack/defend/affect Y"
+    # patterns.  The verb names the relationship, not the topic — "the immune
+    # system fight viruses" should yield subject "the immune system", not include
+    # "fight".  "attacks" is intentionally excluded — it appears in compound KB
+    # topics like "cyber attacks".
+    "fight", "fights", "fought", "fighting",
+    "attack", "attacked", "attacking",
+    "defend", "defends", "defended", "defending",
+    "affect", "affects", "affected", "affecting",
+    # Passive attribution forms that appear after the subject in "when was X
+    # developed/designed" questions.  Base forms are already in the list via
+    # invent/create; only past-tense/participle forms are safe here.
+    "developed", "developing",
+    "designed", "designing",
 })
 
 # Words that survive keyword extraction but can never be the *subject* of a
