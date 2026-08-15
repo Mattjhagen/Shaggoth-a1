@@ -6727,3 +6727,46 @@ def test_batch160_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is quantum mechanics",                              "quantum mechanics"),
+    ("what is gravity",                                        "gravity"),
+    ("what is thermodynamics",                                 "thermodynamics"),
+    ("what is a black hole",                                   "black hole"),
+    ("what is dark matter",                                    "dark matter"),
+    # "what is the speed of X" → "speed of X" (compound concept)
+    ("what is the speed of light",                             "speed of light"),
+    # "how does X work" → X
+    ("how does a nuclear reactor work",                        "nuclear reactor"),
+    ("how does electricity work",                              "electricity"),
+    # "what causes X" → X
+    ("what causes lightning",                                  "lightning"),
+    ("what causes earthquakes",                                "earthquakes"),
+    # "what is the law of X" → "law of X" (compound concept)
+    ("what is the law of gravity",                             "law of gravity"),
+    # "how fast does X travel" → X
+    ("how fast does sound travel",                             "sound"),
+    # "what is X energy" → X energy
+    ("what is kinetic energy",                                 "kinetic energy"),
+    ("what is nuclear energy",                                 "nuclear energy"),
+    # "what is the theory of X" → X
+    ("what is the theory of relativity",                       "theory of relativity"),
+    # "what is X made of" → X
+    ("what is an atom made of",                                "atom"),
+    # "how do X VERB each other" → X
+    ("how do magnets attract each other",                      "magnets"),
+    # "what is X radiation" → X radiation
+    ("what is electromagnetic radiation",                      "electromagnetic radiation"),
+    # "how many dimensions does X have" → X
+    ("how many dimensions does the universe have",             "universe"),
+    # "what happens when X VERB Y" → "X VERB Y" (full clause preserved)
+    ("what happens when matter meets antimatter",              "matter meets antimatter"),
+])
+def test_batch161_subject_extraction(question, expected):
+    """Batch 161: physics — quantum, gravity, energy, laws, compound concepts."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
