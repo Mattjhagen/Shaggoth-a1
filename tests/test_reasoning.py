@@ -1750,3 +1750,37 @@ def test_batch26_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "how does X help Y" → "X"
+    ("how does sleep help the brain",               "sleep"),
+    ("how does vitamin c help the immune system",   "vitamin c"),
+    # "why is X important" / "why is X important for Y" → "X"
+    ("why is sleep important",                      "sleep"),
+    ("why is water important for life",             "water"),
+    ("why is the ozone layer important",            "ozone layer"),
+    # "where is X found [in Y]" → "X"
+    ("where is gold found in nature",               "gold"),
+    ("where is platinum found",                     "platinum"),
+    # superlative question: "what X is most Y" → "X"
+    ("what element is most abundant on earth",      "element"),
+    # "can X Y" (ability) → "X"
+    ("can bacteria live in extreme heat",           "bacteria"),
+    ("can viruses survive outside a host",          "viruses"),
+    # "how old is X" → "X"
+    ("how old is the earth",                        "earth"),
+    ("how old is the sun",                          "sun"),
+    # "how big is X" → "X"
+    ("how big is the milky way",                    "milky way"),
+    ("how big is jupiter",                          "jupiter"),
+    # "what is the largest/smallest X" → "X"
+    ("what is the largest planet",                  "planet"),
+    ("what is the smallest country in the world",   "country"),
+])
+def test_batch27_subject_extraction(question, expected):
+    """Batch 27: help-verb, important-adj, found-passive, superlative, ability, size patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

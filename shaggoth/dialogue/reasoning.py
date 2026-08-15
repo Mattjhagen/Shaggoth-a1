@@ -495,7 +495,10 @@ def subject_of(question: str) -> str:
     if _m_cat_is:
         _cat_captured = _m_cat_is.group(1)
         # Don't fire for "country is X in/on/at" — that's handled by _m_loc_noun later.
-        if not re.search(r"\s+(?:in|on|at)\s*$", _cat_captured, re.I):
+        # Don't fire when the capture is a predicate adjective phrase ("element is most abundant"):
+        # group(1) would be "most abundant on earth", not a noun.
+        if (not re.search(r"\s+(?:in|on|at)\s*$", _cat_captured, re.I)
+                and not re.match(r"^(?:most|least|very|quite|so|more|less|too)\b", _cat_captured, re.I)):
             text = _cat_captured
     # "how long does it take to boil water" → "water";
     # "how long does it take for a bone to heal" → "bone";
@@ -565,8 +568,10 @@ def subject_of(question: str) -> str:
         r"condense[sd]?|expand[s]?|contract[s]?|ignite[sd]?|dissolve[sd]?|"
         # Migration / movement verbs: "how do birds migrate"
         r"migrate[sd]?|"
-        # Passive attribution: "when was X invented", "where was Y discovered/located/born"
-        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|locat(?:ed|es)?|born|"
+        # Passive attribution: "when was X invented", "where was Y discovered/located/born/found"
+        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|locat(?:ed|es)?|born|found\b|"
+        # Assistance verbs: "how does sleep help the brain"
+        r"help[s]?|assist[s]?|support[s]?|"
         # Comparison verbs: "how does X differ from Y" / "how does X compare to Y" → "X"
         r"differ[sd]?|compare[sd]?|"
         # Role verb: "what role does insulin play in the body" → after leading strip → "play"
@@ -647,16 +652,20 @@ def subject_of(question: str) -> str:
     # Only fires when the causal-noun strip above did NOT already handle "of the X"
     # (e.g. "role of the king" → causal strip → "king" before we reach here).
     text = re.sub(r"\s+of\s+the\s+\w+(?:\s+\w+){0,1}\s*$", "", text, flags=re.I)
-    # "is coffee bad for you" → bare opener "is " stripped → "coffee bad for you"
-    # Strip dangling "for you/me/people" BEFORE the adj strip so "bad" ends up at tail.
-    text = re.sub(r"\s+for\s+(?:you|me|us|them|people|humans?|everyone|the\s+body)\s*$", "", text, flags=re.I)
+    # "is coffee bad for you" / "why is sleep important for life" → strip " for X" tail
+    # so that trailing adj strip sees "bad"/"important" at end.
+    text = re.sub(r"\s+for\s+(?:you|me|us|them|people|humans?|everyone|the\s+body|life|health|nature|society|animals?|plants?|the\s+environment|the\s+planet)\s*$", "", text, flags=re.I)
+    # "element is most abundant [on earth]" → after location strip → "element is most abundant"
+    # Strip superlative/intensified predicate adj: "is most/least/very ADJ" → nothing
+    text = re.sub(r"\s+(?:is|are|was|were)\s+(?:most|least|very|quite|so|more|less)\s+\w+\s*$", "", text, flags=re.I)
     # Trailing state adjective in "why is X [adjective]" patterns.
     # e.g. "sky blue" → "sky", "gold so valuable" → "gold"
     text = re.sub(
         # State/property adjectives that trail a subject in "why is X [adj]" patterns.
         # Optional copula handles "blood sugar is low" as well as bare "ocean salty".
+        # (?:so|most|least|very|quite) handles superlatives: "element is most abundant" → "element"
         # Exclude ambiguous words that are also common nouns (light, fast, hard, etc.).
-        r"\s+(?:(?:is|are|was|were)\s+)?(?:so\s+)?(?:blue|red|green|yellow|white|black|gray|grey|brown|orange|purple|pink|"
+        r"\s+(?:(?:is|are|was|were)\s+)?(?:(?:so|most|least|very|quite)\s+)?(?:blue|red|green|yellow|white|black|gray|grey|brown|orange|purple|pink|"
         r"hot|cold|warm|cool|wet|dry|soft|bright|dark|"
         r"low|high|normal|elevated|full|empty|alive|dead|active|inactive|"
         r"heavy|loud|quiet|dim|sharp|dull|"
@@ -665,7 +674,7 @@ def subject_of(question: str) -> str:
         r"valuable|expensive|cheap|rare|common|strong|weak|dense|flat|round|curved|"
         r"sticky|slippery|rough|smooth|thin|thick|narrow|tall|short|"
         r"similar|different|related|connected|distinct|unique|identical|"
-        r"dangerous|harmful|safe|harmless|poisonous|helpful|useful|effective|"
+        r"dangerous|harmful|safe|harmless|poisonous|helpful|useful|effective|important|"
         r"good|bad|healthy|unhealthy|"
         r"hard|soft|tough|fragile|brittle|flexible|rigid|elastic)\s*$",
         "", text, flags=re.I,
