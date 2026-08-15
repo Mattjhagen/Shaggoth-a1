@@ -1252,7 +1252,7 @@ def subject_of(question: str) -> str:
         # Intransitive motion/perception/existence verbs: "why do stars twinkle",
         # "how fast does light travel", "why do we dream", "how does sound travel"
         # Guard "hunger strike", "lightning strike", "bowling strike", "air strike" compound nouns.
-        r"twinkle[sd]?|(?<!time\s)(?<!air\s)(?<!sea\s)(?<!rail\s)(?<!road\s)(?<!space\s)travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|(?<!hunger\s)(?<!lightning\s)(?<!bowling\s)(?<!bird\s)(?<!preemptive\s)(?<!air\s)strike[s]?|sweat[s]?|"
+        r"twinkle[sd]?|(?<!time\s)(?<!air\s)(?<!sea\s)(?<!rail\s)(?<!road\s)(?<!space\s)travel[s]?|(?<!pipe\s)(?<!fever\s)dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|(?<!hunger\s)(?<!lightning\s)(?<!bowling\s)(?<!bird\s)(?<!preemptive\s)(?<!air\s)strike[s]?|sweat[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
         r"swim[s]?|fly|flies|walk[s]?|"
         # Guard "run" against compound nouns: "home run", "base run", "mile run", "fun run",

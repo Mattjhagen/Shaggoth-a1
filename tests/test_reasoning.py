@@ -12677,3 +12677,33 @@ def test_batch349_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a core dump",                                      "core dump"),
+    ("what is a memory dump",                                    "memory dump"),
+    ("what is a heap dump",                                      "heap dump"),
+    ("what is a data dump",                                      "data dump"),
+    ("what is a stack overflow",                                 "stack overflow"),
+    ("what is a buffer overflow",                                "buffer overflow"),
+    ("what is a memory leak",                                    "memory leak"),
+    ("what is a data leak",                                      "data leak"),
+    ("what is a stack trace",                                    "stack trace"),
+    ("what is a feedback loop",                                  "feedback loop"),
+    ("what is an infinite loop",                                 "infinite loop"),
+    ("what is a webhook",                                        "webhook"),
+    ("what is a code hook",                                      "code hook"),
+    ("what is a data pipe",                                      "data pipe"),
+    ("what is a command pipe",                                   "command pipe"),
+    ("what is a pipe dream",                                     "pipe dream"),
+    ("what is a fever dream",                                    "fever dream"),
+    ("what is a floating point",                                 "floating point"),
+    ("what is a feature flag",                                   "feature flag"),
+    ("what is a race condition",                                 "race condition"),
+])
+def test_batch350_subject_extraction(question, expected):
+    """Batch 350: computing compound nouns; pipe/fever dream guard."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
