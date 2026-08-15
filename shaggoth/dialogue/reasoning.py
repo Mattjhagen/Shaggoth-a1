@@ -1499,7 +1499,9 @@ def subject_of(question: str) -> str:
     # "X in <word>" → X  (e.g. "turbulence in planes" → "turbulence",
     # "pain in joints" → "pain"). Only strip a single word to avoid eating
     # compound subjects; "in the ..." is already handled above.
-    text = re.sub(r"\s+in\s+(?!the\b)\w+\s*$", "", text, flags=re.I)
+    # Guard compound noun endings: "hole in one", "mother in law", "editor in chief",
+    # "all in one", "hand in hand", "commander in chief".
+    text = re.sub(r"\s+in\s+(?!the\b|one\b|law\b|chief\b|arms\b|hand\b|kind\b)\w+\s*$", "", text, flags=re.I)
     # "X from <place>" → X  (e.g. "moon from earth" → "moon")
     text = re.sub(r"\s+from\s+\w+(?:\s+\w+){0,1}\s*$", "", text, flags=re.I)
     # Residual bare auxiliary after location-tail strips:

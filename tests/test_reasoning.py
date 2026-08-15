@@ -10230,3 +10230,33 @@ def test_batch267_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a grand slam",                                     "grand slam"),
+    ("what is a hat trick",                                      "hat trick"),
+    ("what is offside in soccer",                                "offside"),
+    ("what is a penalty kick",                                   "penalty kick"),
+    ("what is the offsides rule",                                "offsides rule"),
+    ("what is a free throw",                                     "free throw"),
+    ("what is a slam dunk",                                      "slam dunk"),
+    ("what is tennis elbow",                                     "tennis elbow"),
+    ("what is a chess opening",                                  "chess opening"),
+    ("what is the elo rating system",                            "elo rating system"),
+    ("what is a walkover in sports",                             "walkover"),
+    ("what is sudden death overtime",                            "sudden death overtime"),
+    ("what is a birdie in golf",                                 "birdie"),
+    ("what is par in golf",                                      "par"),
+    ("what is an ace in tennis",                                 "ace"),
+    ("what is a hole in one",                                    "hole in one"),
+    ("what is the tour de france",                               "tour de france"),
+    ("what is mixed martial arts",                               "mixed martial arts"),
+    ("what is a checkmate",                                      "checkmate"),
+    ("what is game theory",                                      "game theory"),
+])
+def test_batch268_subject_extraction(question, expected):
+    """Batch 268: sports/gaming — compound nouns, scoring terms, rule concepts."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
