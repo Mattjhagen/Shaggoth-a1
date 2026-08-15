@@ -4473,3 +4473,39 @@ def test_batch102_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question, expected", [
+    # "what is X" literary concepts
+    ("what is a metaphor",                              "metaphor"),
+    ("what is irony",                                   "irony"),
+    ("what is symbolism",                               "symbolism"),
+    # "what is the ASPECT of WORK" → WORK
+    ("what is the plot of hamlet",                      "hamlet"),
+    ("what is the theme of the great gatsby",           "great gatsby"),
+    # "who wrote/painted/composed/directed X" → X
+    ("who wrote hamlet",                                "hamlet"),
+    ("who wrote don quixote",                           "don quixote"),
+    ("who wrote the odyssey",                           "odyssey"),
+    ("who painted the mona lisa",                       "mona lisa"),
+    ("who painted the sistine chapel",                  "sistine chapel"),
+    ("who composed beethoven's fifth symphony",         "beethoven's fifth symphony"),
+    ("who invented jazz",                               "jazz"),
+    ("who directed schindler's list",                   "schindler's list"),
+    ("who directed the godfather",                      "godfather"),
+    # "when was X written/published/painted" → X  (passive past-participle strip)
+    ("when was hamlet written",                         "hamlet"),
+    ("when was don quixote published",                  "don quixote"),
+    ("when was the mona lisa painted",                  "mona lisa"),
+    # "what is X about" — including numeric titles
+    ("what is 1984 about",                              "1984"),
+    ("what is the great gatsby about",                  "great gatsby"),
+    # "what genre is X"
+    ("what genre is jazz",                              "jazz"),
+])
+def test_batch103_subject_extraction(question, expected):
+    """Batch 103: literature/arts — works, creators, dates, numeric titles, passive-participle strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

@@ -478,7 +478,8 @@ def subject_of(question: str) -> str:
     # Numeric quantifier: "3 states of matter" → "states of matter" → "matter";
     # "4 blood types" → "blood types". Also strips named quantifiers left after
     # stripping "what are".
-    text = re.sub(r"^(?:some|any|various|several|a few|all|different|main|major|key|\d+)\s+", "", text, flags=re.I)
+    # \d{1,3} only: 4-digit years/titles ("1984", "2001") are topics, not quantifiers.
+    text = re.sub(r"^(?:some|any|various|several|a few|all|different|main|major|key|\d{1,3})\s+", "", text, flags=re.I)
     # "difference between X and Y" / "similarity between X and Y" → "X and Y"
     _before_between = text
     text = re.sub(
@@ -934,7 +935,7 @@ def subject_of(question: str) -> str:
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
         # Note: bare "rate" is NOT here — it's almost always a noun (interest rate, poverty rate).
         # Only inflected forms "rated"/"rates" used as verbs are stripped.
-        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rat(?:ed|es)|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|"
+        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rat(?:ed|es)|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|"
         r"turn[s]?|transform[sd]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
