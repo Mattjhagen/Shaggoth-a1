@@ -1243,7 +1243,7 @@ def subject_of(question: str) -> str:
         # (interest rates, poverty rates, crime rates, exchange rates).
         # Only "rated" (passive participle, clearly a verb) is stripped.
         # Guard "margin call", "roll call", "curtain call", "covered call", "close call", "wake up call" compound nouns.
-        r"measure[sd]?|classif(?:ied|y|ies)?|(?<!margin\s)(?<!roll\s)(?<!curtain\s)(?<!covered\s)(?<!close\s)(?<!up\s)call(?:ed|s)?|rank(?:ed|s)?|rated|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
+        r"measure[sd]?|classif(?:ied|y|ies)?|(?<!margin\s)(?<!roll\s)(?<!curtain\s)(?<!covered\s)(?<!close\s)(?<!up\s)call(?:ed|s)?|rank(?:ed|s)?|rated|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|(?<!insurance\s)(?<!land\s)claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
         # Guard "U turn", "about turn", "downturn", "upturn" compound nouns.
         r"(?<!U\s)(?<!u\s)(?<!about\s)turn[s]?|transform[sd]?|"
         # Guard "rug burn", "chemical burn", "road burn" compound nouns.

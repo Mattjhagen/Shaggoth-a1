@@ -12063,3 +12063,33 @@ def test_batch329_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a pen name",                                        "pen name"),
+    ("what is a brand name",                                      "brand name"),
+    ("what is a domain name",                                     "domain name"),
+    ("what is a nick name",                                       "nick name"),
+    ("what is hall of fame",                                      "hall of fame"),
+    ("what is a blame game",                                      "blame game"),
+    ("what is an insurance claim",                                "insurance claim"),
+    ("what is a land claim",                                      "land claim"),
+    ("what is an end aim",                                        "end aim"),
+    ("what is a war game",                                        "war game"),
+    ("what is a ball game",                                       "ball game"),
+    ("what is a board game",                                      "board game"),
+    ("what is a video game",                                      "video game"),
+    ("what is a pilot flame",                                     "pilot flame"),
+    ("what is a bunsen burner flame",                             "bunsen burner flame"),
+    ("what is a picture frame",                                   "picture frame"),
+    ("what is a time frame",                                      "time frame"),
+    ("what is a reference frame",                                 "reference frame"),
+    ("what is a shame spiral",                                    "shame spiral"),
+    ("what is a tame version",                                    "tame version"),
+])
+def test_batch330_subject_extraction(question, expected):
+    """Batch 330: adversarial — name/fame/claim/game/flame/frame noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
