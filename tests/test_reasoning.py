@@ -9539,3 +9539,33 @@ def test_batch244_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is cognitive science",                                "cognitive science"),
+    ("what is neuroplasticity",                                  "neuroplasticity"),
+    ("what is working memory",                                   "working memory"),
+    ("what is long term memory",                                 "long term memory"),
+    ("what is short term memory",                                "short term memory"),
+    ("what is cognitive dissonance",                             "cognitive dissonance"),
+    ("what is confirmation bias",                                "confirmation bias"),
+    ("what is the dunning-kruger effect",                        "dunning-kruger effect"),
+    ("what is unconscious bias",                                 "unconscious bias"),
+    ("what is executive function",                               "executive function"),
+    ("how does memory work",                                     "memory"),
+    ("how does attention work",                                   "attention"),
+    ("what is a cognitive bias",                                 "cognitive bias"),
+    ("what is metacognition",                                    "metacognition"),
+    ("what is consciousness",                                    "consciousness"),
+    ("what is the default mode network",                         "default mode network"),
+    ("what is mirror neuron",                                    "mirror neuron"),
+    ("what is neural plasticity",                                "neural plasticity"),
+    ("how do neurons communicate",                               "neurons"),
+    ("what is the prefrontal cortex",                            "prefrontal cortex"),
+])
+def test_batch245_subject_extraction(question, expected):
+    """Batch 245: cognitive science — memory, bias, consciousness, neural structures."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
