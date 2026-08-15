@@ -12738,3 +12738,34 @@ def test_batch351_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a school term",                                    "school term"),
+    ("what is a long term",                                      "long term"),
+    ("what is a short term",                                     "short term"),
+    ("what is a letter grade",                                   "letter grade"),
+    ("what is a passing grade",                                  "passing grade"),
+    ("what is a term paper",                                     "term paper"),
+    ("what is a white paper",                                    "white paper"),
+    ("what is a green paper",                                    "green paper"),
+    ("what is a rough draft",                                    "rough draft"),
+    ("what is a first draft",                                    "first draft"),
+    ("what is a book cover",                                     "book cover"),
+    ("what is a ground cover",                                   "ground cover"),
+    ("what is a misprint",                                       "misprint"),
+    ("what is a fingerprint",                                    "fingerprint"),
+    ("what is a footprint",                                      "footprint"),
+    ("what is a blood type",                                     "blood type"),
+    ("what is a body type",                                      "body type"),
+    ("what is a bridge span",                                    "bridge span"),
+    ("what is a roof span",                                      "roof span"),
+    ("what is a stone arch",                                     "stone arch"),
+    ("what is a pointed arch",                                   "pointed arch"),
+])
+def test_batch352_subject_extraction(question, expected):
+    """Batch 352: education/construction compound nouns; term-paper and cover guards."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

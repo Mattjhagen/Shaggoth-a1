@@ -542,7 +542,8 @@ def subject_of(question: str) -> str:
     # "coined the term photosynthesis" → after "coined " stripped → "the term photosynthesis"
     # → article strip → "term photosynthesis" → strip "term " → "photosynthesis"
     # Guard against "term for X" / "term of X" (prepositions = different pattern).
-    text = re.sub(r"^(?:term|word|phrase)\s+(?!(?:for|of|is|are|was|were)\b)", "", text, flags=re.I)
+    # Guard compound nouns starting with "term": "term paper", "term loan", "term deposit".
+    text = re.sub(r"^(?:term|word|phrase)\s+(?!(?:for|of|is|are|was|were|paper|loan|deposit|limit|time|insurance)\b)", "", text, flags=re.I)
     # Numeric quantifier: "3 states of matter" → "states of matter" → "matter";
     # "4 blood types" → "blood types". Also strips named quantifiers left after
     # stripping "what are".
@@ -1279,7 +1280,7 @@ def subject_of(question: str) -> str:
         # "end to end" is a compound adjective — guard "end" when preceded by "to ".
         # Guard "full stop", "pit stop", "bus stop", "dead end", "loose end", "split end".
         r"(?<!full\s)(?<!pit\s)(?<!bus\s)stop(?:ped|s)?|(?<!dead\s)(?<!loose\s)(?<!split\s)(?<!to\s)end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?(?=\s)|"
-        r"cover(?:ed|s)?|surround(?:ed|s)?|fill(?:ed|s)?|consist[s]?|contain[s]?|look[s]?|"
+        r"(?<!book\s)(?<!ground\s)(?<!album\s)(?<!magazine\s)cover(?:ed|s)?|surround(?:ed|s)?|fill(?:ed|s)?|consist[s]?|contain[s]?|look[s]?|"
         # Duration/persistence verbs: "how long does pregnancy last" → "pregnancy"
         r"last[s]?|persist[s]?|remain[s]?|"
         # Extinction/movement verbs. Use negative lookahead (?!\s+of) so that
