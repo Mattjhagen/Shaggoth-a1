@@ -4623,3 +4623,40 @@ def test_batch106_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question, expected", [
+    # "what is X" tech concepts
+    ("what is artificial intelligence",                 "artificial intelligence"),
+    ("what is machine learning",                        "machine learning"),
+    ("what is blockchain",                              "blockchain"),
+    ("what is the internet",                            "internet"),
+    ("what is a cpu",                                   "cpu"),
+    ("what is an operating system",                     "operating system"),
+    ("what is cloud computing",                         "cloud computing"),
+    ("what is open source software",                    "open source software"),
+    # "who invented/created X" → X
+    ("who invented the internet",                       "internet"),
+    ("who created linux",                               "linux"),
+    ("who invented python",                             "python"),
+    # "when was X invented/released" → X (passive-participle strip)
+    ("when was the internet invented",                  "internet"),
+    ("when was the iphone released",                    "iphone"),
+    # "how does X work" → X
+    ("how does encryption work",                        "encryption"),
+    ("how does wifi work",                              "wifi"),
+    ("how does gps work",                               "gps"),
+    # difference between acronyms
+    ("what is the difference between ram and rom",      "ram and rom"),
+    ("what is the difference between tcp and udp",      "tcp and udp"),
+    # "what QUALIFIER language is X written in" → X (two-pass _m_cat_is)
+    ("what programming language is python written in",  "python"),
+    # "how many X are there"
+    ("how many programming languages are there",        "programming languages"),
+])
+def test_batch107_subject_extraction(question, expected):
+    """Batch 107: technology — concepts, creators, dates, two-pass category-is for qualifier nouns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

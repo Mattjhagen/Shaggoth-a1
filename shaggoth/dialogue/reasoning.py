@@ -764,7 +764,10 @@ def subject_of(question: str) -> str:
     if _m_media_is:
         text = _m_media_is.group(1)
     _m_cat_is = re.match(
-        r"^(?:animal|plant|mammal|reptile|bird|fish|insect|element|mineral|metal|"
+        r"^(?:(?:programming|computer|natural|spoken|written|native|official|ancient|"
+        r"modern|web|mobile|scripting|markup|query|functional|object|compiled|"
+        r"interpreted|procedural)\s+)?"
+        r"(?:animal|plant|mammal|reptile|bird|fish|insect|element|mineral|metal|"
         r"substance|compound|molecule|chemical|gas|liquid|solid|energy|"
         r"country|city|continent|region|language|sport|food|drug|disease|"
         r"ocean|sea|lake|river|mountain|desert|forest|island|peninsula|canyon|"
@@ -951,6 +954,27 @@ def subject_of(question: str) -> str:
         r")\b.*$",
         "", text, flags=re.I,
     )
+    # Re-apply category-is pattern after trailing verb strip:
+    # "what programming language is python written in" → trailing strip → "programming language is python"
+    # First pass of _m_cat_is was blocked by the guard (capture ended with "in").
+    # Now that trailing verbs are gone, try again.
+    _m_cat_is2 = re.match(
+        r"^(?:(?:programming|computer|natural|spoken|written|native|official|ancient|"
+        r"modern|web|mobile|scripting|markup|query|functional|object|compiled|"
+        r"interpreted|procedural)\s+)?"
+        r"(?:animal|plant|mammal|reptile|bird|fish|insect|element|mineral|metal|"
+        r"substance|compound|molecule|chemical|gas|liquid|solid|energy|"
+        r"country|city|continent|region|language|sport|food|drug|disease|"
+        r"ocean|sea|lake|river|mountain|desert|forest|island|peninsula|canyon|"
+        r"rock|mineral|gem|star|planet|galaxy|force|wave|particle|radiation|"
+        r"nationality|genre|style|medium|technique|movement|era|format|type|color|colour|shape|material|occupation|religion)\s+(?:is|was|are|were)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
+        text, re.I,
+    )
+    if _m_cat_is2:
+        _cat2 = _m_cat_is2.group(1)
+        if (not re.search(r"\s+(?:in|on|at)\s*$", _cat2, re.I)
+                and not re.match(r"^(?:most|least|very|quite|so|more|less|too)\b", _cat2, re.I)):
+            text = _cat2
     # Temporal prefix: "when will the next solar eclipse be" → verb strip → "next solar eclipse"
     # → strip leading "next"/"upcoming" → "solar eclipse". Safe: temporal modifiers add nothing
     # to a knowledge lookup; "next X" and "upcoming X" both look up the same concept.
