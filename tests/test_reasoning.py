@@ -8877,3 +8877,63 @@ def test_batch222_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is music theory",                                  "music theory"),
+    ("what is jazz",                                          "jazz"),
+    ("what is classical music",                               "classical music"),
+    ("what is rock music",                                    "rock music"),
+    ("what is hip hop",                                       "hip hop"),
+    ("what is opera",                                         "opera"),
+    ("who invented jazz",                                     "jazz"),
+    ("what is abstract art",                                  "abstract art"),
+    ("what is impressionism",                                 "impressionism"),
+    ("what is surrealism",                                    "surrealism"),
+    ("how does a guitar work",                                "guitar"),
+    ("how does a piano work",                                 "piano"),
+    ("what is a symphony",                                    "symphony"),
+    ("what is rhythm",                                        "rhythm"),
+    ("what is harmony",                                       "harmony"),
+    ("what is melody",                                        "melody"),
+    ("what is the pentatonic scale",                          "pentatonic scale"),
+    ("what is a chord",                                       "chord"),
+    ("what is photography",                                   "photography"),
+    ("what is cinematography",                                "cinematography"),
+])
+def test_batch223_subject_extraction(question, expected):
+    """Batch 223: music/arts — jazz, classical, impressionism, harmony."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is soccer",                                        "soccer"),
+    ("what is basketball",                                    "basketball"),
+    ("what is tennis",                                        "tennis"),
+    ("what is cricket",                                       "cricket"),
+    ("what is rugby",                                         "rugby"),
+    ("how is soccer played",                                  "soccer"),
+    ("how is basketball played",                              "basketball"),
+    ("what are the rules of tennis",                          "tennis"),
+    ("what are the rules of chess",                           "chess"),
+    ("what is aerobic exercise",                              "aerobic exercise"),
+    ("what is anaerobic exercise",                            "anaerobic exercise"),
+    ("what is cardiovascular exercise",                       "cardiovascular exercise"),
+    ("how does exercise benefit the body",                    "exercise"),
+    ("what is the olympics",                                  "olympics"),
+    ("what is a marathon",                                    "marathon"),
+    ("what is yoga",                                          "yoga"),
+    ("what is pilates",                                       "pilates"),
+    ("what is strength training",                             "strength training"),
+    ("how does muscle growth work",                           "muscle growth"),
+    ("what is the offside rule",                              "offside rule"),
+])
+def test_batch224_subject_extraction(question, expected):
+    """Batch 224: sports/exercise — soccer, basketball, yoga, training."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

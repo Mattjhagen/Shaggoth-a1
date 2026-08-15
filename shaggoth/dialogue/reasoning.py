@@ -1167,6 +1167,9 @@ def subject_of(question: str) -> str:
         r"purr[s]?|bark[s]?|meow[s]?|howl[s]?|chirp[s]?|sing[s]?|hum[s]?|roar[s]?|growl[s]?|"
         r"regrow[s]?|regenerate[sd]?|hibernate[sd]?|camouflage[sd]?|photosynthesize[sd]?|"
         r"die[sd]?|dies|"
+        # Effect/impact verbs: "how does exercise benefit the body" → "exercise"
+        r"benefit[s]?|harm[s]?|hurt[s]?|help[s]?|aid[s]?|support[s]?|boost[s]?|"
+        r"improv(?:e[sd]?|es)|strengthen[s]?|weaken[s]?|enhanc(?:e[sd]?|es)|"
         # Sensory/cognitive/existence verbs
         r"feel[s]?|sense[s]?|think[s]?|perceive[s]?|drown[s]?|survive[sd]?|"
         r"appear[s]?|disappear(?:s|ed)?|vanish(?:es|ed)?|reproduct[s]?|reproduce[sd]?|"
