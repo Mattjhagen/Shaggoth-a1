@@ -8360,3 +8360,41 @@ def test_batch200_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" (psychology term) → X
+    ("what is psychology",                                     "psychology"),
+    ("what is cognitive dissonance",                           "cognitive dissonance"),
+    ("what is the placebo effect",                             "placebo effect"),
+    ("what is confirmation bias",                              "confirmation bias"),
+    ("what is schizophrenia",                                  "schizophrenia"),
+    ("what is depression",                                     "depression"),
+    ("what is anxiety",                                        "anxiety"),
+    # "what causes X" → X
+    ("what causes depression",                                 "depression"),
+    ("what causes anxiety",                                    "anxiety"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between psychosis and neurosis",  "psychosis and neurosis"),
+    # "how does X work" → X
+    ("how does memory work",                                   "memory"),
+    ("how does the brain process information",                 "brain"),
+    # "what is X disorder" → "X disorder"
+    ("what is bipolar disorder",                               "bipolar disorder"),
+    ("what is autism spectrum disorder",                       "autism spectrum disorder"),
+    # "how do X affect Y" → X (existing design: agent is lookup subject)
+    ("how do emotions affect decision making",                 "emotions"),
+    # compound-noun definitions
+    ("what is short term memory",                              "short term memory"),
+    ("what is the subconscious mind",                          "subconscious mind"),
+    # "why do people VERB" → VERB (generic agent stripped; phenomenon is subject)
+    ("why do people dream",                                    "dream"),
+    ("what is social anxiety",                                 "social anxiety"),
+    ("what is iq",                                             "iq"),
+])
+def test_batch201_subject_extraction(question, expected):
+    """Batch 201: psychology/cognitive science — disorders, biases, phenomena."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
