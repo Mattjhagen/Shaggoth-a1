@@ -117,6 +117,14 @@ def test_split_subjects_short_acronyms():
     assert split_subjects("AI vs ML") == ["AI", "ML"]
 
 
+def test_split_subjects_strips_imperative_compare():
+    """'compare X and Y' is a comparison request, not 'compare X' vs 'Y'."""
+    assert split_subjects("compare cats and dogs") == ["cats", "dogs"]
+    assert split_subjects("compare deep learning and machine learning") == [
+        "deep learning", "machine learning"
+    ]
+
+
 def test_subject_of_drops_the_trailing_verb_phrase():
     """The subject is what to look up; the rest is what to look for."""
     assert subject_of("why does photosynthesis need light") == "photosynthesis"

@@ -113,6 +113,9 @@ _LEAD_IN = re.compile(
     r"^how (?:is|are|does|do)\s+"
     r"|^what do\s+"
     r"|^in what way(?:s)?\s+(?:is|are|do|does)\s+"
+    # "compare X and Y" / "compare X to Y" as an imperative opens with the
+    # verb "compare"; stripping it lets the joiner split correctly.
+    r"|^compare[ds]?\s+"
     r"|^(?:what(?:'s| is| are)?\s+)?(?:the\s+)?"
     r"(?:difference|differences|distinction|similarity|similarities)?\s*"
     r"(?:between\s+)?",
