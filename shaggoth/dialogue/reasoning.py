@@ -1204,16 +1204,33 @@ def subject_of(question: str) -> str:
     # removed the main verb: "which animal runs the fastest" → verb strip → "which animal"
     # → strip "which " → "animal".
     text = re.sub(r"^which\s+", "", text, flags=re.I)
+    # After "which" strip, a copula + comparative may remain: "is better python or java".
+    # Strip "is/are COMPARATIVE " to leave the compared subjects.
+    text = re.sub(
+        r"^(?:is|are|was|were)\s+"
+        r"(?:better|worse|bigger|smaller|faster|slower|older|younger|cheaper|pricier|"
+        r"more\s+\w+|less\s+\w+|best|worst|greatest|most\s+\w+|least\s+\w+|"
+        r"larger|higher|lower|heavier|lighter|stronger|weaker)\s+",
+        "", text, flags=re.I,
+    )
+    # Leading comparative adjective after QW stripped "what is"/"why is":
+    # "bigger jupiter or saturn" → "jupiter or saturn"
+    text = re.sub(
+        r"^(?:bigger|smaller|faster|slower|better|worse|cheaper|pricier|"
+        r"larger|higher|lower|older|younger)\s+(?=\w)",
+        "", text, flags=re.I,
+    )
     # "how does mitosis differ from meiosis" → verb strip removes "differ" (and "from meiosis"
     # via .*). "how is a virus different from a bacterium" — "different from" is not a verb,
     # strip it explicitly.
     text = re.sub(r"\s+different\s+from\s+.*$", "", text, flags=re.I)
     # "is the sun larger than the earth" → bare opener strips "is the" → "sun larger than the earth"
-    # strip comparative adj + "than ..." tail → "sun"
+    # strip comparative adj + "than ..." tail → "sun"; also "better than" / "worse than"
     text = re.sub(
         r"\s+(?:larger|bigger|smaller|faster|slower|older|younger|higher|lower|heavier|lighter|"
         r"hotter|colder|brighter|darker|stronger|weaker|closer|farther|nearer|wider|narrower|"
         r"longer|shorter|deeper|shallower|thicker|thinner|louder|quieter|denser|rarer|"
+        r"better|worse|cheaper|pricier|safer|healthier|tastier|easier|harder|simpler|"
         r"more|less)\s+(?:than\b|from\b).*$",
         "", text, flags=re.I,
     )

@@ -7491,3 +7491,43 @@ def test_batch179_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is the difference between X and Y" → X and Y
+    ("what is the difference between mitosis and meiosis",       "mitosis and meiosis"),
+    ("what is the difference between a virus and a bacterium",   "virus and bacterium"),
+    ("what is the difference between a lake and a pond",         "lake and pond"),
+    ("what is the difference between weather and climate",       "weather and climate"),
+    ("what is the difference between speed and velocity",        "speed and velocity"),
+    # "how is X different from Y" → X
+    ("how is a plant cell different from an animal cell",        "plant cell"),
+    # "which is better X or Y" → X or Y (copula + comparative stripped)
+    ("which is better python or java",                           "python or java"),
+    ("which is better cats or dogs",                             "cats or dogs"),
+    # "is X better than Y" → X (trailing comparative-than strip)
+    ("is python better than java",                               "python"),
+    ("is coffee better than tea",                                "coffee"),
+    # "can X do Y" → X
+    ("can fish feel pain",                                       "fish"),
+    ("can dogs see color",                                       "dogs"),
+    # "do X Y" → X
+    ("do plants feel pain",                                      "plants"),
+    ("do sharks sleep",                                          "sharks"),
+    # "are X Y" → X (article-less predicate: "bats birds" accepted limitation)
+    ("are dolphins mammals",                                     "dolphins"),
+    ("are bats birds",                                           "bats birds"),
+    # "is X a Y" → X
+    ("is a tomato a fruit",                                      "tomato"),
+    ("is a whale a fish",                                        "whale"),
+    # "what is bigger X or Y" → X or Y (leading comparative stripped)
+    ("what is bigger jupiter or saturn",                         "jupiter or saturn"),
+    # "why is X better than Y" → X
+    ("why is exercise better than dieting",                      "exercise"),
+])
+def test_batch180_subject_extraction(question, expected):
+    """Batch 180: comparative/relational — difference, better-than, can/do/are patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
