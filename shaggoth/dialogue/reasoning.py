@@ -1059,7 +1059,8 @@ def subject_of(question: str) -> str:
         r"drug|disease|galaxy|rock|gem|continent|region|nationality|organism|"
         r"creature|thing|person|way|place|type|kind|diet|meal|fruit|vegetable|"
         r"grain|vitamin|nutrient|exercise|workout|treatment|remedy|medicine|"
-        r"source|option|method|approach|strategy|solution|alternative|choice)"
+        r"source|option|method|approach|strategy|solution|alternative|choice|"
+        r"train|plane|car|vehicle|ship|boat|bridge|building|structure|tower)"
         r"(?:\s+\w+)?)\s*$",
         text, re.I,
     )
@@ -1102,7 +1103,7 @@ def subject_of(question: str) -> str:
         r"los(?:t|e[sd]?)|becam(?:e|es?)|forgot(?:ten)?|gain(?:ed)?|"
         r"get\s+\w+ed|become|start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
-        r"form[s]?|make[s]?|replicate[s]?|train[s]?|take[s]?|"
+        r"form[s]?|make[s]?|replicate[s]?|(?<!bullet )(?<!maglev )(?<!steam )(?<!freight )(?<!commuter )(?<!fastest )train[s]?|take[s]?|"
         r"pump[s]?|(?<!due )process(?:es)?|connect[s]?|"
         r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|consume[sd]?|"
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"

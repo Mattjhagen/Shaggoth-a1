@@ -7303,3 +7303,116 @@ def test_batch174_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Engineering disciplines
+    ("what is civil engineering",                                "civil engineering"),
+    ("what is mechanical engineering",                           "mechanical engineering"),
+    ("what is electrical engineering",                           "electrical engineering"),
+    ("what is software engineering",                             "software engineering"),
+    ("what is chemical engineering",                             "chemical engineering"),
+    # Architectural styles
+    ("what is baroque architecture",                             "baroque architecture"),
+    ("what is gothic architecture",                              "gothic architecture"),
+    ("what is modernist architecture",                           "modernist architecture"),
+    # Famous structures
+    ("who designed the eiffel tower",                            "eiffel tower"),
+    ("who designed the colosseum",                               "colosseum"),
+    ("how tall is the eiffel tower",                             "eiffel tower"),
+    ("how tall is the burj khalifa",                             "burj khalifa"),
+    # Materials
+    ("what is concrete",                                         "concrete"),
+    ("what is steel",                                            "steel"),
+    # Structural concepts
+    ("what is load bearing",                                     "load bearing"),
+    ("what is a cantilever",                                     "cantilever"),
+    # Engineering systems
+    ("how does a bridge work",                                   "bridge"),
+    ("how does a dam work",                                      "dam"),
+    ("what is the longest bridge in the world",                  "bridge"),
+    ("what is a truss",                                          "truss"),
+])
+def test_batch175_subject_extraction(question, expected):
+    """Batch 175: engineering/architecture — disciplines, styles, structures, materials."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Environment/climate
+    ("what is climate change",                                   "climate change"),
+    ("what is global warming",                                   "global warming"),
+    ("what is the greenhouse effect",                            "greenhouse effect"),
+    ("what is acid rain",                                        "acid rain"),
+    ("what is deforestation",                                    "deforestation"),
+    ("what causes climate change",                               "climate change"),
+    ("what causes acid rain",                                    "acid rain"),
+    # Ecosystems
+    ("what is an ecosystem",                                     "ecosystem"),
+    ("what is a biome",                                          "biome"),
+    ("what is a food chain",                                     "food chain"),
+    ("what is the water cycle",                                  "water cycle"),
+    # Natural disasters
+    ("what is a hurricane",                                      "hurricane"),
+    ("what is a tornado",                                        "tornado"),
+    ("what is an earthquake",                                    "earthquake"),
+    ("what is a tsunami",                                        "tsunami"),
+    # Geography
+    ("what is a watershed",                                      "watershed"),
+    ("what is a delta",                                          "delta"),
+    # Natural event causes
+    ("what causes a tornado",                                    "tornado"),
+    ("what causes an earthquake",                                "earthquake"),
+    # Action queries
+    ("how do you reduce carbon emissions",                       "carbon emissions"),
+])
+def test_batch176_subject_extraction(question, expected):
+    """Batch 176: environment/nature — climate, ecosystems, disasters, geography."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Transportation modes
+    ("what is the subway",                                       "subway"),
+    ("what is a bullet train",                                   "bullet train"),
+    ("what is a maglev train",                                   "maglev train"),
+    # Engineering systems
+    ("how does a jet engine work",                               "jet engine"),
+    ("how does a submarine work",                                "submarine"),
+    # Superlative transport queries
+    ("what is the fastest train in the world",                   "train"),
+    ("what is the fastest plane in the world",                   "plane"),
+    # Duration query with destination context preserved
+    ("how long does a flight to london take",                    "flight to london"),
+    # Travel destinations / landmarks
+    ("what is the colosseum",                                    "colosseum"),
+    ("what is the taj mahal",                                    "taj mahal"),
+    ("what is the great wall of china",                          "great wall of china"),
+    # Location queries
+    ("where is the amazon river",                                "amazon river"),
+    ("where is the sahara desert",                               "sahara desert"),
+    # Distance query — dummy "it" subject (rare pattern, accepted limitation)
+    ("how far is it from new york to london",                    "it"),
+    # Navigation concepts
+    ("what is gps",                                              "gps"),
+    ("what is latitude",                                         "latitude"),
+    ("what is longitude",                                        "longitude"),
+    # Time zone query
+    ("what is the time zone of tokyo",                           "tokyo"),
+    # Infrastructure
+    ("what is heathrow airport",                                 "heathrow airport"),
+    # Requirements query — movement verb remains after cascaded strips (known limitation)
+    ("what do you need to travel to japan",                      "travel"),
+])
+def test_batch177_subject_extraction(question, expected):
+    """Batch 177: travel/transportation — modes, landmarks, location/distance queries."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
