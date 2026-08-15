@@ -12153,3 +12153,63 @@ def test_batch332_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a climate change",                                  "climate change"),
+    ("what is a behaviour change",                                "behaviour change"),
+    ("what is an attitude change",                                "attitude change"),
+    ("what is a price rise",                                      "price rise"),
+    ("what is a wage rise",                                       "wage rise"),
+    ("what is a free fall",                                       "free fall"),
+    ("what is a hard fall",                                       "hard fall"),
+    ("what is a nose drop",                                       "nose drop"),
+    ("what is a backdrop",                                        "backdrop"),
+    ("what is a raindrop",                                        "raindrop"),
+    ("what is a fever spike",                                     "fever spike"),
+    ("what is a price spike",                                     "price spike"),
+    ("what is a power surge",                                     "power surge"),
+    ("what is a demand surge",                                    "demand surge"),
+    ("what is a paradigm shift",                                  "paradigm shift"),
+    ("what is a gear shift",                                      "gear shift"),
+    ("what is a plate shift",                                     "plate shift"),
+    ("what is a gas leak",                                        "gas leak"),
+    ("what is an oil leak",                                       "oil leak"),
+    ("what is a data breach",                                     "data breach"),
+])
+def test_batch333_subject_extraction(question, expected):
+    """Batch 333: compound noun X+VERB — change/rise/fall/drop/spike/surge/shift/leak/breach."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is global warming",                                    "global warming"),
+    ("what is ocean warming",                                     "ocean warming"),
+    ("what is global cooling",                                    "global cooling"),
+    ("what is active cooling",                                    "active cooling"),
+    ("what is glacier melting",                                   "glacier melting"),
+    ("what is permafrost melting",                                "permafrost melting"),
+    ("what is flash flooding",                                    "flash flooding"),
+    ("what is coastal flooding",                                  "coastal flooding"),
+    ("what is soil erosion",                                      "soil erosion"),
+    ("what is coastal erosion",                                   "coastal erosion"),
+    ("what is wind erosion",                                      "wind erosion"),
+    ("what is noise pollution",                                   "noise pollution"),
+    ("what is light pollution",                                   "light pollution"),
+    ("what is plastic pollution",                                 "plastic pollution"),
+    ("what is tropical deforestation",                            "tropical deforestation"),
+    ("what is ocean acidification",                               "ocean acidification"),
+    ("what is land desertification",                              "land desertification"),
+    ("what is a flash drought",                                   "flash drought"),
+    ("what is a seasonal drought",                                "seasonal drought"),
+    ("what is a forest wildfire",                                 "forest wildfire"),
+])
+def test_batch334_subject_extraction(question, expected):
+    """Batch 334: environmental/earth science compound nouns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
