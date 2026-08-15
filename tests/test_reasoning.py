@@ -4163,3 +4163,42 @@ def test_batch94_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" (physics concept) → X
+    ("what is gravity",                                "gravity"),
+    ("what is relativity",                             "relativity"),
+    ("what is entropy",                                "entropy"),
+    ("what is thermodynamics",                         "thermodynamics"),
+    ("what is electromagnetism",                       "electromagnetism"),
+    # "speed of X" without article → canonical constant kept intact
+    ("what is the speed of light",                     "speed of light"),
+    ("what is the speed of sound",                     "speed of sound"),
+    # mass/size causal-noun compounds (with article → strip)
+    ("what is the mass of the earth",                  "earth"),
+    ("what is the mass of the sun",                    "sun"),
+    # "how does X work" → X
+    ("how does gravity work",                          "gravity"),
+    ("how does nuclear fusion work",                   "nuclear fusion"),
+    ("how does a laser work",                          "laser"),
+    # boiling/melting point causal noun
+    ("what is the boiling point of water",             "water"),
+    ("what is the boiling point of nitrogen",          "nitrogen"),
+    ("what is the melting point of iron",              "iron"),
+    # "how hot is X" → X
+    ("how hot is the sun",                             "sun"),
+    ("how hot is lava",                                "lava"),
+    # atomic number causal noun
+    ("what is the atomic number of carbon",            "carbon"),
+    ("what is the atomic number of gold",              "gold"),
+    # "what is X made of" → X
+    ("what is water made of",                          "water"),
+    ("what is glass made of",                          "glass"),
+])
+def test_batch95_subject_extraction(question, expected):
+    """Batch 95: science & physics — gravity/entropy, mass/boiling-point causal nouns, speed-of canonical."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
