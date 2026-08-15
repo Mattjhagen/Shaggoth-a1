@@ -10530,3 +10530,63 @@ def test_batch277_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is due process",                                     "due process"),
+    ("what is habeas corpus",                                   "habeas corpus"),
+    ("what is eminent domain",                                  "eminent domain"),
+    ("what is civil law",                                       "civil law"),
+    ("what is common law",                                      "common law"),
+    ("what is criminal law",                                    "criminal law"),
+    ("what is a class action lawsuit",                          "class action lawsuit"),
+    ("what is intellectual property",                           "intellectual property"),
+    ("what is a non disclosure agreement",                      "non disclosure agreement"),
+    ("what is the miranda warning",                             "miranda warning"),
+    ("what is double jeopardy",                                 "double jeopardy"),
+    ("what is probable cause",                                  "probable cause"),
+    ("what is a restraining order",                             "restraining order"),
+    ("what is a writ of mandamus",                              "writ of mandamus"),
+    ("what is the presumption of innocence",                    "presumption of innocence"),
+    ("what is mens rea",                                        "mens rea"),
+    ("what is actus reus",                                      "actus reus"),
+    ("what is a statute of limitations",                        "statute of limitations"),
+    ("what is sovereign immunity",                              "sovereign immunity"),
+    ("what is judicial review",                                 "judicial review"),
+])
+def test_batch278_subject_extraction(question, expected):
+    """Batch 278: law/legal concepts — compound terms and legal doctrine names."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a dead giveaway",                                 "dead giveaway"),
+    ("what is a make or break moment",                          "make or break moment"),
+    ("what is a prison break",                                  "prison break"),
+    ("what is a clean break",                                   "clean break"),
+    ("what is a jailbreak",                                     "jailbreak"),
+    ("what is a fair play",                                     "fair play"),
+    ("what is foul play",                                       "foul play"),
+    ("what is a power play",                                    "power play"),
+    ("what is a display",                                       "display"),
+    ("what is a stronghold",                                    "stronghold"),
+    ("what is a household",                                     "household"),
+    ("what is a turning point",                                 "turning point"),
+    ("what is a u-turn",                                        "u-turn"),
+    ("what is a long shot",                                     "long shot"),
+    ("what is a moon shot",                                     "moon shot"),
+    ("what is a headshot",                                      "headshot"),
+    ("what is a race track",                                    "race track"),
+    ("what is a soundtrack",                                    "soundtrack"),
+    ("what is a lookout",                                       "lookout"),
+    ("what is an outlook",                                      "outlook"),
+])
+def test_batch279_subject_extraction(question, expected):
+    """Batch 279: adversarial compound nouns — give/make/break/play/hold/turn/shot/track/look."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

@@ -1186,7 +1186,8 @@ def subject_of(question: str) -> str:
         r"grow[s]?|spread[s]?|evolve[s]?|"
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
         # Causal/enabling verbs: "why don't vaccines cause autism" → "vaccines"
-        r"cause[sd]?|enable[sd]?|allow[s]?|prevent[s]?|"
+        # Guard "probable cause", "just cause" (legal compound nouns).
+        r"(?<!probable\s)(?<!just\s)cause[sd]?|enable[sd]?|allow[s]?|prevent[s]?|"
         # Electrical/physical process verbs: "how does water conduct electricity"
         r"conduct[s]?|generate[sd]?|transmit(?:ted|s)?|convert[s]?|transfer[s]?|"
         r"store[sd]?|release[sd]?|react[s]?|"
@@ -1196,8 +1197,9 @@ def subject_of(question: str) -> str:
         r"fight[s]?|(?<!asthma\s)(?<!heart\s)(?<!panic\s)(?<!anxiety\s)attack[s]?|"
         r"defend[s]?|protect[s]?|affect[s]?|impact[s]?|"
         # "break" is also a compound-noun tail ("tax break", "spring break", "coffee break",
-        # "commercial break", "prison break", "lunch break") — guard those prefixes.
-        r"(?<!tax\s)(?<!spring\s)(?<!coffee\s)(?<!commercial\s)(?<!lunch\s)(?<!winter\s)(?<!summer\s)(?<!prison\s)break[s]?|"
+        # "commercial break", "prison break", "lunch break", "clean break", "make or break")
+        # — guard those prefixes and the "or" coordinator.
+        r"(?<!tax\s)(?<!spring\s)(?<!coffee\s)(?<!commercial\s)(?<!lunch\s)(?<!winter\s)(?<!summer\s)(?<!prison\s)(?<!clean\s)(?<!or\s)break[s]?|"
         # Physical / chemical state-change verbs: "why does ice float", "what makes iron rust"
         # "carbon sink" and "heat sink" are noun compounds — guard those prefixes.
         r"float[s]?|(?<!carbon\s)(?<!heat\s)sink[s]?|rust[s]?|boil[s]?|melt[s]?|freeze[sd]?|evaporate[sd]?|"
@@ -1215,7 +1217,8 @@ def subject_of(question: str) -> str:
         # Comparison verbs: "how does X differ from Y" / "how does X compare to Y" → "X"
         r"differ[sd]?|compare[sd]?|resolve[sd]?|"
         # Role verb: "what role does insulin play in the body" → after leading strip → "play"
-        r"play(?:s|ed)?|"
+        # Guard "fair play", "foul play", "power play", "word play" compound nouns.
+        r"(?<!fair\s)(?<!foul\s)(?<!power\s)(?<!word\s)(?<!role\s)(?<!gun\s)play(?:s|ed)?|"
         # Origin verb: "where did humans originate"
         r"originate[sd]?|"
         # Intransitive motion/perception/existence verbs: "why do stars twinkle",
