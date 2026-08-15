@@ -160,6 +160,7 @@ class ScraperEngine:
         self.respect_robots = respect_robots
         #: origin -> (RobotFileParser | None, fetched_at)
         self._robots_cache: dict[str, tuple] = {}
+        self._robots_lock = threading.Lock()
         #: origin -> monotonic time of the last request to it. crawl() used to
         #: loop fetch_page() with no pause at all, which is fine against
         #: Wikipedia and rude against a small customer site on shared hosting.
@@ -180,7 +181,8 @@ class ScraperEngine:
             origin = f"{parts.scheme}://{parts.netloc}"
         except ValueError:
             return DEFAULT_CRAWL_DELAY
-        cached = self._robots_cache.get(origin)
+        with self._robots_lock:
+            cached = self._robots_cache.get(origin)
         parser = cached[0] if cached else None
         if parser is not None:
             try:
@@ -297,8 +299,10 @@ class ScraperEngine:
 
         origin = f"{parts.scheme}://{parts.netloc}"
         now = time.time()
-        cached = self._robots_cache.get(origin)
+        with self._robots_lock:
+            cached = self._robots_cache.get(origin)
         if cached is None or now - cached[1] > ROBOTS_TTL_SECONDS:
+            # Fetch outside the lock — network I/O must not hold it.
             parser = urllib.robotparser.RobotFileParser()
             parser.set_url(origin + "/robots.txt")
             try:
@@ -312,11 +316,12 @@ class ScraperEngine:
             except Exception:
                 # No robots.txt, or unreachable. Allowed by default.
                 parser = None
-            self._robots_cache[origin] = (parser, now)
-            if len(self._robots_cache) > self._CACHE_MAX:
-                oldest = min(self._robots_cache, key=lambda k: self._robots_cache[k][1])
-                del self._robots_cache[oldest]
-            cached = self._robots_cache[origin]
+            with self._robots_lock:
+                self._robots_cache[origin] = (parser, now)
+                if len(self._robots_cache) > self._CACHE_MAX:
+                    oldest = min(self._robots_cache, key=lambda k: self._robots_cache[k][1])
+                    del self._robots_cache[oldest]
+                cached = self._robots_cache[origin]
 
         parser = cached[0]
         if parser is None:

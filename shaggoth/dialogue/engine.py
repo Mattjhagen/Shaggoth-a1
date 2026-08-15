@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 import random
 import re
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -187,6 +188,7 @@ class DialogueEngine:
         #: Instance-wide default, overridable per request.
         self.mode = normalize_mode(mode)
         self._recalled: dict[str, set[int]] = {}
+        self._recalled_lock = threading.Lock()
         self._recalled_max_sessions = 200
         self.deferred_questions = deferred_questions
         self.push_sender = push_sender
@@ -547,31 +549,32 @@ class DialogueEngine:
         # overlaps produce noisy false matches.
         triggers: list[str] = []
         if source in ("pattern", "fallback") and not answered_from_knowledge:
-            seen = self._recalled.setdefault(session_id, set())
-            if len(self._recalled) > self._recalled_max_sessions:
-                oldest = next(iter(self._recalled))
-                if oldest != session_id:
-                    del self._recalled[oldest]
-            for recall in recalls:
-                if recall.message_id in seen:
-                    continue
-                if len(recall.shared_words) < 2:
-                    continue
-                snippet = _snippet(recall.content)
-                if len(snippet) < 20:
-                    continue
-                seen.add(recall.message_id)
-                if len(seen) > 500:
-                    excess = sorted(seen)[:len(seen) - 500]
-                    seen.difference_update(excess)
-                topic = ", ".join(recall.shared_words[:3])
-                when = _humanize_age(time.time() - recall.ts)
-                body += (
-                    f" By the way — {when} you mentioned something related "
-                    f"({topic}): \"{snippet}\". "
-                    "Has anything changed there?"
-                )
-                triggers.append(topic)
+            with self._recalled_lock:
+                seen = self._recalled.setdefault(session_id, set())
+                if len(self._recalled) > self._recalled_max_sessions:
+                    oldest = next(iter(self._recalled))
+                    if oldest != session_id:
+                        del self._recalled[oldest]
+                for recall in recalls:
+                    if recall.message_id in seen:
+                        continue
+                    if len(recall.shared_words) < 2:
+                        continue
+                    snippet = _snippet(recall.content)
+                    if len(snippet) < 20:
+                        continue
+                    seen.add(recall.message_id)
+                    if len(seen) > 500:
+                        excess = sorted(seen)[:len(seen) - 500]
+                        seen.difference_update(excess)
+                    topic = ", ".join(recall.shared_words[:3])
+                    when = _humanize_age(time.time() - recall.ts)
+                    body += (
+                        f" By the way — {when} you mentioned something related "
+                        f"({topic}): \"{snippet}\". "
+                        "Has anything changed there?"
+                    )
+                    triggers.append(topic)
 
         tools_used_list = []
         if loop_result and loop_result.tool_calls:
