@@ -7148,3 +7148,83 @@ def test_batch170_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Multi-word proper names / institutions
+    ("what is the united nations",                            "united nations"),
+    ("what is the european union",                            "european union"),
+    ("what is the world health organization",                 "world health organization"),
+    # Compound scientific terms
+    ("what is nuclear fission",                               "nuclear fission"),
+    ("what is quantum entanglement",                          "quantum entanglement"),
+    ("what is plate tectonics",                               "plate tectonics"),
+    # Famous theorems / laws
+    ("what is newtons second law",                            "newtons second law"),
+    ("what is the pythagorean theorem",                       "pythagorean theorem"),
+    # Very short terms (2-3 chars)
+    ("what is pi",                                            "pi"),
+    ("what is dna",                                           "dna"),
+    ("what is ai",                                            "ai"),
+    # Disease names with possessives
+    ("what is alzheimers disease",                            "alzheimers disease"),
+    ("what is parkinsons disease",                            "parkinsons disease"),
+    # Acronyms / brand-like terms
+    ("what is the g20",                                       "g20"),
+    ("what is wifi",                                          "wifi"),
+    # "what happened to X" → X
+    ("what happened to the dinosaurs",                        "dinosaurs"),
+    ("what happened to the roman empire",                     "roman empire"),
+    # Philosophical / abstract
+    ("what is the meaning of life",                           "meaning of life"),
+    ("what is love",                                          "love"),
+    ("what is consciousness",                                 "consciousness"),
+])
+def test_batch171_subject_extraction(question, expected):
+    """Batch 171: edge cases — multi-word names, short acronyms, disease names, abstract concepts."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X (medical conditions)
+    ("what is diabetes",                                      "diabetes"),
+    ("what is asthma",                                        "asthma"),
+    ("what is cancer",                                        "cancer"),
+    ("what is pneumonia",                                     "pneumonia"),
+    # "what are the symptoms of X" → X
+    ("what are the symptoms of covid",                        "covid"),
+    ("what are the symptoms of diabetes",                     "diabetes"),
+    # "what is the treatment for X" → X
+    ("what is the treatment for asthma",                      "asthma"),
+    ("what is the treatment for high blood pressure",         "high blood pressure"),
+    # "what causes X" ��� X
+    ("what causes high blood pressure",                       "high blood pressure"),
+    ("what causes kidney stones",                             "kidney stones"),
+    # "how is X diagnosed" → X
+    ("how is diabetes diagnosed",                             "diabetes"),
+    # "how do you prevent X" → X
+    ("how do you prevent heart disease",                      "heart disease"),
+    # "what is the difference between X and Y" → X and Y
+    ("what is the difference between type 1 and type 2 diabetes", "type 1 and type 2 diabetes"),
+    # "what is X" → X (medical procedures)
+    ("what is chemotherapy",                                  "chemotherapy"),
+    ("what is dialysis",                                      "dialysis"),
+    # "how does X affect the body" → X
+    ("how does alcohol affect the body",                      "alcohol"),
+    # "what is the normal X" → "normal X" (adjective modifier preserved)
+    ("what is the normal blood pressure",                     "normal blood pressure"),
+    # "what is X" → X (medical tests)
+    ("what is an mri",                                        "mri"),
+    ("what is a ct scan",                                     "ct scan"),
+    # "how long does X last" → X
+    ("how long does the flu last",                            "flu"),
+])
+def test_batch172_subject_extraction(question, expected):
+    """Batch 172: medical/health — conditions, symptoms, treatments, procedures."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
