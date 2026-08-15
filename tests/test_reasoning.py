@@ -11792,3 +11792,63 @@ def test_batch320_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is marine biology",                                    "marine biology"),
+    ("what is molecular biology",                                 "molecular biology"),
+    ("what is evolutionary biology",                              "evolutionary biology"),
+    ("what is synthetic biology",                                 "synthetic biology"),
+    ("what is organic chemistry",                                 "organic chemistry"),
+    ("what is inorganic chemistry",                               "inorganic chemistry"),
+    ("what is physical chemistry",                                "physical chemistry"),
+    ("what is analytical chemistry",                              "analytical chemistry"),
+    ("what is quantum physics",                                   "quantum physics"),
+    ("what is nuclear physics",                                   "nuclear physics"),
+    ("what is astrophysics",                                      "astrophysics"),
+    ("what is particle physics",                                  "particle physics"),
+    ("what is marine geology",                                    "marine geology"),
+    ("what is physical geography",                                "physical geography"),
+    ("what is atmospheric science",                               "atmospheric science"),
+    ("what is marine ecology",                                    "marine ecology"),
+    ("what is behavioral ecology",                                "behavioral ecology"),
+    ("what is computational neuroscience",                        "computational neuroscience"),
+    ("what is biomedical engineering",                            "biomedical engineering"),
+    ("what is environmental science",                             "environmental science"),
+])
+def test_batch321_subject_extraction(question, expected):
+    """Batch 321: science subfield compound-noun queries."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is cloud computing",                                   "cloud computing"),
+    ("what is cloud storage",                                     "cloud storage"),
+    ("what is cloud native",                                      "cloud native"),
+    ("what is cloud security",                                    "cloud security"),
+    ("what is web scraping",                                      "web scraping"),
+    ("what is web assembly",                                      "web assembly"),
+    ("what is web3",                                              "web3"),
+    ("what is data mining",                                       "data mining"),
+    ("what is data lake",                                         "data lake"),
+    ("what is data pipeline",                                     "data pipeline"),
+    ("what is data governance",                                   "data governance"),
+    ("what is cyber security",                                    "cyber security"),
+    ("what is cyber warfare",                                     "cyber warfare"),
+    ("what is cyber espionage",                                   "cyber espionage"),
+    ("what is open source",                                       "open source"),
+    ("what is open api",                                          "open api"),
+    ("what is open banking",                                      "open banking"),
+    ("what is containerization",                                  "containerization"),
+    ("what is microservices",                                     "microservices"),
+    ("what is serverless",                                        "serverless"),
+])
+def test_batch322_subject_extraction(question, expected):
+    """Batch 322: technology compound nouns — cloud/web/data/cyber/open prefix."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
