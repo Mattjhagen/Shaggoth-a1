@@ -9357,3 +9357,93 @@ def test_batch238_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is ancient egypt",                                    "ancient egypt"),
+    ("what is ancient greece",                                   "ancient greece"),
+    ("what is the roman empire",                                 "roman empire"),
+    ("what is mesopotamia",                                      "mesopotamia"),
+    ("what is ancient china",                                    "ancient china"),
+    ("who built the pyramids",                                   "pyramids"),
+    ("what is the colosseum",                                    "colosseum"),
+    ("what is the pantheon",                                     "pantheon"),
+    ("what is the parthenon",                                    "parthenon"),
+    ("what is the silk road",                                    "silk road"),
+    ("who was julius caesar",                                    "julius caesar"),
+    ("who was cleopatra",                                        "cleopatra"),
+    ("who was alexander the great",                              "alexander the great"),
+    ("what was the trojan war",                                  "trojan war"),
+    ("what is the magna carta",                                  "magna carta"),
+    ("what is the renaissance",                                  "renaissance"),
+    ("what was the black death",                                 "black death"),
+    ("what is the french revolution",                            "french revolution"),
+    ("what caused world war 1",                                  "world war 1"),
+    ("what caused world war 2",                                  "world war 2"),
+])
+def test_batch239_subject_extraction(question, expected):
+    """Batch 239: ancient/modern history — Egypt, Rome, Magna Carta, WWI/II."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is democracy",                                        "democracy"),
+    ("what is communism",                                        "communism"),
+    ("what is capitalism",                                       "capitalism"),
+    ("what is socialism",                                        "socialism"),
+    ("what is fascism",                                          "fascism"),
+    ("what is nationalism",                                      "nationalism"),
+    ("what is imperialism",                                      "imperialism"),
+    ("what is colonialism",                                      "colonialism"),
+    ("what is the cold war",                                     "cold war"),
+    ("what is the united nations",                               "united nations"),
+    ("what is nato",                                             "nato"),
+    ("what is the european union",                               "european union"),
+    ("what is globalization",                                    "globalization"),
+    ("what is diplomacy",                                        "diplomacy"),
+    ("what is a sanction",                                       "sanction"),
+    ("what is nuclear deterrence",                               "nuclear deterrence"),
+    ("what is soft power",                                       "soft power"),
+    ("what is a trade war",                                      "trade war"),
+    ("what is propaganda",                                       "propaganda"),
+    ("what is terrorism",                                        "terrorism"),
+])
+def test_batch240_subject_extraction(question, expected):
+    """Batch 240: geopolitics — democracy, communism, NATO, cold war, soft power."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is the nervous system",                               "nervous system"),
+    ("what is the circulatory system",                           "circulatory system"),
+    ("what is the digestive system",                             "digestive system"),
+    ("what is the respiratory system",                           "respiratory system"),
+    ("what is the skeletal system",                              "skeletal system"),
+    ("how does the heart work",                                  "heart"),
+    ("how does the brain work",                                  "brain"),
+    ("how does the liver work",                                  "liver"),
+    ("what is a neuron",                                         "neuron"),
+    ("what is a synapse",                                        "synapse"),
+    ("what is a hormone",                                        "hormone"),
+    ("what is insulin",                                          "insulin"),
+    ("what is adrenaline",                                       "adrenaline"),
+    ("what is blood pressure",                                   "blood pressure"),
+    ("what is a red blood cell",                                 "red blood cell"),
+    ("what is a white blood cell",                               "white blood cell"),
+    ("what is a chromosome",                                     "chromosome"),
+    ("what is bone marrow",                                      "bone marrow"),
+    ("what is cartilage",                                        "cartilage"),
+    ("what is the endocrine system",                             "endocrine system"),
+])
+def test_batch241_subject_extraction(question, expected):
+    """Batch 241: human body/anatomy — body systems, neurons, hormones, blood."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
