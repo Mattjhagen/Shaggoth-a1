@@ -8398,3 +8398,46 @@ def test_batch201_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" (astronomy term) → X
+    ("what is a black hole",                                   "black hole"),
+    ("what is a neutron star",                                 "neutron star"),
+    ("what is dark matter",                                    "dark matter"),
+    ("what is dark energy",                                    "dark energy"),
+    ("what is a supernova",                                    "supernova"),
+    # "how far is X from earth" → X
+    ("how far is the moon from earth",                         "moon"),
+    ("how far is mars from earth",                             "mars"),
+    # "what is the size of X" → X
+    ("what is the size of the sun",                            "sun"),
+    # "how old is X" → X
+    ("how old is the universe",                                "universe"),
+    ("how old is the sun",                                     "sun"),
+    # "how does X form" → X
+    ("how does a black hole form",                             "black hole"),
+    ("how do stars form",                                      "stars"),
+    # compound-noun definitions
+    ("what is the milky way",                                  "milky way"),
+    # "how many X are in Y" → Y
+    ("how many planets are in the solar system",               "solar system"),
+    # multi-word proper-noun definitions
+    ("what is the big bang theory",                            "big bang theory"),
+    # "what causes X" → X
+    ("what causes a solar eclipse",                            "solar eclipse"),
+    # "how does X work" → X
+    ("how does gravity work",                                  "gravity"),
+    # "what is a X" → X
+    ("what is a light year",                                   "light year"),
+    # "is there X on Y" → Y
+    ("is there life on mars",                                  "mars"),
+    # "what is the speed of X" → "speed of X"
+    ("what is the speed of light",                             "speed of light"),
+])
+def test_batch202_subject_extraction(question, expected):
+    """Batch 202: astronomy/space — black holes, stars, planets, cosmology."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
