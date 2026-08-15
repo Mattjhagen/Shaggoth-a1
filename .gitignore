@@ -31,6 +31,13 @@ data/knowledge/*.md
 !data/knowledge/photosynthesis.md
 !data/knowledge/python.md
 !data/knowledge/dna.md
+!data/knowledge/aeroponics.md
+!data/knowledge/cryptography.md
+!data/knowledge/deep-learning.md
+!data/knowledge/energy.md
+!data/knowledge/hydroponics.md
+!data/knowledge/machine-learning.md
+!data/knowledge/reinforcement-learning.md
 data/corpus/knowledge_corpus.txt
 data/curiosity_history.json
 data/knowledge_freshness.json
