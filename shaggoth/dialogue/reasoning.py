@@ -603,6 +603,13 @@ def subject_of(question: str) -> str:
         text = re.sub(r"\s+(?:in|on)\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
         # "percentage of the earth is water" → strip copula predicate after causal noun removed
         text = re.sub(r"\s+(?:is|are|was|were)\s+\w+\s*$", "", text, flags=re.I)
+    # Math calculus property nouns: "derivative of x squared" → "x squared".
+    # Only fires with "of" (not "in") to avoid "derivative in math" → wrong subject.
+    text = re.sub(
+        r"^(?:the\s+)?(?:derivative|integral|gradient|limit|quotient|product|sum|"
+        r"expansion|factorization|simplification)\s+of\s+(?:the\s+|a\s+|an\s+)?",
+        "", text, flags=re.I,
+    )
     # "speed of a cheetah" → "cheetah", "speed of the internet" → "internet",
     # but "speed of light" / "speed of sound" stay intact (no article = canonical constant).
     text = re.sub(r"^speed\s+of\s+(?:a|an|the)\s+", "", text, flags=re.I)

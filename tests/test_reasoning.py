@@ -6167,3 +6167,34 @@ def test_batch147_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is calculus",                                   "calculus"),
+    ("what is algebra",                                    "algebra"),
+    ("what is geometry",                                   "geometry"),
+    ("what is trigonometry",                               "trigonometry"),
+    ("what is statistics",                                 "statistics"),
+    ("what is probability",                                "probability"),
+    ("what is pi",                                         "pi"),
+    ("what is the pythagorean theorem",                    "pythagorean theorem"),
+    ("what is a prime number",                             "prime number"),
+    ("what is the fibonacci sequence",                     "fibonacci sequence"),
+    ("what is the square root of 144",                     "144"),
+    ("what is the derivative of x squared",                "x squared"),
+    ("how do you solve a quadratic equation",              "quadratic equation"),
+    ("how do you find the area of a circle",               "area"),
+    ("what does infinity mean in math",                    "infinity"),
+    ("what is the formula for the area of a circle",       "area"),
+    ("who invented calculus",                              "calculus"),
+    ("what is a vector in mathematics",                    "vector"),
+    ("how many prime numbers are there",                   "prime numbers"),
+    ("what is the fundamental theorem of calculus",        "fundamental theorem of calculus"),
+    ("is pi irrational",                                   "pi"),
+])
+def test_batch148_subject_extraction(question, expected):
+    """Batch 148: mathematics — branches, theorems, operators, derivation queries."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
