@@ -10140,3 +10140,33 @@ def test_batch264_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a light switch",                                   "light switch"),
+    ("what is a hard drive",                                     "hard drive"),
+    ("what is a sound wave",                                     "sound wave"),
+    ("what is a cold front",                                     "cold front"),
+    ("what is a heat pump",                                      "heat pump"),
+    ("what is a power plant",                                    "power plant"),
+    ("what is a wind farm",                                      "wind farm"),
+    ("what is a fire wall",                                      "fire wall"),
+    ("what is a spring tide",                                    "spring tide"),
+    ("what is the big bang theory",                              "big bang theory"),
+    ("what is the social contract",                              "social contract"),
+    ("what is the prisoner's dilemma",                           "prisoner's dilemma"),
+    ("what is the butterfly effect",                             "butterfly effect"),
+    ("what is the placebo effect",                               "placebo effect"),
+    ("what is the domino effect",                                "domino effect"),
+    ("what causes acid rain",                                    "acid rain"),
+    ("what causes sleep apnea",                                  "sleep apnea"),
+    ("what causes multiple sclerosis",                           "multiple sclerosis"),
+    ("what is machine learning",                                 "machine learning"),
+    ("what is deep learning",                                    "deep learning"),
+])
+def test_batch265_subject_extraction(question, expected):
+    """Batch 265: adversarial patterns — verb-noun ambiguity, compound nouns, multi-token topics."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

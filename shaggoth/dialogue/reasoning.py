@@ -1164,7 +1164,8 @@ def subject_of(question: str) -> str:
         r"get\s+\w+ed|become|start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|(?<!bullet )(?<!maglev )(?<!steam )(?<!freight )(?<!commuter )(?<!fastest )train[s]?|take[s]?|"
-        r"pump[s]?|(?<!due )process(?:es)?|connect[s]?|"
+        # "heat pump", "sump pump", "water pump", "fuel pump" are noun compounds.
+        r"(?<!heat\s)(?<!sump\s)(?<!water\s)(?<!fuel\s)(?<!vacuum\s)pump[s]?|(?<!due )process(?:es)?|connect[s]?|"
         r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|consume[sd]?|"
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"
         r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|catch(?:es)?|caught|"
