@@ -1241,8 +1241,8 @@ def subject_of(question: str) -> str:
         # Note: bare "rate" and plural "rates" are NOT here — they are almost always nouns
         # (interest rates, poverty rates, crime rates, exchange rates).
         # Only "rated" (passive participle, clearly a verb) is stripped.
-        # Guard "margin call", "roll call", "curtain call", "covered call", "close call" compound nouns.
-        r"measure[sd]?|classif(?:ied|y|ies)?|(?<!margin\s)(?<!roll\s)(?<!curtain\s)(?<!covered\s)(?<!close\s)call(?:ed|s)?|rank(?:ed|s)?|rated|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
+        # Guard "margin call", "roll call", "curtain call", "covered call", "close call", "wake up call" compound nouns.
+        r"measure[sd]?|classif(?:ied|y|ies)?|(?<!margin\s)(?<!roll\s)(?<!curtain\s)(?<!covered\s)(?<!close\s)(?<!up\s)call(?:ed|s)?|rank(?:ed|s)?|rated|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
         r"turn[s]?|transform[sd]?|"
         # Guard "rug burn", "chemical burn", "road burn" compound nouns.
         r"shine[sd]?|glow[s]?|(?<!rug\s)(?<!chemical\s)(?<!road\s)burn[s]?|move[sd]?|"

@@ -11340,3 +11340,153 @@ def test_batch305_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a stem cell",                                    "stem cell"),
+    ("what is a red blood cell",                               "red blood cell"),
+    ("what is a white blood cell",                             "white blood cell"),
+    ("what is a cell membrane",                                "cell membrane"),
+    ("what is a cell wall",                                    "cell wall"),
+    ("what is a cell division",                                "cell division"),
+    ("what is dna replication",                                "dna replication"),
+    ("what is natural selection",                              "natural selection"),
+    ("what is genetic mutation",                               "genetic mutation"),
+    ("what is a gene pool",                                    "gene pool"),
+    ("what is a food chain",                                   "food chain"),
+    ("what is a food web",                                     "food web"),
+    ("what is photosynthesis",                                 "photosynthesis"),
+    ("what is cellular respiration",                           "cellular respiration"),
+    ("what is mitosis",                                        "mitosis"),
+    ("what is meiosis",                                        "meiosis"),
+    ("what is a chromosome",                                   "chromosome"),
+    ("what is a ribosome",                                     "ribosome"),
+    ("what is a chloroplast",                                  "chloroplast"),
+    ("what is a mitochondria",                                 "mitochondria"),
+])
+def test_batch306_subject_extraction(question, expected):
+    """Batch 306: biology/life science — cells, genetics, and evolution terms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a home run",                                     "home run"),
+    ("what is a slam dunk",                                    "slam dunk"),
+    ("what is a hat trick",                                    "hat trick"),
+    ("what is a penalty kick",                                 "penalty kick"),
+    ("what is a free kick",                                    "free kick"),
+    ("what is a corner kick",                                  "corner kick"),
+    ("what is an off side",                                    "off side"),
+    ("what is a yellow card",                                  "yellow card"),
+    ("what is a red card",                                     "red card"),
+    ("what is a checkmate",                                    "checkmate"),
+    ("what is a love set",                                     "love set"),
+    ("what is a match point",                                  "match point"),
+    ("what is a photo finish",                                 "photo finish"),
+    ("what is a false start",                                  "false start"),
+    ("what is a personal foul",                                "personal foul"),
+    ("what is a technical foul",                               "technical foul"),
+    ("what is a flagrant foul",                                "flagrant foul"),
+    ("what is a power play",                                   "power play"),
+    ("what is a blitz",                                        "blitz"),
+    ("what is a screen pass",                                  "screen pass"),
+])
+def test_batch307_subject_extraction(question, expected):
+    """Batch 307: sports/athletics — equipment, positions, and rules."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is free will",                                      "free will"),
+    ("what is determinism",                                    "determinism"),
+    ("what is existentialism",                                 "existentialism"),
+    ("what is nihilism",                                       "nihilism"),
+    ("what is utilitarianism",                                 "utilitarianism"),
+    ("what is a moral dilemma",                                "moral dilemma"),
+    ("what is cognitive dissonance",                           "cognitive dissonance"),
+    ("what is confirmation bias",                              "confirmation bias"),
+    ("what is the trolley problem",                            "trolley problem"),
+    ("what is an ethical dilemma",                             "ethical dilemma"),
+    ("what is the social contract",                            "social contract"),
+    ("what is civil disobedience",                             "civil disobedience"),
+    ("what is a thought experiment",                           "thought experiment"),
+    ("what is reductionism",                                   "reductionism"),
+    ("what is empiricism",                                     "empiricism"),
+    ("what is rationalism",                                    "rationalism"),
+    ("what is pragmatism",                                     "pragmatism"),
+    ("what is stoicism",                                       "stoicism"),
+    ("what is relativism",                                     "relativism"),
+    ("what is a paradigm shift",                               "paradigm shift"),
+])
+def test_batch308_subject_extraction(question, expected):
+    """Batch 308: philosophy/ethics — -isms, dilemmas, and abstract concepts."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a hall pass",                                    "hall pass"),
+    ("what is a free pass",                                    "free pass"),
+    ("what is a press pass",                                   "press pass"),
+    ("what is a boarding pass",                                "boarding pass"),
+    ("what is a backstage pass",                               "backstage pass"),
+    ("what is a downfall",                                     "downfall"),
+    ("what is a rainfall",                                     "rainfall"),
+    ("what is a windfall",                                     "windfall"),
+    ("what is a pratfall",                                     "pratfall"),
+    ("what is a shortfall",                                    "shortfall"),
+    ("what is a curtain call",                                 "curtain call"),
+    ("what is a wake up call",                                 "wake up call"),
+    ("what is a roll call",                                    "roll call"),
+    ("what is a tell all",                                     "tell all"),
+    ("what is a hard sell",                                    "hard sell"),
+    ("what is a soft sell",                                    "soft sell"),
+    ("what is a landfill",                                     "landfill"),
+    ("what is a refill",                                       "refill"),
+    ("what is a bill of rights",                               "bill of rights"),
+    ("what is a playbill",                                     "playbill"),
+])
+def test_batch309_subject_extraction(question, expected):
+    """Batch 309: adversarial — pass/fall/call/tell/sell/fill/bill as noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is bipolar disorder",                               "bipolar disorder"),
+    ("what is obsessive compulsive disorder",                  "obsessive compulsive disorder"),
+    ("what is post traumatic stress disorder",                 "post traumatic stress disorder"),
+    ("what is attention deficit hyperactivity disorder",       "attention deficit hyperactivity disorder"),
+    ("what is borderline personality disorder",                "borderline personality disorder"),
+    ("what is seasonal affective disorder",                    "seasonal affective disorder"),
+    ("what is generalized anxiety disorder",                   "generalized anxiety disorder"),
+    ("what is social anxiety disorder",                        "social anxiety disorder"),
+    ("what is panic disorder",                                 "panic disorder"),
+    ("what is a phobia",                                       "phobia"),
+    ("what is agoraphobia",                                    "agoraphobia"),
+    ("what is claustrophobia",                                 "claustrophobia"),
+    ("what is schizophrenia",                                  "schizophrenia"),
+    ("what is autism spectrum disorder",                       "autism spectrum disorder"),
+    ("what is depression",                                     "depression"),
+    ("what is a mental breakdown",                             "mental breakdown"),
+    ("what is a nervous breakdown",                            "nervous breakdown"),
+    ("what is emotional intelligence",                         "emotional intelligence"),
+    ("what is a coping mechanism",                             "coping mechanism"),
+    ("what is a defense mechanism",                            "defense mechanism"),
+])
+def test_batch310_subject_extraction(question, expected):
+    """Batch 310: psychology/mental health — disorders, conditions, and concepts."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
