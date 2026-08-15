@@ -12003,3 +12003,63 @@ def test_batch327_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a bench press",                                     "bench press"),
+    ("what is a printing press",                                  "printing press"),
+    ("what is a hot press",                                       "hot press"),
+    ("what is a home stretch",                                    "home stretch"),
+    ("what is a stretch limo",                                    "stretch limo"),
+    ("what is a crush syndrome",                                  "crush syndrome"),
+    ("what is orange crush",                                      "orange crush"),
+    ("what is a skin patch",                                      "skin patch"),
+    ("what is an eye patch",                                      "eye patch"),
+    ("what is a software patch",                                  "software patch"),
+    ("what is a catch phrase",                                    "catch phrase"),
+    ("what is a catch 22",                                        "catch 22"),
+    ("what is a test match",                                      "test match"),
+    ("what is a boxing match",                                    "boxing match"),
+    ("what is a smartwatch",                                      "smartwatch"),
+    ("what is a pocket watch",                                    "pocket watch"),
+    ("what is a car wash",                                        "car wash"),
+    ("what is a brainwash",                                       "brainwash"),
+    ("what is a gold rush",                                       "gold rush"),
+    ("what is a sugar rush",                                      "sugar rush"),
+])
+def test_batch328_subject_extraction(question, expected):
+    """Batch 328: adversarial — press/stretch/crush/patch/catch/match/watch/wash/rush noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is the digital age",                                   "digital age"),
+    ("what is the stone age",                                     "stone age"),
+    ("what is the ice age",                                       "ice age"),
+    ("what is middle age",                                        "middle age"),
+    ("what is a life stage",                                      "life stage"),
+    ("what is a growth stage",                                    "growth stage"),
+    ("what is a bird cage",                                       "bird cage"),
+    ("what is a rib cage",                                        "rib cage"),
+    ("what is a home page",                                       "home page"),
+    ("what is a web page",                                        "web page"),
+    ("what is a minimum wage",                                    "minimum wage"),
+    ("what is a living wage",                                     "living wage"),
+    ("what is a mountain range",                                  "mountain range"),
+    ("what is a firing range",                                    "firing range"),
+    ("what is a driving range",                                   "driving range"),
+    ("what is a regime change",                                   "regime change"),
+    ("what is a sea change",                                      "sea change"),
+    ("what is an overcharge",                                     "overcharge"),
+    ("what is a surcharge",                                       "surcharge"),
+    ("what is a merger",                                          "merger"),
+])
+def test_batch329_subject_extraction(question, expected):
+    """Batch 329: adversarial — age/stage/cage/page/wage/range/change/charge/merge noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
