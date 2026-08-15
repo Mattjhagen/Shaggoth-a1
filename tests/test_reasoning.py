@@ -13672,3 +13672,82 @@ def test_batch376_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "cut" compound nouns
+    ("what is a shortcut",                                       "shortcut"),
+    ("what is a haircut",                                        "haircut"),
+    ("what is a budget cut",                                     "budget cut"),
+    ("what is a tax cut",                                        "tax cut"),
+    ("what is a price cut",                                      "price cut"),
+    # "break" compound nouns
+    ("what is a outbreak",                                       "outbreak"),
+    ("what is a jailbreak",                                      "jailbreak"),
+    ("what is a breakout",                                       "breakout"),
+    ("what is a tax break",                                      "tax break"),
+    ("what is a commercial break",                               "commercial break"),
+    # "hold" compound nouns
+    ("what is a threshold",                                      "threshold"),
+    ("what is a household",                                      "household"),
+    ("what is a stronghold",                                     "stronghold"),
+    ("what is a chokehold",                                      "chokehold"),
+    # "stand" compound nouns
+    ("what is a standoff",                                       "standoff"),
+    ("what is a standout",                                       "standout"),
+    ("what is a grandstand",                                     "grandstand"),
+    ("what is a bandstand",                                      "bandstand"),
+    # "work" compound nouns
+    ("what is groundwork",                                       "groundwork"),
+    ("what is framework",                                        "framework"),
+    ("what is teamwork",                                         "teamwork"),
+    ("what is homework",                                         "homework"),
+    ("what is a network",                                        "network"),
+])
+def test_batch377_subject_extraction(question, expected):
+    """Batch 377: action-verb compound nouns — cut/break/hold/stand/work."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # acronym lookups
+    ("what does dna stand for",                                  "dna"),
+    ("what does rna stand for",                                  "rna"),
+    ("what does gps stand for",                                  "gps"),
+    ("what does atm stand for",                                  "atm"),
+    ("what does wifi stand for",                                  "wifi"),
+    # "what does it mean when your NOUN VERB" → NOUN (the entity being characterized)
+    ("what does it mean when your ears ring",                    "ears"),
+    ("what does it mean when dogs wag their tail",               "dogs"),
+    # "why do X" → X (subject entity; action is stripped)
+    ("why do we dream",                                          "dream"),
+    ("why do leaves change color",                               "leaves"),
+    ("why do we yawn",                                           "yawn"),
+    # "when did X" → X (historical event)
+    ("when did dinosaurs go extinct",                            "dinosaurs"),
+    ("when did humans evolve",                                   "humans"),
+    # "where is X" → X (location query)
+    ("where is the amazon river",                                "amazon river"),
+    ("where is the sahara desert",                               "sahara desert"),
+    # "who invented X" → X
+    ("who invented the telephone",                               "telephone"),
+    ("who invented the internet",                                "internet"),
+    # "who discovered X" → X
+    ("who discovered gravity",                                   "gravity"),
+    ("who discovered penicillin",                                "penicillin"),
+    # "who wrote X" → X
+    ("who wrote hamlet",                                         "hamlet"),
+    ("who wrote the odyssey",                                    "odyssey"),
+    # "who was X" → X
+    ("who was napoleon",                                         "napoleon"),
+    ("who was cleopatra",                                        "cleopatra"),
+])
+def test_batch378_subject_extraction(question, expected):
+    """Batch 378: idioms and question-form patterns — acronyms, when/where/who/why."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
