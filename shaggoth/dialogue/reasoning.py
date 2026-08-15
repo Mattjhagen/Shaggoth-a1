@@ -618,6 +618,7 @@ def subject_of(question: str) -> str:
         r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|"
         r"come[s]?\s+from|get[s]?|navigate[sd]?|find[s]?|"
         r"purr[s]?|bark[s]?|meow[s]?|howl[s]?|chirp[s]?|sing[s]?|hum[s]?|roar[s]?|growl[s]?|"
+        r"regrow[s]?|regenerate[sd]?|hibernate[sd]?|camouflage[sd]?|photosynthesize[sd]?|"
         r"die[sd]?|dies|"
         # Sensory/cognitive/existence verbs
         r"feel[s]?|sense[s]?|think[s]?|perceive[s]?|drown[s]?|survive[sd]?|"
@@ -835,6 +836,13 @@ def subject_of(question: str) -> str:
     # strips "why does " → "X not use Y" → trailing strip removes " use Y" →
     # "X not" → remove trailing " not" → "X".
     text = re.sub(r"\s+not\s*$", "", text, flags=re.I)
+    # "are dolphins mammals" → "dolphins mammals" → strip trailing classification noun → "dolphins"
+    text = re.sub(
+        r"\s+(?:mammals?|reptiles?|amphibians?|arachnids?|crustaceans?|mollusks?|"
+        r"insects?|invertebrates?|vertebrates?|primates?|carnivores?|herbivores?|"
+        r"omnivores?|parasites?|predators?|scavengers?|plankton)\s*$",
+        "", text, flags=re.I,
+    )
     # Strip a trailing bare copula: "blood sugar is" (after adj strip removed "low")
     # → "blood sugar". Only fires when nothing else could have consumed it.
     text = re.sub(r"\s+(?:is|are|was|were)\s*$", "", text, flags=re.I)

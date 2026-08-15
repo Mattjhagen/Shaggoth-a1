@@ -2857,3 +2857,36 @@ def test_batch57_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 58: can/would/do/does; regrow verb; category-noun strip (mammals etc)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "can X VERB" → X
+    ("can sharks breathe out of water",                "sharks"),
+    ("can dogs see color",                             "dogs"),
+    ("can fish feel pain",                             "fish"),
+    ("can humans regrow limbs",                        "humans"),
+    ("could dinosaurs have survived the asteroid",     "dinosaurs"),
+    # "are X CLASSIFICATION" → X  (category-noun strip)
+    ("are dolphins mammals",                           "dolphins"),
+    ("are spiders insects",                            "spiders"),
+    ("are viruses alive",                              "viruses"),
+    # "do/does X have Y" → X
+    ("do humans have tails",                           "humans"),
+    ("do fish have ears",                              "fish"),
+    ("does the earth have a magnetic field",           "earth"),
+    ("does mars have moons",                           "mars"),
+    # "is X Y" → X
+    ("is the sun a star",                              "sun"),
+    ("is pluto a planet",                              "pluto"),
+])
+def test_batch58_subject_extraction(question, expected):
+    """Batch 58: can/could/are X VERB/CATEGORY; do/does X have; regrow/hibernate verbs."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
