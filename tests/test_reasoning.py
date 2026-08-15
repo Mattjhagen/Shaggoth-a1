@@ -125,6 +125,35 @@ def test_split_subjects_strips_imperative_compare():
     ]
 
 
+def test_split_subjects_compare_to_preposition():
+    """'compare X to Y' uses 'to' as the joiner, not 'and'."""
+    assert split_subjects("compare aeroponics to hydroponics") == [
+        "aeroponics", "hydroponics"
+    ]
+
+
+def test_split_subjects_how_does_compare_to():
+    """'how does X compare to Y' must strip the verb and split on 'compare to'."""
+    assert split_subjects("how does aeroponics compare to hydroponics") == [
+        "aeroponics", "hydroponics"
+    ]
+    assert split_subjects("how does Python compare to JavaScript") == [
+        "Python", "JavaScript"
+    ]
+
+
+def test_split_subjects_what_distinguishes():
+    """'what distinguishes X from Y' is a comparison; 'from' is the joiner."""
+    assert split_subjects("what distinguishes aeroponics from hydroponics") == [
+        "aeroponics", "hydroponics"
+    ]
+
+
+def test_what_distinguishes_is_compare_intent():
+    """'what distinguishes X from Y' must classify as COMPARE, not DEFINE."""
+    assert classify("what distinguishes aeroponics from hydroponics") == Intent.COMPARE
+
+
 def test_subject_of_drops_the_trailing_verb_phrase():
     """The subject is what to look up; the rest is what to look for."""
     assert subject_of("why does photosynthesis need light") == "photosynthesis"

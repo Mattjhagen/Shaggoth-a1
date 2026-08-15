@@ -68,7 +68,7 @@ class Reasoned:
 # -- question classification ----------------------------------------------
 
 _COMPARE = re.compile(
-    r"\b(?:difference|differences|differ|distinguish|distinction)\b"
+    r"\b(?:difference|differences|differ|distinguish(?:es|ed|ing)?|distinction)\b"
     # "compare X to Y" puts the subject between the verb and the preposition,
     # so this cannot require them to be adjacent.
     r"|\bcompare[ds]?\b.*\b(?:to|with|against)\b|\bcompare[ds]?\b"
@@ -99,10 +99,18 @@ _ENUMERATE = re.compile(
 
 #: Two subjects joined. "and" is deliberately last: "difference between X and
 #: Y" is far more common than "X vs Y", but "and" also appears inside subject
-#: names, so the more explicit joiners get first refusal.
+#: names, so the more explicit joiners get first refusal.  "from" and "to"
+#: are weakest: only reached after the lead-in verb phrase is stripped (e.g.
+#: "compare X to Y" → "X to Y"; "what distinguishes X from Y" → "X from Y").
 _JOINERS = (
-    r"\s+versus\s+", r"\s+vs\.?\s+", r"\s+compared\s+to\s+",
-    r"\s+compared\s+with\s+", r"\s+against\s+", r"\s+and\s+",
+    r"\s+versus\s+", r"\s+vs\.?\s+",
+    r"\s+compared?\s+to\s+",       # "compare to" and "compared to"
+    r"\s+compared?\s+with\s+",     # "compare with" and "compared with"
+    r"\s+against\s+",
+    r"\s+different\s+(?:from|to)\s+",  # "X different from Y"
+    r"\s+and\s+",
+    r"\s+from\s+",                 # after "what distinguishes" lead-in strip
+    r"\s+to\s+",                   # after "compare" lead-in strip
 )
 
 # Alternation order matters. Every group in the first branch is optional, so
@@ -112,6 +120,7 @@ _JOINERS = (
 _LEAD_IN = re.compile(
     r"^how (?:is|are|does|do)\s+"
     r"|^what do\s+"
+    r"|^what distinguishes\s+"
     r"|^in what way(?:s)?\s+(?:is|are|do|does)\s+"
     # "compare X and Y" / "compare X to Y" as an imperative opens with the
     # verb "compare"; stripping it lets the joiner split correctly.
