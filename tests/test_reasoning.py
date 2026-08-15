@@ -2517,3 +2517,30 @@ def test_batch47_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Missing trailing verbs: smell, read, write, coexist
+    ("can sharks smell blood from a mile away",        "sharks"),
+    ("could ancient egyptians read and write",         "ancient egyptians"),
+    ("did dinosaurs and humans coexist",               "dinosaurs and humans"),
+    # Comparative "X larger/farther than Y" → X
+    ("is the sun larger than the earth",               "sun"),
+    ("is neptune farther from the sun than saturn",    "neptune"),
+    # Compound adj: "X warm blooded" → X
+    ("are sharks warm blooded",                        "sharks"),
+    ("are insects warm blooded",                       "insects"),
+    # regression guards
+    ("can humans survive on the moon",                 "humans"),
+    ("can plants feel pain",                           "plants"),
+    ("do dolphins sleep",                              "dolphins"),
+    ("does the moon have water",                       "moon"),
+    ("did ancient rome have electricity",              "ancient rome"),
+    ("how is a virus different from a bacterium",      "virus"),
+])
+def test_batch48_subject_extraction(question, expected):
+    """Batch 48: smell/read/write/coexist verbs; comparative-than strip; warm-blooded adj."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

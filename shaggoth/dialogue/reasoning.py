@@ -621,6 +621,7 @@ def subject_of(question: str) -> str:
         r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
         r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|"
+        r"smell[s]?|taste[s]?|see[s]?|hear[s]?|sense[s]?|read[s]?|writ(?:e[s]?|ten)|coexist[s]?|"
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
         r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rate[sd]?|"
         r"turn[s]?|transform[sd]?|"
@@ -641,6 +642,17 @@ def subject_of(question: str) -> str:
     # via .*). "how is a virus different from a bacterium" — "different from" is not a verb,
     # strip it explicitly.
     text = re.sub(r"\s+different\s+from\s+.*$", "", text, flags=re.I)
+    # "is the sun larger than the earth" → bare opener strips "is the" → "sun larger than the earth"
+    # strip comparative adj + "than ..." tail → "sun"
+    text = re.sub(
+        r"\s+(?:larger|bigger|smaller|faster|slower|older|younger|higher|lower|heavier|lighter|"
+        r"hotter|colder|brighter|darker|stronger|weaker|closer|farther|nearer|wider|narrower|"
+        r"longer|shorter|deeper|shallower|thicker|thinner|louder|quieter|denser|rarer|"
+        r"more|less)\s+(?:than\b|from\b).*$",
+        "", text, flags=re.I,
+    )
+    # "sharks warm blooded" → strip compound blood-type adjectives
+    text = re.sub(r"\s+(?:warm|cold|hot).?blooded\s*$", "", text, flags=re.I)
     # "birds to" (after "fly" was verb-stripped from "birds to fly") → "birds"
     text = re.sub(r"\s+to\s*$", "", text, flags=re.I)
     # "stress related to heart disease" → "stress"  (predicate adj + prepositional tail)
