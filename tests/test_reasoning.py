@@ -1003,3 +1003,59 @@ def test_split_subjects_contractions(question, expected_subjects):
     assert result == expected_subjects, (
         f"split_subjects({question!r}): expected {expected_subjects!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 9: imperative prefix strip, quantifier strip, new classify patterns
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("tell me about different types of databases", "databases"),
+    ("explain how vaccines work", "vaccines"),
+    ("describe the role of mitochondria in cells", "mitochondria"),
+    ("discuss the effects of climate change", "climate change"),
+    ("give me an overview of quantum mechanics", "quantum mechanics"),
+])
+def test_subject_of_imperative_prefix_strip(question, expected):
+    """Imperative prefixes like 'tell me about', 'explain', 'describe' must
+    be stripped from the subject so the reasoner looks up the right topic."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what are some programming languages", "programming languages"),
+    ("what are various forms of energy", "energy"),
+    ("what are several types of volcanoes", "volcanoes"),
+])
+def test_subject_of_leading_quantifier_stripped(question, expected):
+    """Bare leading quantifiers ('some', 'various', 'several') left after
+    stripping 'what are' must not pollute the extracted subject."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question", [
+    "what do plants need to grow",
+    "what does a cell need to survive",
+    "what do vaccines require for effectiveness",
+    "what do plants use for photosynthesis",
+])
+def test_classify_what_do_x_need_is_causal(question):
+    """'what do X need/require/use' asks for requirements — a causal question."""
+    assert classify(question) == Intent.CAUSAL
+
+
+@pytest.mark.parametrize("question", [
+    "what renewable energy sources are there",
+    "what programming languages are available",
+    "what types of stars are common",
+])
+def test_classify_what_x_are_there_is_enumerate(question):
+    """'what X are there/available/common' asks for a list — an enumerate question."""
+    assert classify(question) == Intent.ENUMERATE

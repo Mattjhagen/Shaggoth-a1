@@ -106,14 +106,19 @@ _CAUSAL = re.compile(
     # Responsibility and necessity ("what is responsible for X", "what is needed for X")
     r"|\bwhat (?:is|are)\s+(?:responsible\s+for|needed\s+for|required\s+for|necessary\s+for)\b"
     # "what is behind X" in the explanatory/causal sense
-    r"|\bwhat (?:is|are|lies?)\s+behind\b",
+    r"|\bwhat (?:is|are|lies?)\s+behind\b"
+    # "what do/does plants need to grow" / "what do organisms require for energy"
+    # — asking for requirements is asking for causation.
+    r"|\bwhat (?:do|does|did)\b.+\b(?:need|require|use|depend on)\b",
     re.I,
 )
 _ENUMERATE = re.compile(
     r"\b(?:types? of|kinds? of|sorts? of|categories of|examples? of|"
     r"forms? of|list of|list (?:the|all|some) |what are the)\b"
     # "how many X" asks for a count or list of items
-    r"|\bhow many\b",
+    r"|\bhow many\b"
+    # "what renewable energy sources are there" / "what languages exist"
+    r"|\bwhat .+(?:are|is|were|was)\s+(?:there|available|possible|common)\b",
     re.I,
 )
 
@@ -276,15 +281,32 @@ def subject_of(question: str) -> str:
         "", text, flags=re.I,
     )
     # Imperative enumeration: "list the planets" / "name the types of X"
-    # Also handle "give me examples of X" / "show me some types of X" where the
-    # article-word ("the/some") may be absent and a noun like "examples" follows.
+    # Also handle "give me examples of X" / "show me some types of X",
+    # "tell me about different types of X", "explain X", "describe X".
     text = re.sub(
-        r"^(?:name|list|give(?:\s+me)?|show(?:\s+me)?)\s+(?:(?:the|all|some|any|different|a few)\s+)?",
+        r"^(?:name|list|give(?:\s+me)?|show(?:\s+me)?|"
+        r"tell(?:\s+me)?(?:\s+about)?|explain|describe|discuss)"
+        r"\s+(?:(?:the|all|some|any|different|a few|various)\s+)?",
         "", text, flags=re.I,
     )
+    # After the imperative strip, a question word may be newly exposed:
+    # "explain how X Y" → strip "explain " → "how X Y" → re-strip "how " → "X Y"
     text = re.sub(
-        r"^(?:(?:the|some|any|all|various|different|a few)\s+)?"
+        r"^(?:why|what|how|who|when|where)\s+"
+        r"(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low)?\s*"
+        r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
+        "", text, flags=re.I,
+    )
+    text = re.sub(r"^not\s+", "", text, flags=re.I)
+    # Leading bare quantifier left after stripping "what are":
+    # "what are some programming languages" → "some programming languages" →
+    # strip "some " → "programming languages".
+    text = re.sub(r"^(?:some|any|various|several|a few)\s+", "", text, flags=re.I)
+    text = re.sub(
+        r"^(?:(?:a|an|the|some|any|all|various|different|a few)\s+)?"
         r"(?:types?|kinds?|sorts?|categories|examples?|forms?|list|"
+        # Overview/summary nouns: "give me an overview of X", "give me a summary of X"
+        r"overview|summary|summaries|introduction|definition|explanation|description|"
         # Medical/descriptive noun scaffolding: "what are the symptoms of X" → "X"
         r"symptoms?|signs?|benefits?|causes?|effects?|features?|"
         r"properties|characteristics|risks?|advantages?|disadvantages?|uses?)"
