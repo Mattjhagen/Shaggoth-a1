@@ -894,6 +894,12 @@ _FILLER = {
     "whole", "talk", "know", "hear", "heard", "say", "said", "give",
     "want", "need", "like", "make", "let", "get", "one", "some", "any",
     "more", "much", "many", "good", "bad", "new", "old", "now", "then",
+    # Question-structure causal verbs: in "what causes X", "causes" is
+    # question scaffolding, not a content word. Leaving it in causes
+    # false positives where the gravity article matches "what causes
+    # earthquakes" because "Gravity causes the Earth to orbit…" contains
+    # "causes" and stem-matching fires on "earth" ≈ "earthquakes".
+    "causes", "cause", "caused",
 }
 
 _SHORT_STOPWORDS = frozenset({
@@ -1086,12 +1092,15 @@ def _topic_tokens_for(topic: str) -> set[str]:
     }
 
 
-def _stem_match(a: str, b: str, min_stem: int = 5) -> bool:
+def _stem_match(a: str, b: str, min_stem: int = 5, min_long_frac: float = 0.0) -> bool:
     """True when two words share a stem (aeroponic/aeroponics, learn/learning).
 
-    Requires the shared prefix to cover at least 60% of the shorter word,
-    preventing false matches like "photo" conflating "photosynthesis" and
-    "photography".
+    Requires the shared prefix to cover at least 60% of the shorter word.
+    ``min_long_frac`` adds a floor on the *longer* word as well: pass 0.55
+    in contexts where the longer word must be at least 55% covered — this
+    prevents "earth" from matching "earthquakes" (5/11 ≈ 0.45 < 0.55) while
+    still accepting "learn"/"learning" (5/8 ≈ 0.63) and
+    "aeroponic"/"aeroponics" (9/10 = 0.90).
     """
     if a == b:
         return True
@@ -1106,7 +1115,11 @@ def _stem_match(a: str, b: str, min_stem: int = 5) -> bool:
         return False
     while prefix_len < len(short) and prefix_len < len(long) and short[prefix_len] == long[prefix_len]:
         prefix_len += 1
-    return prefix_len >= len(short) * 0.6
+    if prefix_len < len(short) * 0.6:
+        return False
+    if min_long_frac and prefix_len < len(long) * min_long_frac:
+        return False
+    return True
 
 
 def _words_of(sentence: str) -> set[str]:
@@ -2106,7 +2119,7 @@ def _body_discusses(content: str, asked: set[str]) -> bool:
         if not tokens:
             continue
         if all(
-            any(_stem_match(word, token) for token in tokens)
+            any(_stem_match(word, token, min_long_frac=0.55) for token in tokens)
             for word in asked
         ):
             return True

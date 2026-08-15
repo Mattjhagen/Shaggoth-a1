@@ -128,6 +128,35 @@ def test_body_route_is_off_without_content():
     assert not knowledge_is_relevant("Chapter 23", "who is Ellie Finch")
 
 
+def test_gravity_does_not_match_earthquakes_query():
+    """'what causes earthquakes' must not return the Gravity article.
+
+    'Gravity causes the Earth to orbit…' contains 'causes' and 'earth',
+    and 'earth' previously stem-matched 'earthquakes' (5/11 < 55%
+    threshold, but old code had no per-long-word floor).
+    """
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    gravity_body = (
+        "Gravity is the fundamental force that causes all objects with mass "
+        "to attract one another. "
+        "Mass causes gravity by curving spacetime. "
+        "Gravity causes the Earth to orbit the Sun and objects to fall toward the ground."
+    )
+    assert not knowledge_is_relevant("Gravity", "what causes earthquakes", gravity_body)
+
+
+def test_stem_match_earth_does_not_match_earthquakes():
+    """'earth' should not stem-match 'earthquakes' in body-discusses context.
+
+    5/11 ≈ 0.45 is below the 0.55 min_long_frac floor used by _body_discusses.
+    """
+    from shaggoth.dialogue.engine import _body_discusses
+
+    content = "Gravity causes the Earth to orbit the Sun and objects to fall."
+    assert not _body_discusses(content, {"earthquakes"})
+
+
 def test_body_discusses_cleans_citations():
     from shaggoth.dialogue.engine import _body_discusses
 
