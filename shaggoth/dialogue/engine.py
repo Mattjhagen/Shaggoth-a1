@@ -39,7 +39,7 @@ from ..plugins import PluginRegistry, default_registry
 from ..tools import ToolRegistry
 from ..tools.builtin import build_tool_registry
 from .patterns import PatternEngine
-from .reasoning import Reasoner
+from .reasoning import Reasoner, classify as _classify_intent, Intent as _Intent
 from ..curiosity.search import search_web
 
 log = logging.getLogger(__name__)
@@ -465,8 +465,15 @@ class DialogueEngine:
                     source = "knowledge"
                     answered_from_knowledge = True
                     entries_used = [candidate.topic]
+                    _actual_intent = _classify_intent(text)
+                    _intent_note = (
+                        f"intent: {_actual_intent} -- no causal sentences found; "
+                        "returning definition as best available"
+                        if _actual_intent != _Intent.DEFINE
+                        else "intent: define -- one entry answers this"
+                    )
                     reasoning_steps = [
-                        f"intent: define -- one entry answers this",
+                        _intent_note,
                         f"lookup: {candidate.topic}",
                         "select: definitional lead sentence",
                     ]

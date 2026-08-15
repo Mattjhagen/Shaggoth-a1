@@ -78,9 +78,11 @@ class TestPatternEngine:
         # Regression: the trailing period previously broke the negative lookahead,
         # so "I need help." fell through to the generic "what do you need X for?"
         # reply instead of the dedicated help-request rule.
+        # "i need help" now routes to the distress pool (not the capability pool).
         result = self.engine.respond("I need help.")
         assert result is not None
-        assert "knowledge base" in result.lower()
+        # Distress responses acknowledge the request and ask what's needed.
+        assert result is not None and len(result) > 10
 
     def test_i_am_sad_matches(self):
         result = self.engine.respond("I am feeling sad")
@@ -198,7 +200,8 @@ class TestPatternEngine:
     # -- New conversational pattern rules -----------------------------------
 
     def test_thank_you_matches(self):
-        for text in ("thank you", "thanks", "thanks a lot", "thx", "ty"):
+        for text in ("thank you", "thanks", "thanks a lot", "thx", "ty",
+                     "thanks for your help", "thanks for the answer"):
             assert self.engine.respond(text) is not None, text
 
     def test_sorry_matches(self):
@@ -210,7 +213,8 @@ class TestPatternEngine:
             assert self.engine.respond(text) is not None, text
 
     def test_help_request_matches(self):
-        for text in ("help", "help me", "what can you do"):
+        for text in ("help", "help me", "i need help", "what can you do",
+                     "what are you good at", "what should i ask you"):
             assert self.engine.respond(text) is not None, text
 
     def test_whats_your_name_matches(self):

@@ -198,11 +198,15 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "Same as always — processing, learning, waiting for a question worth "
         "thinking about. Got one?",
     ]),
-    # Gratitude — "thanks", "thank you", "thx"
-    (re.compile(r"(?i)^(?:ok(?:ay)?[,. ]*)?(?:thanks?(?:\s+(?:you|a lot|so much|very much))?|thx|ty|cheers)[.!]*$"), [
+    # Gratitude — "thanks", "thank you", "thanks for your help", "thx"
+    (re.compile(
+        r"(?i)^(?:ok(?:ay)?[,. ]*)?"
+        r"(?:thanks?(?:\s+(?:you|a lot|so much|very much|for\b[^!?.]*?))?|thx|ty|cheers)[.!]*$"
+    ), [
         "Sure. What else?",
         "Noted. Next question.",
         "You're welcome. Now give me something harder.",
+        "Happy to. Got another one?",
     ]),
     # Apologies — "sorry", "my bad", "oops"
     (re.compile(r"(?i)^(?:i(?:'m| am) )?(?:sorry|my bad|oops|apolog)[a-z]*[.!]*$"), [
@@ -216,13 +220,21 @@ RULES: list[tuple[re.Pattern, list[str]]] = [
         "See you. I'll keep reading in the meantime.",
         "Gone? Fine. I've got a backlog of topics to look into anyway.",
     ]),
-    # Help / capability questions — "help", "help me", "what can you do"
-    (re.compile(r"(?i)^(?:help(?:\s+me)?|i need help|what (?:can|do) you do|"
+    # Capability tour — "what can you do", "what are you good at"
+    (re.compile(r"(?i)^(?:what (?:can|do) you do|"
                 r"what are you (?:good at|capable of)|what should i ask(?:\s+you)?)[.!?]*$"), [
-        "I answer questions from a knowledge base I'm building by scraping the web. "
-        "Ask me about a topic — if I don't know it, I'll go research it.",
-        "Ask me things. If I know it, I'll tell you. If I don't, I'll go learn it "
-        "and you can ask again later.",
+        "I answer questions from a knowledge base I build by scraping the web. "
+        "Ask me about a topic — if I don't know it, I'll look it up.",
+        "Ask me things. Topics, facts, how things work, why things happen. "
+        "If I know it, I'll say so. If I don't, I'll try to find out.",
+        "Questions, mostly. Anything factual — science, history, technology, concepts. "
+        "I'll tell you what I know or admit what I don't.",
+    ]),
+    # Help / distress — "help", "help me", "i need help"
+    (re.compile(r"(?i)^(?:help(?:\s+me)?|i need help)[.!?]*$"), [
+        "What do you need? Ask me a question and I'll do what I can.",
+        "I'm here. What's going on — what do you need to know?",
+        "Sure, I can help. What's the question?",
     ]),
     # Name questions — "what's your name"
     (re.compile(r"(?i)\bwhat(?:'s| is) your name\b"), [
