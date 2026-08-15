@@ -2218,3 +2218,45 @@ def test_batch37_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 38: scaffold-strip "on X" guard — "effects of X on Y" → X
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what are the effects of X on Y" → X  (scaffold + on-guard)
+    ("what are the effects of caffeine on sleep",   "caffeine"),
+    ("what are the effects of pollution on health", "pollution"),
+    # "what are the symptoms/causes/benefits/risks of X" → X
+    ("what are the symptoms of diabetes",           "diabetes"),
+    ("what are the symptoms of depression",         "depression"),
+    ("what are the causes of inflation",            "inflation"),
+    ("what are the causes of climate change",       "climate change"),
+    ("what are the benefits of exercise",           "exercise"),
+    ("what are the benefits of meditation",         "meditation"),
+    ("what are the risks of smoking",               "smoking"),
+    ("what are the risks of surgery",               "surgery"),
+    # "what are the advantages/disadvantages of X" → X
+    ("what are the advantages of solar energy",     "solar energy"),
+    ("what are the disadvantages of nuclear power", "nuclear power"),
+    # "what are the uses/properties/characteristics of X" → X
+    ("what are the uses of graphene",               "graphene"),
+    ("what are the uses of stem cells",             "stem cells"),
+    ("what are the properties of gold",             "gold"),
+    ("what are the properties of water",            "water"),
+    ("what are the characteristics of mammals",     "mammals"),
+    ("what are the characteristics of democracy",   "democracy"),
+    # "what are the components/stages of X" → X
+    ("what are the components of dna",              "dna"),
+    ("what are the components of the atmosphere",   "atmosphere"),
+    ("what are the stages of mitosis",              "mitosis"),
+    ("what are the stages of grief",                "grief"),
+])
+def test_batch38_subject_extraction(question, expected):
+    """Batch 38: scaffold on/in tail guard — 'effects of X on Y' → X."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

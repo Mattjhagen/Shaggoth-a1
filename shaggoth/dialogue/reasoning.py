@@ -371,6 +371,7 @@ def subject_of(question: str) -> str:
         r"relationship|connection|comparison)\s+between\s+(?:the\s+)?",
         "", text, flags=re.I,
     )
+    _before_scaffold_strip = text
     text = re.sub(
         # Allow up to two leading article/quantifier words: "the different types of X"
         r"^(?:(?:a|an|the|some|any|all|various|different|main|major|key|primary|common|a few)\s+){0,2}"
@@ -384,6 +385,10 @@ def subject_of(question: str) -> str:
         r"properties|characteristics|risks?|advantages?|disadvantages?|uses?)"
         r"\s+of\s+", "", text, flags=re.I
     )
+    # When scaffold strip fired, trailing "on/in <context>" is scaffolding too:
+    # "effects of caffeine on sleep" → "caffeine on sleep" → strip "on sleep"
+    if text != _before_scaffold_strip:
+        text = re.sub(r"\s+(?:in|on)\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
     _before_causal_noun_strip = text
     text = re.sub(
         # Accept an optional adjective ("main", "primary", "key") between
