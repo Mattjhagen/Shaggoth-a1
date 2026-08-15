@@ -13560,3 +13560,115 @@ def test_batch373_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # weather compound nouns
+    ("what is a thunderstorm",                                   "thunderstorm"),
+    ("what is a lightning bolt",                                 "lightning bolt"),
+    ("what is a heat wave",                                      "heat wave"),
+    ("what is a cold snap",                                      "cold snap"),
+    ("what is a snow flurry",                                    "snow flurry"),
+    ("what is a blizzard",                                       "blizzard"),
+    ("what is a drought",                                        "drought"),
+    ("what is a monsoon",                                        "monsoon"),
+    # "storm" compound nouns
+    ("what is a firestorm",                                      "firestorm"),
+    ("what is a brainstorm",                                     "brainstorm"),
+    ("what is a sandstorm",                                      "sandstorm"),
+    ("what is a hailstorm",                                      "hailstorm"),
+    ("what is a snowstorm",                                      "snowstorm"),
+    # earth science
+    ("what is a tectonic plate",                                 "tectonic plate"),
+    ("what is a volcanic eruption",                              "volcanic eruption"),
+    ("what is a tidal wave",                                     "tidal wave"),
+    ("what is a rip current",                                    "rip current"),
+    ("what is groundwater",                                      "groundwater"),
+    ("what is the water table",                                  "water table"),
+    # atmospheric phenomena
+    ("what is the greenhouse effect",                            "greenhouse effect"),
+    ("what is the ozone layer",                                  "ozone layer"),
+    ("what is acid rain",                                        "acid rain"),
+    ("what is smog",                                             "smog"),
+])
+def test_batch374_subject_extraction(question, expected):
+    """Batch 374: weather, natural phenomena, and earth science — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # body systems
+    ("what is the nervous system",                               "nervous system"),
+    ("what is the immune system",                                "immune system"),
+    ("what is the digestive system",                             "digestive system"),
+    ("what is the respiratory system",                           "respiratory system"),
+    ("what is the cardiovascular system",                        "cardiovascular system"),
+    ("what is the endocrine system",                             "endocrine system"),
+    # medical procedures
+    ("what is open heart surgery",                               "open heart surgery"),
+    ("what is laser eye surgery",                                "laser eye surgery"),
+    ("what is a blood transfusion",                              "blood transfusion"),
+    ("what is a bone marrow transplant",                         "bone marrow transplant"),
+    ("what is chemotherapy",                                     "chemotherapy"),
+    # health concepts
+    ("what is blood pressure",                                   "blood pressure"),
+    ("what is heart rate",                                       "heart rate"),
+    ("what is body mass index",                                  "body mass index"),
+    ("what is a calorie",                                        "calorie"),
+    ("what is cholesterol",                                      "cholesterol"),
+    # medical imaging
+    ("what is an mri scan",                                      "mri scan"),
+    ("what is a ct scan",                                        "ct scan"),
+    ("what is an x ray",                                         "x ray"),
+    # conditions
+    ("what is type 2 diabetes",                                  "type 2 diabetes"),
+    ("what is high blood pressure",                              "high blood pressure"),
+    ("what is heart disease",                                    "heart disease"),
+    ("what is kidney failure",                                   "kidney failure"),
+])
+def test_batch375_subject_extraction(question, expected):
+    """Batch 375: medical procedures, body systems, health compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # compound nouns whose second word is also a common verb
+    ("what is a drive shaft",                                    "drive shaft"),
+    ("what is a drive train",                                    "drive train"),
+    ("what is a jump start",                                     "jump start"),
+    ("what is a ground floor",                                   "ground floor"),
+    ("what is a ground level",                                   "ground level"),
+    ("what is a blow dry",                                       "blow dry"),
+    ("what is a nose dive",                                      "nose dive"),
+    # compound nouns whose first word could be a verb
+    ("what is a running mate",                                   "running mate"),
+    ("what is a running back",                                   "running back"),
+    ("what is a running start",                                  "running start"),
+    ("what is a turning point",                                  "turning point"),
+    ("what is a breaking point",                                 "breaking point"),
+    ("what is a boiling point",                                  "boiling point"),
+    ("what is a melting point",                                  "melting point"),
+    ("what is a freezing point",                                 "freezing point"),
+    # compound nouns with "fall"
+    ("what is a waterfall",                                      "waterfall"),
+    ("what is a downfall",                                       "downfall"),
+    ("what is a shortfall",                                      "shortfall"),
+    ("what is free fall",                                        "free fall"),
+    # compound nouns with "set"
+    ("what is a mindset",                                        "mindset"),
+    ("what is an offset",                                        "offset"),
+    ("what is a dataset",                                        "dataset"),
+    ("what is a skill set",                                      "skill set"),
+])
+def test_batch376_subject_extraction(question, expected):
+    """Batch 376: adversarial verb-in-compound — drive/blow/running/set nouns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

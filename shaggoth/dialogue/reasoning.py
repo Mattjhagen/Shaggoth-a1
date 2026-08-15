@@ -713,7 +713,7 @@ def subject_of(question: str) -> str:
     # "what leads to X", "what led to X", "what triggers X" → X
     # "leads/led" require "to" so "lead singer of X" is not stripped.
     text = re.sub(
-        r"^(?:leads?\s+to|led\s+to|trigger[sd]?|drove|drives?|prompts?)\s+",
+        r"^(?:leads?\s+to|led\s+to|trigger[sd]?|drove|drives|prompts?)\s+",
         "", text, flags=re.I,
     )
     # "lead singer of queen" / "singer of the beatles" → band name
@@ -1191,9 +1191,9 @@ def subject_of(question: str) -> str:
         # Guard "capital gain", "weight gain", "net gain", "brain gain" compound nouns.
         r"los(?:t|e[sd]?)|becam(?:e|es?)|forgot(?:ten)?|(?<!capital\s)(?<!weight\s)(?<!net\s)(?<!brain\s)gain(?:ed)?|"
         # Guard "head start", "false start", "jump start", "push start" compound nouns.
-        r"get\s+\w+ed|become|(?<!head\s)(?<!false\s)(?<!jump\s)(?<!push\s)start|begin|"
+        r"get\s+\w+ed|become|(?<!head\s)(?<!false\s)(?<!jump\s)(?<!push\s)(?<!running\s)(?<!fresh\s)start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
-        r"form[s]?|make[s]?|replicate[s]?|(?<!bullet )(?<!maglev )(?<!steam )(?<!freight )(?<!commuter )(?<!fastest )train[s]?|take[s]?|"
+        r"form[s]?|make[s]?|replicate[s]?|(?<!bullet )(?<!maglev )(?<!steam )(?<!freight )(?<!commuter )(?<!fastest )(?<!drive\s)train[s]?|take[s]?|"
         # "heat pump", "sump pump", "water pump", "fuel pump" are noun compounds.
         r"(?<!heat\s)(?<!sump\s)(?<!water\s)(?<!fuel\s)(?<!vacuum\s)pump[s]?|(?<!due\s)(?<!batch\s)(?<!natural\s)process(?:es)?|connect[s]?|"
         # Guard "cash flow", "data flow", "control flow", "lava flow" compound nouns from being stripped.
@@ -1590,7 +1590,7 @@ def subject_of(question: str) -> str:
         # "element is most abundant" → "element"; "lying morally wrong" → "lying"
         # Exclude ambiguous words that are also common nouns (light, fast, hard, etc.).
         r"\s+(?:(?:is|are|was|were)\s+)?(?:(?:so|most|least|very|quite|\w+ly)\s+)?(?:blue|red|green|yellow|white|black|gray|grey|brown|orange|purple|pink|"
-        r"hot|(?<!common )cold|warm|cool|wet|dry|soft|bright|dark|"
+        r"hot|(?<!common )cold|warm|cool|wet|(?<!blow\s)dry|soft|bright|dark|"
         r"low|high|normal|elevated|full|empty|alive|dead|active|inactive|"
         r"heavy|loud|quiet|dim|sharp|dull|"
         r"salty|sweet|sour|bitter|spicy|acidic|alkaline|toxic|magnetic|elastic|"
