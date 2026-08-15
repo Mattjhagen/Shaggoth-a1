@@ -5558,3 +5558,82 @@ def test_batch129_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is algebra",                                     "algebra"),
+    ("what is calculus",                                    "calculus"),
+    ("what is geometry",                                    "geometry"),
+    ("what is statistics",                                  "statistics"),
+    ("what is probability",                                 "probability"),
+    ("what is a prime number",                              "prime number"),
+    ("what is the pythagorean theorem",                     "pythagorean theorem"),
+    # "what is X formula/sequence"
+    ("what is the quadratic formula",                       "quadratic formula"),
+    ("what is the fibonacci sequence",                      "fibonacci sequence"),
+    # "how do you calculate the PROP of a SHAPE" → PROP (causal-noun strip fires first)
+    ("how do you calculate the area of a circle",           "area"),
+    ("how do you calculate the volume of a sphere",         "volume"),
+    ("how do you calculate percentage",                     "percentage"),
+    # "what is the square root of X" → X
+    ("what is the square root of 144",                      "144"),
+    # "what is a X number"
+    ("what is a rational number",                           "rational number"),
+    ("what is an irrational number",                        "irrational number"),
+    # "what is the difference between X and Y"
+    ("what is the difference between mean and median",      "mean and median"),
+    # "how do you solve X"
+    ("how do you solve a quadratic equation",               "quadratic equation"),
+    # named constants
+    ("what is pi",                                          "pi"),
+    ("what is infinity",                                    "infinity"),
+    # "what is X in math"
+    ("what is a matrix in math",                            "matrix"),
+    ("what is a derivative in math",                        "derivative"),
+])
+def test_batch130_subject_extraction(question, expected):
+    """Batch 130: mathematics — algebra, calculus, geometry, theorems."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is a black hole",                                "black hole"),
+    ("what is a neutron star",                              "neutron star"),
+    ("what is dark matter",                                 "dark matter"),
+    ("what is dark energy",                                 "dark energy"),
+    ("what is the big bang theory",                         "big bang theory"),
+    ("what is the speed of light",                          "speed of light"),
+    ("what is a light year",                                "light year"),
+    # "how far is X from Y" → X (the object being measured)
+    ("how far is the moon from earth",                      "moon"),
+    ("how far is mars from earth",                          "mars"),
+    # "how big/old/hot is X" → X
+    ("how big is the universe",                             "universe"),
+    ("how big is the sun",                                  "sun"),
+    ("how old is the universe",                             "universe"),
+    ("how old is the earth",                                "earth"),
+    ("how hot is the sun",                                  "sun"),
+    # superlative + in/of
+    ("what is the largest planet in the solar system",      "planet"),
+    # "how many X are in Y" → Y
+    ("how many planets are in the solar system",            "solar system"),
+    # property nouns
+    ("what is the surface temperature of venus",            "venus"),
+    # "how do X form" → X
+    ("how do black holes form",                             "black holes"),
+    # named phenomena
+    ("what is cosmic radiation",                            "cosmic radiation"),
+    ("what is a solar flare",                               "solar flare"),
+    ("what is the milky way",                               "milky way"),
+])
+def test_batch131_subject_extraction(question, expected):
+    """Batch 131: astrophysics/cosmology — black holes, dark matter, cosmic phenomena."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
