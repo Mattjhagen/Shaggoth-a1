@@ -8937,3 +8937,33 @@ def test_batch224_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a stock market",                                "stock market"),
+    ("what is a bond",                                        "bond"),
+    ("what is compound interest",                             "compound interest"),
+    ("what is a mortgage",                                    "mortgage"),
+    ("what is venture capital",                               "venture capital"),
+    ("what is a hedge fund",                                  "hedge fund"),
+    ("what is cryptocurrency",                                "cryptocurrency"),
+    ("what is a startup",                                     "startup"),
+    ("how does the stock market work",                        "stock market"),
+    ("how does a bank work",                                  "bank"),
+    ("how does a mortgage work",                              "mortgage"),
+    ("what is supply and demand",                             "supply and demand"),
+    ("what is gross domestic product",                        "gross domestic product"),
+    ("what is inflation",                                     "inflation"),
+    ("what is recession",                                     "recession"),
+    ("what is fiscal policy",                                 "fiscal policy"),
+    ("what causes a recession",                               "recession"),
+    ("what is a credit score",                                "credit score"),
+    ("what is diversification",                               "diversification"),
+    ("how do interest rates affect inflation",                "interest rates"),
+])
+def test_batch225_subject_extraction(question, expected):
+    """Batch 225: economics/business — stocks, bonds, mortgage, interest rates."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
