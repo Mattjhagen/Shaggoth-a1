@@ -644,6 +644,8 @@ def subject_of(question: str) -> str:
         # Physical / chemical state-change verbs: "why does ice float", "what makes iron rust"
         r"float[s]?|sink[s]?|rust[s]?|boil[s]?|melt[s]?|freeze[sd]?|evaporate[sd]?|"
         r"condense[sd]?|expand[s]?|contract[s]?|ignite[sd]?|dissolve[sd]?|"
+        # Mass/cost verbs: "how much does a blue whale weigh" → "blue whale"
+        r"weigh[s]?|cost[s]?|"
         # Migration / movement verbs: "how do birds migrate"
         r"migrate[sd]?|"
         # Passive attribution: "when was X invented", "where was Y discovered/located/born/found"

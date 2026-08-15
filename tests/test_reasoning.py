@@ -2960,3 +2960,40 @@ def test_batch62_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "how ADJ is X" → X
+    ("how hot is the sun",                                 "sun"),
+    ("how cold is antarctica",                             "antarctica"),
+    ("how dense is a neutron star",                        "neutron star"),
+    ("how far is the moon from earth",                     "moon"),
+    ("how old is the universe",                            "universe"),
+    ("how big is jupiter",                                 "jupiter"),
+    ("how deep is the mariana trench",                     "mariana trench"),
+    ("how tall is mount everest",                          "mount everest"),
+    # "how fast does X VERB" → X
+    ("how fast does light travel",                         "light"),
+    ("how fast can a cheetah run",                         "cheetah"),
+    # "how long does it take to VERB X" → X
+    ("how long does it take to boil an egg",               "egg"),
+    ("how long does it take light to reach earth",         "light"),
+    # "how much does X weigh" → X (weigh added to trailing verb list)
+    ("how much does a blue whale weigh",                   "blue whale"),
+    ("how much does the earth weigh",                      "earth"),
+    # "at what temperature does X VERB" → X
+    ("at what temperature does water boil",                "water"),
+    ("at what temperature does iron melt",                 "iron"),
+    # "what year was X VERB" → X
+    ("what year was the eiffel tower built",               "eiffel tower"),
+    ("what year was america discovered",                   "america"),
+    # "what is X made up of" → X
+    ("what is dna made up of",                             "dna"),
+    ("what is the atmosphere made up of",                  "atmosphere"),
+])
+def test_batch63_subject_extraction(question, expected):
+    """Batch 63: how-ADJ/much/long/fast patterns; weigh verb; at-what-temperature; made-up-of."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
