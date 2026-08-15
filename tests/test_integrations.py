@@ -255,6 +255,26 @@ class D1SyncTests(unittest.TestCase):
         self.assertTrue(result)
         local.update_project.assert_called_once()
 
+    def test_enqueue_drops_silently_when_retry_put_is_full(self):
+        """If another thread refills the freed slot before our retry
+        put_nowait, _enqueue must not propagate queue.Full to the caller."""
+        sync = self._sync(account_id="ACC", api_token="TOK")
+
+        # Simulate: get_nowait removes an item (success), but the slot is
+        # immediately grabbed again so the retry put_nowait also fails.
+        put_calls = []
+
+        def fake_put(item):
+            put_calls.append(item)
+            raise queue.Full
+
+        with patch.object(sync._queue, "put_nowait", side_effect=fake_put), \
+             patch.object(sync._queue, "get_nowait", return_value=("DDL", None)):
+            sync._enqueue("SELECT 1")  # must not raise
+
+        # Both put attempts were made (initial + retry), both rejected.
+        self.assertEqual(len(put_calls), 2)
+
 
 # ---------------------------------------------------------------------------
 # KVSubscriptionStore

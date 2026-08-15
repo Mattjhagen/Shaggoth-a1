@@ -92,7 +92,10 @@ class D1Sync:
             try:
                 self._queue.get_nowait()
                 self._queue.put_nowait((sql, params))
-            except queue.Empty:
+            except (queue.Empty, queue.Full):
+                # Empty: another thread drained the slot we freed before we
+                # could refill; Full: another thread refilled it first.
+                # Either way, silently drop this write rather than raising.
                 pass
 
     def _ensure_remote_schema(self) -> None:
