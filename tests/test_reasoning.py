@@ -2260,3 +2260,46 @@ def test_batch38_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "is X the same as Y" → X
+    ("is a virus the same as bacteria",             "virus"),
+    ("is a meteor the same as meteorite",           "meteor"),
+    # "is X a type of Y" → X
+    ("is a dolphin a type of fish",                 "dolphin"),
+    ("is a tomato a type of fruit",                 "tomato"),
+    # "is X caused by Y" → X  (already handled by causal strip)
+    ("is diabetes caused by sugar",                 "diabetes"),
+    ("is cancer caused by stress",                  "cancer"),
+    # "are X and Y the same" → X and Y
+    ("are viruses and bacteria the same",           "viruses and bacteria"),
+    ("are dolphins and whales related",             "dolphins and whales"),
+    # "can X do Y" → X
+    ("can humans survive on mars",                  "humans"),
+    ("can fish drown",                              "fish"),
+    # "should X do Y" → X
+    ("should humans eat meat",                      "humans"),
+    ("should children learn coding",                "children"),
+    # "will X happen" → X
+    ("will the sun explode",                        "sun"),
+    ("will humans colonize mars",                   "humans"),
+    # "do X have Y" → X
+    ("do plants feel pain",                         "plants"),
+    ("do animals dream",                            "animals"),
+    # "does X have Y" → X
+    ("does the moon have water",                    "moon"),
+    ("does mars have oxygen",                       "mars"),
+    # "did X exist" → X
+    ("did dinosaurs exist with humans",             "dinosaurs"),
+    ("did the romans know about america",           "romans"),
+    # "would X survive Y" → X
+    ("would humans survive a nuclear winter",       "humans"),
+    ("would cockroaches survive a nuclear war",     "cockroaches"),
+])
+def test_batch39_subject_extraction(question, expected):
+    """Batch 39: is/are/will/did/do/does/would/should/can question patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

@@ -607,7 +607,7 @@ def subject_of(question: str) -> str:
         # "how fast does light travel", "why do we dream", "how does sound travel"
         r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
-        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|"
+        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
         r"stop(?:ped|s)?|end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?|"
@@ -627,6 +627,12 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+different\s+from\s+.*$", "", text, flags=re.I)
     # "stress related to heart disease" → "stress"  (predicate adj + prepositional tail)
     text = re.sub(r"\s+related\s+to\b.*$", "", text, flags=re.I)
+    # "virus the same as bacteria" → "virus"
+    text = re.sub(r"\s+the\s+same\s+as\b.*$", "", text, flags=re.I)
+    # "viruses and bacteria the same" → "viruses and bacteria"
+    text = re.sub(r"\s+the\s+same\s*$", "", text, flags=re.I)
+    # "dolphin a type of fish" → "dolphin"
+    text = re.sub(r"\s+(?:a|an)\s+(?:type|kind|sort|form|example)\s+of\b.*$", "", text, flags=re.I)
     # "great wall of china called that" → "great wall of china"
     text = re.sub(r"\s+called\s+(?:that|it|so|this)\s*$", "", text, flags=re.I)
     # "einstein known for" → "einstein"
