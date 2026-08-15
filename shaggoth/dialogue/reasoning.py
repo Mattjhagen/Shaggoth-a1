@@ -332,7 +332,7 @@ def subject_of(question: str) -> str:
     # "brought about" is two words so must be listed separately.
     text = re.sub(
         r"^(?:invented?|discover(?:ed|s)?|found(?:ed|s)?|built|creat(?:ed|es?)|"
-        r"wrote|written|painted?|composed?|designed?|develop(?:ed|s)?|"
+        r"wrote|written|painted?|composed?|designed?|develop(?:ed|s)?|prov(?:ed|en|es?)?|"
         r"won(?!\s+(?:the\s+)?most)|ruled|fought|signed|explored|colonized?|commanded?|"
         r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
         r"caus(?:ed|es?)|brought\s+about|coined|named|happen(?:ed|s)?|occur(?:red|s)?|"
@@ -935,7 +935,7 @@ def subject_of(question: str) -> str:
         # "how fast does light travel", "why do we dream", "how does sound travel"
         r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|strike[s]?|sweat[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
-        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|return[s]?|arrive[sd]?|"
+        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|return[s]?|arrive[sd]?|mean[s]?|"
         r"smell[s]?|taste[s]?|see[s]?|hear[s]?|sense[s]?|read[s]?|writ(?:e[s]?|ten)|coexist[s]?|"
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
         # Note: bare "rate" is NOT here — it's almost always a noun (interest rate, poverty rate).

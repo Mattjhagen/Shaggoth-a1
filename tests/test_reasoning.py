@@ -4698,3 +4698,164 @@ def test_batch108_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question, expected", [
+    # "what is X"
+    ("what is climate change",                           "climate change"),
+    ("what is global warming",                           "global warming"),
+    ("what is the greenhouse effect",                    "greenhouse effect"),
+    ("what is an ecosystem",                             "ecosystem"),
+    ("what is biodiversity",                             "biodiversity"),
+    ("what is deforestation",                            "deforestation"),
+    ("what is the ozone layer",                          "ozone layer"),
+    ("what is acid rain",                                "acid rain"),
+    # "what causes X"
+    ("what causes climate change",                       "climate change"),
+    ("what causes acid rain",                            "acid rain"),
+    ("what causes ozone depletion",                      "ozone depletion"),
+    # "how does X affect Y" → X (causal agent is the lookup target)
+    ("how does deforestation affect the environment",    "deforestation"),
+    ("how does pollution affect the ocean",              "pollution"),
+    # "what is the effect of X on Y" → X
+    ("what is the effect of global warming on glaciers", "global warming"),
+    # "what are the effects of X"
+    ("what are the effects of climate change",           "climate change"),
+    # "how can we reduce X"
+    ("how can we reduce carbon emissions",               "carbon emissions"),
+    ("how can we reduce plastic pollution",              "plastic pollution"),
+    # difference
+    ("what is the difference between climate and weather", "climate and weather"),
+    # percentage/quantity
+    ("what percentage of the earth is covered by water", "earth"),
+    ("how many species are endangered",                  "species"),
+    ("what is a carbon footprint",                       "carbon footprint"),
+])
+def test_batch109_subject_extraction(question, expected):
+    """Batch 109: environment/ecology — concepts, causes, effects, causal-agent extraction."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question, expected", [
+    # "what is X"
+    ("what is dna",                                      "dna"),
+    ("what is photosynthesis",                           "photosynthesis"),
+    ("what is evolution",                                "evolution"),
+    ("what is a cell",                                   "cell"),
+    ("what is a virus",                                  "virus"),
+    ("what is an antibiotic",                            "antibiotic"),
+    ("what is the immune system",                        "immune system"),
+    ("what is mitosis",                                  "mitosis"),
+    # "how does X work"
+    ("how does the immune system work",                  "immune system"),
+    ("how does digestion work",                          "digestion"),
+    ("how does the brain work",                          "brain"),
+    # "what are the symptoms of X"
+    ("what are the symptoms of diabetes",                "diabetes"),
+    ("what are the symptoms of influenza",               "influenza"),
+    # "how is X transmitted"
+    ("how is covid transmitted",                         "covid"),
+    ("how is hiv transmitted",                           "hiv"),
+    # "who discovered X"
+    ("who discovered penicillin",                        "penicillin"),
+    ("who discovered dna",                               "dna"),
+    # "what is the function of X"
+    ("what is the function of the liver",                "liver"),
+    ("what is the function of red blood cells",          "red blood cells"),
+    # difference
+    ("what is the difference between arteries and veins", "arteries and veins"),
+    # "how long does it take for X to Y"
+    ("how long does it take for a wound to heal",        "wound"),
+    # "what is the treatment for X"
+    ("what is the treatment for diabetes",               "diabetes"),
+])
+def test_batch110_subject_extraction(question, expected):
+    """Batch 110: biology/medicine — concepts, mechanisms, symptoms, transmission, discovery."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question, expected", [
+    # "what was X"
+    ("what was the roman empire",                        "roman empire"),
+    ("what was the renaissance",                         "renaissance"),
+    ("what was the industrial revolution",               "industrial revolution"),
+    ("what was the cold war",                            "cold war"),
+    ("what was the black death",                         "black death"),
+    # "when did X happen/start/end"
+    ("when did world war two start",                     "world war two"),
+    ("when did the roman empire fall",                   "roman empire"),
+    ("when did the renaissance begin",                   "renaissance"),
+    # "who was X"
+    ("who was julius caesar",                            "julius caesar"),
+    ("who was napoleon",                                 "napoleon"),
+    ("who was cleopatra",                                "cleopatra"),
+    # "who built X"
+    ("who built the pyramids",                           "pyramids"),
+    ("who built the great wall of china",                "great wall of china"),
+    # "what caused X"
+    ("what caused world war one",                        "world war one"),
+    ("what caused the fall of the roman empire",         "roman empire"),
+    # "where did X originate"
+    ("where did the silk road originate",                "silk road"),
+    # "how long did X last"
+    ("how long did the hundred years war last",          "hundred years war"),
+    ("how long did world war two last",                  "world war two"),
+    # "what is the oldest X"
+    ("what is the oldest civilization",                  "civilization"),
+    ("what is the oldest city in the world",             "city"),
+    # quantity
+    ("how many people died in world war two",            "world war two"),
+])
+def test_batch111_subject_extraction(question, expected):
+    """Batch 111: history — empires, events, leaders, construction, causes, duration."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question, expected", [
+    # "what is X"
+    ("what is gravity",                                  "gravity"),
+    ("what is quantum mechanics",                        "quantum mechanics"),
+    ("what is the theory of relativity",                 "theory of relativity"),
+    ("what is the speed of light",                       "speed of light"),
+    ("what is pi",                                       "pi"),
+    ("what is the pythagorean theorem",                  "pythagorean theorem"),
+    # "who discovered/proved X"
+    ("who discovered gravity",                           "gravity"),
+    ("who proved the pythagorean theorem",               "pythagorean theorem"),
+    # "how fast does X travel" — trailing verb strip
+    ("how fast does light travel",                       "light"),
+    # "what is the formula for X" — formula property noun strips
+    ("what is the formula for the area of a circle",     "area"),
+    ("what is the formula for velocity",                 "velocity"),
+    # "what does X mean" — trailing "mean" stripped
+    ("what does e equals mc squared mean",               "e equals mc squared"),
+    # "how do you calculate X" — area property noun strips
+    ("how do you calculate the area of a triangle",      "area"),
+    ("how do you calculate velocity",                    "velocity"),
+    # difference
+    ("what is the difference between mass and weight",   "mass and weight"),
+    ("what is the difference between speed and velocity", "speed and velocity"),
+    # "what is X made of" — causal noun strips
+    ("what is an atom made of",                          "atom"),
+    ("what is a molecule made of",                       "molecule"),
+    # polygon sides / angles
+    ("how many sides does a hexagon have",               "hexagon"),
+    ("how many degrees are in a triangle",               "triangle"),
+    # physical property
+    ("what is the boiling point of water",               "water"),
+])
+def test_batch112_subject_extraction(question, expected):
+    """Batch 112: math/physics — concepts, proofs, formulas, properties, trailing-mean strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
