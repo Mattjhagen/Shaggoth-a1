@@ -991,6 +991,10 @@ def subject_of(question: str) -> str:
     # "what is the speed of light" → after verb strip → "the speed of light" → "speed of light"
     # "how does the immune system work" → "the immune system" → "immune system"
     text = re.sub(r"^(?:the|a|an)\s+", "", text, flags=re.I)
+    # Normalise article in compound subjects: "brain and the heart" → "brain and heart".
+    # Trailing adj strip leaves the second article in place ("how are the brain and the heart
+    # connected" → "brain and the heart"); remove it so both halves match bare noun form.
+    text = re.sub(r"\s+and\s+(?:the|a|an)\s+", " and ", text, flags=re.I)
     # Strip qualifier adjective exposed after the article: "the main programming languages"
     # → "main programming languages" → "programming languages".
     text = re.sub(r"^(?:different|main|major|key|various|multiple)\s+", "", text, flags=re.I)

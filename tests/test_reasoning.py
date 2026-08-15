@@ -3427,3 +3427,46 @@ def test_batch76_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 77: "how do/does/is/are" make/cook/build/treat/grow patterns;
+#            compound conjunctions "X and the Y" → "X and Y"
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "how do you make X" → X
+    ("how do you make bread",                       "bread"),
+    ("how do you make glass",                       "glass"),
+    ("how do you make paper",                       "paper"),
+    ("how do you make cement",                      "cement"),
+    # "how do you cook/grow/build/treat X" → X
+    ("how do you cook pasta",                       "pasta"),
+    ("how do you grow tomatoes",                    "tomatoes"),
+    ("how do you build a bridge",                   "bridge"),
+    ("how do you treat diabetes",                   "diabetes"),
+    # "how is X made" → X (passive)
+    ("how is beer made",                            "beer"),
+    ("how is cheese made",                          "cheese"),
+    ("how is plastic made",                         "plastic"),
+    # "how are X made" → X
+    ("how are microchips made",                     "microchips"),
+    ("how are solar panels made",                   "solar panels"),
+    # "what causes X to VERB" → X
+    ("what causes a star to explode",               "star"),
+    ("what causes the heart to beat",               "heart"),
+    ("what causes ice to melt",                     "ice"),
+    # "what happens when X VERBS" → X
+    ("what happens when a star dies",               "star"),
+    ("what happens when blood sugar is low",        "blood sugar"),
+    # "how are X and Y related/connected" → "X and Y" (compound subject, article normalised)
+    ("how are plants and animals related",          "plants and animals"),
+    ("how are the brain and the heart connected",   "brain and heart"),
+])
+def test_batch77_subject_extraction(question, expected):
+    """Batch 77: make/cook/build/treat verbs; compound 'X and the Y' article normalisation."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
