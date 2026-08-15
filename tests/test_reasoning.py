@@ -11912,3 +11912,34 @@ def test_batch324_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("how does natural selection work",                           "natural selection"),
+    ("how does supply chain management work",                     "supply chain management"),
+    ("how does machine learning work",                            "machine learning"),
+    ("how does nuclear fission work",                             "nuclear fission"),
+    ("how does carbon capture work",                              "carbon capture"),
+    ("how is a diamond formed",                                   "diamond"),
+    ("how is solar energy produced",                              "solar energy"),
+    ("what causes climate change",                                "climate change"),
+    ("what causes acid rain",                                     "acid rain"),
+    ("what causes a solar eclipse",                               "solar eclipse"),
+    ("what causes inflation",                                     "inflation"),
+    ("why does plate tectonics happen",                           "plate tectonics"),
+    ("why does osmosis occur",                                    "osmosis"),
+    ("who invented the printing press",                           "printing press"),
+    ("who invented the steam engine",                             "steam engine"),
+    ("who invented the world wide web",                           "world wide web"),
+    ("where is oil shale found",                                  "oil shale"),
+    ("when was penicillin discovered",                            "penicillin"),
+    ("when was the electron discovered",                          "electron"),
+    # "difference between X and Y" — lookup key is the pair, not the framing word
+    ("what is the difference between weather and climate",        "weather and climate"),
+])
+def test_batch325_subject_extraction(question, expected):
+    """Batch 325: question-form variants — how/why/what causes/who invented."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
