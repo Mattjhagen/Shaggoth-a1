@@ -7064,3 +7064,87 @@ def test_batch168_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is pizza",                                         "pizza"),
+    ("what is sushi",                                         "sushi"),
+    ("what is pasta",                                         "pasta"),
+    # "what is X made of" → X
+    ("what is pizza made of",                                 "pizza"),
+    ("what is bread made of",                                 "bread"),
+    # "how do you make X" → X
+    ("how do you make pasta",                                 "pasta"),
+    ("how do you make pizza dough",                           "pizza dough"),
+    # "what are the ingredients in X" → X
+    ("what are the ingredients in pizza",                     "pizza"),
+    ("what are the ingredients in guacamole",                 "guacamole"),
+    # "what is the recipe for X" → X
+    ("what is the recipe for chocolate cake",                 "chocolate cake"),
+    # "how long do you cook/bake X" → X
+    ("how long do you cook chicken",                          "chicken"),
+    ("how long do you bake a potato",                         "potato"),
+    # "what temperature do you cook X at" → X
+    ("what temperature do you cook steak at",                 "steak"),
+    # "how many calories are in X" → X
+    ("how many calories are in an apple",                     "apple"),
+    ("how many calories are in a banana",                     "banana"),
+    # "what is X cuisine/food" → X cuisine/food
+    ("what is italian cuisine",                               "italian cuisine"),
+    ("what is thai food",                                     "thai food"),
+    # "what is X" → X (cooking techniques)
+    ("what is sauteing",                                      "sauteing"),
+    ("what is fermentation",                                  "fermentation"),
+    # "what is the difference between X and Y" → X and Y
+    ("what is the difference between baking and roasting",    "baking and roasting"),
+    ("what is the difference between jam and jelly",          "jam and jelly"),
+])
+def test_batch169_subject_extraction(question, expected):
+    """Batch 169: food/cooking — recipes, techniques, ingredients, calorie queries."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is a black hole",                                  "black hole"),
+    ("what is a neutron star",                                "neutron star"),
+    ("what is the milky way",                                 "milky way"),
+    ("what is the big bang",                                  "big bang"),
+    ("what is dark energy",                                   "dark energy"),
+    # "how far is X from earth" → X
+    ("how far is the moon from earth",                        "moon"),
+    ("how far is mars from earth",                            "mars"),
+    # "how big is X" → X
+    ("how big is the sun",                                    "sun"),
+    ("how big is jupiter",                                    "jupiter"),
+    # "what is the temperature on X" → X
+    ("what is the temperature on mars",                       "mars"),
+    # "how many moons does X have" → X
+    ("how many moons does saturn have",                       "saturn"),
+    ("how many moons does jupiter have",                      "jupiter"),
+    # "what is the closest X to earth" → X
+    ("what is the closest star to earth",                     "star"),
+    # "how old is X" → X
+    ("how old is the universe",                               "universe"),
+    ("how old is the sun",                                    "sun"),
+    # "what is X made of" → X
+    ("what is a star made of",                                "star"),
+    # "what is the order of the X" → "order of the X" (kept; 'order of magnitude' guards)
+    ("what is the order of the planets",                      "order of the planets"),
+    # "what causes X" → X
+    ("what causes a solar eclipse",                           "solar eclipse"),
+    # "when was X discovered" → X
+    ("when was pluto discovered",                             "pluto"),
+    # "what is X" → X
+    ("what is a nebula",                                      "nebula"),
+])
+def test_batch170_subject_extraction(question, expected):
+    """Batch 170: space/astronomy — celestial bodies, distances, temperatures, sizes."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
