@@ -87,7 +87,9 @@ _CONTRAST = re.compile(
 _CAUSAL = re.compile(
     r"^\s*(?:and |but |so )?why\b|\bwhat causes\b"
     r"|\bhow (?:is|are|do|does|did|can|could|would|should) .+"
-    r"|\bwhat (?:is|are) the (?:cause|process|mechanism|effect|result|purpose)s? (?:of|behind)\b"
+    r"|\bwhat (?:is|are) the (?:cause|process|mechanism|effect|result|purpose|role|function|"
+    r"impact|consequence)s? (?:of|behind|in)\b"
+    r"|\bwhat (?:leads?|trigger|triggers|drove|drives?|prompts?) .+\b"
     r"|\bwhat happens\b|\bwhat makes\b|\breason (?:for|why)\b",
     re.I,
 )
@@ -185,8 +187,14 @@ def subject_of(question: str) -> str:
         r"\s+of\s+", "", text, flags=re.I
     )
     text = re.sub(
-        r"^(?:the\s+)?(?:cause|process|mechanism|effect|result|purpose)s?"
-        r"\s+(?:of|behind)\s+", "", text, flags=re.I,
+        r"^(?:the\s+)?(?:cause|process|mechanism|effect|result|purpose|"
+        r"role|function|impact|consequence)s?"
+        r"\s+(?:of|behind|in)\s+", "", text, flags=re.I,
+    )
+    # "what leads to X", "what triggers X" → X
+    text = re.sub(
+        r"^(?:leads?|trigger[sd]?|drove|drives?|prompts?)\s+(?:to\s+)?",
+        "", text, flags=re.I,
     )
     text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
     text = re.sub(

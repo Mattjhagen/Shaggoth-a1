@@ -58,6 +58,11 @@ def test_contrast_questions(question):
     "what happens when water boils",
     "what is the cause of inflation",
     "how can I protect against phishing",
+    "what leads to inflation",
+    "what triggers an earthquake",
+    "what is the role of mitochondria",
+    "what is the function of enzymes",
+    "what is the impact of climate change",
 ])
 def test_causal_questions(question):
     assert classify(question) == Intent.CAUSAL
@@ -170,6 +175,10 @@ def test_subject_of_drops_the_trailing_verb_phrase():
     ("what is the process of photosynthesis", "photosynthesis"),
     ("what is the cause of inflation", "inflation"),
     ("what happens when water boils", "when water boils"),
+    ("what leads to inflation", "inflation"),
+    ("what triggers an earthquake", "an earthquake"),
+    ("what is the role of mitochondria", "mitochondria"),
+    ("what is the function of enzymes", "enzymes"),
 ])
 def test_subject_of_new_causal_patterns(question, expected):
     assert subject_of(question) == expected
