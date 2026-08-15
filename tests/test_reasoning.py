@@ -4082,3 +4082,43 @@ def test_batch92_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what caused X" (historical event) → X
+    ("what caused the french revolution",              "french revolution"),
+    ("what caused world war 2",                        "world war 2"),
+    ("what caused the great depression",               "great depression"),
+    # "when did X happen/start/end" → X
+    ("when did world war 2 end",                       "world war 2"),
+    ("when did the civil war start",                   "civil war"),
+    # "who started X" → X
+    ("who started world war 1",                        "world war 1"),
+    ("who started the cold war",                       "cold war"),
+    # "who led X" → X
+    ("who led the french revolution",                  "french revolution"),
+    ("who led the civil rights movement",              "civil rights movement"),
+    # "what was X" (historical concept) → X
+    ("what was the renaissance",                       "renaissance"),
+    ("what was the enlightenment",                     "enlightenment"),
+    ("what was the cold war",                          "cold war"),
+    # "where did X happen" → X
+    ("where did the titanic sink",                     "titanic"),
+    # "how did X end/fall" → X
+    ("how did world war 2 end",                        "world war 2"),
+    ("how did the roman empire fall",                  "roman empire"),
+    # "what happened during X" → X
+    ("what happened during the french revolution",     "french revolution"),
+    ("what happened during the renaissance",           "renaissance"),
+    # "who won X" → X
+    ("who won world war 2",                            "world war 2"),
+    ("who won the american revolution",                "american revolution"),
+    # "what were the consequences of X" → X
+    ("what were the consequences of world war 1",      "world war 1"),
+])
+def test_batch93_subject_extraction(question, expected):
+    """Batch 93: history & events — revolutionary/war/empire patterns all baseline-correct."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
