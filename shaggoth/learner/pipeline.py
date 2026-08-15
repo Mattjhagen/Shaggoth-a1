@@ -224,16 +224,21 @@ class LearnerPipeline:
             model_size = Path(active_path).stat().st_size if model_exists else 0
         except (FileNotFoundError, OSError):
             model_size = 0
-        session = self._current_session
+        with self._lock:
+            is_learning = self._learning
+            session = self._current_session
+            current_session = asdict(session) if session else None
+            total_sessions = len(self._history)
+            last_session = self._history[-1] if self._history else None
         return {
-            "is_learning": self._learning,
-            "current_session": asdict(session) if session else None,
+            "is_learning": is_learning,
+            "current_session": current_session,
             "model_exists": model_exists,
             "model_kind": model_kind,
             "model_size_bytes": model_size,
             "model_path": active_path or self.model_path,
-            "total_sessions": len(self._history),
-            "last_session": self._history[-1] if self._history else None,
+            "total_sessions": total_sessions,
+            "last_session": last_session,
             "scraper_stats": self.scraper.stats(),
         }
 

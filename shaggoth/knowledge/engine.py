@@ -378,9 +378,15 @@ class KnowledgeBase:
             )
             reranked.append((entry, combined))
 
-        # Normalize to 0..1 against the best combined hit.
+        # Filter by absolute combined score before normalization so min_score
+        # actually rejects weak single-match results (without this, a lone match
+        # always normalizes to 1.0 and trivially passes any threshold).
+        reranked = [(e, s) for e, s in reranked if s >= min_score]
+        if not reranked:
+            return []
+        # Normalize the survivors to 0..1 against the best combined hit.
         best = max(s for _, s in reranked) or 1.0
-        normalized = [(e, s / best) for e, s in reranked if (s / best) >= min_score]
+        normalized = [(e, s / best) for e, s in reranked]
         # Tie-break toward the SHORTER, more focused article.
         normalized.sort(key=lambda x: (-x[1], x[0].word_count))
         return normalized[:limit]
