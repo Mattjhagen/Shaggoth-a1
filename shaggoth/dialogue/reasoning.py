@@ -810,7 +810,7 @@ def subject_of(question: str) -> str:
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
         # Note: bare "rate" is NOT here — it's almost always a noun (interest rate, poverty rate).
         # Only inflected forms "rated"/"rates" used as verbs are stripped.
-        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rat(?:ed|es)|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|"
+        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rat(?:ed|es)|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|"
         r"turn[s]?|transform[sd]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"

@@ -3921,3 +3921,43 @@ def test_batch88_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" (body part/system) → X
+    ("what is the cerebellum",                         "cerebellum"),
+    ("what is the hippocampus",                        "hippocampus"),
+    ("what is the immune system",                      "immune system"),
+    ("what is the lymphatic system",                   "lymphatic system"),
+    # "what does the X do" → X
+    ("what does the liver do",                         "liver"),
+    ("what does the pancreas do",                      "pancreas"),
+    ("what does the cerebellum do",                    "cerebellum"),
+    # "how does X work" (body) → X
+    ("how does the kidney work",                       "kidney"),
+    ("how does the heart work",                        "heart"),
+    # "what are the symptoms of X" → X
+    ("what are the symptoms of diabetes",              "diabetes"),
+    ("what are the symptoms of depression",            "depression"),
+    # "what causes X" → X
+    ("what causes diabetes",                           "diabetes"),
+    ("what causes cancer",                             "cancer"),
+    ("what causes high blood pressure",                "high blood pressure"),
+    # "how is X diagnosed" → X (diagnos? added to passive-participle list)
+    ("how is diabetes diagnosed",                      "diabetes"),
+    ("how is cancer diagnosed",                        "cancer"),
+    # "how is X treated" → X
+    ("how is diabetes treated",                        "diabetes"),
+    # "what is the treatment for X" → X
+    ("what is the treatment for diabetes",             "diabetes"),
+    ("what is the treatment for depression",           "depression"),
+    # "how do you prevent X" → X
+    ("how do you prevent diabetes",                    "diabetes"),
+    ("how do you prevent heart disease",               "heart disease"),
+])
+def test_batch89_subject_extraction(question, expected):
+    """Batch 89: human body & health — diagnosed passive verb, body-part do/work patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
