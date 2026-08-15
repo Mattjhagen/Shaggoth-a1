@@ -277,6 +277,24 @@ class ConversationFlowTests(unittest.TestCase):
             result = describe_unknown("tell me about deep learning", researching=False)
             self.assertIn("deep learning", result.lower(), result)
 
+    def test_describe_unknown_how_to_verb_filtered(self):
+        """HOW-TO verb 'protect' should not bleed into the fallback subject.
+
+        'how do I protect against ransomware' should echo 'ransomware', not
+        'protect against ransomware' or 'protect ransomware'.
+        """
+        for _ in range(20):
+            result = describe_unknown("how do I protect against ransomware", researching=False)
+            self.assertIn("ransomware", result.lower(), result)
+            self.assertNotIn("protect", result.lower(), result)
+
+    def test_describe_unknown_how_does_it_work_drops_work(self):
+        """'work' from 'how does it work' should not appear in the subject."""
+        for _ in range(20):
+            result = describe_unknown("what is a botnet and how does it work", researching=False)
+            self.assertIn("botnet", result.lower(), result)
+            self.assertNotIn("botnet work", result.lower(), result)
+
     def test_what_about_that_is_follow_up(self):
         self.assertTrue(is_follow_up("what about that"))
         self.assertTrue(is_follow_up("what about this?"))

@@ -244,7 +244,8 @@ def _explanatory_score(sentence: str) -> int:
     return score
 
 
-def _pick(sentences, marker, topic_words, limit, min_len=40, focus=None):
+def _pick(sentences, marker, topic_words, limit, min_len=40, focus=None,
+          bonus=None):
     """Sentences matching ``marker``, best first.
 
     The entry has already been selected as being about the subject, so a
@@ -257,6 +258,11 @@ def _pick(sentences, marker, topic_words, limit, min_len=40, focus=None):
     sentence that answers the question from the merely-causal ones elsewhere
     in the article: without it, that question came back with bacterial
     membranes and leaf epidermis, both genuinely causal and neither an answer.
+
+    ``bonus`` is an optional compiled regex; sentences matching it receive +2
+    extra focus hits. Use it to reward sentences that directly answer the
+    question -- e.g. "causes gravity" for "what causes gravity?" -- above those
+    that merely contain the same causal marker.
     """
     focus = focus or set()
     scored = []
@@ -275,6 +281,8 @@ def _pick(sentences, marker, topic_words, limit, min_len=40, focus=None):
         if not on_topic:
             continue
         hits = sum(1 for word in focus if word in tokens)
+        if bonus and bonus.search(sentence):
+            hits += 2
         # Focus hits dominate. Explanatory quality only breaks ties -- but it
         # is the whole ranking when the question has no focus term, which is
         # when this previously degenerated to document order.
@@ -451,7 +459,7 @@ class Reasoner:
         return out
 
     def _pick_across(self, entries: list, marker, subject: str, focus: set,
-                     limit: int = 3):
+                     limit: int = 3, bonus=None):
         """Rank sentences from every candidate entry together.
 
         Returns (sentences, entry_topics_that_contributed).
@@ -464,7 +472,7 @@ class Reasoner:
                     owner[sentence] = entry.topic
                     pool.append(sentence)
         picked = _pick(pool, marker, _topic_words(subject), limit=limit,
-                       focus=focus)
+                       focus=focus, bonus=bonus)
         used = []
         for sentence in picked:
             topic = owner.get(sentence)
@@ -607,8 +615,25 @@ class Reasoner:
         focus = _topic_words(question) - _topic_words(subject) - _QUESTION_WORDS
         if focus:
             steps.append(Step("focus", ", ".join(sorted(focus))))
+        # For "what causes X" / "what makes X" questions, reward sentences
+        # where X is in object position ("Y causes X") over sentences where X
+        # is the agent ("X causes Y"). Without this, "what causes gravity"
+        # picked "Black holes form when gravity causes..." over
+        # "Mass causes gravity by curving spacetime..." because the Einstein
+        # attribution gave the latter a proper-noun quality penalty.
+        bonus = None
+        _CAUSE_VERB_Q = re.compile(
+            r"(?i)^(?:what|why)\s+(?:causes?|makes?|produces?|creates?|generates?)\s+",
+        )
+        if _CAUSE_VERB_Q.match(question):
+            s = re.escape(subject)
+            bonus = re.compile(
+                rf"\b(?:caus|mak)(?:e|es|ed|ing)\s+{s}\b"
+                rf"|\b{s}\s+(?:is|are|was|were)\s+(?:caused|produced|generated|created|made)\s+by\b",
+                re.I,
+            )
         picked, used = self._pick_across(
-            entries, _CAUSAL_MARKER, subject, focus, limit=3,
+            entries, _CAUSAL_MARKER, subject, focus, limit=3, bonus=bonus,
         )
         if not picked:
             steps.append(Step("result", "no explanatory sentences in any candidate"))

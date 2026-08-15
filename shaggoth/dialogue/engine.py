@@ -1833,6 +1833,11 @@ def follow_up_reply(context: dict | None = None) -> str:
 _DESCRIBE_FILTER = frozenset({
     "lol", "lmao", "lmfao", "omg", "wtf", "haha", "hehe", "hmm",
     "wow", "huh", "yikes", "oof", "oops", "rofl", "smh", "ikr",
+    # Prepositions and HOW-TO verbs that appear in questions but are never
+    # the topic being asked about. Filtering them prevents fallback subject
+    # phrases like "protect against ransomware" (should be "ransomware") or
+    # "botnet work" (should be "botnet").
+    "against", "protect", "protects", "work", "works", "working",
 })
 
 # Words that survive keyword extraction but can never be the *subject* of a

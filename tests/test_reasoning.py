@@ -347,6 +347,50 @@ def test_search_cache_eviction():
     assert len(r._search_cache) <= r._search_cache_max
 
 
+def test_pick_bonus_pattern_promotes_direct_answer():
+    """A sentence matching the bonus pattern scores +2 focus hits, placing it
+    above sentences that merely contain the causal marker."""
+    from shaggoth.dialogue.reasoning import _pick, _CAUSAL_MARKER
+    import re
+    sentences = [
+        # Gravity as AGENT — "gravity causes Y" — not the direct answer.
+        "Gravity is the fundamental force that causes all objects with mass to attract one another.",
+        # DIRECT answer — "Y causes gravity" — should win.
+        "Mass causes gravity by curving spacetime, as described by Einstein.",
+        # Another gravity-as-agent sentence.
+        "Black holes form when gravity causes the collapse of matter to extreme density.",
+    ]
+    bonus = re.compile(r"\b(?:caus|mak)(?:e|es|ed|ing)\s+gravity\b", re.I)
+    picked = _pick(
+        sentences, _CAUSAL_MARKER,
+        topic_words={"gravity"},
+        limit=1,
+        min_len=10,
+        focus={"causes"},
+        bonus=bonus,
+    )
+    assert picked, "should find at least one sentence"
+    assert "Mass causes gravity" in picked[0], (
+        f"Expected direct-answer sentence first, got: {picked[0]!r}"
+    )
+
+
+def test_causal_what_causes_prefers_effect_sentence():
+    """'what causes gravity' should lead with 'Mass causes gravity', not a
+    sentence where gravity acts as the agent of some other effect."""
+    gravity_article = (
+        "Gravity is the fundamental force that causes all objects with mass to attract one another. "
+        "Mass causes gravity by curving spacetime as described by Einstein's general theory of relativity. "
+        "Gravity causes the Earth to orbit the Sun and objects to fall toward the ground."
+    )
+    entry = FakeEntry("Gravity", gravity_article)
+    result = _reasoner([entry]).reason("what causes gravity")
+    assert result is not None
+    assert result.answer.startswith("Mass causes gravity"), (
+        f"Expected 'Mass causes gravity' to lead; got: {result.answer!r}"
+    )
+
+
 def test_causal_ranking_ignores_incidental_how_in_sentence_text():
     """A sentence that merely contains the word "how" must not outrank the
     sentence that actually explains the question's focus ("light"), which is
