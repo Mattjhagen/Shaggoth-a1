@@ -507,9 +507,9 @@ def subject_of(question: str) -> str:
     # that head this pattern after the scaffold strip fires.
     _m_cat_is = re.match(
         r"^(?:animal|plant|mammal|reptile|bird|fish|insect|element|mineral|metal|"
-        r"substance|compound|molecule|chemical|gas|liquid|solid|"
+        r"substance|compound|molecule|chemical|gas|liquid|solid|energy|"
         r"country|city|continent|region|language|sport|food|drug|disease|"
-        r"rock|mineral|gem|star|planet|galaxy)\s+(?:is|was|are|were)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
+        r"rock|mineral|gem|star|planet|galaxy|force|wave|particle|radiation)\s+(?:is|was|are|were)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
         text, re.I,
     )
     if _m_cat_is:
@@ -613,7 +613,9 @@ def subject_of(question: str) -> str:
         # "how fast does light travel", "why do we dream", "how does sound travel"
         r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
-        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|"
+        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|"
+        # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
+        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rate[sd]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
         r"stop(?:ped|s)?|end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?|"

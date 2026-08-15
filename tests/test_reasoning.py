@@ -2369,3 +2369,35 @@ def test_batch41_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # passive-voice "how is X measured/classified/called" → X
+    ("how is a rainbow formed",                     "rainbow"),
+    ("how is coal formed",                          "coal"),
+    ("how is blood pressure measured",              "blood pressure"),
+    ("how is intelligence measured",                "intelligence"),
+    ("how is cancer classified",                    "cancer"),
+    ("how are animals classified",                  "animals"),
+    # "what is X called in LANGUAGE" → X
+    ("what is the sun called in spanish",           "sun"),
+    ("what is a dog called in japanese",            "dog"),
+    # "what type/kind of CATEGORY is X" → X  (via _m_cat_is)
+    ("what type of animal is a dolphin",            "dolphin"),
+    ("what type of star is the sun",                "sun"),
+    ("what kind of energy is solar power",          "solar power"),
+    ("what kind of gas is oxygen",                  "oxygen"),
+    # "how long can X hold/survive" → X
+    ("how long can a whale hold its breath",        "whale"),
+    ("how long can humans survive without water",   "humans"),
+    # regression guards
+    ("how do you say hello in japanese",            "hello"),
+    ("what is the atmosphere made up of",           "atmosphere"),
+    ("how long does pregnancy last",                "pregnancy"),
+])
+def test_batch42_subject_extraction(question, expected):
+    """Batch 42: passive-participle verbs; _m_cat_is energy/force/wave; called-in-language."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
