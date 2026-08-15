@@ -1576,3 +1576,34 @@ def test_batch20_subject_extraction(question, expected):
 def test_batch20_classify(question, expected_intent):
     """Batch 20: 'what has caused' should classify as CAUSAL not DEFINE."""
     assert classify(question) == expected_intent
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what would happen if X VERB" — second-pass if strip + stopped/disappeared/exploded
+    ("what would happen if the sun disappeared",         "sun"),
+    ("what would happen if the earth stopped rotating",  "earth"),
+    ("what would happen if humans stopped eating",       "humans"),
+    ("what would happen if the moon exploded",           "moon"),
+    ("what would happen if gravity disappeared",         "gravity"),
+    # "how long does it take SUBJECT to VERB" — _m_it_takes_subj
+    ("how long does it take light to reach earth",       "light"),
+    # "difference/similarity between X and Y" → "X and Y"
+    ("what is the difference between dna and rna",       "dna and rna"),
+    ("what is the difference between bacteria and viruses", "bacteria and viruses"),
+    ("what is the similarity between plants and animals",   "plants and animals"),
+    # navigate[sd]? trailing verb
+    ("how do birds navigate",                            "birds"),
+    # come from / get — trailing verb
+    ("where does energy come from",                      "energy"),
+    ("where does the sun get its energy",                "sun"),
+    # half life causal noun
+    ("what is the half life of carbon 14",               "carbon 14"),
+    # heavy/loud adj strip
+    ("why is ice not heavy",                             "ice"),
+])
+def test_batch21_subject_extraction(question, expected):
+    """Batch 21: disappeared/stopped/exploded verbs, it-take-subject, difference-between scaffold."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

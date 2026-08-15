@@ -332,6 +332,12 @@ def subject_of(question: str) -> str:
     # "4 blood types" → "blood types". Also strips named quantifiers left after
     # stripping "what are".
     text = re.sub(r"^(?:some|any|various|several|a few|all|different|main|major|key|\d+)\s+", "", text, flags=re.I)
+    # "difference between X and Y" / "similarity between X and Y" → "X and Y"
+    text = re.sub(
+        r"^(?:the\s+)?(?:difference|differences|distinction|similarity|similarities|"
+        r"relationship|connection|comparison)\s+between\s+(?:the\s+)?",
+        "", text, flags=re.I,
+    )
     text = re.sub(
         # Allow up to two leading article/quantifier words: "the different types of X"
         r"^(?:(?:a|an|the|some|any|all|various|different|main|major|key|primary|common|a few)\s+){0,2}"
@@ -361,7 +367,9 @@ def subject_of(question: str) -> str:
         r"inventor|discoverer|author|composer|painter|creator|"
         r"history|origin|meaning|definition|symbol|flag|currency|language|"
         # Measurement/property compounds: "boiling point of water" → "water"
-        r"point|rate|level|amount|number|count|percentage|quantity)s?"
+        # "half life of carbon 14" → "carbon 14"
+        r"point|rate|level|amount|number|count|percentage|quantity|"
+        r"life|lifetime|lifespan|period|span|half.life)s?"
         r"\s+(?:of|behind|in|for)\s+", "", text, flags=re.I,
     )
     # When the causal-noun strip fired, a trailing "in/on <context>" phrase
@@ -371,10 +379,9 @@ def subject_of(question: str) -> str:
     # "planets in the solar system" where "in the solar system" belongs.
     if text != _before_causal_noun_strip:
         text = re.sub(r"\s+(?:in|on)\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
-    # Leading temporal/locative conjunction left over after "what happens during/when X"
-    # → "during X" / "when X boils" → strip leading word → "X" / "X boils"
-    # (the trailing verb then strips the verb, yielding a clean subject)
-    text = re.sub(r"^(?:during|when)\s+", "", text, flags=re.I)
+    # Leading temporal/locative/conditional conjunction left over after stripping
+    # "what happens during/when/if X" → strip the conjunction.
+    text = re.sub(r"^(?:during|when|if)\s+", "", text, flags=re.I)
     # "when you mix baking soda and vinegar" → strip "when " → "you mix baking soda ..."
     # → strip "you VERB " (generic pronoun + one verb) → "baking soda and vinegar".
     text = re.sub(r"^(?:you|we|they|people|someone|a\s+person)\s+\w+\s+", "", text, flags=re.I)
@@ -397,12 +404,14 @@ def subject_of(question: str) -> str:
     )
     # Causal verbs that head the remainder after stripping "what":
     # "what enables X" → "enables X" → "X"
-    # "what is causing X" → "causing X" → "X"
+    # "what would happen if X" → "happen if X" → strip "happen " → "if X" → strip "if " → "X"
     text = re.sub(
         r"^(?:enables?|allows?|permits?|prevents?|blocks?|stops?|inhibits?|"
-        r"caus(?:es?|ing))\s+",
+        r"happen[s]?|caus(?:es?|ing))\s+",
         "", text, flags=re.I,
     )
+    # Second-pass conjunction strip: "if X" exposed after "happen" or "leads to" was removed.
+    text = re.sub(r"^(?:if|during|when)\s+", "", text, flags=re.I)
     # "what is responsible for X" → "responsible for X" → "X"
     # "what is needed for X" → "needed for X" → "X"
     # "what is behind X" → "behind X" → "X"
@@ -452,7 +461,8 @@ def subject_of(question: str) -> str:
         if not re.search(r"\s+(?:in|on|at)\s*$", _cat_captured, re.I):
             text = _cat_captured
     # "how long does it take to boil water" → "water";
-    # "how long does it take for a bone to heal" → "bone".
+    # "how long does it take for a bone to heal" → "bone";
+    # "how long does it take light to reach earth" → "light".
     _m_it_takes = re.match(r"^it\s+takes?\s+to\s+\w+\s+(.+)$", text, re.I)
     if _m_it_takes:
         text = _m_it_takes.group(1)
@@ -460,6 +470,11 @@ def subject_of(question: str) -> str:
         _m_it_takes_for = re.match(r"^it\s+takes?\s+for\s+(?:a|an|the\s+)?\s*(.+?)\s+to\s+\w+\s*$", text, re.I)
         if _m_it_takes_for:
             text = _m_it_takes_for.group(1)
+        else:
+            # "it take light to reach earth" → capture NOUN before "to VERB"
+            _m_it_takes_subj = re.match(r"^it\s+takes?\s+(.+?)\s+to\s+\w+", text, re.I)
+            if _m_it_takes_subj:
+                text = _m_it_takes_subj.group(1)
     # "why do we dream" / "why do people yawn" → extract the activity, not the pronoun.
     # Restricted to pure generic pronouns (we/us/you/one/people) so that entity nouns
     # like "humans" fall through to the trailing-verb strip instead ("where did humans
@@ -488,10 +503,11 @@ def subject_of(question: str) -> str:
         r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|"
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"
         r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|"
+        r"come[s]?\s+from|get[s]?|navigate[sd]?|"
         r"die[sd]?|dies|"
         # Sensory/cognitive/existence verbs
         r"feel[s]?|sense[s]?|think[s]?|perceive[s]?|drown[s]?|survive[sd]?|"
-        r"appear[s]?|disappear[s]?|vanish(?:es)?|reproduct[s]?|reproduce[sd]?|"
+        r"appear[s]?|disappear(?:s|ed)?|vanish(?:es|ed)?|reproduct[s]?|reproduce[sd]?|"
         r"behave[sd]?|communicate[sd]?|"
         r"have\b|has\b|"
         r"grow[s]?|spread[s]?|evolve[s]?|"
@@ -518,6 +534,7 @@ def subject_of(question: str) -> str:
         r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
+        r"stop(?:ped|s)?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?|"
         # Duration/persistence verbs: "how long does pregnancy last" → "pregnancy"
         r"last[s]?|persist[s]?|remain[s]?|"
         # Extinction/movement verbs. Use negative lookahead (?!\s+of) so that
@@ -584,6 +601,7 @@ def subject_of(question: str) -> str:
         r"\s+(?:(?:is|are|was|were)\s+)?(?:so\s+)?(?:blue|red|green|yellow|white|black|gray|grey|brown|orange|purple|pink|"
         r"hot|cold|warm|cool|wet|dry|soft|bright|dark|"
         r"low|high|normal|elevated|full|empty|alive|dead|active|inactive|"
+        r"heavy|loud|quiet|dim|sharp|dull|"
         r"salty|sweet|sour|bitter|spicy|acidic|alkaline|toxic|magnetic|elastic|"
         r"transparent|opaque|flammable|volatile|reactive|inert|radioactive|"
         r"valuable|expensive|cheap|rare|common|strong|weak|dense|flat|round|curved|"
