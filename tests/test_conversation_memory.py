@@ -20,6 +20,7 @@ from shaggoth.dialogue.engine import (
     has_subject,
     is_follow_up,
 )
+from shaggoth.knowledge.engine import KnowledgeBase
 from shaggoth.memory import MemoryStore
 
 
@@ -409,9 +410,8 @@ def test_social_messages_never_trigger_fallback(engine):
 
 def test_bare_noun_answers_from_knowledge_when_available(tmp_path):
     """Typing just 'gravity' should answer from the KB, not claim ignorance."""
-    from shaggoth.memory import MemoryStore
-
-    engine = DialogueEngine(memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
+    kb = KnowledgeBase(tmp_path / "knowledge")
+    engine = DialogueEngine(knowledge=kb, memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
     engine.knowledge.add_entry(
         "Gravity",
         "Gravity is a fundamental force of nature. " * 20,
@@ -488,9 +488,8 @@ def test_describe_unknown_filters_filler_words():
 
 def test_short_definitional_article_not_repeated(tmp_path):
     """A short article should produce one sentence, not the same one 4x."""
-    from shaggoth.memory import MemoryStore
-
-    engine = DialogueEngine(memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
+    kb = KnowledgeBase(tmp_path / "knowledge")
+    engine = DialogueEngine(knowledge=kb, memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
     engine.knowledge.add_entry(
         "Gravity",
         "Gravity is a fundamental force of nature. " * 20,
