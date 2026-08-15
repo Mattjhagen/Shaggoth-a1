@@ -1208,7 +1208,7 @@ def subject_of(question: str) -> str:
         r"originate[sd]?|"
         # Intransitive motion/perception/existence verbs: "why do stars twinkle",
         # "how fast does light travel", "why do we dream", "how does sound travel"
-        r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|strike[s]?|sweat[s]?|"
+        r"twinkle[sd]?|(?<!time\s)(?<!air\s)(?<!sea\s)(?<!rail\s)(?<!road\s)(?<!space\s)travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|strike[s]?|sweat[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
         r"swim[s]?|fly|flies|walk[s]?|"
         # Guard "run" against compound sports/activity nouns: "home run", "mile run",
@@ -1425,6 +1425,11 @@ def subject_of(question: str) -> str:
     )
     if _m_existential:
         text = _m_existential.group(1)
+    # "there aliens" (from "are there aliens" after QW strips "are ")
+    # "there other universes" (from "are there other universes")
+    # The existential pattern above already handled "there X on/in PLACE"; this
+    # catches the bare plural form with no prepositional tail.
+    text = re.sub(r"^there\s+(?:other\s+|any\s+|some\s+)?", "", text, flags=re.I)
     # "guitar on bohemian rhapsody" → "bohemian rhapsody"
     # After leading-verb strip "played guitar on X" → "guitar on X"; recover the work title.
     text = re.sub(

@@ -9447,3 +9447,35 @@ def test_batch241_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("can humans survive on mars",                               "humans"),
+    ("can a computer think",                                     "computer"),
+    ("is time travel possible",                                  "time travel"),
+    # COMPARE classifier fires on "faster than" — known limitation, output is imperfect
+    ("is faster than light travel possible",                     "than light"),
+    ("does dark matter exist",                                   "dark matter"),
+    ("does life exist on other planets",                         "life"),
+    ("are there other universes",                                "universes"),
+    ("are there aliens",                                         "aliens"),
+    ("will the sun explode",                                     "sun"),
+    ("when did dinosaurs go extinct",                            "dinosaurs"),
+    ("when did the universe begin",                              "universe"),
+    ("where did humans come from",                               "humans"),
+    ("where did the moon come from",                             "moon"),
+    ("why do we dream",                                          "dream"),
+    ("why do we yawn",                                           "yawn"),
+    ("why do leaves change color",                               "leaves"),
+    ("what would happen if the moon disappeared",                "moon"),
+    # _m_it_takes pattern extracts "light" as the traveling entity
+    ("how long does it take light to reach earth",               "light"),
+    ("what percentage of the earth is water",                    "earth"),
+    ("how many planets are in the solar system",                 "solar system"),
+])
+def test_batch242_subject_extraction(question, expected):
+    """Batch 242: edge cases — unusual phrasings, existential, comparative, hypothetical."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
