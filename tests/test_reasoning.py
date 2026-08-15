@@ -4202,3 +4202,82 @@ def test_batch95_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # core concepts
+    ("what is pi",                                     "pi"),
+    ("what is the pythagorean theorem",                "pythagorean theorem"),
+    ("what is calculus",                               "calculus"),
+    ("what is algebra",                                "algebra"),
+    ("what is trigonometry",                           "trigonometry"),
+    # square root → causal noun, returns the operand
+    ("what is the square root of 144",                 "144"),
+    ("what is the square root of 2",                   "2"),
+    # factorial — numeric quantifier strips "5"; "factorial" is the concept returned
+    ("what is 5 factorial",                            "factorial"),
+    # "how do you calculate X" → X (the property)
+    ("how do you calculate the area of a circle",      "area"),
+    ("how do you calculate the volume of a sphere",    "volume"),
+    # formula causal noun
+    ("what is the formula for the area of a circle",   "area"),
+    ("what is the formula for compound interest",      "compound interest"),
+    # difference-between → "X and Y"
+    ("what is the difference between mean and median", "mean and median"),
+    ("what is the difference between mode and median", "mode and median"),
+    # "how many X are in Y" → Y (the container is the lookup entity)
+    ("how many centimeters are in a meter",            "meter"),
+    ("how many degrees are in a circle",               "circle"),
+    ("how many days are in a year",                    "year"),
+    # sequences / ratios
+    ("what is the fibonacci sequence",                 "fibonacci sequence"),
+    ("what is the golden ratio",                       "golden ratio"),
+])
+def test_batch96_subject_extraction(question, expected):
+    """Batch 96: math — concepts, square-root causal noun, formula, difference-between, unit containers."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "who won X" → X
+    ("who won the world cup",                          "world cup"),
+    ("who won the super bowl",                         "super bowl"),
+    ("who won the nba finals",                         "nba finals"),
+    # "how many X has Y VERB" → Y (entity with the stat)
+    ("how many world cups has brazil won",             "brazil"),
+    ("how many championships has lebron won",          "lebron"),
+    # rules scaffold → sport
+    ("what are the rules of basketball",               "basketball"),
+    ("what are the rules of soccer",                   "soccer"),
+    # "how long is X [game]" → X
+    ("how long is a basketball game",                  "basketball game"),
+    ("how long is a soccer game",                      "soccer game"),
+    # superlative + "in nba history" → "nba history"
+    ("what is the highest scoring game in nba history", "nba history"),
+    # record-holder early-return
+    ("who holds the record for most home runs",        "home runs"),
+    ("who holds the record for most goals in a season", "goals"),
+    # single rule causal noun → sport
+    ("what is the offside rule in soccer",             "soccer"),
+    # team count → sport
+    ("how many players are in a soccer team",          "soccer"),
+    ("how many players are in a basketball team",      "basketball"),
+    # positions scaffold → sport
+    ("what are the positions in baseball",             "baseball"),
+    ("what are the positions in american football",    "american football"),
+    # has-won-most → competition
+    ("what country has won the most world cups",       "world cups"),
+    # sport term
+    ("what is a hat trick",                            "hat trick"),
+    # greatest X of all time
+    ("who is the greatest basketball player of all time", "basketball player"),
+])
+def test_batch97_subject_extraction(question, expected):
+    """Batch 97: sports — team-count, record-holder, offside rule, positions-in-sport, has-won-most."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

@@ -316,6 +316,16 @@ def subject_of(question: str) -> str:
     text = re.sub(r"^not\s+", "", text, flags=re.I)
     # "how far away is X" → after "how far" stripped, "away" leads: strip it.
     text = re.sub(r"^away\s+", "", text, flags=re.I)
+    # "who holds the record for most home runs" → early return "home runs"
+    # Must fire BEFORE the leading-verb strip; capturing the whole noun phrase here
+    # prevents the trailing-verb strip from mangling compound sports nouns like "home runs".
+    _m_record_for = re.match(
+        r"^holds?\s+the\s+record\s+for\s+(?:most|fewest|least|the\s+(?:most|fewest|least)|a|an)?\s*"
+        r"(.+?)(?:\s+in\s+(?:(?:a|an|the)\s+)?\w+(?:\s+\w+)?)?\s*$",
+        text, re.I,
+    )
+    if _m_record_for:
+        return _m_record_for.group(1).strip()
     # After stripping "who"/"what", attribution and trigger verbs head the remainder:
     # "who invented the telephone" → "invented the telephone" → "the telephone"
     # "what started the industrial revolution" → "started the ..." → "the ..."
@@ -534,7 +544,11 @@ def subject_of(question: str) -> str:
         # Medical/treatment nouns: "cure for diabetes" → "diabetes"
         r"cure|treatment|remedy|therapy|medication|symptom|cause|"
         # Food/cooking property nouns: "ingredients in pizza" → "pizza"
-        r"ingredient|recipe|nutrition|calorie|flavor|taste)s?"
+        r"ingredient|recipe|nutrition|calorie|flavor|taste|"
+        # Mathematical property nouns: "square root of 144" → "144"
+        r"root|"
+        # Sport/game property nouns: "positions in baseball" → "baseball"; "offside rule in soccer" → "soccer"
+        r"rule|position|formation|ranking|standing|stat|statistic)s?"
         r"\s+(?:of|behind|in|for)\s+", "", text, flags=re.I,
     )
     # When the causal-noun strip fired, a trailing "in/on <context>" phrase
@@ -563,6 +577,14 @@ def subject_of(question: str) -> str:
     # "when you mix baking soda and vinegar" → strip "when " → "you mix baking soda ..."
     # → strip "you VERB " (generic pronoun + one verb) → "baking soda and vinegar".
     text = re.sub(r"^(?:you|we|they|people|someone|a\s+person)\s+\w+\s+", "", text, flags=re.I)
+    # "what country has won the most world cups" → "world cups"
+    # (NOUN ha[sd] won the most X → X, the competition being asked about)
+    _m_has_won_most = re.match(
+        r"^\w+(?:\s+\w+)?\s+ha(?:s|ve|d)\s+won\s+(?:the\s+)?most\s+(.+)$",
+        text, re.I,
+    )
+    if _m_has_won_most:
+        text = _m_has_won_most.group(1)
     # "what leads to X", "what led to X", "what triggers X" → X
     text = re.sub(
         r"^(?:leads?|led|trigger[sd]?|drove|drives?|prompts?)\s+(?:to\s+)?",
@@ -644,14 +666,33 @@ def subject_of(question: str) -> str:
     # → look up "water" (the container), not "elements" (the thing counted).
     _is_how_many = bool(re.match(r"^\s*(?:and |but |so )?how\s+many\b", _original, re.I))
     if _is_how_many:
-        # "how many bones are in the human body" → after QW strip: "bones are in the human body"
-        # → extract the container ("human body"), not the counted noun ("bones").
-        _m_many_in = re.match(
-            r"^\w+(?:\s+\w+)?\s+are\s+(?:in|inside|within)\s+(?:the\s+|a\s+|an\s+)?(.+)$",
+        # "how many players are in/on a soccer team" → "soccer" (sport, not "soccer team")
+        # Must fire before the generic _m_many_in which would capture "soccer team".
+        _m_many_team = re.match(
+            r"^\w+(?:\s+\w+)?\s+are\s+(?:on|in)\s+(?:a|an|the|each)\s+(.+?)\s+"
+            r"(?:team|squad|roster|side)\s*$",
             text, re.I,
         )
-        if _m_many_in:
-            text = _m_many_in.group(1)
+        if _m_many_team:
+            text = _m_many_team.group(1)
+        else:
+            # "how many world cups has brazil won" → "brazil" (entity with the record)
+            # Pattern: "PLURAL_NOUN has/have ENTITY VERB" → ENTITY
+            _m_many_has = re.match(
+                r"^\w+(?:\s+\w+)?\s+ha[sd]\s+(.+?)\s+\w+\s*$",
+                text, re.I,
+            )
+            if _m_many_has:
+                text = _m_many_has.group(1)
+            else:
+                # "how many bones are in the human body" → after QW strip: "bones are in the human body"
+                # → extract the container ("human body"), not the counted noun ("bones").
+                _m_many_in = re.match(
+                    r"^\w+(?:\s+\w+)?\s+are\s+(?:in|inside|within)\s+(?:the\s+|a\s+|an\s+)?(.+)$",
+                    text, re.I,
+                )
+                if _m_many_in:
+                    text = _m_many_in.group(1)
     else:
         _m = re.match(
             r"^(\w+(?:\s+\w+){0,2})\s+(?:are|were|is|was)\s+(?:in|inside|within|found in|part of)\s+(.+)$",
@@ -1078,6 +1119,16 @@ def subject_of(question: str) -> str:
     )
     # "what is X about" → strip trailing " about" (topic preposition orphaned after QW strip)
     text = re.sub(r"\s+about\s*$", "", text, flags=re.I)
+    # "greatest X of all time" → "X" — strip the superlative + temporal qualifier
+    text = re.sub(r"\s+of\s+all\s+time\s*$", "", text, flags=re.I)
+    text = re.sub(r"^(?:greatest|best|worst|most\s+\w+|least\s+\w+|top)\s+", "", text, flags=re.I)
+    # "positions in baseball" / "formations in soccer" → "baseball"/"soccer".
+    # These sport-scaffold nouns introduce a container that is the real topic.
+    text = re.sub(
+        r"^(?:positions?|formations?|lineup[s]?|rankings?|standings?|stats?|statistics?|"
+        r"regulations?)\s+in\s+(?!the\b)(?:the\s+|a\s+|an\s+)?(.+)$",
+        r"\1", text, flags=re.I,
+    )
     # Strip orphaned adverbs that remain after the trailing-verb strip removed the verb:
     # "when did humans first appear" → "humans first appear" → verb strip → "humans first"
     # → strip trailing "first" → "humans".
