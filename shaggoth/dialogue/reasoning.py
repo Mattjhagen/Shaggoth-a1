@@ -1134,6 +1134,18 @@ def subject_of(question: str) -> str:
     )
     if _m_contrib:
         return _m_contrib.group(1).strip()
+    # "how does X stay ADJECTIVE/PARTICIPLE" → X
+    # Strips "stay(s) <adj/participle>" at end; preserves terminal noun "stay" (hotel stay)
+    # and the "hospital stay last" case (main trailing-verb strip handles "last" first).
+    text = re.sub(
+        r"\s+stays?\s+(?:\w+(?:ing|ed|ent|ble|ful|al|ive)|up(?:right)?|"
+        r"liquid|solid|frozen|dry|clean|healthy|stable|balanced|alive|intact|vertical|"
+        r"fresh|warm|cool|cold|hot|safe|sharp|young|awake|fit|thin|slim|"
+        r"open|closed|shut|flat|smooth|calm|quiet|still|bright|dark|pure|"
+        r"strong|weak|soft|hard|light|heavy|fast|slow|rich|poor|free|true|"
+        r"relevant|current|popular|active|passive|positive|negative|neutral)\s*$",
+        "", text, flags=re.I,
+    )
     # Trailing passive progressive: "amazon rainforest being destroyed" → "amazon rainforest"
     # Fires before the main trailing-verb strip, which only matches single active verbs.
     text = re.sub(r"\s+being\s+\w+(?:ed|en)\s*$", "", text, flags=re.I)

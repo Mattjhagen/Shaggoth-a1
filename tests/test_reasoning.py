@@ -8636,3 +8636,63 @@ def test_batch214_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is christianity",                                  "christianity"),
+    ("what is islam",                                         "islam"),
+    ("what is buddhism",                                      "buddhism"),
+    ("what is hinduism",                                      "hinduism"),
+    ("what is judaism",                                       "judaism"),
+    ("what is atheism",                                       "atheism"),
+    ("what is agnosticism",                                   "agnosticism"),
+    ("what is the bible",                                     "bible"),
+    ("what is the quran",                                     "quran"),
+    ("who is jesus",                                          "jesus"),
+    ("who is muhammad",                                       "muhammad"),
+    ("who is buddha",                                         "buddha"),
+    ("what is a religion",                                    "religion"),
+    ("what is prayer",                                        "prayer"),
+    ("what is meditation",                                    "meditation"),
+    ("what are the ten commandments",                         "ten commandments"),
+    ("what is reincarnation",                                 "reincarnation"),
+    ("what is karma",                                         "karma"),
+    ("what is nirvana",                                       "nirvana"),
+    ("what is the difference between sunni and shia",         "sunni and shia"),
+])
+def test_batch215_subject_extraction(question, expected):
+    """Batch 215: religion/world religions — christianity, islam, buddhism, concepts."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is architecture",                                  "architecture"),
+    ("what is civil engineering",                             "civil engineering"),
+    ("what is mechanical engineering",                        "mechanical engineering"),
+    ("what is electrical engineering",                        "electrical engineering"),
+    ("what is structural engineering",                        "structural engineering"),
+    ("how does a bridge work",                                "bridge"),
+    ("how does a dam work",                                   "dam"),
+    ("how does a skyscraper stay standing",                   "skyscraper"),
+    ("what is gothic architecture",                           "gothic architecture"),
+    ("what is roman architecture",                            "roman architecture"),
+    ("what is reinforced concrete",                           "reinforced concrete"),
+    ("what is steel",                                         "steel"),
+    ("what is a foundation",                                  "foundation"),
+    ("how are skyscrapers built",                             "skyscrapers"),
+    ("what is urban planning",                                "urban planning"),
+    ("what is acoustics",                                     "acoustics"),
+    ("what is thermodynamics",                                "thermodynamics"),
+    ("what is fluid dynamics",                                "fluid dynamics"),
+    ("what is aerodynamics",                                  "aerodynamics"),
+    ("how does a jet engine work",                            "jet engine"),
+])
+def test_batch216_subject_extraction(question, expected):
+    """Batch 216: architecture/engineering — bridges, thermodynamics, jets."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
