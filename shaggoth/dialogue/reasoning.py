@@ -109,7 +109,9 @@ _CAUSAL = re.compile(
     r"|\bwhat (?:is|are|lies?)\s+behind\b"
     # "what do/does plants need to grow" / "what do organisms require for energy"
     # — asking for requirements is asking for causation.
-    r"|\bwhat (?:do|does|did)\b.+\b(?:need|require|use|depend on)\b",
+    r"|\bwhat (?:do|does|did)\b.+\b(?:need|require|use|depend on)\b"
+    # Historical "when" questions: "when did X", "when was X built"
+    r"|\bwhen (?:did|was|were)\b",
     re.I,
 )
 _ENUMERATE = re.compile(
@@ -266,9 +268,10 @@ def subject_of(question: str) -> str:
     _original = text  # preserved for intent-specific guards below
     text = re.sub(
         r"^(?:and |but |so )?(?:why|what|how|who|when|where)\s+"
-        # Optional degree word after "how": "how many X", "how long does X",
-        # "how fast does X", "how quickly does X" (any -ly adverb).
-        r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low)|\w+ly)?\s*"
+        # Optional degree/temporal word after "how"/"what": "how many X", "how long does X",
+        # "how fast does X", "how quickly does X" (any -ly adverb), "what year was X".
+        r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low|"
+        r"year|century|decade|date)|\w+ly)?\s*"
         r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
     )
@@ -299,20 +302,22 @@ def subject_of(question: str) -> str:
     # "explain how X Y" → strip "explain " → "how X Y" → re-strip "how " → "X Y"
     text = re.sub(
         r"^(?:why|what|how|who|when|where)\s+"
-        r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low)|\w+ly)?\s*"
+        r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low|"
+        r"year|century|decade|date)|\w+ly)?\s*"
         r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
     )
     text = re.sub(r"^not\s+", "", text, flags=re.I)
-    # Leading bare quantifier left after stripping "what are":
+    # Leading bare quantifier/qualifier left after stripping "what are":
     # "what are some programming languages" → "some programming languages" →
     # strip "some " → "programming languages".
     # Also handles "what are all the planets" → "all the planets" → "the planets" → "planets".
-    text = re.sub(r"^(?:some|any|various|several|a few|all)\s+", "", text, flags=re.I)
+    # "what are the different blood types" → "different blood types" → "blood types".
+    text = re.sub(r"^(?:some|any|various|several|a few|all|different|main|major|key)\s+", "", text, flags=re.I)
     text = re.sub(
         # Allow up to two leading article/quantifier words: "the different types of X"
         r"^(?:(?:a|an|the|some|any|all|various|different|main|major|key|primary|common|a few)\s+){0,2}"
-        r"(?:types?|kinds?|sorts?|categories|examples?|forms?|states?|list|"
+        r"(?:types?|kinds?|sorts?|categories|examples?|forms?|states?|layers?|list|"
         # Overview/summary nouns: "give me an overview of X", "give me a summary of X"
         r"overview|summary|summaries|introduction|definition|explanation|description|"
         # Medical/descriptive noun scaffolding: "what are the symptoms of X" → "X"
@@ -388,6 +393,7 @@ def subject_of(question: str) -> str:
         r"get\s+\w+ed|become|start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|train[s]?|take[s]?|"
+        r"pump[s]?|process(?:es)?|connect[s]?|"
         r"have\b|has\b|"
         r"grow[s]?|spread[s]?|evolve[s]?|"
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
@@ -444,6 +450,9 @@ def subject_of(question: str) -> str:
     # "what is the speed of light" → after verb strip → "the speed of light" → "speed of light"
     # "how does the immune system work" → "the immune system" → "immune system"
     text = re.sub(r"^(?:the|a|an)\s+", "", text, flags=re.I)
+    # Strip qualifier adjective exposed after the article: "the main programming languages"
+    # → "main programming languages" → "programming languages".
+    text = re.sub(r"^(?:different|main|major|key|various|multiple)\s+", "", text, flags=re.I)
     return text.strip(" ?.,")
 
 

@@ -1130,3 +1130,58 @@ def test_batch10_enumerate_patterns(question, expected_intent):
 def test_batch10_subject_extraction(question, expected_subject):
     """Batch 10: container redirect, quantifier, article, and location strips."""
     assert subject_of(question) == expected_subject
+
+
+# ---------------------------------------------------------------------------
+# Batch 11: "when did/was X" → CAUSAL, temporal scaffolding, transitive verbs,
+# qualifier adjective strip, "layers of X" scaffold noun
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question", [
+    "when did the roman empire fall",
+    "when was the eiffel tower built",
+    "when did the dinosaurs go extinct",
+])
+def test_batch11_when_historical_is_causal(question):
+    """'when did/was X' historical questions should classify as CAUSAL."""
+    assert classify(question) == Intent.CAUSAL
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "when did/was X" → correct subject (article stripped, trailing verb stripped)
+    ("when did the roman empire fall", "roman empire"),
+    ("when was the eiffel tower built", "eiffel tower"),
+    ("when did the dinosaurs go extinct", "dinosaurs"),
+    # "what year was X" → strip temporal scaffolding "year was"
+    ("what year was penicillin discovered", "penicillin"),
+    # Trailing transitive verbs not previously in the list
+    ("how does the brain process information", "brain"),
+    ("how does the heart pump blood", "heart"),
+    ("how does wifi connect to the internet", "wifi"),
+    # Leading qualifier adjective strip: "different/main/major/key"
+    ("what are the different blood types", "blood types"),
+    ("what are the main programming languages", "programming languages"),
+    # "layers of X" scaffold noun → X
+    ("what are the layers of the atmosphere", "atmosphere"),
+    ("what are the layers of the earth", "earth"),
+])
+def test_batch11_subject_extraction(question, expected):
+    """Batch 11: temporal strip, transitive verbs, qualifier adjectives, layers scaffold."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected_intent", [
+    # "what are the layers of X" → ENUMERATE (matches "what are the" pattern)
+    ("what are the layers of the atmosphere", Intent.ENUMERATE),
+    ("what are the layers of the earth", Intent.ENUMERATE),
+    # Leading qualifier but still enumerate
+    ("what are the main programming languages", Intent.ENUMERATE),
+    ("what are the different blood types", Intent.ENUMERATE),
+])
+def test_batch11_enumerate_classify(question, expected_intent):
+    """'what are the layers/main/different X' should classify as ENUMERATE."""
+    assert classify(question) == expected_intent
