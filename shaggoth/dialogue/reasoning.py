@@ -429,7 +429,7 @@ def subject_of(question: str) -> str:
     # "what role does insulin play in the body" → after "what" stripped → "role does insulin play"
     # strip "role does ARTICLE?" leaving "insulin play" → "play" removed by trailing verb strip.
     text = re.sub(
-        r"^(?:role|part|function|effect|impact|influence)\s+(?:does|do|did)\s+(?:the\s+|a\s+|an\s+)?",
+        r"^(?:role|part|function|effect|impact|influence|language)\s+(?:does|do|did)\s+(?:the\s+|a\s+|an\s+)?",
         "", text, flags=re.I,
     )
     # "what happens to X when/if it VERBS" → strip leading "to " → "X when it VERBS"
@@ -591,7 +591,7 @@ def subject_of(question: str) -> str:
         # "how fast does light travel", "why do we dream", "how does sound travel"
         r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
-        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|"
+        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
         r"stop(?:ped|s)?|end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?|"
@@ -613,6 +613,8 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+related\s+to\b.*$", "", text, flags=re.I)
     # "great wall of china called that" → "great wall of china"
     text = re.sub(r"\s+called\s+(?:that|it|so|this)\s*$", "", text, flags=re.I)
+    # "einstein known for" → "einstein"
+    text = re.sub(r"\s+known\s+for\b.*$", "", text, flags=re.I)
     # "what if humans could photosynthesize" → after "what if" stripped, "humans could
     # photosynthesize". Trailing modal+verb: strip "could/would/can/might VERB" at end.
     text = re.sub(
@@ -664,7 +666,7 @@ def subject_of(question: str) -> str:
     # After "what " is stripped, text may be "country is tokyo in" etc.
     _m_loc_noun = re.match(
         r"^(?:country|city|state|province|continent|ocean|sea|river|lake|"
-        r"mountain|island|planet|galaxy|star)\s+(?:is|was|are|were)\s+(.+?)\s+(?:in|on|at)\s*$",
+        r"mountain|island|planet|galaxy|star|time\s+zone|timezone)\s+(?:is|was|are|were)\s+(.+?)\s+(?:in|on|at)\s*$",
         text, re.I,
     )
     if _m_loc_noun:

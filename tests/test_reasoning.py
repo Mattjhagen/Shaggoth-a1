@@ -2040,3 +2040,52 @@ def test_batch33_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 34: "known for", "language does X speak", "time zone is X in"
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "how many X does/do Y have/need" → X
+    ("how many chambers does the heart have",       "chambers"),
+    ("how many chromosomes do humans have",         "chromosomes"),
+    ("how many teeth do adults have",               "teeth"),
+    ("how much water does the body need",           "water"),
+    ("how much sleep does a teenager need",         "sleep"),
+    ("how much protein does a person need",         "protein"),
+    # "what is X known for" → X
+    ("what is einstein known for",                  "einstein"),
+    ("what is nasa known for",                      "nasa"),
+    # "what is X made from/of" → X
+    ("what is concrete made of",                    "concrete"),
+    ("what is glass made from",                     "glass"),
+    ("what is silk made from",                      "silk"),
+    # "when was/were X built/discovered/alive" → X
+    ("when was the eiffel tower built",             "eiffel tower"),
+    ("when was america discovered",                 "america"),
+    ("when were dinosaurs alive",                   "dinosaurs"),
+    # "where is X located/found" → X
+    ("where is the amazon river located",           "amazon river"),
+    ("where is the eiffel tower located",           "eiffel tower"),
+    ("where is the largest desert",                 "desert"),
+    # "what language does X speak" → X
+    ("what language does brazil speak",             "brazil"),
+    ("what language do people in france speak",     "people"),
+    # "what happens to X when it VERBS" → X
+    ("what happens to water when it boils",         "water"),
+    ("what happens to iron when it rusts",          "iron"),
+    # "how do you say X in Y" → X
+    ("how do you say hello in french",              "hello"),
+    ("how do you say goodbye in spanish",           "goodbye"),
+    # "what time zone is X in" → X
+    ("what time zone is new york in",               "new york"),
+    ("what time zone is london in",                 "london"),
+])
+def test_batch34_subject_extraction(question, expected):
+    """Batch 34: known-for strip, language scaffold, time-zone loc-noun."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
