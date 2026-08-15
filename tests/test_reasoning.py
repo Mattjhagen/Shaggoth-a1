@@ -7802,3 +7802,41 @@ def test_batch187_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X (tech concepts)
+    ("what is machine learning",                                "machine learning"),
+    ("what is artificial intelligence",                         "artificial intelligence"),
+    ("what is the internet",                                    "internet"),
+    ("what is blockchain",                                      "blockchain"),
+    ("what is the cloud",                                       "cloud"),
+    ("what is an algorithm",                                    "algorithm"),
+    ("what is open source",                                     "open source"),
+    # "what is a X in Y" → X (concept in context, not property-of)
+    ("what is a variable in programming",                       "variable"),
+    ("what is a function in python",                            "function"),
+    ("what is an api",                                          "api"),
+    ("what is recursion",                                       "recursion"),
+    # "what is the difference between X and Y" → X and Y
+    ("what is the difference between http and https",           "http and https"),
+    ("what is the difference between ram and rom",              "ram and rom"),
+    # "how does X work" → X
+    ("how does the internet work",                              "internet"),
+    ("how does machine learning work",                          "machine learning"),
+    ("how does encryption work",                                "encryption"),
+    # "what programming language is X written in" → X
+    ("what programming language is python written in",          "python"),
+    # "how many X are in Y" → Y (container)
+    ("how many bits are in a byte",                             "byte"),
+    # "what is the most popular X" → X
+    ("what is the most popular programming language",           "programming language"),
+    # "how do you VERB a NOUN in LANG" → NOUN
+    ("how do you reverse a string in python",                   "string"),
+])
+def test_batch188_subject_extraction(question, expected):
+    """Batch 188: technology/computing — AI, internet, programming concepts."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

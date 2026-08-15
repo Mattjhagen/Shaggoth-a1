@@ -565,7 +565,7 @@ def subject_of(question: str) -> str:
         # Accept an optional adjective ("main", "primary", "key") between
         # "the" and the noun: "the main cause of X" → "cause of X" → "X"
         r"^(?:the\s+)?(?:\w+\s+)?(?:cause|process|mechanism|effect|result|purpose|"
-        r"role|function|impact|consequence|"
+        r"role|function(?!\s+in\b)|impact|consequence|"
         # Historical/event nouns: "fall of the roman empire" → "roman empire"
         r"fall|collapse|rise|decline|end|defeat|death|birth|founding|"
         # Factual property nouns: "capital of france" → "france"
