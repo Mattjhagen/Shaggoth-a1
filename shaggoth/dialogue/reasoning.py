@@ -290,7 +290,12 @@ def subject_of(question: str) -> str:
         text, re.I,
     )
     if _m_what_like:
-        return _m_what_like.group(1).strip()
+        captured = _m_what_like.group(1).strip()
+        # "moon's surface like" → strip possessive → "moon"
+        _mp = re.match(r"^(\w+(?:\s+\w+)?)'s\s+\w+(?:\s+\w+)?\s*$", captured, re.I)
+        if _mp:
+            captured = _mp.group(1)
+        return captured
     text = re.sub(
         r"^(?:and |but |so )?(?:why|what|how|who|when|where)\s+"
         # Optional degree/temporal word after "how"/"what": "how many X", "how long does X",
@@ -370,6 +375,41 @@ def subject_of(question: str) -> str:
     )
     if _m_of_fraction:
         text = _m_of_fraction.group(1)
+    # "what time does X VERB" — after "what" stripped, "time does the X VERB" leads.
+    # Extract X (the celestial/scheduled entity): "sun set" → "sun", "market close" → "market".
+    _m_time_does = re.match(
+        r"^time\s+(?:does|do|did|will|would|can|could)\s+(?:the\s+|a\s+|an\s+)?(.+?)\s+\w+\s*$",
+        text, re.I,
+    )
+    if _m_time_does:
+        text = _m_time_does.group(1)
+    # Targeted possessive strip — only fires for specific property patterns, NOT named
+    # concepts ("alzheimer's disease", "darwin's theory") or owned entities ("earth's atmosphere").
+    # Pattern A: ENTITY's [MODIFIER] MEASUREMENT_NOUN — "sun's core temperature" → "sun"
+    _MEAS = (
+        r"temperature|speed|velocity|acceleration|mass|weight|density|pressure|"
+        r"volume|area|force|energy|power|charge|radius|diameter|circumference|"
+        r"height|width|depth|breadth|length|frequency|wavelength|amplitude|"
+        r"intensity|brightness|luminosity|magnitude|duration|age|distance|period|"
+        r"span|rate|ratio|proportion|percentage|concentration|level|"
+        r"capacity|efficiency|output|input|conductivity|viscosity|hardness|opacity"
+    )
+    _m_poss = re.match(
+        rf"^(\w+(?:\s+\w+)?)'s\s+(?:\w+\s+)?(?:{_MEAS})s?\s*$",
+        text, re.I,
+    )
+    if _m_poss:
+        text = _m_poss.group(1)
+    else:
+        # Pattern B: ENTITY's RELATIONAL_NOUN in/of/for … — "bee's role in the ecosystem" → "bee"
+        _m_poss_rel = re.match(
+            r"^(\w+(?:\s+\w+)?)'s\s+"
+            r"(?:role|function|purpose|place|position|significance|importance|"
+            r"impact|effect|influence|contribution)\s+(?:in|of|for|on|at|to)\b",
+            text, re.I,
+        )
+        if _m_poss_rel:
+            text = _m_poss_rel.group(1)
     # After "how long" is stripped, "ago" sometimes leads: "how long ago did X Y"
     # → "ago did X Y". Strip "ago" plus any following auxiliary in one shot so the
     # bare-opener strip doesn't need to run twice.

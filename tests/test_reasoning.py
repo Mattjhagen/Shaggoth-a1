@@ -2903,7 +2903,7 @@ def test_batch58_subject_extraction(question, expected):
     ("what is the immune system responsible for",      "immune system"),
     ("what is dna responsible for",                    "dna"),
     # "what is X like" → strip trailing "like"
-    ("what is the moon's surface like",                "moon's surface"),
+    ("what is the moon's surface like",                "moon"),
     ("what is life on mars like",                      "life on mars"),
     # Possessive compounds are preserved as useful lookup keys
     ("what is the earth's atmosphere made of",         "earth's atmosphere"),
@@ -3081,6 +3081,42 @@ def test_batch65_subject_extraction(question, expected):
 ])
 def test_batch66_subject_extraction(question, expected):
     """Batch 66: origin-of (with/without article), significance/history/effects patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Batch 67: possessive-property strip (targeted); "what time does X" pattern
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Possessive + measurement noun: entity is the subject, property is the accessor
+    ("what is the sun's core temperature",             "sun"),
+    ("what is the earth's surface area",               "earth"),
+    ("what is the moon's orbital speed",               "moon"),
+    ("what is the star's luminosity",                  "star"),
+    # Possessive + relational noun + prep phrase
+    ("what is a bee's role in the ecosystem",          "bee"),
+    ("what is the liver's function in the body",       "liver"),
+    ("what is carbon's role in photosynthesis",        "carbon"),
+    # Possessive early-exit: "what is X's THING like" → entity
+    ("what is the moon's surface like",                "moon"),
+    # "what time does X VERB" patterns
+    ("what time does the sun set",                     "sun"),
+    ("what time does the moon rise",                   "moon"),
+    ("what time does the market close",                "market"),
+    # Regression: named possessive concepts must NOT be stripped
+    ("what is alzheimer's disease",                    "alzheimer's disease"),
+    ("what is the earth's atmosphere made of",         "earth's atmosphere"),
+    ("what is the sun's core made of",                 "sun's core"),
+    ("what is darwin's theory of evolution",           "darwin's theory of evolution"),
+    ("what is newton's law of gravity",                "newton's law of gravity"),
+])
+def test_batch67_subject_extraction(question, expected):
+    """Batch 67: targeted possessive-property strip; what-time-does pattern; regression guards."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
