@@ -8441,3 +8441,44 @@ def test_batch202_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" (law/political term) → X
+    ("what is democracy",                                      "democracy"),
+    ("what is communism",                                      "communism"),
+    ("what is capitalism",                                     "capitalism"),
+    ("what is socialism",                                      "socialism"),
+    ("what is the constitution",                               "constitution"),
+    # "what is X law" → "X law"
+    ("what is constitutional law",                             "constitutional law"),
+    ("what is international law",                              "international law"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between democracy and republic",  "democracy and republic"),
+    # "how does X work" → X
+    ("how does congress work",                                 "congress"),
+    ("how does the electoral college work",                    "electoral college"),
+    # "what are the branches of X" → X
+    ("what are the branches of government",                    "government"),
+    # "what is X" (legal Latin/compound) → X
+    ("what is habeas corpus",                                  "habeas corpus"),
+    ("what is due process",                                    "due process"),
+    # "what is the bill of rights" → "bill of rights"
+    ("what is the bill of rights",                             "bill of rights"),
+    # "who is the president of X" → X
+    ("who is the president of the united states",              "united states"),
+    # compound-noun definitions
+    ("what is a civil war",                                    "civil war"),
+    ("what is martial law",                                    "martial law"),
+    ("what is the supreme court",                              "supreme court"),
+    # "how are X made" → X
+    ("how are laws made",                                      "laws"),
+    # "what is freedom of X" → "freedom of X"
+    ("what is freedom of speech",                              "freedom of speech"),
+])
+def test_batch203_subject_extraction(question, expected):
+    """Batch 203: law/politics — democracy, legal terms, government structure."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
