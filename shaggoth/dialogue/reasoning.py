@@ -458,6 +458,10 @@ def subject_of(question: str) -> str:
         r"^(?:role|part|function|effect|impact|influence|language)\s+(?:does|do|did)\s+(?:the\s+|a\s+|an\s+)?",
         "", text, flags=re.I,
     )
+    # Second-pass people/pronoun strip: fires after "language does/do" exposed a
+    # "people in X VERB" construction. E.g. "what language do people in brazil speak"
+    # → "language do " stripped → "people in brazil speak" → strip "people in " → "brazil speak"
+    text = re.sub(r"^(?:you|we|they|people|someone|a\s+person)\s+\w+\s+", "", text, flags=re.I)
     # "what happens to X when/if it VERBS" → strip leading "to " → "X when it VERBS"
     # then strip trailing "when/if it VERB" clause.
     text = re.sub(r"^to\s+", "", text, flags=re.I)

@@ -2072,7 +2072,7 @@ def test_batch33_subject_extraction(question, expected):
     ("where is the largest desert",                 "desert"),
     # "what language does X speak" → X
     ("what language does brazil speak",             "brazil"),
-    ("what language do people in france speak",     "people"),
+    ("what language do people in france speak",     "france"),
     # "what happens to X when it VERBS" → X
     ("what happens to water when it boils",         "water"),
     ("what happens to iron when it rusts",          "iron"),
@@ -2746,6 +2746,48 @@ def test_batch53_subject_extraction(question, expected):
 ])
 def test_batch54_subject_extraction(question, expected):
     """Batch 54: sing verb; nocturnal/carnivorous/etc. adj; why-is/are/did."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Batch 55: where-does/do/is/are patterns; language-do-people-in-X; when/who
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "where does X come from" → X
+    ("where does coffee come from",                    "coffee"),
+    ("where does chocolate come from",                 "chocolate"),
+    ("where does oil come from",                       "oil"),
+    # "where do X live" → X
+    ("where do penguins live",                         "penguins"),
+    ("where do polar bears live",                      "polar bears"),
+    ("where do sharks live",                           "sharks"),
+    # "where is X located/found" → X
+    ("where is the amazon river located",              "amazon river"),
+    ("where is the great barrier reef located",        "great barrier reef"),
+    ("where is gold found",                            "gold"),
+    ("where is oil found in the world",                "oil"),
+    # "what language do people in X speak" → X  (second-pass people strip)
+    ("what language do people in brazil speak",        "brazil"),
+    ("what language do people in japan speak",         "japan"),
+    # "when did X happen" → X
+    ("when did world war 2 end",                       "world war 2"),
+    ("when did the roman empire fall",                 "roman empire"),
+    # "when was X built/founded" → X
+    ("when was the eiffel tower built",                "eiffel tower"),
+    ("when was the great wall of china built",         "great wall of china"),
+    ("when was google founded",                        "google"),
+    # "who discovered X" → X
+    ("who discovered dna",                             "dna"),
+    ("who discovered penicillin",                      "penicillin"),
+    ("who discovered america",                         "america"),
+])
+def test_batch55_subject_extraction(question, expected):
+    """Batch 55: where-does/do/is patterns; language-do-people-in-X second-pass; when/who."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
