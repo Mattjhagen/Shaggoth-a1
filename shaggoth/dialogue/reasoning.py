@@ -569,7 +569,8 @@ def subject_of(question: str) -> str:
         # Role/title nouns: "president of france" → "france"
         r"president|prime\s+minister|king|queen|ruler|leader|founder|director|"
         r"inventor|discoverer|author|composer|painter|creator|"
-        r"history|future|meaning(?!\s+of\s+life)|definition|significance|importance|symbol|flag|currency|language|"
+        r"history|future|meaning(?!\s+of\s+life)|definition|classification|taxonomy|categorization|"
+        r"significance|importance|symbol|flag|currency|language|"
         # Literary/art property nouns: "theme of hamlet" → "hamlet", "plot of X" → X
         # "myth of sisyphus" → "sisyphus"; "legend of king arthur" → "king arthur"
         # "holy book of islam" → "islam" (with optional adjective "holy" captured above)

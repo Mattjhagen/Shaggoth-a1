@@ -6812,3 +6812,44 @@ def test_batch162_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X (biology concepts)
+    ("what is photosynthesis",                                "photosynthesis"),
+    ("what is mitosis",                                       "mitosis"),
+    ("what is dna",                                           "dna"),
+    ("what is a cell",                                        "cell"),
+    ("what is evolution",                                     "evolution"),
+    # superlative + category
+    ("what is the largest mammal",                            "mammal"),
+    ("what is the largest animal on earth",                   "animal"),
+    # "how do X reproduce/eat/live" → X
+    ("how do mammals reproduce",                              "mammals"),
+    ("what do wolves eat",                                    "wolves"),
+    ("how long do elephants live",                            "elephants"),
+    # "what is the lifespan of X" → X
+    ("what is the lifespan of a dog",                         "dog"),
+    # "how many X does Y have" → Y
+    ("how many legs does a spider have",                      "spider"),
+    # "what animals live in X" → "animals" (predicate stripped)
+    ("what animals live in the rainforest",                   "animals"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between a frog and a toad",      "frog and toad"),
+    # "what is X behavior" → X behavior
+    ("what is animal behavior",                               "animal behavior"),
+    # "how does X work" / "what is X made of" / "what causes X"
+    ("how does digestion work",                               "digestion"),
+    ("what is bone made of",                                  "bone"),
+    ("what causes extinction",                                "extinction"),
+    # "what is the scientific classification of X" → X (new classification strip)
+    ("what is the scientific classification of humans",       "humans"),
+    # "what are X" → X
+    ("what are invertebrates",                                "invertebrates"),
+])
+def test_batch163_subject_extraction(question, expected):
+    """Batch 163: biology/animals — concepts, taxonomy, lifespan, difference patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
