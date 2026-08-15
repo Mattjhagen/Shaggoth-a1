@@ -542,6 +542,15 @@ def subject_of(question: str) -> str:
         r"^(?:role|part|function|effect|impact|influence|language)\s+(?:does|do|did)\s+(?:the\s+|a\s+|an\s+)?",
         "", text, flags=re.I,
     )
+    # "what language is spoken/used in X" → X  (passive construction, must fire before _m_cat_is
+    # which would otherwise capture "spoken in X" as the predicate)
+    _m_lang_passive = re.match(
+        r"^language\s+(?:is|are|was|were)\s+(?:spoken|used|official|common)\s+"
+        r"(?:in|of|throughout|across)\s+(?:the\s+|a\s+|an\s+)?(.+)$",
+        text, re.I,
+    )
+    if _m_lang_passive:
+        text = _m_lang_passive.group(1)
     # Second-pass people/pronoun strip: fires after "language does/do" exposed a
     # "people in X VERB" construction. E.g. "what language do people in brazil speak"
     # → "language do " stripped → "people in brazil speak" → strip "people in " → "brazil speak"
@@ -1002,6 +1011,8 @@ def subject_of(question: str) -> str:
     # "fastest animal" → "animal", "most common element" → "element".
     text = re.sub(
         r"^(?:largest?|biggest?|smallest?|tallest?|shortest?|longest?|fastest?|slowest?|"
+        r"highest?|lowest?|richest?|poorest?|hottest?|coldest?|brightest?|darkest?|"
+        r"strongest?|weakest?|closest?|nearest?|farthest?|"
         r"deepest?|widest?|narrowest?|lightest?|heaviest?|oldest?|youngest?|newest?|"
         r"most\s+\w+|least\s+\w+)\s+",
         "", text, flags=re.I,

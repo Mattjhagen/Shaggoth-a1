@@ -3602,3 +3602,47 @@ def test_batch80_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 81: geography, capital/population, superlatives (highest/lowest added),
+#            "language is spoken in X" passive pattern
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is the capital/population of X" → X
+    ("what is the capital of france",               "france"),
+    ("what is the capital of australia",            "australia"),
+    ("what is the population of china",             "china"),
+    ("what is the population of new york city",     "new york city"),
+    # Superlative strip — original list
+    ("what is the largest country in the world",    "country"),
+    ("what is the smallest ocean",                  "ocean"),
+    ("what is the longest river in the world",      "river"),
+    ("what is the deepest lake in the world",       "lake"),
+    # Superlative strip — highest/lowest added
+    ("what is the highest mountain in the world",   "mountain"),
+    # Most/least superlative
+    ("what is the most spoken language",            "language"),
+    ("what is the most common element",             "element"),
+    # "what is X known for" → X
+    ("what is hawaii known for",                    "hawaii"),
+    ("what is the amazon river known for",          "amazon river"),
+    # "what country/continent is X in/on" → X
+    ("what country is cairo in",                    "cairo"),
+    ("what continent is egypt in",                  "egypt"),
+    # "is X in Y" → X
+    ("is japan in asia",                            "japan"),
+    ("is the nile in africa",                       "nile"),
+    # "what language do people in X speak" → X (existing)
+    ("what language do people in brazil speak",     "brazil"),
+    # "what language is spoken in X" → X (passive; new _m_lang_passive fix)
+    ("what language is spoken in switzerland",      "switzerland"),
+])
+def test_batch81_subject_extraction(question, expected):
+    """Batch 81: geography & superlative patterns; highest/lowest; language-passive fix."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
