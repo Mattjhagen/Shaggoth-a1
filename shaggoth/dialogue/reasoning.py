@@ -1162,7 +1162,8 @@ def subject_of(question: str) -> str:
         r"made|created|formed|produced|compos(?:ed|es?)?|prevented|caused|built|done|founded|"
         # Irregular past-tense verbs common in hypothetical "if X lost/became Y" questions:
         r"los(?:t|e[sd]?)|becam(?:e|es?)|forgot(?:ten)?|gain(?:ed)?|"
-        r"get\s+\w+ed|become|start|begin|"
+        # Guard "head start", "false start", "jump start" compound nouns.
+        r"get\s+\w+ed|become|(?<!head\s)(?<!false\s)(?<!jump\s)start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|(?<!bullet )(?<!maglev )(?<!steam )(?<!freight )(?<!commuter )(?<!fastest )train[s]?|take[s]?|"
         # "heat pump", "sump pump", "water pump", "fuel pump" are noun compounds.
@@ -1237,8 +1238,8 @@ def subject_of(question: str) -> str:
         # Note: bare "rate" and plural "rates" are NOT here — they are almost always nouns
         # (interest rates, poverty rates, crime rates, exchange rates).
         # Only "rated" (passive participle, clearly a verb) is stripped.
-        # Guard "margin call", "roll call", "curtain call", "covered call" compound nouns from being stripped.
-        r"measure[sd]?|classif(?:ied|y|ies)?|(?<!margin\s)(?<!roll\s)(?<!curtain\s)(?<!covered\s)call(?:ed|s)?|rank(?:ed|s)?|rated|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
+        # Guard "margin call", "roll call", "curtain call", "covered call", "close call" compound nouns.
+        r"measure[sd]?|classif(?:ied|y|ies)?|(?<!margin\s)(?<!roll\s)(?<!curtain\s)(?<!covered\s)(?<!close\s)call(?:ed|s)?|rank(?:ed|s)?|rated|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
         r"turn[s]?|transform[sd]?|"
         # Guard "rug burn", "chemical burn", "road burn" compound nouns.
         r"shine[sd]?|glow[s]?|(?<!rug\s)(?<!chemical\s)(?<!road\s)burn[s]?|move[sd]?|"
@@ -1246,8 +1247,9 @@ def subject_of(question: str) -> str:
         # "stock market crash" is a noun compound: guard crash with (?=\s) so it only
         # strips as a verb when followed by more content (e.g. "crash and lose data").
         # "computer to crash" is already handled by the "to \w+" strip above.
-        # "end to end" is a compound adjective ("end to end encryption") — guard "end" when preceded by "to ".
-        r"stop(?:ped|s)?|(?<!to\s)end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?(?=\s)|"
+        # "end to end" is a compound adjective — guard "end" when preceded by "to ".
+        # Guard "full stop", "pit stop", "bus stop", "dead end", "loose end", "split end".
+        r"(?<!full\s)(?<!pit\s)(?<!bus\s)stop(?:ped|s)?|(?<!dead\s)(?<!loose\s)(?<!split\s)(?<!to\s)end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?(?=\s)|"
         r"cover(?:ed|s)?|surround(?:ed|s)?|fill(?:ed|s)?|consist[s]?|contain[s]?|look[s]?|"
         # Duration/persistence verbs: "how long does pregnancy last" → "pregnancy"
         r"last[s]?|persist[s]?|remain[s]?|"

@@ -10920,3 +10920,93 @@ def test_batch291_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is the cold war",                                   "cold war"),
+    ("what is the iron curtain",                               "iron curtain"),
+    ("what is the marshall plan",                              "marshall plan"),
+    ("what is the industrial revolution",                      "industrial revolution"),
+    ("what is the enlightenment",                              "enlightenment"),
+    ("what is colonialism",                                    "colonialism"),
+    ("what is imperialism",                                    "imperialism"),
+    ("what is the great depression",                           "great depression"),
+    ("what is the new deal",                                   "new deal"),
+    ("what is the berlin wall",                                "berlin wall"),
+    ("what is apartheid",                                      "apartheid"),
+    ("what is the arab spring",                                "arab spring"),
+    ("what is the silk road",                                  "silk road"),
+    ("what is manifest destiny",                               "manifest destiny"),
+    ("what is the monroe doctrine",                            "monroe doctrine"),
+    ("what is the truman doctrine",                            "truman doctrine"),
+    ("what is the geneva convention",                          "geneva convention"),
+    ("what is the treaty of versailles",                       "treaty of versailles"),
+    ("what is the magna carta",                                "magna carta"),
+    ("what is the boston tea party",                           "boston tea party"),
+])
+def test_batch292_subject_extraction(question, expected):
+    """Batch 292: history / geography — events, eras, and geopolitical terms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a box office",                                   "box office"),
+    ("what is a plot twist",                                   "plot twist"),
+    ("what is a cliffhanger",                                  "cliffhanger"),
+    ("what is an easter egg in movies",                        "easter egg"),
+    ("what is a cameo",                                        "cameo"),
+    ("what is a documentary",                                  "documentary"),
+    ("what is a sequel",                                       "sequel"),
+    ("what is a prequel",                                      "prequel"),
+    ("what is a reboot",                                       "reboot"),
+    ("what is a spin off",                                     "spin off"),
+    ("what is a pilot episode",                                "pilot episode"),
+    ("what is a season finale",                                "season finale"),
+    ("what is a binge watch",                                  "binge watch"),
+    ("what is a streaming service",                            "streaming service"),
+    ("what is a podcast",                                      "podcast"),
+    ("what is a meme",                                         "meme"),
+    ("what is a viral video",                                  "viral video"),
+    ("what is a gif",                                          "gif"),
+    ("what is an influencer",                                  "influencer"),
+    ("what is a clickbait",                                    "clickbait"),
+])
+def test_batch293_subject_extraction(question, expected):
+    """Batch 293: pop culture / media — film, streaming, and internet terms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a one night stand",                              "one night stand"),
+    ("what is a bandstand",                                    "bandstand"),
+    ("what is a grandstand",                                   "grandstand"),
+    ("what is a head start",                                   "head start"),
+    ("what is a false start",                                  "false start"),
+    ("what is a jumpstart",                                    "jumpstart"),
+    ("what is a full stop",                                    "full stop"),
+    ("what is a pit stop",                                     "pit stop"),
+    ("what is a bus stop",                                     "bus stop"),
+    ("what is a dead end",                                     "dead end"),
+    ("what is a loose end",                                    "loose end"),
+    ("what is a split end",                                    "split end"),
+    ("what is a close call",                                   "close call"),
+    ("what is a market close",                                 "market close"),
+    ("what is an open source",                                 "open source"),
+    ("what is an open book",                                   "open book"),
+    ("what is a seal of approval",                             "seal of approval"),
+    ("what is a deal breaker",                                 "deal breaker"),
+    ("what is a deadlock",                                     "deadlock"),
+    ("what is a gridlock",                                     "gridlock"),
+])
+def test_batch294_subject_extraction(question, expected):
+    """Batch 294: adversarial stand/start/stop/end/close/open/lock as noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
