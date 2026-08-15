@@ -482,3 +482,22 @@ def test_engine_without_run_logger():
     engine = DialogueEngine()
     reply = engine.respond("hello")
     assert reply.text
+
+
+def test_default_benchmark_perfect_score():
+    """The bundled default benchmark must score 20/20 with no LLM."""
+    from shaggoth.dialogue import DialogueEngine
+    from shaggoth.eval.harness import Harness, load_tasks
+    from shaggoth.eval.scorer import score_run
+
+    engine = DialogueEngine()
+    harness = Harness(engine)
+    tasks = load_tasks()
+    results = harness.run(tasks=tasks)
+    from shaggoth.eval.scorer import score_task
+    card = score_run(results)
+    failing = [r.task_id for r in results if not score_task(r).passed]
+    assert card.passed == card.total, (
+        f"Benchmark regression: {card.passed}/{card.total} passed. "
+        f"Failing: {failing}"
+    )

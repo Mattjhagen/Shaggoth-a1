@@ -1542,6 +1542,9 @@ _NO_SUBJECT = _FILLER | {
     "enough", "everything", "everybody", "everyone", "somebody",
     "someone", "nobody", "for", "into", "also", "too", "very",
     "just", "even", "only", "still", "already", "yet",
+    # Relational prepositions — "difference between X and Y" must surface
+    # X and Y, not "between"; "comparison of X versus Y" likewise.
+    "between", "among", "versus", "against", "compared",
     # Conversational pushback — "you're lying" is disagreement, not a topic.
     "lying", "wrong", "right", "correct", "incorrect", "joking",
     "kidding", "serious", "liar", "shut", "quiet", "bull", "bullshit",
@@ -1832,6 +1835,11 @@ _WEAK_SUBJECT = frozenset({
     "everything", "anything", "something", "nothing", "someone", "anyone",
     "everyone", "yourself", "myself", "opinion", "opinions", "thought",
     "thoughts", "answer", "answers", "question", "questions",
+    # Abstract comparison nouns — "what is the difference between X and Y"
+    # should produce subject "X Y", not "difference X Y".
+    "difference", "differences", "comparison", "comparisons",
+    "distinction", "distinctions", "similarity", "similarities",
+    "relation", "relationship", "contrast", "versus",
 })
 
 #: Used only when *researching* is False -- a promise-free admission that
