@@ -3764,3 +3764,42 @@ def test_batch84_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" (physics) → X
+    ("what is energy",                              "energy"),
+    ("what is momentum",                            "momentum"),
+    ("what is entropy",                             "entropy"),
+    ("what is a photon",                            "photon"),
+    ("what is dark matter",                         "dark matter"),
+    ("what is dark energy",                         "dark energy"),
+    # "what is the speed of X" → "speed of X" (canonical constant, no article strip)
+    ("what is the speed of light",                  "speed of light"),
+    ("what is the speed of sound",                  "speed of sound"),
+    # "what is X measured in" → X (passive participle stripped)
+    ("what is temperature measured in",             "temperature"),
+    ("what is pressure measured in",                "pressure"),
+    # "how does X work" (physics/astronomy) → X
+    ("how does a black hole work",                  "black hole"),
+    ("how does gravity work",                       "gravity"),
+    ("how does a telescope work",                   "telescope"),
+    # "what is the mass of X" → X (causal-noun strip)
+    ("what is the mass of the sun",                 "sun"),
+    # "distance from X to Y" → X (source entity extracted)
+    ("what is the distance from the earth to the moon", "earth"),
+    # "why does X" → X
+    ("why does the moon have craters",              "moon"),
+    ("why does the sun shine",                      "sun"),
+    # "how far away is X" → X
+    ("how far away is the sun",                     "sun"),
+    ("how far away is mars",                        "mars"),
+    # "how big is X" → X
+    ("how big is the universe",                     "universe"),
+])
+def test_batch85_subject_extraction(question, expected):
+    """Batch 85: physics & astronomy — dark matter, speed-of constants, distance-from."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
