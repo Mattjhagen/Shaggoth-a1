@@ -6105,3 +6105,34 @@ def test_batch145_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is philosophy",                                 "philosophy"),
+    ("what is ethics",                                     "ethics"),
+    ("what is existentialism",                             "existentialism"),
+    ("what is utilitarianism",                             "utilitarianism"),
+    ("what is stoicism",                                   "stoicism"),
+    ("what is nihilism",                                   "nihilism"),
+    ("what is empiricism",                                 "empiricism"),
+    ("what is rationalism",                                "rationalism"),
+    ("who was socrates",                                   "socrates"),
+    ("who was aristotle",                                  "aristotle"),
+    ("who was plato",                                      "plato"),
+    ("who was immanuel kant",                              "immanuel kant"),
+    ("who was nietzsche",                                  "nietzsche"),
+    ("what did nietzsche believe",                         "nietzsche"),
+    ("what did socrates believe",                          "socrates"),
+    ("what is aristotle's philosophy",                     "aristotle"),
+    ("what is the trolley problem",                        "trolley problem"),
+    ("what is the ontological argument",                   "ontological argument"),
+    ("is free will real",                                  "free will"),
+    ("what is the meaning of life",                        "meaning of life"),
+    ("what is logic",                                      "logic"),
+])
+def test_batch146_subject_extraction(question, expected):
+    """Batch 146: philosophy/logic — schools of thought, thinkers, problems."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

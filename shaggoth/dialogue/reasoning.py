@@ -1103,6 +1103,15 @@ def subject_of(question: str) -> str:
         r"role|story|biography|background|origin|power|ability|weakness|identity|personality)\s*$",
         "", text, flags=re.I,
     )
+    # Early predicate-adjective strip before the modal strip so that compound nouns
+    # containing modal-shaped words are protected: "free will real" → "free will"
+    # (without this, the modal strip would see "will real" and eat it → "free").
+    text = re.sub(
+        r"\s+(?:real|fake|genuine|authentic|imaginary|fictional|possible|impossible|"
+        r"necessary|unnecessary|tangible|intangible|objective|subjective|valid|invalid|"
+        r"rational|irrational|conscious|unconscious|mortal|immortal|infinite|finite)\s*$",
+        "", text, flags=re.I,
+    )
     # "what if humans could photosynthesize" → after "what if" stripped, "humans could
     # photosynthesize". Trailing modal+verb: strip "could/would/can/might VERB" at end.
     text = re.sub(
