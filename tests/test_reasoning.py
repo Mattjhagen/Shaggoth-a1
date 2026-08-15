@@ -9630,3 +9630,33 @@ def test_batch247_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a semiconductor",                                  "semiconductor"),
+    ("what is a superconductor",                                 "superconductor"),
+    ("what is graphene",                                         "graphene"),
+    ("what is a polymer",                                        "polymer"),
+    ("what is a composite material",                             "composite material"),
+    ("what is a crystal lattice",                                "crystal lattice"),
+    ("what is tensile strength",                                 "tensile strength"),
+    ("what is thermal conductivity",                             "thermal conductivity"),
+    ("what is hardness",                                         "hardness"),
+    ("what is a phase transition",                               "phase transition"),
+    ("what is corrosion",                                        "corrosion"),
+    ("how does steel get its strength",                          "steel"),
+    ("what is carbon fiber",                                     "carbon fiber"),
+    ("what is a nanomaterial",                                   "nanomaterial"),
+    ("what is an alloy",                                         "alloy"),
+    ("what is a ceramic material",                               "ceramic material"),
+    ("how is glass made",                                        "glass"),
+    ("what is elastic modulus",                                  "elastic modulus"),
+    ("what is a metal oxide",                                    "metal oxide"),
+    ("what is piezoelectricity",                                 "piezoelectricity"),
+])
+def test_batch248_subject_extraction(question, expected):
+    """Batch 248: materials science — semiconductors, polymers, alloys, nanomaterials."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
