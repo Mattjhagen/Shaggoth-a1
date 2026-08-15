@@ -6550,3 +6550,46 @@ def test_batch156_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is diabetes",                                    "diabetes"),
+    ("what is a virus",                                     "virus"),
+    ("what is inflammation",                                "inflammation"),
+    ("what is anesthesia",                                  "anesthesia"),
+    ("what is a vaccine",                                   "vaccine"),
+    # "what causes X" → X
+    ("what causes high blood pressure",                     "high blood pressure"),
+    ("what causes a headache",                              "headache"),
+    # "how does X work" → X
+    ("how does the immune system work",                     "immune system"),
+    ("how does insulin work",                               "insulin"),
+    # "what are the symptoms of X" → X
+    ("what are the symptoms of covid",                      "covid"),
+    ("what are the symptoms of a heart attack",             "heart attack"),
+    # "how do you treat X" → X
+    ("how do you treat a sprained ankle",                   "sprained ankle"),
+    # "how is X diagnosed" → X
+    ("how is cancer diagnosed",                             "cancer"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between a cold and the flu",   "cold and flu"),
+    # "what are X" → X
+    ("what are antibiotics",                                "antibiotics"),
+    # "how do X fight Y" → X
+    ("how do white blood cells fight infection",            "white blood cells"),
+    # "what is the best treatment for X" → X (causal strip extracts condition)
+    ("what is the best treatment for depression",           "depression"),
+    # "how many bones are in X" → X
+    ("how many bones are in the human body",                "human body"),
+    # "what does X do" → X
+    ("what does the liver do",                              "liver"),
+    # "how long does X last" → X
+    ("how long does a cold last",                           "cold"),
+])
+def test_batch157_subject_extraction(question, expected):
+    """Batch 157: medicine/health — symptoms, treatment, diagnosis, anatomy."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
