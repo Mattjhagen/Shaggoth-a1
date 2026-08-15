@@ -368,7 +368,7 @@ def subject_of(question: str) -> str:
         r"history|origin|meaning|definition|symbol|flag|currency|language|"
         # Measurement/property compounds: "boiling point of water" → "water"
         # "half life of carbon 14" → "carbon 14"
-        r"point|rate|level|amount|number|count|percentage|quantity|"
+        r"point|rate|level|amount|number|count|percentage|quantity|fraction|proportion|"
         r"life|lifetime|lifespan|period|span|half.life)s?"
         r"\s+(?:of|behind|in|for)\s+", "", text, flags=re.I,
     )
@@ -379,6 +379,8 @@ def subject_of(question: str) -> str:
     # "planets in the solar system" where "in the solar system" belongs.
     if text != _before_causal_noun_strip:
         text = re.sub(r"\s+(?:in|on)\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
+        # "percentage of the earth is water" → strip copula predicate after causal noun removed
+        text = re.sub(r"\s+(?:is|are|was|were)\s+\w+\s*$", "", text, flags=re.I)
     # Leading temporal/locative/conditional conjunction left over after stripping
     # "what happens during/when/if X" → strip the conjunction.
     text = re.sub(r"^(?:during|when|if)\s+", "", text, flags=re.I)
@@ -524,8 +526,10 @@ def subject_of(question: str) -> str:
         r"condense[sd]?|expand[s]?|contract[s]?|ignite[sd]?|dissolve[sd]?|"
         # Migration / movement verbs: "how do birds migrate"
         r"migrate[sd]?|"
-        # Passive attribution: "when was X invented", "where was Y discovered/located"
-        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|locat(?:ed|es)?|"
+        # Passive attribution: "when was X invented", "where was Y discovered/located/born"
+        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|locat(?:ed|es)?|born|"
+        # Comparison verb: "how does mitosis differ from meiosis" → "mitosis"
+        r"differ[sd]?|"
         # Origin verb: "where did humans originate"
         r"originate[sd]?|"
         # Intransitive motion/perception/existence verbs: "why do stars twinkle",
@@ -544,6 +548,10 @@ def subject_of(question: str) -> str:
         r")\b.*$",
         "", text, flags=re.I,
     )
+    # "how does mitosis differ from meiosis" → verb strip removes "differ" (and "from meiosis"
+    # via .*). "how is a virus different from a bacterium" — "different from" is not a verb,
+    # strip it explicitly.
+    text = re.sub(r"\s+different\s+from\s+.*$", "", text, flags=re.I)
     # "how much water should you drink" → "water should you drink" →
     # strip the modal + generic pronoun/article+noun + verb tail → "water".
     # Also handles "sleep does a person need" → "sleep".

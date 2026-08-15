@@ -1607,3 +1607,24 @@ def test_batch21_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # born passive
+    ("where was einstein born",                     "einstein"),
+    ("where was shakespeare born",                  "shakespeare"),
+    # differ / different from
+    ("how does mitosis differ from meiosis",        "mitosis"),
+    ("how is a virus different from a bacterium",   "virus"),
+    # percentage/fraction of X is Y → X
+    ("what percentage of the earth is water",       "earth"),
+    ("what fraction of air is oxygen",              "air"),
+    # difference between scaffold (batch 21 overlap, sanity)
+    ("what is the difference between dna and rna",  "dna and rna"),
+])
+def test_batch22_subject_extraction(question, expected):
+    """Batch 22: born passive, differ/different-from, percentage/fraction causal scaffold."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
