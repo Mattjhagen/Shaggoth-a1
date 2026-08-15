@@ -6593,3 +6593,47 @@ def test_batch157_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is the renaissance",                                "renaissance"),
+    ("what is the cold war",                                   "cold war"),
+    ("what is the magna carta",                                "magna carta"),
+    # "when did X happen" → X
+    ("when did world war 2 start",                             "world war 2"),
+    ("when did the roman empire fall",                         "roman empire"),
+    # "who was X" → X
+    ("who was napoleon",                                       "napoleon"),
+    ("who was cleopatra",                                      "cleopatra"),
+    # "what caused X" → X
+    ("what caused the french revolution",                      "french revolution"),
+    ("what caused the great depression",                       "great depression"),
+    # "where did X happen" → X
+    ("where did the battle of waterloo take place",            "battle of waterloo"),
+    # "how long did X last" → X
+    ("how long did the hundred years war last",                "hundred years war"),
+    # "what was X" → X
+    ("what was the silk road",                                 "silk road"),
+    ("what was the black death",                               "black death"),
+    # "who invented X" → X
+    ("who invented the printing press",                        "printing press"),
+    # "when was X founded" → X
+    ("when was rome founded",                                  "rome"),
+    # "what happened during X" → X
+    ("what happened during the industrial revolution",         "industrial revolution"),
+    # "who led X" → X
+    ("who led the american revolution",                        "american revolution"),
+    # "what was the impact of X" → X
+    ("what was the impact of world war 1",                     "world war 1"),
+    # "what is the history of X" → X
+    ("what is the history of democracy",                       "democracy"),
+    # "who built X" → X
+    ("who built the great wall of china",                      "great wall of china"),
+])
+def test_batch158_subject_extraction(question, expected):
+    """Batch 158: history — events, leaders, inventions, empires."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
