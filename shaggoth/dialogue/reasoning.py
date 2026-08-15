@@ -831,6 +831,10 @@ def subject_of(question: str) -> str:
     )
     # "X capable of" → strip "capable of" tail (compound adj phrase)
     text = re.sub(r"\s+capable\s+of\s*$", "", text, flags=re.I)
+    # "X responsible for" → strip "responsible for" tail
+    text = re.sub(r"\s+responsible\s+for\s*$", "", text, flags=re.I)
+    # "moon's surface like" → strip trailing "like" (question particle: "what is X like")
+    text = re.sub(r"\s+like\s*$", "", text, flags=re.I)
     # Strip a trailing "not" that can remain after the negated auxiliary was
     # expanded and the verb phrase was stripped: "why does X not use Y" →
     # strips "why does " → "X not use Y" → trailing strip removes " use Y" →

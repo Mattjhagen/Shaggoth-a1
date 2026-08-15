@@ -2890,3 +2890,35 @@ def test_batch58_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 59: responsible-for strip; trailing-like strip; possessive compounds
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "X responsible for" → strip "responsible for" tail
+    ("what is the liver responsible for",              "liver"),
+    ("what is the immune system responsible for",      "immune system"),
+    ("what is dna responsible for",                    "dna"),
+    # "what is X like" → strip trailing "like"
+    ("what is the moon's surface like",                "moon's surface"),
+    ("what is life on mars like",                      "life on mars"),
+    # Possessive compounds are preserved as useful lookup keys
+    ("what is the earth's atmosphere made of",         "earth's atmosphere"),
+    # "tell me about X" / "explain X" / "describe X" → X
+    ("tell me about the french revolution",            "french revolution"),
+    ("explain the theory of relativity",               "theory of relativity"),
+    ("describe the water cycle",                       "water cycle"),
+    # "how do X form" → X
+    ("how do rainbows form",                           "rainbows"),
+    ("how do hurricanes form",                         "hurricanes"),
+    ("how do crystals form",                           "crystals"),
+])
+def test_batch59_subject_extraction(question, expected):
+    """Batch 59: responsible-for/like tail strips; possessive compounds; explain/describe."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
