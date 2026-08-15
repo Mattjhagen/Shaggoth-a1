@@ -5906,3 +5906,34 @@ def test_batch139_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("where is the amazon river",                          "amazon river"),
+    ("where is mount everest",                             "mount everest"),
+    ("where is the great wall of china",                   "great wall of china"),
+    ("where is the eiffel tower",                          "eiffel tower"),
+    ("where is the sahara desert",                         "sahara desert"),
+    ("what is the great barrier reef",                     "great barrier reef"),
+    ("what is the amazon rainforest",                      "amazon rainforest"),
+    ("what is the nile river",                             "nile river"),
+    ("what is the capital of france",                      "france"),
+    ("what is the capital of japan",                       "japan"),
+    ("what is the capital of australia",                   "australia"),
+    ("what is the largest country in the world",           "country"),
+    ("what is the tallest mountain in the world",          "mountain"),
+    ("how big is the amazon river",                        "amazon river"),
+    ("how big is antarctica",                              "antarctica"),
+    ("what country is paris in",                           "paris"),
+    ("what continent is egypt in",                         "egypt"),
+    ("how far is paris from london",                       "paris"),
+    ("what is the population of china",                    "china"),
+    ("what is the population of india",                    "india"),
+    ("what language is spoken in brazil",                  "brazil"),
+])
+def test_batch140_subject_extraction(question, expected):
+    """Batch 140: geography/travel — landmarks, capitals, populations, distances."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
