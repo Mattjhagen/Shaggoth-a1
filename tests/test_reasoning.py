@@ -4509,3 +4509,41 @@ def test_batch103_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question, expected", [
+    # "what is X" political/civic concepts
+    ("what is democracy",                               "democracy"),
+    ("what is capitalism",                              "capitalism"),
+    ("what is communism",                               "communism"),
+    ("what is socialism",                               "socialism"),
+    ("what is the constitution",                        "constitution"),
+    ("what is the bill of rights",                      "bill of rights"),
+    ("what is nato",                                    "nato"),
+    # "who is/was the X of Y" → Y (leadership query)
+    ("who is the president of the united states",       "united states"),
+    ("who was the first president of the united states","united states"),
+    ("who is the prime minister of the uk",             "uk"),
+    # "when was X founded/established" → X (established now in trailing-verb strip)
+    ("when was the united nations founded",             "united nations"),
+    ("when was the european union established",         "european union"),
+    # "how does X work" → X
+    ("how does the electoral college work",             "electoral college"),
+    ("how does congress work",                          "congress"),
+    # "what is the capital of X" → X (causal-noun strip)
+    ("what is the capital of france",                   "france"),
+    ("what is the capital of japan",                    "japan"),
+    ("what is the capital of brazil",                   "brazil"),
+    # measurement — "us" not treated as pronoun
+    ("how many senators does the us have",              "us"),
+    # articles stripped from difference-between subjects
+    ("what is the difference between a republic and a democracy", "republic and democracy"),
+    # "which CATEGORY has the X" → CATEGORY
+    ("which country has the largest population",        "country"),
+])
+def test_batch104_subject_extraction(question, expected):
+    """Batch 104: politics/government — concepts, leadership, dates, capitals, established verb."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

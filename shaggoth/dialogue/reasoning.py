@@ -917,7 +917,7 @@ def subject_of(question: str) -> str:
         # Migration / movement verbs: "how do birds migrate"
         r"migrate[sd]?|"
         # Passive attribution: "when was X invented", "where was Y discovered/located/born/found"
-        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|sign(?:ed|s)?|locat(?:ed|es)?|born|found\b|"
+        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|sign(?:ed|s)?|locat(?:ed|es)?|born|found\b|establish(?:ed|es)?|"
         # Assistance verbs: "how does sleep help the brain"
         r"help[s]?|assist[s]?|support[s]?|"
         # Comparison verbs: "how does X differ from Y" / "how does X compare to Y" → "X"
