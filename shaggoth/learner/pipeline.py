@@ -62,7 +62,10 @@ class LearnerPipeline:
     def _load_history(self) -> None:
         path = Path(self.history_path)
         if path.exists():
-            self._history: list[dict] = json.loads(path.read_text(encoding="utf-8"))
+            try:
+                self._history: list[dict] = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                self._history = []
         else:
             self._history = []
 
