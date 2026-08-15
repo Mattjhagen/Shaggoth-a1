@@ -11943,3 +11943,63 @@ def test_batch325_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a heart attack",                                    "heart attack"),
+    ("what is a panic attack",                                    "panic attack"),
+    ("what is an anxiety attack",                                 "anxiety attack"),
+    ("what is a phishing attack",                                 "phishing attack"),
+    ("what is blood pressure",                                    "blood pressure"),
+    ("what is high blood pressure",                               "high blood pressure"),
+    ("what is low blood pressure",                                "low blood pressure"),
+    ("what is a brain bleed",                                     "brain bleed"),
+    ("what is a muscle pull",                                     "muscle pull"),
+    ("what is a social contract",                                 "social contract"),
+    ("what is labor contract",                                    "labor contract"),
+    ("what is a bypass surgery",                                  "bypass surgery"),
+    ("what is open heart surgery",                                "open heart surgery"),
+    ("what is laser eye surgery",                                 "laser eye surgery"),
+    ("what is the spinal cord",                                   "spinal cord"),
+    ("what is the brain stem",                                    "brain stem"),
+    ("what is the lymph node",                                    "lymph node"),
+    ("what is herd immunity",                                     "herd immunity"),
+    ("what is insulin resistance",                                "insulin resistance"),
+    ("what is a blood clot",                                      "blood clot"),
+])
+def test_batch326_subject_extraction(question, expected):
+    """Batch 326: medical compound nouns — conditions, procedures, anatomy."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a buy order",                                       "buy order"),
+    ("what is a sell order",                                      "sell order"),
+    ("what is a short sell",                                      "short sell"),
+    ("what is a short squeeze",                                   "short squeeze"),
+    ("what is a leveraged buyout",                                "leveraged buyout"),
+    ("what is a hostile takeover",                                "hostile takeover"),
+    ("what is a hedge fund",                                      "hedge fund"),
+    ("what is a mutual fund",                                     "mutual fund"),
+    ("what is a sovereign wealth fund",                           "sovereign wealth fund"),
+    ("what is a venture capital fund",                            "venture capital fund"),
+    ("what is a profit margin",                                   "profit margin"),
+    ("what is a gross margin",                                    "gross margin"),
+    ("what is an operating margin",                               "operating margin"),
+    ("what is a net margin",                                      "net margin"),
+    ("what is a margin call",                                     "margin call"),
+    ("what is a stop loss",                                       "stop loss"),
+    ("what is a limit order",                                     "limit order"),
+    ("what is a trade deficit",                                   "trade deficit"),
+    ("what is a trade surplus",                                   "trade surplus"),
+    ("what is a budget deficit",                                  "budget deficit"),
+])
+def test_batch327_subject_extraction(question, expected):
+    """Batch 327: financial compound nouns — margins, orders, funds, deficits."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

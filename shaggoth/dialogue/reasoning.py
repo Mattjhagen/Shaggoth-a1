@@ -772,7 +772,7 @@ def subject_of(question: str) -> str:
     # "what enables X" → "enables X" → "X"
     # "what would happen if X" → "happen if X" → strip "happen " → "if X" → strip "if " → "X"
     text = re.sub(
-        r"^(?:enables?|allows?|permits?|prevents?|blocks?|stops?|inhibits?|"
+        r"^(?:enables?|allows?|permits?|prevents?|blocks?|stop(?!\s+loss\b)s?|inhibits?|"
         r"happen[s]?|caus(?:es?|ing))\s+",
         "", text, flags=re.I,
     )
