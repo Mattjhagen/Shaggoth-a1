@@ -1222,3 +1222,46 @@ def test_batch12_subject_extraction(question, expected):
 def test_batch12_classify(question, expected_intent):
     """Batch 12: components/parts → ENUMERATE; process verbs → CAUSAL."""
     assert classify(question) == expected_intent
+
+
+# ---------------------------------------------------------------------------
+# Batch 13: stages/phases/steps/organs/branches scaffold nouns; more verbs
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Scaffold nouns for sequence/group questions
+    ("what are the stages of mitosis",               "mitosis"),
+    ("what are the phases of the moon",              "moon"),
+    ("what are the steps of the water cycle",        "water cycle"),
+    ("what are the organs of the digestive system",  "digestive system"),
+    ("what are the branches of government",          "government"),
+    # Additional transitive/intransitive process verbs
+    ("how does the liver detoxify blood",            "liver"),
+    ("how does the lung exchange gases",             "lung"),
+    ("how does yeast ferment sugar",                 "yeast"),
+    ("how does a magnet attract metal",              "magnet"),
+    ("how does gravity pull objects",                "gravity"),
+    # "form on" pattern: subject is the thing being explained, not the substrate
+    ("how does rust form on iron",                   "rust"),
+])
+def test_batch13_subject_extraction(question, expected):
+    """Batch 13: stages/phases/steps/organs/branches scaffold; detoxify/exchange/ferment/attract/pull."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected_intent", [
+    ("what are the stages of mitosis",               Intent.ENUMERATE),
+    ("what are the phases of the moon",              Intent.ENUMERATE),
+    ("what are the steps of the water cycle",        Intent.ENUMERATE),
+    ("what are the organs of the digestive system",  Intent.ENUMERATE),
+    ("what are the branches of government",          Intent.ENUMERATE),
+    ("how does the liver detoxify blood",            Intent.CAUSAL),
+    ("how does a magnet attract metal",              Intent.CAUSAL),
+])
+def test_batch13_classify(question, expected_intent):
+    """Batch 13: stages/phases/steps/organs/branches → ENUMERATE; new verbs → CAUSAL."""
+    assert classify(question) == expected_intent
