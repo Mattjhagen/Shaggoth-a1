@@ -11010,3 +11010,33 @@ def test_batch294_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is carbon capture",                                 "carbon capture"),
+    ("what is a carbon footprint",                             "carbon footprint"),
+    ("what is the greenhouse effect",                          "greenhouse effect"),
+    ("what is global warming",                                 "global warming"),
+    ("what is an ecosystem",                                   "ecosystem"),
+    ("what is biodiversity",                                   "biodiversity"),
+    ("what is deforestation",                                  "deforestation"),
+    ("what is desertification",                                "desertification"),
+    ("what is ocean acidification",                            "ocean acidification"),
+    ("what is the ozone layer",                                "ozone layer"),
+    ("what is acid rain",                                      "acid rain"),
+    ("what is a food chain",                                   "food chain"),
+    ("what is a food web",                                     "food web"),
+    ("what is a tipping point in climate",                     "tipping point"),
+    ("what is a carbon credit",                                "carbon credit"),
+    ("what is renewable energy",                               "renewable energy"),
+    ("what is a solar panel",                                  "solar panel"),
+    ("what is a wind turbine",                                 "wind turbine"),
+    ("what is sustainable development",                        "sustainable development"),
+    ("what is the paris agreement",                            "paris agreement"),
+])
+def test_batch295_subject_extraction(question, expected):
+    """Batch 295: environmental science — climate, ecology, and sustainability."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

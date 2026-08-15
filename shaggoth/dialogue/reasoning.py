@@ -601,7 +601,9 @@ def subject_of(question: str) -> str:
         r"theme(?!\s+in\b)|plot(?!\s+in\b)|story(?!\s+in\b)|narrative(?!\s+in\b)|myth|legend|fable|tale|lore|setting|style|genre|format|book|text|scripture|"
         # Measurement/property compounds: "boiling point of water" → "water"
         # "half life of carbon 14" → "carbon 14"
-        r"point|rate|level|amount|number|count|percentage|quantity|fraction|proportion|"
+        # Guard "point(?!\s+in\b)": "tipping point in climate" → "tipping point" (concept),
+        # while "boiling point of water" → "water" still fires (uses "of" not "in").
+        r"point(?!\s+in\b)|rate|level|amount|number|count|percentage|quantity|fraction|proportion|"
         r"formula|structure|composition|"
         r"life|lifetime|lifespan|period|span|half.life|"
         # Ecology/biology property nouns: "habitat of the polar bear" → "polar bear"
