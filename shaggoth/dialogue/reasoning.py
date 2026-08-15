@@ -1191,7 +1191,7 @@ def subject_of(question: str) -> str:
         r"defend[s]?|protect[s]?|affect[s]?|impact[s]?|"
         # Physical / chemical state-change verbs: "why does ice float", "what makes iron rust"
         r"float[s]?|sink[s]?|rust[s]?|boil[s]?|melt[s]?|freeze[sd]?|evaporate[sd]?|"
-        r"condense[sd]?|expand[s]?|contract[s]?(?!\s+(?:theory|law|clause|principle|agreement))|ignite[sd]?|dissolve[sd]?|"
+        r"condense[sd]?|expand[s]?|(?<!social\s)(?<!labor\s)(?<!labour\s)contract[s]?(?!\s+(?:theory|law|clause|principle|agreement))|ignite[sd]?|dissolve[sd]?|"
         # Mass/cost verbs: "how much does a blue whale weigh" → "blue whale"
         r"weigh[s]?|cost[s]?|"
         # Migration / movement verbs: "how do birds migrate"

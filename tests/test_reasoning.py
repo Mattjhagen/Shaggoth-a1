@@ -9177,3 +9177,93 @@ def test_batch232_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a black hole",                                     "black hole"),
+    ("what is a neutron star",                                   "neutron star"),
+    ("what is a supernova",                                      "supernova"),
+    ("what is a galaxy",                                         "galaxy"),
+    ("what is dark matter",                                      "dark matter"),
+    ("what is dark energy",                                      "dark energy"),
+    ("what is the milky way",                                    "milky way"),
+    ("how does a black hole form",                               "black hole"),
+    ("what is gravity",                                          "gravity"),
+    ("what is the big bang theory",                              "big bang theory"),
+    ("what is a planet",                                         "planet"),
+    ("what is a solar system",                                   "solar system"),
+    ("what is the speed of light",                               "speed of light"),
+    ("how far is the moon from earth",                           "moon"),
+    ("what is a comet",                                          "comet"),
+    ("what is an asteroid",                                      "asteroid"),
+    ("what is a nebula",                                         "nebula"),
+    ("what is the event horizon",                                "event horizon"),
+    ("what is gravitational waves",                              "gravitational waves"),
+    ("what is cosmic radiation",                                 "cosmic radiation"),
+])
+def test_batch233_subject_extraction(question, expected):
+    """Batch 233: space/astronomy — black holes, galaxies, big bang, dark matter."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is philosophy",                                       "philosophy"),
+    ("what is ethics",                                           "ethics"),
+    ("what is morality",                                         "morality"),
+    ("what is utilitarianism",                                   "utilitarianism"),
+    ("what is existentialism",                                   "existentialism"),
+    ("what is stoicism",                                         "stoicism"),
+    ("what is empiricism",                                       "empiricism"),
+    ("what is rationalism",                                      "rationalism"),
+    ("what is moral philosophy",                                 "moral philosophy"),
+    ("what is the trolley problem",                              "trolley problem"),
+    ("what is free will",                                        "free will"),
+    ("what is determinism",                                      "determinism"),
+    ("what is consciousness",                                    "consciousness"),
+    ("what is epistemology",                                     "epistemology"),
+    ("what is metaphysics",                                      "metaphysics"),
+    ("what is logic",                                            "logic"),
+    ("what is a paradox",                                        "paradox"),
+    ("what is nihilism",                                         "nihilism"),
+    ("what is humanism",                                         "humanism"),
+    ("what is the social contract",                              "social contract"),
+])
+def test_batch234_subject_extraction(question, expected):
+    """Batch 234: philosophy/ethics — utilitarianism, free will, social contract."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is diabetes",                                         "diabetes"),
+    ("what is hypertension",                                     "hypertension"),
+    ("what is cholesterol",                                      "cholesterol"),
+    ("what is an allergy",                                       "allergy"),
+    ("what is asthma",                                           "asthma"),
+    ("how does the immune system work",                          "immune system"),
+    ("what is a vaccine",                                        "vaccine"),
+    ("how do vaccines work",                                     "vaccines"),
+    ("what is inflammation",                                     "inflammation"),
+    ("what is a pathogen",                                       "pathogen"),
+    ("what is a virus",                                          "virus"),
+    ("what is a bacterium",                                      "bacterium"),
+    ("what is dna",                                              "dna"),
+    ("how does dna replication work",                            "dna replication"),
+    ("what is a gene",                                           "gene"),
+    ("what is a mutation",                                       "mutation"),
+    ("what is cancer",                                           "cancer"),
+    ("what causes cancer",                                       "cancer"),
+    ("what is chemotherapy",                                     "chemotherapy"),
+    ("what is a stem cell",                                      "stem cell"),
+])
+def test_batch235_subject_extraction(question, expected):
+    """Batch 235: health/biology — diabetes, vaccines, DNA, cancer, stem cells."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
