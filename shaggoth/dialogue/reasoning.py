@@ -514,7 +514,9 @@ def subject_of(question: str) -> str:
         # Ecology/biology property nouns: "habitat of the polar bear" → "polar bear"
         r"habitat|territory|diet|range|distribution|"
         # Medical/treatment nouns: "cure for diabetes" → "diabetes"
-        r"cure|treatment|remedy|therapy|medication|symptom|cause)s?"
+        r"cure|treatment|remedy|therapy|medication|symptom|cause|"
+        # Food/cooking property nouns: "ingredients in pizza" → "pizza"
+        r"ingredient|recipe|nutrition|calorie|flavor|taste)s?"
         r"\s+(?:of|behind|in|for)\s+", "", text, flags=re.I,
     )
     # When the causal-noun strip fired, a trailing "in/on <context>" phrase
@@ -652,6 +654,10 @@ def subject_of(question: str) -> str:
     )
     if _m_prop_does:
         text = _m_prop_does.group(1)
+        # "what temperature do you cook chicken at" → captured "you cook chicken at"
+        # Strip pronoun+verb opener then strip trailing lone preposition.
+        text = re.sub(r"^(?:you|we|they|people|someone)\s+\w+\s+", "", text, flags=re.I)
+        text = re.sub(r"\s+(?:at|to|for|in|on|with)\s*$", "", text, flags=re.I)
     # "what type of animal is a whale" → scaffold strip removes "type of" → "animal is a whale"
     # → "CATEGORY is/was X" → X.  "animal|plant|element|mineral|metal|country|..." are category nouns
     # that head this pattern after the scaffold strip fires.
@@ -732,6 +738,14 @@ def subject_of(question: str) -> str:
     )
     if _m_entity_have:
         text = _m_entity_have.group(1)
+    # "how many players are on a basketball team" → after QW strip "players are on a basketball team"
+    # → extract the sport/group noun before "team/squad/roster/side".
+    _m_team_count = re.match(
+        r"^\w+(?:\s+\w+)?\s+are\s+(?:on|in)\s+(?:a|an|the|each)\s+(.+?)\s+(?:team|squad|roster|side)\s*$",
+        text, re.I,
+    )
+    if _m_team_count:
+        text = _m_team_count.group(1)
     # "X are there [in Y]" → X  (e.g. "what kinds of algae are there" → "algae",
     # "what kinds of planets are there in the solar system" → "planets")
     # Also "X are in/on/at Y" (e.g. "how many planets are in the solar system" → "planets")
@@ -925,6 +939,9 @@ def subject_of(question: str) -> str:
     # "X in the <location>" → X  (e.g. "planets in the solar system" → "planets")
     # Require "in the" so bare "animals in water" is not affected.
     text = re.sub(r"\s+in\s+the\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
+    # Second-pass work[s] strip: "voting work" → "voting" when "in the X" was just removed.
+    # The primary work strip at line 717 fires before location strips, so it misses this residue.
+    text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
     # "X in <word>" → X  (e.g. "turbulence in planes" → "turbulence",
     # "pain in joints" → "pain"). Only strip a single word to avoid eating
     # compound subjects; "in the ..." is already handled above.

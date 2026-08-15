@@ -3841,3 +3841,44 @@ def test_batch86_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "how do you make X" → X
+    ("how do you make pasta",                          "pasta"),
+    ("how do you make bread",                          "bread"),
+    ("how do you make coffee",                         "coffee"),
+    # "how long does it take to cook/bake X" → X
+    ("how long does it take to cook chicken",          "chicken"),
+    ("how long does it take to bake a cake",           "cake"),
+    # "what temperature do you cook/bake X at" → X (prop_does pronoun-cleanup)
+    ("what temperature do you cook chicken at",        "chicken"),
+    ("what temperature do you bake bread at",          "bread"),
+    # "what are the ingredients in X" → X (ingredient causal noun)
+    ("what are the ingredients in pizza",              "pizza"),
+    ("what are the ingredients in guacamole",          "guacamole"),
+    # "how many calories are in X" → X
+    ("how many calories are in an apple",              "apple"),
+    ("how many calories are in a banana",              "banana"),
+    # "who invented X (sport)" → X
+    ("who invented basketball",                        "basketball"),
+    ("who invented soccer",                            "soccer"),
+    # "how many players are on a SPORT team" → SPORT (_m_team_count)
+    ("how many players are on a basketball team",      "basketball"),
+    ("how many players are on a soccer team",          "soccer"),
+    # "what are the rules of X" → X
+    ("what are the rules of chess",                    "chess"),
+    ("what are the rules of poker",                    "poker"),
+    # "who is the president of X" → X
+    ("who is the president of france",                 "france"),
+    ("who is the president of the united states",      "united states"),
+    # "how does X work in Y" → X (location stripped, work verb second-pass strip)
+    ("how does voting work in the united states",      "voting"),
+])
+def test_batch87_subject_extraction(question, expected):
+    """Batch 87: food/cooking & sports/politics — ingredients causal noun, temperature
+    prop_does cleanup, team-count match, second-pass work strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
