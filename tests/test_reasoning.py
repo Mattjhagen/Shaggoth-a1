@@ -7840,3 +7840,48 @@ def test_batch188_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X (sports concepts)
+    ("what is offside in soccer",                               "offside"),
+    ("what is a grand slam in tennis",                          "grand slam"),
+    ("what is a hat trick in soccer",                           "hat trick"),
+    # "how many players are on a X team" → X (sport name; team is stripped by design)
+    ("how many players are on a basketball team",               "basketball"),
+    ("how many players are on a soccer team",                   "soccer"),
+    # "how long is a X game" → X game
+    ("how long is a basketball game",                           "basketball game"),
+    ("how long is a football game",                             "football game"),
+    # "who invented X" → X
+    ("who invented basketball",                                 "basketball"),
+    ("who invented soccer",                                     "soccer"),
+    # "what is the fastest sport" → sport
+    ("what is the fastest sport",                               "sport"),
+    # "how do you score in X" → X
+    ("how do you score in bowling",                             "bowling"),
+    # "what country has won the most world cups" → world cups
+    ("what country has won the most world cups",                "world cups"),
+    # "who holds the world record for X" → X
+    ("who holds the world record for the 100 meter dash",       "100 meter dash"),
+    # "how far is a X" → X
+    ("how far is a marathon",                                   "marathon"),
+    # "what is the highest score possible in X" → X
+    ("what is the highest score possible in bowling",           "bowling"),
+    # "how many sets are in a X match" → X match
+    ("how many sets are in a tennis match",                     "tennis match"),
+    # "how do you play X" → X
+    ("how do you play chess",                                   "chess"),
+    # "what are the rules of X" → X
+    ("what are the rules of chess",                             "chess"),
+    # "how many rings does the X have" → X
+    ("how many rings does the olympic flag have",               "olympic flag"),
+    # "who has won the most X" → X
+    ("who has won the most super bowls",                        "super bowls"),
+])
+def test_batch189_subject_extraction(question, expected):
+    """Batch 189: sports/games — rules, counts, records, inventors."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

@@ -320,7 +320,7 @@ def subject_of(question: str) -> str:
     # Must fire BEFORE the leading-verb strip; capturing the whole noun phrase here
     # prevents the trailing-verb strip from mangling compound sports nouns like "home runs".
     _m_record_for = re.match(
-        r"^holds?\s+the\s+record\s+for\s+(?:most|fewest|least|the\s+(?:most|fewest|least)|a|an)?\s*"
+        r"^holds?\s+the\s+(?:world\s+|olympic\s+|national\s+|current\s+)?record\s+for\s+(?:most|fewest|least|the\s+(?:most|fewest|least)|a|an|the\s+)?\s*"
         r"(.+?)(?:\s+in\s+(?:(?:a|an|the)\s+)?\w+(?:\s+\w+)?)?\s*$",
         text, re.I,
     )
