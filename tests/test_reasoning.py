@@ -4547,3 +4547,42 @@ def test_batch104_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question, expected", [
+    # Psychology concepts
+    ("what is psychology",                              "psychology"),
+    ("what is cognitive dissonance",                    "cognitive dissonance"),
+    ("what is the placebo effect",                      "placebo effect"),
+    ("what is the bystander effect",                    "bystander effect"),
+    ("what is confirmation bias",                       "confirmation bias"),
+    ("what is classical conditioning",                  "classical conditioning"),
+    ("what is operant conditioning",                    "operant conditioning"),
+    # "who invented/developed X" → X
+    ("who invented psychoanalysis",                     "psychoanalysis"),
+    ("who developed the theory of cognitive dissonance","theory of cognitive dissonance"),
+    # "what causes X" (mental health)
+    ("what causes depression",                          "depression"),
+    ("what causes anxiety",                             "anxiety"),
+    # Philosophy concepts
+    ("what is ethics",                                  "ethics"),
+    ("what is stoicism",                                "stoicism"),
+    ("what is existentialism",                          "existentialism"),
+    ("what is utilitarianism",                          "utilitarianism"),
+    # "what did X believe/say" → X (verb stripped)
+    ("what did aristotle believe",                      "aristotle"),
+    ("what did socrates say",                           "socrates"),
+    # difference between disciplines
+    ("what is the difference between psychology and psychiatry", "psychology and psychiatry"),
+    # "how does X affect Y" → X (subject strip)
+    ("how does stress affect the body",                 "stress"),
+    ("how does sleep affect mental health",             "sleep"),
+    # "what are the symptoms of X" → X
+    ("what are the symptoms of depression",             "depression"),
+])
+def test_batch105_subject_extraction(question, expected):
+    """Batch 105: psychology/philosophy — concepts, creators, verbs (say/believe), symptoms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
