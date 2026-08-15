@@ -362,6 +362,14 @@ def subject_of(question: str) -> str:
     _m_which = re.match(r"^which\s+(.+?)\s+(?:is|are|was|were|has|have|had|does|do|did)\b", text, re.I)
     if _m_which:
         text = _m_which.group(1)
+    # "how much of X is Y" / "how much of X are there" — after "how much" is stripped
+    # by the QW strip, "of the X is Y" leads; extract X as the lookup subject.
+    _m_of_fraction = re.match(
+        r"^of\s+(?:the\s+|a\s+|an\s+)?(.+?)\s+(?:is|are|was|were)\s+\w[\w\s]*$",
+        text, re.I,
+    )
+    if _m_of_fraction:
+        text = _m_of_fraction.group(1)
     # After "how long" is stripped, "ago" sometimes leads: "how long ago did X Y"
     # → "ago did X Y". Strip "ago" plus any following auxiliary in one shot so the
     # bare-opener strip doesn't need to run twice.
@@ -617,7 +625,7 @@ def subject_of(question: str) -> str:
     text = re.sub(
         r"\s+(?:need|needs|require|requires|use[sd]?|produce[sd]?|"
         r"happen(?:ed|s)?|occur(?:red|s)?|exist(?:ed|s)?|"
-        r"made|created|formed|produced|prevented|caused|built|done|founded|"
+        r"made|created|formed|produced|compos(?:ed|es?)?|prevented|caused|built|done|founded|"
         r"get\s+\w+ed|become|start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|train[s]?|take[s]?|"

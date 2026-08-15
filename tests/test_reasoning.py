@@ -3029,3 +3029,31 @@ def test_batch64_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "X composed of" → X (add composed to trailing verb list)
+    ("what is the atmosphere composed of",             "atmosphere"),
+    ("what is water composed of",                      "water"),
+    ("what is granite composed of",                    "granite"),
+    # "how much of X is Y" → X (leading 'of' after 'how much' stripped)
+    ("how much of the earth is water",                 "earth"),
+    ("how much of the human body is water",            "human body"),
+    ("how much of the atmosphere is nitrogen",         "atmosphere"),
+    # "what is the natural habitat of X" (with adjective prefix) → X
+    ("what is the natural habitat of a lion",          "lion"),
+    ("what is the native range of the monarch butterfly", "monarch butterfly"),
+    # "what is the lifespan of X" → X
+    ("what is the lifespan of a blue whale",           "blue whale"),
+    ("what is the lifespan of a tortoise",             "tortoise"),
+    # Regressions
+    ("what is glass made of",                          "glass"),
+    ("what percentage of the earth is water",          "earth"),
+    ("what percentage of the atmosphere is oxygen",    "atmosphere"),
+])
+def test_batch65_subject_extraction(question, expected):
+    """Batch 65: composed-of, how-much-of-X, natural habitat/range, lifespan patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
