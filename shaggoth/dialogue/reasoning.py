@@ -326,6 +326,8 @@ def subject_of(question: str) -> str:
         r"won|ruled|fought|signed|explored|colonized?|commanded?|"
         r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
         r"caus(?:ed|es?)|brought\s+about|coined|named|happen(?:ed|s)?|occur(?:red|s)?|"
+        # Media/entertainment leading verbs: "who sang X" / "who directed X" → X
+        r"sang|direct(?:ed|s)?|starred\s+in|"
         # "what affects/determines/produces/controls/influences/allows X" → X
         r"affect(?:ed|s)?|determine[sd]?|produce[sd]?|control[sd]?|influence[sd]?|allow[sd]?)\s+",
         "", text, flags=re.I,
@@ -677,6 +679,15 @@ def subject_of(question: str) -> str:
     # "what type of animal is a whale" → scaffold strip removes "type of" → "animal is a whale"
     # → "CATEGORY is/was X" → X.  "animal|plant|element|mineral|metal|country|..." are category nouns
     # that head this pattern after the scaffold strip fires.
+    # "what album is stairway to heaven on" → "stairway to heaven"
+    # Media containment: "what MEDIUM is X on/from/by" → X (the song/film being asked about)
+    _m_media_is = re.match(
+        r"^(?:album|ep|track|film|movie|show|series|episode|chapter|book|game)\s+"
+        r"(?:is|was)\s+(?:a\s+|an\s+|the\s+)?(.+?)\s+(?:on|from|by)\s*$",
+        text, re.I,
+    )
+    if _m_media_is:
+        text = _m_media_is.group(1)
     _m_cat_is = re.match(
         r"^(?:animal|plant|mammal|reptile|bird|fish|insect|element|mineral|metal|"
         r"substance|compound|molecule|chemical|gas|liquid|solid|energy|"
@@ -734,8 +745,20 @@ def subject_of(question: str) -> str:
     _m_dist_from = re.match(r"^distance\s+from\s+(?:the\s+|a\s+)?(.+?)\s+to\b", text, re.I)
     if _m_dist_from:
         text = _m_dist_from.group(1)
-    # "the temperature to rise" → strip "to <verb>" infinitive phrase at end
-    text = re.sub(r"\s+to\s+\w+(?:ing)?\s*$", "", text, flags=re.I)
+    # "the temperature to rise" → strip "to <verb>" infinitive phrase at end.
+    # Require -ing suffix or a known action verb to avoid stripping titles like
+    # "stairway to heaven" (heaven is a noun, not a verb).
+    # Strip trailing "to WORD" infinitive or dative phrases.
+    # Broad match (\w+(?:ing)?) but exclude known title/place nouns that follow "to"
+    # in song/film titles (heaven, earth, nowhere, etc.) which are NOT verb infinitives.
+    text = re.sub(
+        r"\s+to\s+"
+        r"(?!(?:heaven|earth|hell|paradise|nowhere|somewhere|anywhere|everywhere|"
+        r"forever|infinity|glory|victory|defeat|love|war|peace|freedom|justice|"
+        r"power|happiness|success|failure|life|death|nature|space|time|eternity)\b)"
+        r"\w+(?:ing)?\s*$",
+        "", text, flags=re.I,
+    )
     text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
     # "what does caffeine do to the brain" → QW strip → "caffeine do to the brain"
     # Strip "do to [article] NOUN[S]" tail → "caffeine"
@@ -985,7 +1008,13 @@ def subject_of(question: str) -> str:
     # "oceans of the world" → "oceans", "continents of the world" → "continents".
     # Only fires when the causal-noun strip above did NOT already handle "of the X"
     # (e.g. "role of the king" → causal strip → "king" before we reach here).
-    text = re.sub(r"\s+of\s+the\s+\w+(?:\s+\w+){0,1}\s*$", "", text, flags=re.I)
+    # Guard: only fire when a single word precedes "of the", so multi-word titles like
+    # "dark side of the moon" are preserved ("dark side" → two words → no match).
+    _m_of_the = re.match(
+        r"^(\w+)\s+of\s+the\s+\w+(?:\s+\w+)?\s*$", text, re.I,
+    )
+    if _m_of_the:
+        text = _m_of_the.group(1)
     # "is coffee bad for you" / "why is sleep important for life" → strip " for X" tail
     # so that trailing adj strip sees "bad"/"important" at end.
     text = re.sub(r"\s+for\s+(?:you|me|us|them|people|humans?|everyone|the\s+body|life|health|nature|society|animals?|plants?|the\s+environment|the\s+planet)\s*$", "", text, flags=re.I)

@@ -4122,3 +4122,44 @@ def test_batch93_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "who sang X" → X (sang leading verb)
+    ("who sang bohemian rhapsody",                     "bohemian rhapsody"),
+    ("who sang stairway to heaven",                    "stairway to heaven"),
+    # "who wrote X" (song/title) → X
+    ("who wrote imagine",                              "imagine"),
+    ("who wrote hotel california",                     "hotel california"),
+    # "what genre is X" → X
+    ("what genre is bohemian rhapsody",                "bohemian rhapsody"),
+    ("what genre is jazz",                             "jazz"),
+    # "what album is X on" → X (media containment)
+    ("what album is stairway to heaven on",            "stairway to heaven"),
+    # "when was X released" → X
+    ("when was thriller released",                     "thriller"),
+    ("when was dark side of the moon released",        "dark side of the moon"),
+    # "who directed X" → X (directed leading verb)
+    ("who directed inception",                         "inception"),
+    ("who directed the godfather",                     "godfather"),
+    # "who starred in X" → X (starred in leading verb)
+    ("who starred in titanic",                         "titanic"),
+    ("who starred in the matrix",                      "matrix"),
+    # "what year was X released" → X
+    ("what year was titanic released",                 "titanic"),
+    ("what year was the godfather released",           "godfather"),
+    # "how long is X" → X
+    ("how long is the godfather",                      "godfather"),
+    ("how long is inception",                          "inception"),
+    # "what is X about" → X
+    ("what is inception about",                        "inception"),
+    ("what is the matrix about",                       "matrix"),
+    # "who produced X" → X
+    ("who produced thriller",                          "thriller"),
+])
+def test_batch94_subject_extraction(question, expected):
+    """Batch 94: music & entertainment — sang/directed/starred leading verbs, media is, of-the guard."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
