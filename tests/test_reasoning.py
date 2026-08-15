@@ -3470,3 +3470,46 @@ def test_batch77_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 78: "how long/tall/deep/old/fast" measurement questions;
+#            "how many/much X" used/made-of/composed-of patterns;
+#            function-of and type-of scaffolding
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "how long/tall/deep/old/heavy/wide is X" → X
+    ("how long is the great wall of china",         "great wall of china"),
+    ("how tall is mount everest",                   "mount everest"),
+    ("how deep is the mariana trench",              "mariana trench"),
+    ("how old is the universe",                     "universe"),
+    ("how heavy is the earth",                      "earth"),
+    ("how wide is the amazon river",                "amazon river"),
+    # "how fast does X move/travel" → X
+    ("how fast does light travel",                  "light"),
+    ("how fast does the earth rotate",              "earth"),
+    ("how fast does sound travel in water",         "sound"),
+    # "how many X are there" → X
+    ("how many planets are there",                  "planets"),
+    # "how many X are in Y" → Y (container — intentional: better lookup key)
+    ("how many bones are in the human body",        "human body"),
+    ("how many countries are in the world",         "world"),
+    # "how much X does Y VERB" → Y (entity being described — intentional)
+    ("how much water does the human body contain",  "human body"),
+    # "how hot/cold/bright/strong is X" → X
+    ("how hot is the sun",                          "sun"),
+    ("how cold is space",                           "space"),
+    ("how hot is lava",                             "lava"),
+    ("how bright is the sun",                       "sun"),
+    ("how strong is a diamond",                     "diamond"),
+    # "how long does it take for X to VERB" → X (regression)
+    ("how long does it take for light to reach earth", "light"),
+])
+def test_batch78_subject_extraction(question, expected):
+    """Batch 78: measurement 'how long/tall/fast' patterns; how-many/much container logic."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
