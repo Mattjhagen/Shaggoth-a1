@@ -901,3 +901,105 @@ def test_causal_ranking_ignores_incidental_how_in_sentence_text():
     result = _reasoner([entry]).reason("how does photosynthesis need light")
     assert result is not None
     assert result.answer.strip().startswith("It requires light")
+
+
+# --------------------------------------------------------------------------
+# Batch 7: _QUESTION_WORDS imperative scaffolding expansion
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("word", [
+    "give", "show", "name", "different", "some", "me", "of", "a", "an",
+    "all", "any", "few",
+])
+def test_question_words_contains_imperative_scaffolding(word):
+    """Imperative scaffolding words from enumerate questions must be in
+    _QUESTION_WORDS so they are excluded from the focus-word set."""
+    from shaggoth.dialogue.reasoning import _QUESTION_WORDS
+    assert word in _QUESTION_WORDS, (
+        f"{word!r} not in _QUESTION_WORDS; it will leak into focus sets for "
+        "questions like 'give me examples of X' and bias sentence ranking."
+    )
+
+
+@pytest.mark.parametrize("question,subject,expected_focus", [
+    (
+        "give me examples of renewable energy",
+        "renewable energy",
+        set(),
+    ),
+    (
+        "name the different types of machine learning",
+        "machine learning",
+        set(),
+    ),
+    (
+        "show me some types of cancer",
+        "cancer",
+        set(),
+    ),
+    (
+        "list some examples of programming languages",
+        "programming languages",
+        set(),
+    ),
+])
+def test_imperative_enumerate_focus_is_empty(question, subject, expected_focus):
+    """After stripping subject words and _QUESTION_WORDS, no spurious
+    scaffolding word should remain in the focus set for enumerate questions."""
+    from shaggoth.dialogue.reasoning import _topic_words, _QUESTION_WORDS
+    focus = _topic_words(question) - _topic_words(subject) - _QUESTION_WORDS
+    assert focus == expected_focus, (
+        f"For {question!r}: expected empty focus set, got {focus!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Batch 8: contraction normalization and negation stripping
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("why doesn't ice float", "ice"),
+    ("how doesn't water conduct electricity", "water"),
+    ("why don't vaccines cause autism", "vaccines"),
+    ("what's causing earthquakes", "earthquakes"),
+    ("how's steel made", "steel"),
+    ("why doesn't water boil at room temperature", "water"),
+])
+def test_subject_of_contractions(question, expected):
+    """Contractions like "doesn't", "don't", and "what's" must expand before
+    subject stripping so auxiliary forms are recognised and removed."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+def test_subject_of_negation_not_stripped():
+    """'why does photosynthesis not use water' → subject is 'photosynthesis',
+    not 'photosynthesis not' (the residual 'not' must be removed)."""
+    assert subject_of("why does photosynthesis not use water") == "photosynthesis"
+
+
+@pytest.mark.parametrize("question,intent", [
+    ("why doesn't ice float", "causal"),
+    ("what's causing climate change", "causal"),
+    ("why isn't Python faster than Ruby", "compare"),
+    ("how's aeroponics different from hydroponics", "compare"),
+])
+def test_classify_contractions(question, intent):
+    """Contractions must not break intent classification."""
+    assert classify(question) == intent
+
+
+@pytest.mark.parametrize("question,expected_subjects", [
+    ("why isn't Python faster than Ruby", ["Python", "Ruby"]),
+    ("how's aeroponics different from hydroponics", ["aeroponics", "hydroponics"]),
+])
+def test_split_subjects_contractions(question, expected_subjects):
+    """split_subjects must work through contractions."""
+    result = split_subjects(question)
+    assert result == expected_subjects, (
+        f"split_subjects({question!r}): expected {expected_subjects!r}, got {result!r}"
+    )

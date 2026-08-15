@@ -154,6 +154,9 @@ _LEAD_IN = re.compile(
     r"|^compare[ds]?\s+"
     # "is Python faster than JavaScript" / "are X and Y similar"
     r"|^(?:is|are)\s+"
+    # "why is/are/does X different from Y" — including "why is not X ..." from
+    # "why isn't X" after contraction expansion.
+    r"|^why (?:is|are|was|were|does|do|did)\s+(?:not\s+)?"
     # "which is faster X or Y" — strip "which is [adjective]" leaving subjects
     # Limited to one optional degree word ("more"/"less") plus one adjective.
     r"|^which (?:is|are|was|were)\s+(?:(?:more|less)\s+)?\w+\s+"
@@ -176,7 +179,7 @@ def classify(question: str) -> str:
     Comparison is checked before causation because "why is X different from
     Y" is a comparison that happens to start with "why".
     """
-    text = (question or "").strip()
+    text = _expand_contractions((question or "").strip())
     if _COMPARE.search(text):
         return Intent.COMPARE
     if _CONTRAST.search(text):
@@ -194,7 +197,7 @@ def split_subjects(question: str) -> list:
     Returns ``[]`` when it cannot find two, which the caller treats as "this
     is not really a comparison" rather than guessing at one.
     """
-    text = _LEAD_IN.sub("", (question or "").strip(), count=1)
+    text = _LEAD_IN.sub("", _expand_contractions((question or "").strip()), count=1)
     # Strip the comparison/relation verb that can appear between the first subject
     # and the joiner after the lead-in is removed:
     # "how does DNA differ from RNA" → "DNA differ from RNA" → "DNA from RNA"
@@ -210,9 +213,47 @@ def split_subjects(question: str) -> list:
     return []
 
 
+_CONTRACTIONS = [
+    # Negative contractions of auxiliary verbs
+    (re.compile(r"\bdon't\b", re.I), "do not"),
+    (re.compile(r"\bdoesn't\b", re.I), "does not"),
+    (re.compile(r"\bdidn't\b", re.I), "did not"),
+    (re.compile(r"\bisn't\b", re.I), "is not"),
+    (re.compile(r"\baren't\b", re.I), "are not"),
+    (re.compile(r"\bwasn't\b", re.I), "was not"),
+    (re.compile(r"\bweren't\b", re.I), "were not"),
+    (re.compile(r"\bcan't\b", re.I), "can not"),
+    (re.compile(r"\bcouldn't\b", re.I), "could not"),
+    (re.compile(r"\bwouldn't\b", re.I), "would not"),
+    (re.compile(r"\bshouldn't\b", re.I), "should not"),
+    (re.compile(r"\bwon't\b", re.I), "will not"),
+    (re.compile(r"\bhaven't\b", re.I), "have not"),
+    (re.compile(r"\bhasn't\b", re.I), "has not"),
+    (re.compile(r"\bhadn't\b", re.I), "had not"),
+    # Question-word contractions ("what's causing X", "how's X different from Y")
+    (re.compile(r"\bwhat's\b", re.I), "what is"),
+    (re.compile(r"\bwhat're\b", re.I), "what are"),
+    (re.compile(r"\bhow's\b", re.I), "how is"),
+    (re.compile(r"\bwhy's\b", re.I), "why is"),
+    (re.compile(r"\bwhere's\b", re.I), "where is"),
+]
+
+
+def _expand_contractions(text: str) -> str:
+    """Expand common English contractions so the regex strips in classify(),
+    split_subjects(), and subject_of() see canonical forms.
+
+    "why doesn't ice float" → "why does not ice float" → strips correctly
+    to subject "ice" rather than leaving "doesn't" as a spurious word.
+    """
+    for pattern, replacement in _CONTRACTIONS:
+        text = pattern.sub(replacement, text)
+    return text
+
+
 def subject_of(question: str) -> str:
     """The single subject of a causal or enumerating question."""
-    text = (question or "").strip(" ?.")
+    text = _expand_contractions((question or "").strip(" ?."))
     text = re.sub(
         r"^(?:and |but |so )?(?:why|what|how|who|when|where)\s+"
         # Optional degree word after "how": "how many X", "how long does X", "how much Y"
@@ -220,6 +261,9 @@ def subject_of(question: str) -> str:
         r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
     )
+    # Residual "not" after stripping the auxiliary: "why does not ice float" →
+    # strips "why does " → "not ice float" → strip leading "not" → "ice float"
+    text = re.sub(r"^not\s+", "", text, flags=re.I)
     # After stripping "who"/"what", attribution and trigger verbs head the remainder:
     # "who invented the telephone" → "invented the telephone" → "the telephone"
     # "what started the industrial revolution" → "started the ..." → "the ..."
@@ -305,6 +349,11 @@ def subject_of(question: str) -> str:
         r"have\b|has\b|"
         r"grow[s]?|spread[s]?|evolve[s]?|"
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
+        # Causal/enabling verbs: "why don't vaccines cause autism" → "vaccines"
+        r"cause[sd]?|enable[sd]?|allow[s]?|prevent[s]?|"
+        # Electrical/physical process verbs: "how does water conduct electricity"
+        r"conduct[s]?|generate[sd]?|transmit[s]?|convert[s]?|transfer[s]?|"
+        r"store[sd]?|release[sd]?|react[s]?|"
         # Immune/conflict/process verbs: "how does X fight Y", "how does X affect Y"
         r"fight[s]?|attack[s]?|defend[s]?|protect[s]?|affect[s]?|impact[s]?|"
         # Physical / chemical state-change verbs: "why does ice float", "what makes iron rust"
@@ -324,6 +373,11 @@ def subject_of(question: str) -> str:
     # "X on <modifier>" → X  (e.g. "effect of gravity on time" → "gravity")
     # Only strip trailing "on <1-3 words>" — not "on" inside a topic name.
     text = re.sub(r"\s+on\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
+    # Strip a trailing "not" that can remain after the negated auxiliary was
+    # expanded and the verb phrase was stripped: "why does X not use Y" →
+    # strips "why does " → "X not use Y" → trailing strip removes " use Y" →
+    # "X not" → remove trailing " not" → "X".
+    text = re.sub(r"\s+not\s*$", "", text, flags=re.I)
     return text.strip(" ?.,")
 
 
@@ -453,6 +507,12 @@ _QUESTION_WORDS = {
     # Conjunctions that appear in multi-subject causal questions
     # ("why does X need both A and B") but contribute nothing to ranking.
     "and", "but", "nor", "yet", "both",
+    # Imperative scaffolding verbs and quantifiers from enumerate questions
+    # ("give me examples of X", "show me some types of X",
+    #  "name the different types of X", "list some examples of X").
+    # These words carry no topical signal about the subject domain.
+    "give", "show", "name", "different", "some", "me", "of", "a", "an",
+    "all", "any", "few",
 }
 
 
@@ -689,15 +749,15 @@ class Reasoner:
             steps.append(Step("lookup", f"{subject} -> {entry.topic}"))
 
         # If we're missing a subject, try web search to fill the gap.
+        # Iterate over a copy so we can remove from the original safely.
         if missing and self.search:
-            for missing_subject in missing:
+            for missing_subject in list(missing):
                 search_snippets, search_results = self._search_web(missing_subject, limit=1)
                 if search_snippets:
                     definitions.append((missing_subject, search_snippets[0]))
                     found.append(missing_subject)
                     steps.append(Step("web_search", f"{missing_subject} -> found {len(search_snippets)} result(s)"))
                     missing.remove(missing_subject)
-                    break
 
         if not definitions:
             return None
