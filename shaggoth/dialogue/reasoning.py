@@ -307,6 +307,13 @@ def subject_of(question: str) -> str:
         r"caus(?:ed|es?)|brought\s+about)\s+",
         "", text, flags=re.I,
     )
+    # "who was the first person to walk on the moon" → after QW strip:
+    # "the first person to walk on the moon" → strip "the first NOUN to VERB [prep] [the]" → "moon"
+    # "who was the first woman to win the nobel prize" → "nobel prize"
+    text = re.sub(
+        r"^(?:the\s+)?first\s+\w+(?:\s+\w+)?\s+to\s+\w+\s+(?:(?:on|in|at|from)\s+(?:the\s+)?|the\s+|a\s+)",
+        "", text, flags=re.I,
+    )
     # Imperative enumeration: "list the planets" / "name the types of X"
     # Also handle "give me examples of X" / "show me some types of X",
     # "tell me about different types of X", "explain X", "describe X".
@@ -386,6 +393,7 @@ def subject_of(question: str) -> str:
         # Measurement/property compounds: "boiling point of water" → "water"
         # "half life of carbon 14" → "carbon 14"
         r"point|rate|level|amount|number|count|percentage|quantity|fraction|proportion|"
+        r"formula|structure|composition|"
         r"life|lifetime|lifespan|period|span|half.life)s?"
         r"\s+(?:of|behind|in|for)\s+", "", text, flags=re.I,
     )
@@ -515,6 +523,9 @@ def subject_of(question: str) -> str:
     # "the temperature to rise" → strip "to <verb>" infinitive phrase at end
     text = re.sub(r"\s+to\s+\w+(?:ing)?\s*$", "", text, flags=re.I)
     text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
+    # "what does caffeine do to the brain" → QW strip → "caffeine do to the brain"
+    # Strip "do to [article] NOUN[S]" tail → "caffeine"
+    text = re.sub(r"\s+do\s+to\s+(?:(?:the|a|an|your|our|your)\s+)?\w+(?:\s+\w+)?\s*$", "", text, flags=re.I)
     # "X does/do/did Y have" → X  (e.g. "how many moons does Jupiter have" → "moons")
     text = re.sub(r"\s+(?:does|do|did)\s+\w+(?:\s+\w+)?\s+have\s*$", "", text, flags=re.I)
     # "X are there [in Y]" → X  (e.g. "what kinds of algae are there" → "algae",
@@ -522,7 +533,7 @@ def subject_of(question: str) -> str:
     # Also "X are in/on/at Y" (e.g. "how many planets are in the solar system" → "planets")
     text = re.sub(r"\s+are\s+(?:there\b|in\b|on\b|at\b).*$", "", text, flags=re.I)
     text = re.sub(
-        r"\s+(?:need|needs|require|requires|use|uses|produce|produces|"
+        r"\s+(?:need|needs|require|requires|use[sd]?|produce[sd]?|"
         r"happen(?:ed|s)?|occur(?:red|s)?|exist(?:ed|s)?|"
         r"made|created|formed|produced|prevented|caused|built|done|founded|"
         r"get\s+\w+ed|become|start|begin|"
@@ -636,6 +647,9 @@ def subject_of(question: str) -> str:
     # Only fires when the causal-noun strip above did NOT already handle "of the X"
     # (e.g. "role of the king" → causal strip → "king" before we reach here).
     text = re.sub(r"\s+of\s+the\s+\w+(?:\s+\w+){0,1}\s*$", "", text, flags=re.I)
+    # "is coffee bad for you" → bare opener "is " stripped → "coffee bad for you"
+    # Strip dangling "for you/me/people" BEFORE the adj strip so "bad" ends up at tail.
+    text = re.sub(r"\s+for\s+(?:you|me|us|them|people|humans?|everyone|the\s+body)\s*$", "", text, flags=re.I)
     # Trailing state adjective in "why is X [adjective]" patterns.
     # e.g. "sky blue" → "sky", "gold so valuable" → "gold"
     text = re.sub(
@@ -652,6 +666,7 @@ def subject_of(question: str) -> str:
         r"sticky|slippery|rough|smooth|thin|thick|narrow|tall|short|"
         r"similar|different|related|connected|distinct|unique|identical|"
         r"dangerous|harmful|safe|harmless|poisonous|helpful|useful|effective|"
+        r"good|bad|healthy|unhealthy|"
         r"hard|soft|tough|fragile|brittle|flexible|rigid|elastic)\s*$",
         "", text, flags=re.I,
     )
@@ -663,6 +678,13 @@ def subject_of(question: str) -> str:
     # Strip a trailing bare copula: "blood sugar is" (after adj strip removed "low")
     # → "blood sugar". Only fires when nothing else could have consumed it.
     text = re.sub(r"\s+(?:is|are|was|were)\s*$", "", text, flags=re.I)
+    # "what is bitcoin and how does it work" → "bitcoin and how does it" (verb strip took "work")
+    # Strip second clause "and how/why/what does/do/did it VERB?" that remains.
+    text = re.sub(
+        r"\s+and\s+(?:how|why|what|where|when)\s+(?:does|do|did|is|are|can|could|will)\s+"
+        r"(?:it|they|this|that|you)\s*\w*\s*$",
+        "", text, flags=re.I,
+    )
     # Strip orphaned adverbs that remain after the trailing-verb strip removed the verb:
     # "when did humans first appear" → "humans first appear" → verb strip → "humans first"
     # → strip trailing "first" → "humans".

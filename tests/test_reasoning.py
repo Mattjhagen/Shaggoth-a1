@@ -1680,3 +1680,73 @@ def test_batch24_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X made of/from" → "X"
+    ("what is glass made of",                       "glass"),
+    ("what is plastic made from",                   "plastic"),
+    # "what is X used for" → "X"
+    ("what is uranium used for",                    "uranium"),
+    ("what is graphene used for",                   "graphene"),
+    # "how do you know if X" → "X"
+    ("how do you know if a mushroom is poisonous",  "mushroom"),
+    # Tell-me / explain patterns
+    ("tell me about the black death",               "black death"),
+    ("explain how hurricanes form",                 "hurricanes"),
+    # "who was the first X to Y" → destination/achievement
+    ("who was the first person to walk on the moon",   "moon"),
+    ("who was the first woman to win the nobel prize", "nobel prize"),
+    # "when did X first Y" → "X"
+    ("when did humans first use fire",              "humans"),
+    ("when did life first appear on earth",         "life"),
+    # Weather/nature questions
+    ("what causes thunder",                         "thunder"),
+    ("what is a tornado",                           "tornado"),
+    # "what are the types of X" → "X"
+    ("what are the types of clouds",                "clouds"),
+    ("what are the types of volcanoes",             "volcanoes"),
+    # "what type of X is Y" → "Y"
+    ("what type of animal is a platypus",           "platypus"),
+    ("what type of rock is marble",                 "marble"),
+])
+def test_batch25_subject_extraction(question, expected):
+    """Batch 25: used-for, first-X-to-Y, when-did-X-first-Y, type-of patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is the chemical formula of X" → "X"
+    ("what is the chemical formula of water",           "water"),
+    ("what is the molecular structure of dna",          "dna"),
+    # "what is X and how does it work" → "X" (strips second clause)
+    ("what is bitcoin and how does it work",            "bitcoin"),
+    ("what is dna and how does it replicate",           "dna"),
+    # "what does X do to Y" → "X"
+    ("what does caffeine do to the brain",              "caffeine"),
+    ("what does exercise do to the body",               "exercise"),
+    # "is X bad/good for you" → "X"
+    ("is coffee bad for you",                           "coffee"),
+    ("is asbestos dangerous",                           "asbestos"),
+    # "why does X cause Y" → "X"
+    ("why does stress cause headaches",                 "stress"),
+    ("why does alcohol cause liver damage",             "alcohol"),
+    # "how does X affect Y" → "X"
+    ("how does exercise affect the brain",              "exercise"),
+    ("how does diet affect the heart",                  "diet"),
+    # "how many X are there in Y" → "X"
+    ("how many bones are there in the human body",      "bones"),
+    ("how many planets are there in the solar system",  "planets"),
+    # "what are the effects of X" → "X"
+    ("what are the effects of climate change",          "climate change"),
+    ("what are the effects of alcohol",                 "alcohol"),
+])
+def test_batch26_subject_extraction(question, expected):
+    """Batch 26: chemical-formula, and-how, do-to, bad-for-you, effects-of patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
