@@ -1420,3 +1420,36 @@ def test_batch16_subject_extraction(question, expected):
 def test_batch16_classify(question, expected_intent):
     """Batch 16: geography/duration → CAUSAL; ocean enumeration; measurement → DEFINE."""
     assert classify(question) == expected_intent
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "where is X located" → X (strip trailing "located")
+    ("where is the amazon river located",       "amazon river"),
+    ("where is mount everest located",          "mount everest"),
+    ("where is the sahara desert located",      "sahara desert"),
+    # "when was X founded/built" → X (past-participle trailing strip)
+    ("when was america founded",                "america"),
+    ("when was rome founded",                   "rome"),
+    ("when was the great wall built",           "great wall"),
+    # "what temperature/speed does X VERB" → X
+    ("what temperature does water boil",        "water"),
+    ("what temperature does iron melt",         "iron"),
+    ("what speed does light travel",            "light"),
+    # Superlative strip: "largest/tallest/fastest X" → X
+    ("what is the largest ocean",               "ocean"),
+    ("what is the tallest mountain",            "mountain"),
+    ("what is the fastest animal",              "animal"),
+    ("what is the smallest country",            "country"),
+    ("what is the oldest civilization",         "civilization"),
+    ("what is the most common element",         "element"),
+    # Predicate adjective strip: "why is X [adj]" → X
+    ("why is the ocean salty",                  "ocean"),
+    ("why is blood red",                        "blood"),
+    ("why is the sea blue",                     "sea"),
+])
+def test_batch17_subject_extraction(question, expected):
+    """Batch 17: located strip, founded/built, temperature-does, superlative, predicate adj."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

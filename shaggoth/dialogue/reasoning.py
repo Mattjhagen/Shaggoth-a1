@@ -406,6 +406,17 @@ def subject_of(question: str) -> str:
         )
         if _m:
             text = _m.group(2)
+    # "what temperature does water boil" → "temperature does water boil" → "water boil"
+    # → trailing verb strip removes "boil" → "water".
+    # Catches any "MEASUREMENT does/do/did ENTITY VERB" form.
+    _m_prop_does = re.match(
+        r"^(?:temperature|speed|rate|pressure|altitude|depth|angle|"
+        r"frequency|voltage|force|power|amount|level|distance)\s+"
+        r"(?:does|do|did)\s+(.+)$",
+        text, re.I,
+    )
+    if _m_prop_does:
+        text = _m_prop_does.group(1)
     # "how long does it take to boil water" → "water";
     # "how long does it take for a bone to heal" → "bone".
     _m_it_takes = re.match(r"^it\s+takes?\s+to\s+\w+\s+(.+)$", text, re.I)
@@ -435,7 +446,7 @@ def subject_of(question: str) -> str:
     text = re.sub(
         r"\s+(?:need|needs|require|requires|use|uses|produce|produces|"
         r"happen|happens|occur|occurs|exist|exists|matter|matters|"
-        r"made|created|formed|produced|prevented|caused|built|done|"
+        r"made|created|formed|produced|prevented|caused|built|done|founded|"
         r"get\s+\w+ed|become|start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|train[s]?|take[s]?|"
@@ -458,8 +469,8 @@ def subject_of(question: str) -> str:
         r"condense[sd]?|expand[s]?|contract[s]?|ignite[sd]?|dissolve[sd]?|"
         # Migration / movement verbs: "how do birds migrate"
         r"migrate[sd]?|"
-        # Passive attribution: "when was X invented", "where was Y discovered"
-        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|"
+        # Passive attribution: "when was X invented", "where was Y discovered/located"
+        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|locat(?:ed|es)?|"
         # Origin verb: "where did humans originate"
         r"originate[sd]?|"
         # Intransitive motion/perception/existence verbs: "why do stars twinkle",
@@ -508,6 +519,8 @@ def subject_of(question: str) -> str:
         # Exclude ambiguous words that are also common nouns (light, fast, hard, etc.).
         r"\s+(?:so\s+)?(?:blue|red|green|yellow|white|black|gray|grey|brown|orange|purple|pink|"
         r"hot|cold|warm|cool|wet|dry|soft|bright|dark|"
+        r"salty|sweet|sour|bitter|spicy|acidic|alkaline|toxic|magnetic|elastic|"
+        r"transparent|opaque|flammable|volatile|reactive|inert|radioactive|"
         r"valuable|expensive|cheap|rare|common|strong|weak|dense|flat|round|curved|"
         r"sticky|slippery|rough|smooth|thin|thick|narrow|tall|short)\s*$",
         "", text, flags=re.I,
@@ -529,6 +542,14 @@ def subject_of(question: str) -> str:
     # Strip qualifier adjective exposed after the article: "the main programming languages"
     # → "main programming languages" → "programming languages".
     text = re.sub(r"^(?:different|main|major|key|various|multiple)\s+", "", text, flags=re.I)
+    # Strip leading superlative/comparative adjective: "largest ocean" → "ocean",
+    # "fastest animal" → "animal", "most common element" → "element".
+    text = re.sub(
+        r"^(?:largest?|biggest?|smallest?|tallest?|shortest?|fastest?|slowest?|"
+        r"deepest?|widest?|lightest?|heaviest?|oldest?|youngest?|newest?|"
+        r"most\s+\w+|least\s+\w+)\s+",
+        "", text, flags=re.I,
+    )
     return text.strip(" ?.,")
 
 
