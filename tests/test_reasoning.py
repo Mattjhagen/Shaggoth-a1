@@ -2683,3 +2683,36 @@ def test_batch52_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 53: diameter/radius/velocity/etc. added to causal-noun list so
+#           "what is the diameter of X" → X not "diameter"
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # diameter/radius now in causal-noun list
+    ("what is the diameter of the earth",              "earth"),
+    ("what is the diameter of the moon",               "moon"),
+    # already-working physics property nouns (regression guard)
+    ("what is the boiling point of water",             "water"),
+    ("what is the melting point of ice",               "ice"),
+    ("what is the atomic number of carbon",            "carbon"),
+    ("what is the chemical formula of water",          "water"),
+    ("what is the lifespan of an elephant",            "elephant"),
+    ("what is the mass of the earth",                  "earth"),
+    ("what is the half life of carbon 14",             "carbon 14"),
+    # standalone constants (no "of X" suffix — must not be stripped)
+    ("what is the gravitational constant",             "gravitational constant"),
+    ("what is the planck constant",                    "planck constant"),
+    # scientific name / common name
+    ("what is the scientific name of a dog",           "dog"),
+    ("what is the common name for nacl",               "nacl"),
+])
+def test_batch53_subject_extraction(question, expected):
+    """Batch 53: diameter/radius/velocity causal-noun additions."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

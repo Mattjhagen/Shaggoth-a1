@@ -416,6 +416,7 @@ def subject_of(question: str) -> str:
         r"fall|collapse|rise|decline|end|defeat|death|birth|founding|"
         # Factual property nouns: "capital of france" → "france"
         r"capital|population|area|size|location|height|depth|width|length|"
+        r"diameter|radius|circumference|velocity|acceleration|frequency|wavelength|pressure|charge|voltage|"
         r"distance|temperature|density|mass|weight|volume|age|name|"
         # Role/title nouns: "president of france" → "france"
         r"president|prime\s+minister|king|queen|ruler|leader|founder|director|"
