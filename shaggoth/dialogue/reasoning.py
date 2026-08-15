@@ -670,7 +670,8 @@ def subject_of(question: str) -> str:
     text = re.sub(r"^(?:you|we|they|people|someone|a\s+person)\s+\w+\s+", "", text, flags=re.I)
     # Strip leading preposition orphaned by pronoun+verb strip:
     # "how do you deal with anxiety" → pronoun strip → "with anxiety" → "anxiety"
-    text = re.sub(r"^(?:with|about|from|against|through|around|between)\s+", "", text, flags=re.I)
+    # Guard "about turn" and "about face" (military compound nouns) from being stripped.
+    text = re.sub(r"^(?:with|about(?!\s+(?:turn|face)\b)|from|against|through|around|between)\s+", "", text, flags=re.I)
     # "what country has won the most world cups" → "world cups"
     # "who has won the most grand slams" → after QW strips "who", bare "has won the most X"
     # also matches (subject group is now optional).
@@ -1243,7 +1244,8 @@ def subject_of(question: str) -> str:
         # Only "rated" (passive participle, clearly a verb) is stripped.
         # Guard "margin call", "roll call", "curtain call", "covered call", "close call", "wake up call" compound nouns.
         r"measure[sd]?|classif(?:ied|y|ies)?|(?<!margin\s)(?<!roll\s)(?<!curtain\s)(?<!covered\s)(?<!close\s)(?<!up\s)call(?:ed|s)?|rank(?:ed|s)?|rated|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
-        r"turn[s]?|transform[sd]?|"
+        # Guard "U turn", "about turn", "downturn", "upturn" compound nouns.
+        r"(?<!U\s)(?<!u\s)(?<!about\s)turn[s]?|transform[sd]?|"
         # Guard "rug burn", "chemical burn", "road burn" compound nouns.
         r"shine[sd]?|glow[s]?|(?<!rug\s)(?<!chemical\s)(?<!road\s)burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"

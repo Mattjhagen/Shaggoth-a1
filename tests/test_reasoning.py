@@ -11641,3 +11641,33 @@ def test_batch315_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a spin off",                                     "spin off"),
+    ("what is a tailspin",                                     "tailspin"),
+    ("what is a backspin",                                     "backspin"),
+    ("what is a U turn",                                       "U turn"),
+    ("what is an about turn",                                  "about turn"),
+    ("what is an overturn",                                    "overturn"),
+    ("what is a downturn",                                     "downturn"),
+    ("what is an upturn",                                      "upturn"),
+    ("what is a drum roll",                                    "drum roll"),
+    ("what is a barrel roll",                                  "barrel roll"),
+    ("what is a payroll",                                      "payroll"),
+    ("what is a rap sheet",                                    "rap sheet"),
+    ("what is a gift wrap",                                    "gift wrap"),
+    ("what is a deadlock",                                     "deadlock"),
+    ("what is a gridlock",                                     "gridlock"),
+    ("what is a padlock",                                      "padlock"),
+    ("what is a writer's block",                               "writer's block"),
+    ("what is a chapstick",                                    "chapstick"),
+    ("what is a drumstick",                                    "drumstick"),
+    ("what is a sidestick",                                    "sidestick"),
+])
+def test_batch316_subject_extraction(question, expected):
+    """Batch 316: adversarial — spin/turn/roll/wrap/lock/stick as noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
