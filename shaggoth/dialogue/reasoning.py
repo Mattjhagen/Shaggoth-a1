@@ -284,6 +284,13 @@ def subject_of(question: str) -> str:
     """The single subject of a causal or enumerating question."""
     text = _expand_contractions((question or "").strip(" ?."))
     _original = text  # preserved for intent-specific guards below
+    # "what is X like" / "what are X like" → X  (early-exit before location strips fire)
+    _m_what_like = re.match(
+        r"^(?:what|how)\s+(?:is|are|was|were)\s+(?:a\s+|an\s+|the\s+)?(.+?)\s+like\s*$",
+        text, re.I,
+    )
+    if _m_what_like:
+        return _m_what_like.group(1).strip()
     text = re.sub(
         r"^(?:and |but |so )?(?:why|what|how|who|when|where)\s+"
         # Optional degree/temporal word after "how"/"what": "how many X", "how long does X",
@@ -769,6 +776,9 @@ def subject_of(question: str) -> str:
     )
     if _m_loc_noun:
         text = _m_loc_noun.group(1)
+    # "moon's surface like" → strip trailing "like" (question particle: "what is X like")
+    # Must run BEFORE the "on X" strip so "life on mars like" → "life on mars", not "life".
+    text = re.sub(r"\s+like\s*$", "", text, flags=re.I)
     # "X on <modifier>" → X  (e.g. "effect of gravity on time" → "gravity")
     # Only strip trailing "on <1-3 words>" — not "on" inside a topic name.
     text = re.sub(r"\s+on\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
@@ -833,8 +843,6 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+capable\s+of\s*$", "", text, flags=re.I)
     # "X responsible for" → strip "responsible for" tail
     text = re.sub(r"\s+responsible\s+for\s*$", "", text, flags=re.I)
-    # "moon's surface like" → strip trailing "like" (question particle: "what is X like")
-    text = re.sub(r"\s+like\s*$", "", text, flags=re.I)
     # Strip a trailing "not" that can remain after the negated auxiliary was
     # expanded and the verb phrase was stripped: "why does X not use Y" →
     # strips "why does " → "X not use Y" → trailing strip removes " use Y" →
