@@ -8233,3 +8233,46 @@ def test_batch197_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" (economic/finance term) → X
+    ("what is inflation",                                      "inflation"),
+    ("what is a recession",                                    "recession"),
+    ("what is gdp",                                            "gdp"),
+    # "what causes X" → X
+    ("what causes inflation",                                  "inflation"),
+    ("what causes a recession",                                "recession"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between stocks and bonds",        "stocks and bonds"),
+    # "how does X work" → X
+    ("how does a stock market work",                           "stock market"),
+    ("how does interest work",                                 "interest"),
+    # "what is the X rate" → X rate
+    ("what is the interest rate",                              "interest rate"),
+    ("what is the unemployment rate",                          "unemployment rate"),
+    # "how do you invest in X" → X
+    ("how do you invest in stocks",                            "stocks"),
+    ("how do you invest in real estate",                       "real estate"),
+    # "what is a good X" → "good X" ("good" stays as predicate adjective)
+    ("what is a good credit score",                            "good credit score"),
+    # "what is the X" → X
+    ("what is the federal reserve",                            "federal reserve"),
+    # "how does X affect Y" → X (agent is the lookup subject, existing design)
+    ("how does inflation affect savings",                      "inflation"),
+    # "what is compound X" → compound X
+    ("what is compound interest",                              "compound interest"),
+    # "how do X work" → X
+    ("how do taxes work",                                      "taxes"),
+    # "what is a X Y" (noun compound) → X Y
+    ("what is a budget deficit",                               "budget deficit"),
+    ("what is cryptocurrency",                                 "cryptocurrency"),
+    # "what is a X market crash" → X market crash (crash is nominal head)
+    ("what is a stock market crash",                           "stock market crash"),
+])
+def test_batch198_subject_extraction(question, expected):
+    """Batch 198: economics/finance — inflation, recession, investing, markets."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

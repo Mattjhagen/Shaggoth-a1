@@ -284,6 +284,11 @@ def subject_of(question: str) -> str:
     """The single subject of a causal or enumerating question."""
     text = _expand_contractions((question or "").strip(" ?."))
     _original = text  # preserved for intent-specific guards below
+    # "what vitamin helps with immune system" → "immune system"  (purpose is the lookup subject)
+    # "what food helps with digestion" → "digestion"
+    _m_what_helps = re.match(r"^what\s+\w+(?:\s+\w+)?\s+helps?\s+with\s+(.+)$", text, re.I)
+    if _m_what_helps:
+        return _m_what_helps.group(1)
     # "what key is X in" → X  (music theory; must fire before scaffold strips "key")
     _m_key_q = re.match(r"^what\s+key\s+(?:is|are|was)\s+(.+?)\s+in\s*$", text, re.I)
     if _m_key_q:
@@ -1191,7 +1196,10 @@ def subject_of(question: str) -> str:
         r"turn[s]?|transform[sd]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
-        r"stop(?:ped|s)?|end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?|"
+        # "stock market crash" is a noun compound: guard crash with (?=\s) so it only
+        # strips as a verb when followed by more content (e.g. "crash and lose data").
+        # "computer to crash" is already handled by the "to \w+" strip above.
+        r"stop(?:ped|s)?|end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?(?=\s)|"
         r"cover(?:ed|s)?|surround(?:ed|s)?|fill(?:ed|s)?|consist[s]?|contain[s]?|look[s]?|"
         # Duration/persistence verbs: "how long does pregnancy last" → "pregnancy"
         r"last[s]?|persist[s]?|remain[s]?|"
