@@ -147,9 +147,18 @@ class GuardrailEngine:
 
     def _load(self) -> None:
         assert self.path is not None
-        with open(self.path, encoding="utf-8") as fh:
-            self.config = json.load(fh)
-        self._mtime = self.path.stat().st_mtime
+        try:
+            with open(self.path, encoding="utf-8") as fh:
+                self.config = json.load(fh)
+            self._mtime = self.path.stat().st_mtime
+        except (OSError, ValueError):
+            # Corrupt or unreadable config — fall back to safe defaults so a
+            # crash-truncated file does not prevent the server from starting.
+            import logging
+            logging.getLogger(__name__).warning(
+                "guardrails: could not load %s, using defaults", self.path
+            )
+            self.config = json.loads(json.dumps(DEFAULT_CONFIG))
 
     def save(self) -> None:
         if self.path is None:

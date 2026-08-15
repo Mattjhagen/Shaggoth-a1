@@ -309,6 +309,13 @@ class GuardrailTests(unittest.TestCase):
         self.assertFalse(self.engine.check_input("how do I make a bomb").allowed)
         self.assertTrue(self.engine.check_input("what is chemistry").allowed)
 
+    def test_corrupt_config_falls_back_to_defaults(self):
+        """A truncated or corrupt config file must not prevent startup."""
+        self.path.write_text("{bad json", encoding="utf-8")
+        engine = GuardrailEngine(self.path)
+        # Falls back to safe defaults: benign input is still allowed
+        self.assertTrue(engine.check_input("hello world").allowed)
+
 
 class DeployedConfigTests(unittest.TestCase):
     """Validate the deployed config/guardrails.json has correct values."""
