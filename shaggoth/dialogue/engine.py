@@ -1847,6 +1847,10 @@ _WEAK_SUBJECT = frozenset({
     "difference", "differences", "comparison", "comparisons",
     "distinction", "distinctions", "similarity", "similarities",
     "relation", "relationship", "contrast", "versus",
+    # Enumeration-shape words — "what are the types of cryptography" should
+    # produce subject "cryptography", not "types cryptography".
+    "type", "types", "kind", "kinds", "form", "forms",
+    "example", "examples", "list",
 })
 
 #: Used only when *researching* is False -- a promise-free admission that
@@ -1894,7 +1898,24 @@ def describe_unknown(text: str, voice=None, researching: bool = True) -> str:
     # meta-conversational words like "elaborate" and "perspective" that
     # _WEAK_SUBJECT alone missed -- "can you elaborate on that interesting
     # perspective" was surfacing as a subject before this was unioned in.
-    substantive = [w for w in words if w.lower() not in _WEAK_SUBJECT | _NO_SUBJECT]
+    #
+    # Compound-noun preservation: a _WEAK_SUBJECT word that immediately follows
+    # a substantive word qualifies it ("machine learning", "deep learning") and
+    # must be kept. Without this, "machine learning" → subject "machine" and
+    # the reply reads "Never heard of machine" instead of "machine learning".
+    _skip = _WEAK_SUBJECT | _NO_SUBJECT
+    substantive: list[str] = []
+    _last_was_substantive = False
+    for w in words:
+        if w.lower() not in _skip:
+            substantive.append(w)
+            _last_was_substantive = True
+        elif _last_was_substantive:
+            # Weak word immediately qualifying a substantive — keep it once.
+            substantive.append(w)
+            _last_was_substantive = False
+        else:
+            _last_was_substantive = False
     subject = " ".join(substantive[:3]) if substantive else ""
 
     if not subject:

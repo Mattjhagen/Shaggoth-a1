@@ -252,6 +252,31 @@ class ConversationFlowTests(unittest.TestCase):
         self.assertNotIn("lol fell", result)
         self.assertNotIn("Blank on lol", result)
 
+    def test_describe_unknown_compound_noun_machine_learning(self):
+        """'machine learning' must appear as the subject, not just 'machine'.
+
+        'learning' is in _WEAK_SUBJECT to stop "what have you been learning"
+        from echoing back "learning" as the topic. But when it immediately
+        follows a substantive word like "machine" it qualifies that word and
+        must be preserved as part of the compound noun.
+        """
+        for _ in range(20):
+            result = describe_unknown("what is machine learning", researching=False)
+            self.assertIn("machine learning", result.lower(), result)
+
+    def test_describe_unknown_enumeration_shape_words_filtered(self):
+        """'types of cryptography' should produce 'cryptography', not 'types cryptography'."""
+        for _ in range(20):
+            result = describe_unknown("what are the types of cryptography", researching=False)
+            self.assertIn("cryptography", result.lower(), result)
+            self.assertNotIn("types cryptography", result.lower(), result)
+
+    def test_describe_unknown_deep_learning_preserved(self):
+        """'deep learning' is another compound noun that should be kept intact."""
+        for _ in range(20):
+            result = describe_unknown("tell me about deep learning", researching=False)
+            self.assertIn("deep learning", result.lower(), result)
+
     def test_what_about_that_is_follow_up(self):
         self.assertTrue(is_follow_up("what about that"))
         self.assertTrue(is_follow_up("what about this?"))
