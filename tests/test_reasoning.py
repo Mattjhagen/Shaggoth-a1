@@ -12093,3 +12093,63 @@ def test_batch330_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is the cold war",                                      "cold war"),
+    ("what is the space race",                                    "space race"),
+    ("what is the new deal",                                      "new deal"),
+    ("what is the great depression",                              "great depression"),
+    ("what is the enlightenment",                                 "enlightenment"),
+    ("what is the renaissance",                                   "renaissance"),
+    ("what is the industrial revolution",                         "industrial revolution"),
+    ("what is the french revolution",                             "french revolution"),
+    ("what is manifest destiny",                                  "manifest destiny"),
+    ("what is the monroe doctrine",                               "monroe doctrine"),
+    ("what is the marshall plan",                                 "marshall plan"),
+    ("what is the civil rights movement",                         "civil rights movement"),
+    ("what is the suffragette movement",                          "suffragette movement"),
+    ("what is the labor movement",                                "labor movement"),
+    ("what is the germ theory",                                   "germ theory"),
+    ("what is the big bang theory",                               "big bang theory"),
+    ("what is the theory of relativity",                          "theory of relativity"),
+    ("what is the magna carta",                                   "magna carta"),
+    ("what is the bill of rights",                                "bill of rights"),
+    ("what is habeas corpus",                                     "habeas corpus"),
+])
+def test_batch331_subject_extraction(question, expected):
+    """Batch 331: named political/historical/cultural concepts."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a confidence boost",                                "confidence boost"),
+    ("what is an immune boost",                                   "immune boost"),
+    ("what is a turboboost",                                      "turboboost"),
+    ("what is the east coast",                                    "east coast"),
+    ("what is the west coast",                                    "west coast"),
+    ("what is a coastline",                                       "coastline"),
+    ("what is a pot roast",                                       "pot roast"),
+    ("what is a slow roast",                                      "slow roast"),
+    ("what is french toast",                                      "french toast"),
+    ("what is a talk show host",                                  "talk show host"),
+    ("what is a ghost host",                                      "ghost host"),
+    ("what is a blog post",                                       "blog post"),
+    ("what is a lamp post",                                       "lamp post"),
+    ("what is a gatepost",                                        "gatepost"),
+    ("what is a ghost writer",                                    "ghost writer"),
+    ("what is a ghost town",                                      "ghost town"),
+    ("what is a permafrost",                                      "permafrost"),
+    ("what is a ground frost",                                    "ground frost"),
+    ("what is a blind trust",                                     "blind trust"),
+    ("what is a trust fund",                                      "trust fund"),
+])
+def test_batch332_subject_extraction(question, expected):
+    """Batch 332: adversarial — boost/coast/roast/host/post/ghost/frost/trust noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
