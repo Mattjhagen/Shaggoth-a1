@@ -1124,6 +1124,16 @@ def subject_of(question: str) -> str:
     )
     if _m_need_for_act:
         text = _m_need_for_act.group(1)
+    # "ACTOR contributes/leads to X" → X  (the contribution target is the lookup subject)
+    # "humans contribute to climate change" → "climate change"
+    _m_contrib = re.match(
+        r"^.+\s+(?:contributes?\s+to|leads?\s+to|led\s+to|add[s]?\s+to|"
+        r"attribute[sd]?\s+to|result[s]?\s+in|result(?:ed|ing)?\s+in)\s+"
+        r"(?:the\s+|a\s+|an\s+)?(.+)$",
+        text, re.I,
+    )
+    if _m_contrib:
+        return _m_contrib.group(1).strip()
     # Trailing passive progressive: "amazon rainforest being destroyed" → "amazon rainforest"
     # Fires before the main trailing-verb strip, which only matches single active verbs.
     text = re.sub(r"\s+being\s+\w+(?:ed|en)\s*$", "", text, flags=re.I)

@@ -8318,3 +8318,45 @@ def test_batch199_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" (environmental term) → X
+    ("what is climate change",                                 "climate change"),
+    ("what is global warming",                                 "global warming"),
+    ("what is deforestation",                                  "deforestation"),
+    ("what is biodiversity",                                   "biodiversity"),
+    ("what is an ecosystem",                                   "ecosystem"),
+    # "what causes X" → X
+    ("what causes climate change",                             "climate change"),
+    ("what causes acid rain",                                  "acid rain"),
+    # "what is the X" → X
+    ("what is the greenhouse effect",                          "greenhouse effect"),
+    # "how does X affect Y" → X (existing design: agent is lookup subject)
+    ("how does pollution affect the ocean",                    "pollution"),
+    # "what is the ozone layer" → "ozone layer"
+    ("what is the ozone layer",                                "ozone layer"),
+    # "how do ACTOR contribute to X" → X (contribution target is lookup subject)
+    ("how do humans contribute to climate change",             "climate change"),
+    # "what are the effects of X" → X
+    ("what are the effects of deforestation",                  "deforestation"),
+    # "why is X important" → X
+    ("why is biodiversity important",                          "biodiversity"),
+    ("why is the rainforest important",                        "rainforest"),
+    # "what is a X" → X
+    ("what is a carbon footprint",                             "carbon footprint"),
+    # "how does X work" → X
+    ("how does solar energy work",                             "solar energy"),
+    ("what is renewable energy",                               "renewable energy"),
+    # "what is X pollution" → "X pollution"
+    ("what is air pollution",                                  "air pollution"),
+    ("what is water pollution",                                "water pollution"),
+    # "what causes species extinction" → "species extinction"
+    ("what causes species extinction",                         "species extinction"),
+])
+def test_batch200_subject_extraction(question, expected):
+    """Batch 200: environmental science — climate, ecosystems, pollution."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
