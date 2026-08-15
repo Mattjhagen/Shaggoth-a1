@@ -572,6 +572,11 @@ def subject_of(question: str) -> str:
     _m_we = re.match(r"^(?:we|us|you|one|people)\s+(\w+)\s*$", text, re.I)
     if _m_we:
         text = _m_we.group(1)
+    # "it VERB in X" → X  (dummy-subject weather/frequency questions)
+    # e.g. "how often does it rain in london" → "it rain in london" → "london"
+    _m_it_in = re.match(r"^it\s+\w+\s+in\s+(?:the\s+|a\s+)?(.+)$", text, re.I)
+    if _m_it_in:
+        text = _m_it_in.group(1)
     # "distance from X to Y" → X  (must fire before "to <verb>" strip below)
     _m_dist_from = re.match(r"^distance\s+from\s+(?:the\s+|a\s+)?(.+?)\s+to\b", text, re.I)
     if _m_dist_from:
@@ -582,8 +587,20 @@ def subject_of(question: str) -> str:
     # "what does caffeine do to the brain" → QW strip → "caffeine do to the brain"
     # Strip "do to [article] NOUN[S]" tail → "caffeine"
     text = re.sub(r"\s+do\s+to\s+(?:(?:the|a|an|your|our|your)\s+)?\w+(?:\s+\w+)?\s*$", "", text, flags=re.I)
-    # "X does/do/did Y have" → X  (e.g. "how many moons does Jupiter have" → "moons")
-    text = re.sub(r"\s+(?:does|do|did)\s+\w+(?:\s+\w+)?\s+have\s*$", "", text, flags=re.I)
+    # "NOUN does/do/did ENTITY possession-verb" → ENTITY (entity being described)
+    # e.g. "legs does a spider have" → "spider"; "milk does a cow produce" → "cow"
+    # Only fires when the final word is a possession/production verb so that
+    # "insulin do in the body" (body ≠ verb) and similar are not affected.
+    # Article group requires trailing space so "adults" is not split as "a" + "dults".
+    _m_entity_have = re.match(
+        r"^\w+(?:\s+\w+)?\s+(?:does|do|did)\s+(?:a\s+|an\s+|the\s+)?"
+        r"(\w+(?:\s+\w+)?)\s+"
+        r"(?:have|has|need[s]?|produce[sd]?|make[s]?|contain[sd]?|hold[s]?|"
+        r"weigh[s]?|cost[s]?|generate[sd]?|carry|carries|consume[sd]?|use[sd]?)\s*$",
+        text, re.I,
+    )
+    if _m_entity_have:
+        text = _m_entity_have.group(1)
     # "X are there [in Y]" → X  (e.g. "what kinds of algae are there" → "algae",
     # "what kinds of planets are there in the solar system" → "planets")
     # Also "X are in/on/at Y" (e.g. "how many planets are in the solar system" → "planets")

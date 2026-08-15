@@ -117,8 +117,8 @@ def test_enumerating_questions(question):
     # "how many X are in Y" → subject is X
     ("how many planets are in the solar system", "planets"),
     ("how many bones are in the human body", "bones"),
-    # "how many X does Y have" → subject is X
-    ("how many moons does Jupiter have", "moons"),
+    # "how many X does Y have" → subject is Y (entity being described)
+    ("how many moons does Jupiter have", "Jupiter"),
     # "how long does X take" → strip degree word + trailing "take"
     ("how long does photosynthesis take", "photosynthesis"),
 ])
@@ -1551,8 +1551,8 @@ def test_batch19_subject_extraction(question, expected):
     ("how much water should you drink",             "water"),
     ("how much protein should you eat",             "protein"),
     # Modal + article + noun + verb tail: "how much X does a NOUN VERB" → X
-    ("how much sleep does a person need",           "sleep"),
-    ("how much oxygen does a human need",           "oxygen"),
+    ("how much sleep does a person need",           "person"),
+    ("how much oxygen does a human need",           "human"),
     # Unit-noun does pattern: "how many calories does X burn" → X
     ("how many calories does running burn",         "running"),
     ("how many calories does swimming burn",        "swimming"),
@@ -1876,8 +1876,8 @@ def test_batch29_subject_extraction(question, expected):
     ("what is gluten",                              "gluten"),
     ("why is sugar bad for you",                    "sugar"),
     ("what foods are high in protein",              "foods"),
-    ("how much protein does the body need",         "protein"),
-    ("what vitamins does the body need",            "vitamins"),
+    ("how much protein does the body need",         "body"),
+    ("what vitamins does the body need",            "body"),
     ("how does caffeine affect the body",           "caffeine"),
     ("what is the difference between carbs and fat", "carbs and fat"),
     # Animals / wildlife
@@ -2048,13 +2048,13 @@ def test_batch33_subject_extraction(question, expected):
 
 
 @pytest.mark.parametrize("question,expected", [
-    # "how many X does/do Y have/need" → X
-    ("how many chambers does the heart have",       "chambers"),
-    ("how many chromosomes do humans have",         "chromosomes"),
-    ("how many teeth do adults have",               "teeth"),
-    ("how much water does the body need",           "water"),
-    ("how much sleep does a teenager need",         "sleep"),
-    ("how much protein does a person need",         "protein"),
+    # "how many X does/do Y have/need" → Y (entity being described)
+    ("how many chambers does the heart have",       "heart"),
+    ("how many chromosomes do humans have",         "humans"),
+    ("how many teeth do adults have",               "adults"),
+    ("how much water does the body need",           "body"),
+    ("how much sleep does a teenager need",         "teenager"),
+    ("how much protein does a person need",         "person"),
     # "what is X known for" → X
     ("what is einstein known for",                  "einstein"),
     ("what is nasa known for",                      "nasa"),
@@ -2788,6 +2788,36 @@ def test_batch54_subject_extraction(question, expected):
 ])
 def test_batch55_subject_extraction(question, expected):
     """Batch 55: where-does/do/is patterns; language-do-people-in-X second-pass; when/who."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Batch 56: how-many/much X does Y VERB → Y; how often does it VERB in X
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "how many X does/do Y have" → Y (entity being described)
+    ("how many legs does a spider have",               "spider"),
+    ("how many teeth does a shark have",               "shark"),
+    ("how many sides does a hexagon have",             "hexagon"),
+    # "how much X does Y produce/make" → Y
+    ("how much milk does a cow produce",               "cow"),
+    ("how much oxygen does a tree produce",            "tree"),
+    # "how often does a NOUN happen" → NOUN
+    ("how often does a solar eclipse happen",          "solar eclipse"),
+    # "how often does it VERB in X" → X  (dummy-subject location questions)
+    ("how often does it rain in london",               "london"),
+    # "how many X are there in Y" → X (unchanged: "are there" pattern)
+    ("how many planets are there in the solar system", "planets"),
+    ("how many bones are there in the human body",     "bones"),
+    ("how many countries are there in the world",      "countries"),
+])
+def test_batch56_subject_extraction(question, expected):
+    """Batch 56: how-many/much-does-entity-verb returns entity; dummy-it in location."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
