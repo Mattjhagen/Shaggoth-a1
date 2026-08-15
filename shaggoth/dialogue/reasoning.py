@@ -941,10 +941,14 @@ def subject_of(question: str) -> str:
     if _m_cat_is:
         _cat_captured = _m_cat_is.group(1)
         # Don't fire for "country is X in/on/at/from" — that's handled by _m_loc_noun later.
-        # Don't fire when the capture is a predicate adjective phrase ("element is most abundant"):
-        # group(1) would be "most abundant on earth", not a noun.
+        # Don't fire when the capture is a predicate adjective phrase ("element is most abundant"
+        # or "food is high in protein" — those are handled by _m_adj_in later).
         if (not re.search(r"\s+(?:in|on|at|from)\s*$", _cat_captured, re.I)
-                and not re.match(r"^(?:most|least|very|quite|so|more|less|too)\b", _cat_captured, re.I)):
+                and not re.match(
+                    r"^(?:most|least|very|quite|so|more|less|too|"
+                    r"high|low|rich|poor|lacking|deficient|abundant|dense|"
+                    r"concentrated|elevated|depleted|packed|loaded|full|empty)\b",
+                    _cat_captured, re.I)):
             text = _cat_captured
     # "what does it mean when X VERB" → X  (physiological/behavioral signal questions)
     # e.g. "it mean when your heart races" → "heart"
@@ -1194,7 +1198,11 @@ def subject_of(question: str) -> str:
     if _m_cat_is2:
         _cat2 = _m_cat_is2.group(1)
         if (not re.search(r"\s+(?:in|on|at|from)\s*$", _cat2, re.I)
-                and not re.match(r"^(?:most|least|very|quite|so|more|less|too)\b", _cat2, re.I)):
+                and not re.match(
+                    r"^(?:most|least|very|quite|so|more|less|too|"
+                    r"high|low|rich|poor|lacking|deficient|abundant|dense|"
+                    r"concentrated|elevated|depleted|packed|loaded|full|empty)\b",
+                    _cat2, re.I)):
             text = _cat2
     # Temporal prefix: "when will the next solar eclipse be" → verb strip → "next solar eclipse"
     # → strip leading "next"/"upcoming" → "solar eclipse". Safe: temporal modifiers add nothing

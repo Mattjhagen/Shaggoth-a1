@@ -7885,3 +7885,44 @@ def test_batch189_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X (cooking concepts)
+    ("what is umami",                                           "umami"),
+    ("what is sauteing",                                        "sauteing"),
+    ("what is a roux",                                          "roux"),
+    ("what is blanching",                                       "blanching"),
+    ("what is basting",                                         "basting"),
+    # "how do you make X" → X
+    ("how do you make pasta",                                   "pasta"),
+    ("how do you make bread",                                   "bread"),
+    ("how do you make pizza dough",                             "pizza dough"),
+    # "what is the difference between X and Y" → X and Y
+    ("what is the difference between baking and roasting",      "baking and roasting"),
+    # "how long does it take to cook X" → X
+    ("how long does it take to cook chicken",                   "chicken"),
+    ("how long does it take to cook pasta",                     "pasta"),
+    # "what temperature do you cook X at" → X
+    ("what temperature do you cook chicken at",                 "chicken"),
+    # "what are the ingredients in X" → X
+    ("what are the ingredients in guacamole",                   "guacamole"),
+    ("what are the ingredients in hummus",                      "hummus"),
+    # "how do you boil a X" → X
+    ("how do you boil an egg",                                  "egg"),
+    # "what is the best way to cook X" → X
+    ("what is the best way to cook steak",                      "steak"),
+    # "how many calories are in a X" → X
+    ("how many calories are in an apple",                       "apple"),
+    ("how many calories are in a banana",                       "banana"),
+    # "what food is high in X" → X (adjective-in-nutrient extraction)
+    ("what food is high in protein",                            "protein"),
+    # "how do you store X" → X
+    ("how do you store leftovers",                              "leftovers"),
+])
+def test_batch190_subject_extraction(question, expected):
+    """Batch 190: food/cooking — techniques, recipes, nutrients, storage."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
