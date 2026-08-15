@@ -326,6 +326,15 @@ def subject_of(question: str) -> str:
     )
     if _m_record_for:
         return _m_record_for.group(1).strip()
+    # "what happened at pearl harbor" / "what occurred in berlin" → PLACE
+    # Must fire before the broad leading-verb strip so we capture the preposition+place together.
+    _m_event_at = re.match(
+        r"^(?:happen(?:ed|s)?|occur(?:red|s)?)\s+"
+        r"(?:at|in|on|during|near)\s+(?:the\s+|a\s+|an\s+)?(.+)$",
+        text, re.I,
+    )
+    if _m_event_at:
+        text = _m_event_at.group(1)
     # After stripping "who"/"what", attribution and trigger verbs head the remainder:
     # "who invented the telephone" → "invented the telephone" → "the telephone"
     # "what started the industrial revolution" → "started the ..." → "the ..."
@@ -598,6 +607,12 @@ def subject_of(question: str) -> str:
     )
     if _m_has_won_most:
         text = _m_has_won_most.group(1)
+    # "who has the most super bowl wins" → QW strips "who has", article strips "the"
+    # → text = "most super bowl wins" → superlative strip would wrongly eat "most super"
+    # Guard on "who has/have/had" specifically so "who is the most streamed artist"
+    # (where "most streamed" is a true superlative adjective) falls through untouched.
+    elif re.match(r"^most\s+", text, re.I) and re.match(r"^who\s+ha[sd]\b", _original, re.I):
+        text = re.sub(r"^most\s+", "", text, flags=re.I)
     # "what leads to X", "what led to X", "what triggers X" → X
     text = re.sub(
         r"^(?:leads?|led|trigger[sd]?|drove|drives?|prompts?)\s+(?:to\s+)?",
@@ -698,6 +713,15 @@ def subject_of(question: str) -> str:
     )
     if _m_good_for:
         text = _m_good_for.group(1)
+    # "what foods contain vitamin c" → "vitamin c"; "what sources have protein" → "protein"
+    # The searched-for substance/nutrient is the lookup subject, not the generic category.
+    _m_cat_contain = re.match(
+        r"^(?:foods?|items?|products?|sources?|ingredients?|things?)\s+"
+        r"(?:contain|have|include|provide|offer)\s+(.+)$",
+        text, re.I,
+    )
+    if _m_cat_contain:
+        text = _m_cat_contain.group(1)
     # "what elements are in water" → after "what " is stripped → "elements are in water"
     # → look up "water" (the container), not "elements" (the thing counted).
     _is_how_many = bool(re.match(r"^\s*(?:and |but |so )?how\s+many\b", _original, re.I))
@@ -970,7 +994,7 @@ def subject_of(question: str) -> str:
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
         r"stop(?:ped|s)?|end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?|"
-        r"cover(?:ed|s)?|surround(?:ed|s)?|fill(?:ed|s)?|consist[s]?|look[s]?|"
+        r"cover(?:ed|s)?|surround(?:ed|s)?|fill(?:ed|s)?|consist[s]?|contain[s]?|look[s]?|"
         # Duration/persistence verbs: "how long does pregnancy last" → "pregnancy"
         r"last[s]?|persist[s]?|remain[s]?|"
         # Extinction/movement verbs. Use negative lookahead (?!\s+of) so that

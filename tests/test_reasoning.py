@@ -5107,3 +5107,211 @@ def test_batch118_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is artificial intelligence",                  "artificial intelligence"),
+    ("what is machine learning",                         "machine learning"),
+    ("what is blockchain",                               "blockchain"),
+    ("what is the internet of things",                   "internet of things"),
+    ("what is virtual reality",                          "virtual reality"),
+    ("what is augmented reality",                        "augmented reality"),
+    ("what is cloud computing",                          "cloud computing"),
+    # "what is the difference between X and Y"
+    ("what is the difference between ai and machine learning", "ai and machine learning"),
+    # "who invented X"
+    ("who invented the internet",                        "internet"),
+    ("who invented the telephone",                       "telephone"),
+    # "when was X invented"
+    ("when was the internet invented",                   "internet"),
+    ("when was the telephone invented",                  "telephone"),
+    # "how does X work"
+    ("how does a computer work",                         "computer"),
+    ("how does wifi work",                               "wifi"),
+    ("how does gps work",                                "gps"),
+    # "what is X used for"
+    ("what is python used for",                          "python"),
+    ("what is javascript used for",                      "javascript"),
+    # "how many X have been sold"
+    ("how many iphones have been sold",                  "iphones"),
+    # "what is the best X"
+    ("what is the best programming language",            "programming language"),
+    # "how fast is X"
+    ("how fast is 5g",                                   "5g"),
+    # "what does X stand for"
+    ("what does cpu stand for",                          "cpu"),
+])
+def test_batch119_subject_extraction(question, expected):
+    """Batch 119: technology/consumer electronics — AI, inventions, devices, languages."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is the capital of X"
+    ("what is the capital of france",                    "france"),
+    ("what is the capital of japan",                     "japan"),
+    ("what is the capital of australia",                 "australia"),
+    # "what country is X in"
+    ("what country is paris in",                         "paris"),
+    ("what country is tokyo in",                         "tokyo"),
+    # "what continent is X in"
+    ("what continent is brazil in",                      "brazil"),
+    ("what continent is egypt in",                       "egypt"),
+    # "how big is X"
+    ("how big is russia",                                "russia"),
+    ("how big is the amazon rainforest",                 "amazon rainforest"),
+    # "how long is X"
+    ("how long is the nile river",                       "nile river"),
+    ("how long is the great wall of china",              "great wall of china"),
+    # "how tall is X"
+    ("how tall is mount everest",                        "mount everest"),
+    ("how tall is kilimanjaro",                          "kilimanjaro"),
+    # "what is the largest X"
+    ("what is the largest country in the world",         "country"),
+    ("what is the largest continent",                    "continent"),
+    ("what is the largest ocean",                        "ocean"),
+    # "what is the population of X"
+    ("what is the population of china",                  "china"),
+    ("what is the population of the world",              "world"),
+    # "where is X located"
+    ("where is the amazon river located",                "amazon river"),
+    ("where is the sahara desert located",               "sahara desert"),
+    # "what language is spoken in X"
+    ("what language is spoken in brazil",                "brazil"),
+])
+def test_batch120_subject_extraction(question, expected):
+    """Batch 120: geography — capitals, countries, continents, rivers, mountains, oceans."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "who started X"
+    ("who started world war 1",                          "world war 1"),
+    ("who started world war 2",                          "world war 2"),
+    # "when did X start"
+    ("when did world war 1 start",                       "world war 1"),
+    ("when did the french revolution start",             "french revolution"),
+    # "when did X end"
+    ("when did world war 2 end",                         "world war 2"),
+    # "what caused X"
+    ("what caused world war 1",                          "world war 1"),
+    ("what caused the great depression",                 "great depression"),
+    # "who was X"
+    ("who was napoleon",                                 "napoleon"),
+    ("who was cleopatra",                                "cleopatra"),
+    ("who was julius caesar",                            "julius caesar"),
+    # "who won X"
+    ("who won world war 2",                              "world war 2"),
+    ("who won the american civil war",                   "american civil war"),
+    # "when was X born"
+    ("when was napoleon born",                           "napoleon"),
+    ("when was albert einstein born",                    "albert einstein"),
+    # "when did X die"
+    ("when did napoleon die",                            "napoleon"),
+    ("when did abraham lincoln die",                     "abraham lincoln"),
+    # "how long did X last"
+    ("how long did world war 1 last",                    "world war 1"),
+    ("how long did the roman empire last",               "roman empire"),
+    # "what happened at X"
+    ("what happened at pearl harbor",                    "pearl harbor"),
+    # "where did X happen"
+    ("where did world war 2 happen",                     "world war 2"),
+    ("where did the french revolution happen",           "french revolution"),
+])
+def test_batch121_subject_extraction(question, expected):
+    """Batch 121: history — wars, revolutions, historical figures, events."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is a calorie",                                "calorie"),
+    ("what is protein",                                  "protein"),
+    ("what is fiber",                                    "fiber"),
+    ("what is gluten",                                   "gluten"),
+    ("what is cholesterol",                              "cholesterol"),
+    # "what foods contain X"
+    ("what foods contain vitamin c",                     "vitamin c"),
+    ("what foods contain protein",                       "protein"),
+    # "how many calories are in X"
+    ("how many calories are in an apple",                "apple"),
+    ("how many calories are in a banana",                "banana"),
+    ("how many calories are in a chicken breast",        "chicken breast"),
+    # "what does X contain"
+    ("what does milk contain",                           "milk"),
+    ("what does broccoli contain",                       "broccoli"),
+    # "is X healthy"
+    ("is coffee healthy",                                "coffee"),
+    ("is red meat healthy",                              "red meat"),
+    # "how much X should you eat"
+    ("how much protein should you eat",                  "protein"),
+    ("how much sugar should you eat",                    "sugar"),
+    # "what are the benefits of X"
+    ("what are the benefits of exercise",                "exercise"),
+    ("what are the benefits of green tea",               "green tea"),
+    # "what is the difference between X and Y"
+    ("what is the difference between vegan and vegetarian", "vegan and vegetarian"),
+    # "how do you make X"
+    ("how do you make pasta",                            "pasta"),
+    ("how do you make bread",                            "bread"),
+])
+def test_batch122_subject_extraction(question, expected):
+    """Batch 122: food/nutrition — calories, nutrients, health foods, recipes."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is a touchdown",                              "touchdown"),
+    ("what is offside in soccer",                        "offside"),
+    ("what is a grand slam in tennis",                   "grand slam"),
+    # "how many players are in X"
+    ("how many players are in a soccer team",            "soccer"),
+    ("how many players are in a basketball team",        "basketball"),
+    # "how long is a X game"
+    ("how long is a soccer game",                        "soccer game"),
+    ("how long is an nba game",                          "nba game"),
+    # "who has the most X"
+    ("who has the most super bowl wins",                 "super bowl wins"),
+    ("who has the most nba championships",               "nba championships"),
+    # "when did X start"
+    ("when did the olympics start",                      "olympics"),
+    ("when did the world cup start",                     "world cup"),
+    # "what is the fastest X"
+    ("what is the fastest sport in the world",           "sport"),
+    # "who won the X"
+    ("who won the world cup",                            "world cup"),
+    ("who won the super bowl",                           "super bowl"),
+    # "how many X are there"
+    ("how many olympic sports are there",                "olympic sports"),
+    # "what is the most popular X"
+    ("what is the most popular sport in the world",      "sport"),
+    # "how far does X run"
+    ("how far does a marathon runner run",               "marathon runner"),
+    # "what is X in Y"
+    ("what is a hat trick in hockey",                    "hat trick"),
+    # "how many sets are in X"
+    ("how many sets are in a tennis match",              "tennis match"),
+    # "when is X"
+    ("when is the super bowl",                           "super bowl"),
+    ("when is the world cup",                            "world cup"),
+])
+def test_batch123_subject_extraction(question, expected):
+    """Batch 123: sports — game rules, records, events, tournaments."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
