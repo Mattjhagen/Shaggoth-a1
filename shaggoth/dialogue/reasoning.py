@@ -352,7 +352,8 @@ def subject_of(question: str) -> str:
         r"^(?:invented?|discover(?:ed|s)?|found(?:ed|s)?|built|creat(?:ed|es?)|"
         r"wrote|written|painted?|composed?|designed?|develop(?:ed|s)?|prov(?:ed|en|es?)?|"
         r"won(?!\s+(?:the\s+)?most)|ruled|fought|signed|explored|colonized?|commanded?|led(?!\s+to\b)|"
-        r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
+        # Guard "end to end" compound adjective (e.g. "end to end encryption") from being stripped.
+        r"start(?:ed|s)?|end(?!\s+to\s+end\b)(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
         r"caus(?:ed|es?)|brought\s+about|coined|named|happen(?:ed|s)?|occur(?:red|s)?|"
         # Media/entertainment leading verbs: "who sang X" / "who directed X" → X
         r"sang|direct(?:ed|s)?|starred\s+in|play(?:ed|s)?|voice(?:d|s)?|portray(?:ed|s)?|narrate[sd]?|"
@@ -1236,7 +1237,8 @@ def subject_of(question: str) -> str:
         # "stock market crash" is a noun compound: guard crash with (?=\s) so it only
         # strips as a verb when followed by more content (e.g. "crash and lose data").
         # "computer to crash" is already handled by the "to \w+" strip above.
-        r"stop(?:ped|s)?|end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?(?=\s)|"
+        # "end to end" is a compound adjective ("end to end encryption") — guard "end" when preceded by "to ".
+        r"stop(?:ped|s)?|(?<!to\s)end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?(?=\s)|"
         r"cover(?:ed|s)?|surround(?:ed|s)?|fill(?:ed|s)?|consist[s]?|contain[s]?|look[s]?|"
         # Duration/persistence verbs: "how long does pregnancy last" → "pregnancy"
         r"last[s]?|persist[s]?|remain[s]?|"

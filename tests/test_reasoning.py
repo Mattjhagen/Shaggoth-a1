@@ -10170,3 +10170,63 @@ def test_batch265_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is supply and demand",                                "supply and demand"),
+    ("what is gross domestic product",                           "gross domestic product"),
+    ("what is a trade deficit",                                  "trade deficit"),
+    ("what is a trade surplus",                                  "trade surplus"),
+    ("what is quantitative easing",                              "quantitative easing"),
+    ("what is the gold standard",                                "gold standard"),
+    ("what is a hedge fund",                                     "hedge fund"),
+    ("what is venture capital",                                  "venture capital"),
+    ("what is private equity",                                   "private equity"),
+    ("what is a bond yield",                                     "bond yield"),
+    ("what is market capitalization",                            "market capitalization"),
+    ("what is a bear market",                                    "bear market"),
+    ("what is a bull market",                                    "bull market"),
+    ("what is compound interest",                                "compound interest"),
+    ("what is a mutual fund",                                    "mutual fund"),
+    ("what is an index fund",                                    "index fund"),
+    ("what is a stock option",                                   "stock option"),
+    ("what is gdp growth",                                       "gdp growth"),
+    ("what is a central bank",                                   "central bank"),
+    ("what is microeconomics",                                   "microeconomics"),
+])
+def test_batch266_subject_extraction(question, expected):
+    """Batch 266: economics/business — compound financial terms, market concepts."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is an api",                                           "api"),
+    ("what is a rest api",                                       "rest api"),
+    ("what is graphql",                                          "graphql"),
+    ("what is a microservice",                                   "microservice"),
+    ("what is containerization",                                 "containerization"),
+    ("what is kubernetes",                                       "kubernetes"),
+    ("what is docker",                                           "docker"),
+    ("what is devops",                                           "devops"),
+    ("what is continuous integration",                           "continuous integration"),
+    ("what is version control",                                  "version control"),
+    ("what is open source software",                             "open source software"),
+    ("what is cloud computing",                                  "cloud computing"),
+    ("what is serverless computing",                             "serverless computing"),
+    ("what is a load balancer",                                  "load balancer"),
+    ("what is caching",                                          "caching"),
+    ("what is a database index",                                 "database index"),
+    ("what is sql injection",                                    "sql injection"),
+    ("what is two factor authentication",                        "two factor authentication"),
+    ("what is end to end encryption",                            "end to end encryption"),
+    ("what is a vpn",                                            "vpn"),
+])
+def test_batch267_subject_extraction(question, expected):
+    """Batch 267: technology/software — APIs, cloud, security, compound tech terms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
