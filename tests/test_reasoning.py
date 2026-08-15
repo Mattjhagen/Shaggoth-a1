@@ -13446,3 +13446,117 @@ def test_batch370_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "book" compound nouns
+    ("what is a textbook",                                       "textbook"),
+    ("what is a notebook",                                       "notebook"),
+    ("what is a handbook",                                       "handbook"),
+    ("what is a guidebook",                                      "guidebook"),
+    ("what is a comic book",                                     "comic book"),
+    # "art" compound nouns
+    ("what is fine art",                                         "fine art"),
+    ("what is folk art",                                         "folk art"),
+    ("what is street art",                                       "street art"),
+    ("what is pop art",                                          "pop art"),
+    # "music" compound nouns
+    ("what is classical music",                                  "classical music"),
+    ("what is folk music",                                       "folk music"),
+    ("what is pop music",                                        "pop music"),
+    ("what is jazz music",                                       "jazz music"),
+    ("what is rock music",                                       "rock music"),
+    # "film" compound nouns
+    ("what is a film noir",                                      "film noir"),
+    ("what is a silent film",                                    "silent film"),
+    # "media" terms
+    ("what is social media",                                     "social media"),
+    ("what is broadcast media",                                  "broadcast media"),
+    ("what is print media",                                      "print media"),
+    # genre terms
+    ("what is science fiction",                                  "science fiction"),
+    ("what is creative writing",                                 "creative writing"),
+    ("what is a short story",                                    "short story"),
+    ("what is a news article",                                   "news article"),
+])
+def test_batch371_subject_extraction(question, expected):
+    """Batch 371: arts, literature, and media compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "software" compound nouns
+    ("what is open source software",                             "open source software"),
+    ("what is freeware",                                         "freeware"),
+    ("what is malware",                                          "malware"),
+    ("what is spyware",                                          "spyware"),
+    ("what is adware",                                           "adware"),
+    ("what is firmware",                                         "firmware"),
+    # "network" compound nouns
+    ("what is a local area network",                             "local area network"),
+    ("what is a wide area network",                              "wide area network"),
+    ("what is a wireless network",                               "wireless network"),
+    ("what is a peer to peer network",                           "peer to peer network"),
+    # "database" compound nouns
+    ("what is a relational database",                            "relational database"),
+    ("what is a cloud database",                                 "cloud database"),
+    # programming concepts
+    ("what is machine learning",                                 "machine learning"),
+    ("what is deep learning",                                    "deep learning"),
+    ("what is object oriented programming",                      "object oriented programming"),
+    ("what is a data structure",                                 "data structure"),
+    ("what is a linked list",                                    "linked list"),
+    ("what is a binary tree",                                    "binary tree"),
+    ("what is source code",                                      "source code"),
+    ("what is open source",                                      "open source"),
+    # security concepts
+    ("what is a firewall",                                       "firewall"),
+    ("what is encryption",                                       "encryption"),
+    ("what is a denial of service attack",                       "denial of service attack"),
+])
+def test_batch372_subject_extraction(question, expected):
+    """Batch 372: computing and software compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "cell" compound nouns
+    ("what is a stem cell",                                      "stem cell"),
+    ("what is a blood cell",                                     "blood cell"),
+    ("what is a red blood cell",                                 "red blood cell"),
+    ("what is a white blood cell",                               "white blood cell"),
+    ("what is a nerve cell",                                     "nerve cell"),
+    # "cycle" compound nouns
+    ("what is a life cycle",                                     "life cycle"),
+    ("what is the water cycle",                                  "water cycle"),
+    ("what is the carbon cycle",                                 "carbon cycle"),
+    ("what is the nitrogen cycle",                               "nitrogen cycle"),
+    ("what is a food chain",                                     "food chain"),
+    ("what is a food web",                                       "food web"),
+    # ecosystem concepts
+    ("what is photosynthesis",                                   "photosynthesis"),
+    ("what is an ecosystem",                                     "ecosystem"),
+    ("what is biodiversity",                                     "biodiversity"),
+    ("what is natural selection",                                "natural selection"),
+    ("what is evolution",                                        "evolution"),
+    ("what is a species",                                        "species"),
+    ("what is a habitat",                                        "habitat"),
+    # genetics
+    ("what is dna replication",                                  "dna replication"),
+    ("what is gene expression",                                  "gene expression"),
+    ("what is a mutation",                                       "mutation"),
+    ("what is genetic engineering",                              "genetic engineering"),
+    ("what is cloning",                                          "cloning"),
+])
+def test_batch373_subject_extraction(question, expected):
+    """Batch 373: biology and ecology compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
