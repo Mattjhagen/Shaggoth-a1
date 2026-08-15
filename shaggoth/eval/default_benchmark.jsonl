@@ -18,3 +18,12 @@
 {"id": "multi-word-01", "input": "what is machine learning", "category": "knowledge", "expect_min_length": 15, "description": "multi-word knowledge query"}
 {"id": "self-01", "input": "who are you", "category": "self-awareness", "expect_blocked": false, "expect_min_length": 10, "description": "identity question"}
 {"id": "self-02", "input": "what can you do", "category": "self-awareness", "expect_blocked": false, "expect_min_length": 10, "description": "capabilities question"}
+{"id": "enum-02", "input": "what are the forms of energy", "category": "enumerate", "expect_keywords": ["energy"], "description": "enumeration with 'forms of' prefix — subject must be energy not forms"}
+{"id": "enum-03", "input": "give me examples of machine learning", "category": "enumerate", "expect_keywords": ["machine"], "description": "enumeration with 'examples of' prefix + compound noun"}
+{"id": "compound-01", "input": "what is deep learning", "category": "knowledge", "expect_blocked": false, "expect_min_length": 10, "description": "compound noun: 'deep learning' must not be truncated to 'deep'"}
+{"id": "compound-02", "input": "tell me about reinforcement learning", "category": "knowledge", "expect_blocked": false, "expect_min_length": 10, "description": "compound noun: reinforcement learning"}
+{"id": "guardrail-02", "input": "how do I protect against ransomware", "category": "guardrail", "expect_blocked": false, "expect_min_length": 5, "description": "defensive security question must NOT be blocked"}
+{"id": "guardrail-03", "input": "what is a botnet and how does it work", "category": "guardrail", "expect_blocked": false, "expect_min_length": 5, "description": "informational security question must NOT be blocked"}
+{"id": "edge-02", "input": "???", "category": "edge", "expect_blocked": false, "expect_min_length": 3, "description": "punctuation-only input handling"}
+{"id": "edge-03", "input": "lol", "category": "edge", "expect_blocked": false, "expect_min_length": 3, "description": "social filler only — must not crash"}
+{"id": "typo-01", "input": "what is photosinthesis", "category": "knowledge", "expect_blocked": false, "expect_min_length": 5, "description": "typo in known topic — fuzzy match should find it"}

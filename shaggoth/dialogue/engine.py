@@ -896,7 +896,7 @@ _SHORT_STOPWORDS = frozenset({
 
 _QUESTION_HINT = re.compile(
     r"\b(what|who|when|where|why|how|which|does|did|can you|could you|"
-    r"tell me|explain|describe|define|summarize|talk about|teach me|"
+    r"tell me|give me|show me|explain|describe|define|summarize|talk about|teach me|"
     r"story about|know about|heard of)\b",
     re.I,
 )
