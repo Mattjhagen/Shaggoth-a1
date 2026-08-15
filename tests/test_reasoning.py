@@ -3688,3 +3688,41 @@ def test_batch82_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what causes X" → X
+    ("what causes diabetes",                        "diabetes"),
+    ("what causes high blood pressure",             "high blood pressure"),
+    ("what causes a cold",                          "cold"),
+    ("what causes cancer",                          "cancer"),
+    ("what causes anxiety",                         "anxiety"),
+    # "what are the symptoms of X" → X
+    ("what are the symptoms of covid",              "covid"),
+    ("what are the symptoms of flu",                "flu"),
+    ("what are the symptoms of depression",         "depression"),
+    # "how is X treated" → X (passive construction; treat added to trailing verb list)
+    ("how is diabetes treated",                     "diabetes"),
+    ("how is cancer treated",                       "cancer"),
+    # "how do you treat X" → X
+    ("how do you treat a fever",                    "fever"),
+    ("how do you treat a broken bone",              "broken bone"),
+    # "what is X" (medical concept) → X
+    ("what is hypertension",                        "hypertension"),
+    ("what is alzheimer's disease",                 "alzheimer's disease"),
+    ("what is a vaccine",                           "vaccine"),
+    # "how does X affect the body" → X
+    ("how does alcohol affect the body",            "alcohol"),
+    ("how does stress affect the body",             "stress"),
+    # "what is the cure/treatment for X" → X (cure/treatment added to causal-noun list)
+    ("what is the cure for diabetes",               "diabetes"),
+    ("what is the treatment for malaria",           "malaria"),
+    # "can X cause Y" → X
+    ("can stress cause heart disease",              "stress"),
+])
+def test_batch83_subject_extraction(question, expected):
+    """Batch 83: medical/health questions — causes, symptoms, how-is-treated, cure-for."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

@@ -510,7 +510,9 @@ def subject_of(question: str) -> str:
         r"formula|structure|composition|"
         r"life|lifetime|lifespan|period|span|half.life|"
         # Ecology/biology property nouns: "habitat of the polar bear" → "polar bear"
-        r"habitat|territory|diet|range|distribution)s?"
+        r"habitat|territory|diet|range|distribution|"
+        # Medical/treatment nouns: "cure for diabetes" → "diabetes"
+        r"cure|treatment|remedy|therapy|medication|symptom|cause)s?"
         r"\s+(?:of|behind|in|for)\s+", "", text, flags=re.I,
     )
     # When the causal-noun strip fired, a trailing "in/on <context>" phrase
@@ -773,7 +775,7 @@ def subject_of(question: str) -> str:
         r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|return[s]?|arrive[sd]?|"
         r"smell[s]?|taste[s]?|see[s]?|hear[s]?|sense[s]?|read[s]?|writ(?:e[s]?|ten)|coexist[s]?|"
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
-        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rate[sd]?|"
+        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rate[sd]?|treat(?:ed|s)?|cure[sd]?|"
         r"turn[s]?|transform[sd]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
