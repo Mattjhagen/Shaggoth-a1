@@ -391,6 +391,21 @@ class CuriosityLockingTests(unittest.TestCase):
             del self.engine._history[:-100]
         self.assertLessEqual(len(self.engine._history), 100)
 
+    def test_save_history_oserror_does_not_raise(self):
+        """OSError during history persistence must be swallowed, not re-raised.
+
+        A full disk or permission error previously propagated through the
+        finally block of _run_research() and killed the daemon thread before
+        it could clear _running, permanently blocking all future research.
+        """
+        from unittest.mock import patch
+        self.engine._history = [{"topic": "test"}]
+        with patch("os.replace", side_effect=OSError("disk full")):
+            # Must not raise — the daemon thread must survive persistence failures.
+            self.engine._save_history()
+        # State is still accessible; the engine hasn't been corrupted.
+        self.assertIsInstance(self.engine._history, list)
+
 
 class PluginTests(unittest.TestCase):
     def test_teach_plugin_parses_topic_and_content(self):

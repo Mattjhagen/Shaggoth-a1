@@ -464,3 +464,32 @@ class TestSemaphoreGuard:
             sender._semaphore = sem
             result = sender._guarded_send_all('{"title":"T"}', respect_rate_limit=False)
         assert result["sent"] == 1
+
+    def test_notify_dispatch_failure_releases_semaphore(self):
+        """Semaphore must be released when thread dispatch fails before the
+        guarded wrapper starts.  Previously, json.dumps/Thread/start raising
+        would leak the permit; after 8 leaks all notifications were dropped."""
+        import threading
+
+        sender = PushSender(store=_store(), vapid=_vapid(), min_interval=0)
+        initial_value = sender._semaphore._value  # type: ignore[attr-defined]
+
+        with patch("threading.Thread") as mock_thread_cls:
+            mock_thread_cls.return_value.start.side_effect = RuntimeError("no resources")
+            sender.notify("T", "B")
+
+        # Semaphore should be back at its original value (permit was released).
+        assert sender._semaphore._value == initial_value  # type: ignore[attr-defined]
+
+    def test_notify_session_dispatch_failure_releases_semaphore(self):
+        """Same guarantee for notify_session()."""
+        import threading
+
+        sender = PushSender(store=_store(), vapid=_vapid(), min_interval=0)
+        initial_value = sender._semaphore._value  # type: ignore[attr-defined]
+
+        with patch("threading.Thread") as mock_thread_cls:
+            mock_thread_cls.return_value.start.side_effect = RuntimeError("no resources")
+            sender.notify_session("sess-1", "T", "B")
+
+        assert sender._semaphore._value == initial_value  # type: ignore[attr-defined]

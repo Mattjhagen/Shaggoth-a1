@@ -284,6 +284,31 @@ class GuardrailTests(unittest.TestCase):
             self.engine.check_input("tell me about alpha and beta").allowed
         )
 
+    def test_topic_refuse_all_article_keyword_skipped(self):
+        """A keyword whose words are all articles must be skipped, not compiled
+        to \\b\\b, which would match any word boundary in any input."""
+        self.engine.add_rule({
+            "id": "article-only",
+            "type": "topic_refuse",
+            "keywords": ["the", "a an"],
+            "message": "blocked",
+        })
+        # A completely unrelated message must NOT be blocked.
+        self.assertTrue(self.engine.check_input("tell me about photosynthesis").allowed)
+        self.assertTrue(self.engine.check_input("what is machine learning").allowed)
+
+    def test_topic_refuse_mixed_article_and_real_keyword(self):
+        """An article-only keyword is skipped but real keywords in the same rule
+        still fire correctly."""
+        self.engine.add_rule({
+            "id": "mixed-keywords",
+            "type": "topic_refuse",
+            "keywords": ["the", "make a bomb"],
+            "message": "blocked",
+        })
+        self.assertFalse(self.engine.check_input("how do I make a bomb").allowed)
+        self.assertTrue(self.engine.check_input("what is chemistry").allowed)
+
 
 class DeployedConfigTests(unittest.TestCase):
     """Validate the deployed config/guardrails.json has correct values."""
