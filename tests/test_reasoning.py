@@ -466,8 +466,8 @@ def test_causal_past_tense_led(question):
     ("what are the benefits of exercise", "exercise"),
     ("what are the causes of heart disease", "heart disease"),
     ("what are the signs of dehydration", "dehydration"),
-    # 'what led to X' — past-tense lead
-    ("what led to the fall of the Roman Empire", "fall of the Roman Empire"),
+    # 'what led to X' — past-tense lead; "fall of" stripped to core topic
+    ("what led to the fall of the Roman Empire", "Roman Empire"),
     ("what led to World War 1", "World War 1"),
     # 'have phases/feathers' — possession verb trailing strip
     ("why does the moon have phases", "moon"),
@@ -1364,4 +1364,59 @@ def test_batch15_subject_extraction(question, expected):
 ])
 def test_batch15_classify(question, expected_intent):
     """Batch 15: property questions → DEFINE; historical/biological → CAUSAL."""
+    assert classify(question) == expected_intent
+
+
+# --------------------------------------------------------------------------
+# Batch 16: location-noun pattern, "it takes to VERB X", "X of the world",
+#            measurement compound nouns, last/persist verbs, post-led-to event strip
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what LOCATION-NOUN is X in/on" → X
+    ("what country is tokyo in",                    "tokyo"),
+    ("what continent is australia on",              "australia"),
+    ("what country is paris in",                    "paris"),
+    # "how long does it take to VERB X" → X
+    ("how long does it take to boil water",         "water"),
+    ("how long does it take to learn python",       "python"),
+    # "how long does it take for X to VERB" → X
+    ("how long does it take for a bone to heal",    "bone"),
+    ("how long does it take for a wound to heal",   "wound"),
+    # Duration verb
+    ("how long does pregnancy last",                "pregnancy"),
+    ("how long does a cold last",                   "cold"),
+    # "X of the world/universe/etc." → X
+    ("what are the oceans of the world",            "oceans"),
+    ("what are the continents of the world",        "continents"),
+    ("what are the countries of the world",         "countries"),
+    # Measurement compound nouns: "boiling point of X" → X
+    ("what is the boiling point of water",          "water"),
+    ("what is the melting point of iron",           "iron"),
+    ("what is the freezing point of alcohol",       "alcohol"),
+    # Post-led-to event noun strip
+    ("what led to the fall of the roman empire",    "roman empire"),
+    ("what led to the collapse of the soviet union", "soviet union"),
+    ("what caused the spread of covid",             "covid"),
+    ("what caused the rise of democracy",           "democracy"),
+])
+def test_batch16_subject_extraction(question, expected):
+    """Batch 16: location noun, it-takes, of-the-world, measurement nouns, event nouns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected_intent", [
+    ("what country is tokyo in",                    Intent.DEFINE),
+    ("how long does it take to boil water",         Intent.CAUSAL),
+    ("how long does pregnancy last",                Intent.CAUSAL),
+    ("what are the oceans of the world",            Intent.ENUMERATE),
+    ("what is the boiling point of water",          Intent.DEFINE),
+    ("what led to the fall of the roman empire",    Intent.CAUSAL),
+])
+def test_batch16_classify(question, expected_intent):
+    """Batch 16: geography/duration → CAUSAL; ocean enumeration; measurement → DEFINE."""
     assert classify(question) == expected_intent

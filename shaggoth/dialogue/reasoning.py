@@ -346,7 +346,9 @@ def subject_of(question: str) -> str:
         # Factual property nouns: "capital of france" → "france"
         r"capital|population|area|size|location|height|depth|width|length|"
         r"distance|temperature|density|mass|weight|volume|age|name|"
-        r"history|origin|meaning|definition|symbol|flag|currency|language)s?"
+        r"history|origin|meaning|definition|symbol|flag|currency|language|"
+        # Measurement/property compounds: "boiling point of water" → "water"
+        r"point|rate|level|amount|number|count|percentage|quantity)s?"
         r"\s+(?:of|behind|in|for)\s+", "", text, flags=re.I,
     )
     # When the causal-noun strip fired, a trailing "in/on <context>" phrase
@@ -363,6 +365,17 @@ def subject_of(question: str) -> str:
     # "what leads to X", "what led to X", "what triggers X" → X
     text = re.sub(
         r"^(?:leads?|led|trigger[sd]?|drove|drives?|prompts?)\s+(?:to\s+)?",
+        "", text, flags=re.I,
+    )
+    # After "led to" is stripped, "the fall of the Roman Empire" remains.
+    # Strip the event noun (fall/collapse/etc.) and its "of" connector so only
+    # the core entity remains.  This is a second pass that can't be folded into
+    # the earlier causal-noun strip because that fires before the led-to strip.
+    text = re.sub(
+        r"^(?:the\s+)?(?:fall|collapse|rise|decline|end|defeat|death|birth|"
+        r"founding|discovery|invention|establishment|creation|formation|"
+        r"start|beginning|victory|loss|destruction|liberation|emergence|"
+        r"spread|growth|development)\s+of\s+(?:the\s+)?",
         "", text, flags=re.I,
     )
     # Causal verbs that head the remainder after stripping "what":
@@ -393,6 +406,15 @@ def subject_of(question: str) -> str:
         )
         if _m:
             text = _m.group(2)
+    # "how long does it take to boil water" → "water";
+    # "how long does it take for a bone to heal" → "bone".
+    _m_it_takes = re.match(r"^it\s+takes?\s+to\s+\w+\s+(.+)$", text, re.I)
+    if _m_it_takes:
+        text = _m_it_takes.group(1)
+    else:
+        _m_it_takes_for = re.match(r"^it\s+takes?\s+for\s+(?:a|an|the\s+)?\s*(.+?)\s+to\s+\w+\s*$", text, re.I)
+        if _m_it_takes_for:
+            text = _m_it_takes_for.group(1)
     # "why do we dream" / "why do people yawn" → extract the activity, not the pronoun.
     # Restricted to pure generic pronouns (we/us/you/one/people) so that entity nouns
     # like "humans" fall through to the trailing-verb strip instead ("where did humans
@@ -445,6 +467,8 @@ def subject_of(question: str) -> str:
         r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
+        # Duration/persistence verbs: "how long does pregnancy last" → "pregnancy"
+        r"last[s]?|persist[s]?|remain[s]?|"
         # Extinction/movement verbs. Use negative lookahead (?!\s+of) so that
         # noun forms like "the fall of X" and "the collapse of Y" are preserved —
         # only the trailing verb use ("how did Rome fall") should be stripped.
@@ -452,6 +476,15 @@ def subject_of(question: str) -> str:
         r")\b.*$",
         "", text, flags=re.I,
     )
+    # "what country/continent is X in/on" → X.
+    # After "what " is stripped, text may be "country is tokyo in" etc.
+    _m_loc_noun = re.match(
+        r"^(?:country|city|state|province|continent|ocean|sea|river|lake|"
+        r"mountain|island|planet|galaxy|star)\s+(?:is|was|are|were)\s+(.+?)\s+(?:in|on|at)\s*$",
+        text, re.I,
+    )
+    if _m_loc_noun:
+        text = _m_loc_noun.group(1)
     # "X on <modifier>" → X  (e.g. "effect of gravity on time" → "gravity")
     # Only strip trailing "on <1-3 words>" — not "on" inside a topic name.
     text = re.sub(r"\s+on\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
@@ -464,6 +497,10 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+in\s+(?!the\b)\w+\s*$", "", text, flags=re.I)
     # "X from <place>" → X  (e.g. "moon from earth" → "moon")
     text = re.sub(r"\s+from\s+\w+(?:\s+\w+){0,1}\s*$", "", text, flags=re.I)
+    # "oceans of the world" → "oceans", "continents of the world" → "continents".
+    # Only fires when the causal-noun strip above did NOT already handle "of the X"
+    # (e.g. "role of the king" → causal strip → "king" before we reach here).
+    text = re.sub(r"\s+of\s+the\s+\w+(?:\s+\w+){0,1}\s*$", "", text, flags=re.I)
     # Trailing state adjective in "why is X [adjective]" patterns.
     # e.g. "sky blue" → "sky", "gold so valuable" → "gold"
     text = re.sub(
