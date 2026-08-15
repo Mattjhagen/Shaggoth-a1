@@ -614,7 +614,8 @@ def subject_of(question: str) -> str:
         # Mathematical property nouns: "square root of 144" → "144"
         r"root|"
         # Sport/game property nouns: "positions in baseball" → "baseball"; "offside rule in soccer" → "soccer"
-        r"rule|position|formation|ranking|standing|stat|statistic)s?"
+        # Guard "rule of law" (legal concept) from being stripped to "law".
+        r"rule(?!\s+of\s+law\b)|position|formation|ranking|standing|stat|statistic)s?"
         r"\s+(?:of|behind|in|for)\s+", "", text, flags=re.I,
     )
     # When the causal-noun strip fired, a trailing "in/on <context>" phrase
@@ -1705,7 +1706,8 @@ def subject_of(question: str) -> str:
         r"distance|temperature|density|mass|weight|age|"
         r"value|price|cost|worth|"
         r"history|meaning(?!\s+of\s+life)|definition|"
-        r"rule|position|stat|statistic)s?"
+        # Guard "rule of law" (legal concept) from being stripped to "law".
+        r"rule(?!\s+of\s+law\b)|position|stat|statistic)s?"
         r"\s+(?:of|behind|in|for)\s+(?:a\s+|an\s+|the\s+)?",
         "", text, flags=re.I,
     )

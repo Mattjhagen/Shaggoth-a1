@@ -6389,7 +6389,7 @@ def test_batch152_subject_extraction(question, expected):
     ("what is habeas corpus",                               "habeas corpus"),
     ("what is the separation of powers",                    "separation of powers"),
     # causal-noun strip: "rule of X" → X  (rule is a property noun here)
-    ("what is the rule of law",                             "law"),
+    ("what is the rule of law",                             "rule of law"),
     ("what is civil law",                                   "civil law"),
     ("what is criminal law",                                "criminal law"),
     # "how does X work" → X
@@ -9686,6 +9686,36 @@ def test_batch248_subject_extraction(question, expected):
 ])
 def test_batch249_subject_extraction(question, expected):
     """Batch 249: environmental science — climate, greenhouse effect, carbon, sea level."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is common law",                                       "common law"),
+    ("what is due process",                                      "due process"),
+    ("what is habeas corpus",                                    "habeas corpus"),
+    ("what is tort law",                                         "tort law"),
+    ("what is constitutional law",                               "constitutional law"),
+    ("what is criminal law",                                     "criminal law"),
+    ("what is civil law",                                        "civil law"),
+    ("what is intellectual property",                            "intellectual property"),
+    ("what is copyright",                                        "copyright"),
+    ("what is a patent",                                         "patent"),
+    ("what is a trademark",                                      "trademark"),
+    ("what is libel",                                            "libel"),
+    ("what is slander",                                          "slander"),
+    ("what is precedent",                                        "precedent"),
+    ("what is the rule of law",                                  "rule of law"),
+    ("what is a subpoena",                                       "subpoena"),
+    ("what is an injunction",                                    "injunction"),
+    ("what is the burden of proof",                              "burden of proof"),
+    ("what is beyond reasonable doubt",                          "beyond reasonable doubt"),
+    ("how does the supreme court work",                          "supreme court"),
+])
+def test_batch250_subject_extraction(question, expected):
+    """Batch 250: law — common law, due process, intellectual property, courts."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
