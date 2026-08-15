@@ -12312,3 +12312,63 @@ def test_batch337_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a bail bond",                                      "bail bond"),
+    ("what is a savings bond",                                   "savings bond"),
+    ("what is a junk bond",                                      "junk bond"),
+    ("what is a car lease",                                      "car lease"),
+    ("what is a property lease",                                 "property lease"),
+    ("what is a hedge fund",                                     "hedge fund"),
+    ("what is a pension fund",                                   "pension fund"),
+    ("what is a mutual fund",                                    "mutual fund"),
+    ("what is a research grant",                                 "research grant"),
+    ("what is a government grant",                               "government grant"),
+    ("what is a dollar bill",                                    "dollar bill"),
+    ("what is a utility bill",                                   "utility bill"),
+    ("what is a parking fine",                                   "parking fine"),
+    ("what is a speeding fine",                                  "speeding fine"),
+    ("what is a court order",                                    "court order"),
+    ("what is a restraining order",                              "restraining order"),
+    ("what is an eviction notice",                               "eviction notice"),
+    ("what is a legal notice",                                   "legal notice"),
+    ("what is a building permit",                                "building permit"),
+    ("what is a work permit",                                    "work permit"),
+])
+def test_batch338_subject_extraction(question, expected):
+    """Batch 338: legal/financial compound nouns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a penalty kick",                                   "penalty kick"),
+    ("what is a drop kick",                                      "drop kick"),
+    ("what is a side kick",                                      "side kick"),
+    ("what is a forward pass",                                   "forward pass"),
+    ("what is a back pass",                                      "back pass"),
+    ("what is an overpass",                                      "overpass"),
+    ("what is a home run",                                       "home run"),
+    ("what is a base run",                                       "base run"),
+    ("what is a long jump",                                      "long jump"),
+    ("what is a high jump",                                      "high jump"),
+    ("what is a ski jump",                                       "ski jump"),
+    ("what is a hammer throw",                                   "hammer throw"),
+    ("what is a javelin throw",                                  "javelin throw"),
+    ("what is a safety catch",                                   "safety catch"),
+    ("what is a blind catch",                                    "blind catch"),
+    ("what is a 100m sprint",                                    "100m sprint"),
+    ("what is a rugby tackle",                                   "rugby tackle"),
+    ("what is a sliding tackle",                                 "sliding tackle"),
+    ("what is a body block",                                     "body block"),
+    ("what is a spin serve",                                     "spin serve"),
+])
+def test_batch339_subject_extraction(question, expected):
+    """Batch 339: sports compound nouns; run/jump/catch guards added."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
