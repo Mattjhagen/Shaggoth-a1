@@ -340,8 +340,14 @@ def subject_of(question: str) -> str:
         # Accept an optional adjective ("main", "primary", "key") between
         # "the" and the noun: "the main cause of X" → "cause of X" → "X"
         r"^(?:the\s+)?(?:\w+\s+)?(?:cause|process|mechanism|effect|result|purpose|"
-        r"role|function|impact|consequence)s?"
-        r"\s+(?:of|behind|in)\s+", "", text, flags=re.I,
+        r"role|function|impact|consequence|"
+        # Historical/event nouns: "fall of the roman empire" → "roman empire"
+        r"fall|collapse|rise|decline|end|defeat|death|birth|founding|"
+        # Factual property nouns: "capital of france" → "france"
+        r"capital|population|area|size|location|height|depth|width|length|"
+        r"distance|temperature|density|mass|weight|volume|age|name|"
+        r"history|origin|meaning|definition|symbol|flag|currency|language)s?"
+        r"\s+(?:of|behind|in|for)\s+", "", text, flags=re.I,
     )
     # When the causal-noun strip fired, a trailing "in/on <context>" phrase
     # is scaffolding (e.g. "role of chlorophyll in photosynthesis" → "chlorophyll"),
@@ -387,6 +393,14 @@ def subject_of(question: str) -> str:
         )
         if _m:
             text = _m.group(2)
+    # "why do we dream" / "why do people yawn" → extract the activity, not the pronoun.
+    # Restricted to pure generic pronouns (we/us/you/one/people) so that entity nouns
+    # like "humans" fall through to the trailing-verb strip instead ("where did humans
+    # originate" → verb strip removes "originate" → "humans").
+    # Must fire BEFORE the trailing-verb strip, which would remove the verb first.
+    _m_we = re.match(r"^(?:we|us|you|one|people)\s+(\w+)\s*$", text, re.I)
+    if _m_we:
+        text = _m_we.group(1)
     # "the temperature to rise" → strip "to <verb>" infinitive phrase at end
     text = re.sub(r"\s+to\s+\w+(?:ing)?\s*$", "", text, flags=re.I)
     text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
@@ -419,14 +433,17 @@ def subject_of(question: str) -> str:
         r"fight[s]?|attack[s]?|defend[s]?|protect[s]?|affect[s]?|impact[s]?|"
         # Physical / chemical state-change verbs: "why does ice float", "what makes iron rust"
         r"float[s]?|sink[s]?|rust[s]?|boil[s]?|melt[s]?|freeze[sd]?|evaporate[sd]?|"
-        r"condense[sd]?|expand[s]?|contract[s]?|ignite[sd]?|"
+        r"condense[sd]?|expand[s]?|contract[s]?|ignite[sd]?|dissolve[sd]?|"
+        # Migration / movement verbs: "how do birds migrate"
+        r"migrate[sd]?|"
         # Passive attribution: "when was X invented", "where was Y discovered"
         r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|"
         # Origin verb: "where did humans originate"
         r"originate[sd]?|"
         # Intransitive motion/perception/existence verbs: "why do stars twinkle",
         # "how fast does light travel", "why do we dream", "how does sound travel"
-        r"twinkle[sd]?|travel[s]?|dream[s]?|shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
+        r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|"
+        r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
         # Extinction/movement verbs. Use negative lookahead (?!\s+of) so that
         # noun forms like "the fall of X" and "the collapse of Y" are preserved —

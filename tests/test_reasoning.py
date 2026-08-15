@@ -395,11 +395,11 @@ def test_split_subjects_relationship_and_trailing_related(question, expected):
 
 
 @pytest.mark.parametrize("question,expected", [
-    # "fall of X" — "fall" is a NOUN here; must not be stripped.
-    ("what caused the fall of the Roman Empire", "fall of the Roman Empire"),
-    ("what caused the collapse of the Soviet Union", "collapse of the Soviet Union"),
-    ("what caused the rise of nationalism", "rise of nationalism"),
-    # "X fall" with no following "of" — "fall" IS a verb here; strip it.
+    # "fall/collapse/rise of X" — strip the event noun to get the core topic.
+    ("what caused the fall of the Roman Empire", "Roman Empire"),
+    ("what caused the collapse of the Soviet Union", "Soviet Union"),
+    ("what caused the rise of nationalism", "nationalism"),
+    # "X fall" with no following "of" — "fall" IS a verb here; strip it too.
     ("how did Rome fall", "Rome"),
     ("why did the Soviet Union collapse", "Soviet Union"),
     # "originate" is now in the trailing-verb list.
@@ -1083,7 +1083,7 @@ def test_classify_what_x_are_there_is_enumerate(question):
     # Trailing intransitive verbs
     ("why do stars twinkle", Intent.CAUSAL, "stars"),
     ("how does sound travel", Intent.CAUSAL, "sound"),
-    ("why do we dream", Intent.CAUSAL, "we"),
+    ("why do we dream", Intent.CAUSAL, "dream"),
     ("how does light shine", Intent.CAUSAL, "light"),
     # Trailing state adjectives  
     ("why is the sky blue", Intent.CAUSAL, "sky"),
@@ -1312,4 +1312,56 @@ def test_batch14_subject_extraction(question, expected):
 ])
 def test_batch14_classify(question, expected_intent):
     """Batch 14: numeric → ENUMERATE; change/erupt/turbulence → CAUSAL."""
+    assert classify(question) == expected_intent
+
+
+# --------------------------------------------------------------------------
+# Batch 15: factual-property nouns, historical-event nouns, migrate/dissolve
+#            verbs, generic-pronoun activity extraction
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Factual property nouns: "capital/population/height of X" → X
+    ("what is the capital of france",               "france"),
+    ("what is the population of china",             "china"),
+    ("what is the height of mount everest",         "mount everest"),
+    ("what is the area of texas",                   "texas"),
+    ("what is the meaning of life",                 "life"),
+    ("what is the definition of democracy",         "democracy"),
+    # Historical event nouns: "fall/collapse/rise/decline of X" → X
+    ("what caused the fall of the roman empire",    "roman empire"),
+    ("what caused the collapse of the soviet union", "soviet union"),
+    ("what caused the rise of nationalism",         "nationalism"),
+    ("what caused the decline of rome",             "rome"),
+    # New trailing verbs: migrate, dissolve
+    ("how do birds migrate",                        "birds"),
+    ("why does salt dissolve in water",             "salt"),
+    ("why does sugar dissolve in tea",              "sugar"),
+    # Generic-pronoun activity extraction: "we/people VERB" → the activity
+    ("why do we dream",                             "dream"),
+    ("why do we age",                               "age"),
+    ("why do people yawn",                          "yawn"),
+    # Entity noun with originate — trailing-verb strip should give entity
+    ("where did humans originate",                  "humans"),
+    ("where did life originate",                    "life"),
+])
+def test_batch15_subject_extraction(question, expected):
+    """Batch 15: property/event nouns stripped; migrate/dissolve verbs; pronoun-activity extraction."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected_intent", [
+    ("what is the capital of france",               Intent.DEFINE),
+    ("what caused the fall of the roman empire",    Intent.CAUSAL),
+    ("how do birds migrate",                        Intent.CAUSAL),
+    ("why does salt dissolve in water",             Intent.CAUSAL),
+    ("why do we dream",                             Intent.CAUSAL),
+    ("why do people yawn",                          Intent.CAUSAL),
+])
+def test_batch15_classify(question, expected_intent):
+    """Batch 15: property questions → DEFINE; historical/biological → CAUSAL."""
     assert classify(question) == expected_intent
