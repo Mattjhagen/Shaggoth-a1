@@ -1699,8 +1699,9 @@ def subject_of(question: str) -> str:
     # Residual participial adjective after superlative strip:
     # "highest scoring sport" → "highest" stripped → "scoring sport" → strip "scoring " → "sport"
     # "highest grossing film" → "highest" stripped → "grossing film" → strip "grossing " → "film"
+    # Guard "selling point" / "selling price" compound nouns from being stripped.
     text = re.sub(
-        r"^(?:scoring|grossing|earning|selling|paying|growing|winning|losing|"
+        r"^(?:scoring|grossing|earning|selling(?!\s+(?:point|price)\b)|paying|growing|winning|losing|"
         r"performing|producing|consuming|emitting|generating|earning)\s+",
         "", text, flags=re.I,
     )
