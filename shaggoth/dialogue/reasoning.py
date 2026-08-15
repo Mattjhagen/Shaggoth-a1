@@ -516,7 +516,8 @@ def subject_of(question: str) -> str:
         r"^(?:animal|plant|mammal|reptile|bird|fish|insect|element|mineral|metal|"
         r"substance|compound|molecule|chemical|gas|liquid|solid|energy|"
         r"country|city|continent|region|language|sport|food|drug|disease|"
-        r"rock|mineral|gem|star|planet|galaxy|force|wave|particle|radiation)\s+(?:is|was|are|were)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
+        r"rock|mineral|gem|star|planet|galaxy|force|wave|particle|radiation|"
+        r"nationality|genre|type|color|colour|shape|material|occupation|religion)\s+(?:is|was|are|were)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
         text, re.I,
     )
     if _m_cat_is:
@@ -667,6 +668,8 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+called\s+(?:that|it|so|this)\s*$", "", text, flags=re.I)
     # "einstein known for" → "einstein"
     text = re.sub(r"\s+known\s+for\b.*$", "", text, flags=re.I)
+    # "eiffel tower named after" / "moon named after gustave eiffel" → "eiffel tower" / "moon"
+    text = re.sub(r"\s+named\s+(?:after|for)\b.*$", "", text, flags=re.I)
     # "what if humans could photosynthesize" → after "what if" stripped, "humans could
     # photosynthesize". Trailing modal+verb: strip "could/would/can/might VERB" at end.
     text = re.sub(

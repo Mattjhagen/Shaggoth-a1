@@ -2573,3 +2573,34 @@ def test_batch49_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what nationality is X" → X  (nationality added to _m_cat_is)
+    ("what nationality is tesla",                      "tesla"),
+    # "X named after" tail strip
+    ("what is the eiffel tower named after",           "eiffel tower"),
+    ("what is the moon named after",                   "moon"),
+    # "who was/is X" → X  (biographical)
+    ("who was albert einstein",                        "albert einstein"),
+    ("who is elon musk",                               "elon musk"),
+    # "what did X do/discover/invent" → X
+    ("what did einstein do",                           "einstein"),
+    ("what did darwin discover",                       "darwin"),
+    ("what did thomas edison invent",                  "thomas edison"),
+    # "what country/continent is X in" → X
+    ("what country is tokyo in",                       "tokyo"),
+    ("what continent is australia in",                 "australia"),
+    # "is a X a Y" → X (bare opener)
+    ("is a bat a mammal",                              "bat"),
+    ("is a tomato a fruit",                            "tomato"),
+    ("is a dolphin a fish",                            "dolphin"),
+    # "what was X known for" → X
+    ("what was einstein known for",                    "einstein"),
+])
+def test_batch50_subject_extraction(question, expected):
+    """Batch 50: nationality _m_cat_is; named-after tail; biographical/classification patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
