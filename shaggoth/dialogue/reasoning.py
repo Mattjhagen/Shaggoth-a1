@@ -702,52 +702,57 @@ def subject_of(question: str) -> str:
     # → look up "water" (the container), not "elements" (the thing counted).
     _is_how_many = bool(re.match(r"^\s*(?:and |but |so )?how\s+many\b", _original, re.I))
     if _is_how_many:
-        # "how many players are in/on a soccer team" → "soccer" (sport, not "soccer team")
-        # Must fire before the generic _m_many_in which would capture "soccer team".
-        _m_many_team = re.match(
-            r"^\w+(?:\s+\w+)?\s+are\s+(?:on|in)\s+(?:a|an|the|each)\s+(.+?)\s+"
-            r"(?:team|squad|roster|side)\s*$",
-            text, re.I,
-        )
-        if _m_many_team:
-            text = _m_many_team.group(1)
+        # "how many tigers are left in the wild" → "tigers" (counted noun is the lookup target)
+        _m_many_left = re.match(r"^(\w+(?:\s+\w+)?)\s+are\s+left\b", text, re.I)
+        if _m_many_left:
+            text = _m_many_left.group(1)
         else:
-            # "how many world cups has brazil won" → "brazil" (entity with the record)
-            # Pattern: "PLURAL_NOUN has/have ENTITY VERB" → ENTITY
-            _m_many_has = re.match(
-                r"^\w+(?:\s+\w+)?\s+ha[sd]\s+(.+?)\s+\w+\s*$",
+            # "how many players are in/on a soccer team" → "soccer" (sport, not "soccer team")
+            # Must fire before the generic _m_many_in which would capture "soccer team".
+            _m_many_team = re.match(
+                r"^\w+(?:\s+\w+)?\s+are\s+(?:on|in)\s+(?:a|an|the|each)\s+(.+?)\s+"
+                r"(?:team|squad|roster|side)\s*$",
                 text, re.I,
             )
-            if _m_many_has:
-                text = _m_many_has.group(1)
+            if _m_many_team:
+                text = _m_many_team.group(1)
             else:
-                # "how many oscars did titanic win" → after QW strip: "oscars did titanic win"
-                # Pattern: "PLURAL_NOUN did ENTITY VERB" → ENTITY
-                _m_many_did = re.match(
-                    r"^\w+(?:\s+\w+)?\s+did\s+(?:a\s+|an\s+|the\s+)?(.+?)\s+\w+\s*$",
+                # "how many world cups has brazil won" → "brazil" (entity with the record)
+                # Pattern: "PLURAL_NOUN has/have ENTITY VERB" → ENTITY
+                _m_many_has = re.match(
+                    r"^\w+(?:\s+\w+)?\s+ha[sd]\s+(.+?)\s+\w+\s*$",
                     text, re.I,
                 )
-                if _m_many_did:
-                    text = _m_many_did.group(1)
+                if _m_many_has:
+                    text = _m_many_has.group(1)
                 else:
-                    # "how many bones are in the human body" → after QW strip: "bones are in the human body"
-                    # → extract the container ("human body"), not the counted noun ("bones").
-                    _m_many_in = re.match(
-                        r"^\w+(?:\s+\w+)?\s+are\s+(?:in|inside|within)\s+(?:the\s+|a\s+|an\s+)?(.+)$",
+                    # "how many oscars did titanic win" → after QW strip: "oscars did titanic win"
+                    # Pattern: "PLURAL_NOUN did ENTITY VERB" → ENTITY
+                    _m_many_did = re.match(
+                        r"^\w+(?:\s+\w+)?\s+did\s+(?:a\s+|an\s+|the\s+)?(.+?)\s+\w+\s*$",
                         text, re.I,
                     )
-                    if _m_many_in:
-                        text = _m_many_in.group(1)
-                        # Strip leading unit/container nouns so "slice of pizza" → "pizza",
-                        # "cup of rice" → "rice", "glass of water" → "water", etc.
-                        text = re.sub(
-                            r"^(?:slice|piece|cup|bowl|glass|bottle|can|jar|bag|box|scoop|"
-                            r"serving|portion|helping|handful|spoonful|"
-                            r"teaspoon|tablespoon|ounce|oz|gram|kilogram|kg|pound|lb|"
-                            r"liter|litre|gallon|quart|pint|ml|"
-                            r"bite|sip|drop|pinch|dash|stick|bar|block)\s+of\s+",
-                            "", text, flags=re.I,
+                    if _m_many_did:
+                        text = _m_many_did.group(1)
+                    else:
+                        # "how many bones are in the human body" → after QW strip: "bones are in the human body"
+                        # → extract the container ("human body"), not the counted noun ("bones").
+                        _m_many_in = re.match(
+                            r"^\w+(?:\s+\w+)?\s+are\s+(?:in|inside|within)\s+(?:the\s+|a\s+|an\s+)?(.+)$",
+                            text, re.I,
                         )
+                        if _m_many_in:
+                            text = _m_many_in.group(1)
+                            # Strip leading unit/container nouns so "slice of pizza" → "pizza",
+                            # "cup of rice" → "rice", "glass of water" → "water", etc.
+                            text = re.sub(
+                                r"^(?:slice|piece|cup|bowl|glass|bottle|can|jar|bag|box|scoop|"
+                                r"serving|portion|helping|handful|spoonful|"
+                                r"teaspoon|tablespoon|ounce|oz|gram|kilogram|kg|pound|lb|"
+                                r"liter|litre|gallon|quart|pint|ml|"
+                                r"bite|sip|drop|pinch|dash|stick|bar|block)\s+of\s+",
+                                "", text, flags=re.I,
+                            )
     else:
         _m = re.match(
             r"^(\w+(?:\s+\w+){0,2})\s+(?:are|were|is|was)\s+(?:in|inside|within|found in|part of)\s+(.+)$",
@@ -1102,6 +1107,14 @@ def subject_of(question: str) -> str:
     )
     if _m_loc_noun:
         text = _m_loc_noun.group(1)
+    # "temperature on mars" → "mars"; "gravity on the moon" → "moon"
+    _m_prop_on = re.match(
+        r"^(?:temperature|pressure|gravity|atmosphere|climate|weather|surface|"
+        r"magnetic\s+field|day|night)\s+on\s+(?:the\s+)?(.+)$",
+        text, re.I,
+    )
+    if _m_prop_on:
+        text = _m_prop_on.group(1)
     # "X on <modifier>" → X  (e.g. "effect of gravity on time" → "gravity")
     # Only strip trailing "on <1-3 words>" — not "on" inside a topic name.
     text = re.sub(r"\s+on\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
@@ -1208,12 +1221,22 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+not\s*$", "", text, flags=re.I)
     # "are dolphins mammals" / "are viruses living organisms" → strip trailing classification tail
     text = re.sub(r"\s+living\s+(?:things?|organisms?|beings?|creatures?)\s*$", "", text, flags=re.I)
+    _before_tax_strip = text
     text = re.sub(
         r"\s+(?:mammals?|reptiles?|amphibians?|arachnids?|crustaceans?|mollusks?|"
         r"insects?|invertebrates?|vertebrates?|primates?|carnivores?|herbivores?|"
         r"omnivores?|parasites?|predators?|scavengers?|plankton|fish)\s*$",
         "", text, flags=re.I,
     )
+    # Revert if stripping left only a superlative adjective ("largest mammal" → "largest"):
+    # the taxonomy word itself is the answer ("what is the largest mammal" → "mammal").
+    if text != _before_tax_strip and re.match(
+        r"^(?:largest?|biggest?|smallest?|tallest?|shortest?|longest?|fastest?|slowest?|"
+        r"highest?|lowest?|richest?|poorest?|hottest?|coldest?|strongest?|weakest?|"
+        r"oldest?|youngest?|newest?|most\s+\w+|least\s+\w+)\s*$",
+        text, re.I,
+    ):
+        text = _before_tax_strip
     # Strip a trailing bare copula: "blood sugar is" (after adj strip removed "low")
     # → "blood sugar". Only fires when nothing else could have consumed it.
     text = re.sub(r"\s+(?:is|are|was|were)\s*$", "", text, flags=re.I)
@@ -1264,6 +1287,7 @@ def subject_of(question: str) -> str:
     text = re.sub(r"^(?:different|main|major|key|various|multiple)\s+", "", text, flags=re.I)
     # Strip leading superlative/comparative adjective: "largest ocean" → "ocean",
     # "fastest animal" → "animal", "most common element" → "element".
+    _before_super = text
     text = re.sub(
         r"^(?:largest?|biggest?|smallest?|tallest?|shortest?|longest?|fastest?|slowest?|"
         r"highest?|lowest?|richest?|poorest?|hottest?|coldest?|brightest?|darkest?|"
@@ -1272,6 +1296,9 @@ def subject_of(question: str) -> str:
         r"most\s+\w+|least\s+\w+)\s+",
         "", text, flags=re.I,
     )
+    if text != _before_super:
+        # Superlative context: trailing "to PLACE" is a distance qualifier, not a title suffix
+        text = re.sub(r"\s+to\s+\w+(?:\s+\w+)?\s*$", "", text, flags=re.I)
     # Residual participial adjective after superlative strip:
     # "highest scoring sport" → "highest" stripped → "scoring sport" → strip "scoring " → "sport"
     # "highest grossing film" → "highest" stripped → "grossing film" → strip "grossing " → "film"

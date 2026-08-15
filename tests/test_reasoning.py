@@ -4982,3 +4982,128 @@ def test_batch115_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is linguistics",                              "linguistics"),
+    ("what is phonetics",                                "phonetics"),
+    ("what is grammar",                                  "grammar"),
+    ("what is syntax",                                   "syntax"),
+    ("what is a dialect",                                "dialect"),
+    ("what is a creole language",                        "creole language"),
+    ("what is a lingua franca",                          "lingua franca"),
+    # "how many languages are in the world"
+    ("how many languages are in the world",              "world"),
+    # "what is the most spoken language in the world"
+    ("what is the most spoken language in the world",    "language"),
+    # "what is the difference between a language and a dialect"
+    ("what is the difference between a language and a dialect", "language and dialect"),
+    # "how many people speak X"
+    ("how many people speak english",                    "english"),
+    ("how many people speak mandarin",                   "mandarin"),
+    # "what language is spoken in X"
+    ("what language is spoken in brazil",                "brazil"),
+    ("what language is spoken in japan",                 "japan"),
+    # "what is the official language of X"
+    ("what is the official language of france",          "france"),
+    ("what is the official language of india",           "india"),
+    # "what is X in language"
+    ("what is hello in spanish",                         "hello"),
+    ("what is thank you in french",                      "thank you"),
+    # "how do you say X in Y"
+    ("how do you say hello in japanese",                 "hello"),
+    ("how do you say goodbye in german",                 "goodbye"),
+    # "what is X in english"
+    ("what is bonjour in english",                       "bonjour"),
+])
+def test_batch116_subject_extraction(question, expected):
+    """Batch 116: language/linguistics — concepts, spoken languages, translations."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is a mammal",                                 "mammal"),
+    ("what is a reptile",                                "reptile"),
+    ("what is an amphibian",                             "amphibian"),
+    ("what is a marsupial",                              "marsupial"),
+    ("what is a predator",                               "predator"),
+    ("what is a herbivore",                              "herbivore"),
+    # "what do X eat"
+    ("what do lions eat",                                "lions"),
+    ("what do elephants eat",                            "elephants"),
+    ("what do sharks eat",                               "sharks"),
+    # "how long do X live"
+    ("how long do elephants live",                       "elephants"),
+    ("how long do sea turtles live",                     "sea turtles"),
+    # "where do X live"
+    ("where do polar bears live",                        "polar bears"),
+    ("where do kangaroos live",                          "kangaroos"),
+    # "how fast can X run"
+    ("how fast can a cheetah run",                       "cheetah"),
+    # "what is the largest X"
+    ("what is the largest animal in the world",          "animal"),
+    ("what is the largest mammal",                       "mammal"),
+    # "how many X are left"
+    ("how many tigers are left in the wild",             "tigers"),
+    # "why do X hibernate"
+    ("why do bears hibernate",                           "bears"),
+    # "are X endangered"
+    ("are elephants endangered",                         "elephants"),
+    # "what are the predators of X"
+    ("what are the predators of rabbits",                "rabbits"),
+    # "how does X defend itself"
+    ("how does a porcupine defend itself",               "porcupine"),
+])
+def test_batch117_subject_extraction(question, expected):
+    """Batch 117: animals/nature — taxonomy, diet, habitat, size, endangered status."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is a black hole",                             "black hole"),
+    ("what is a nebula",                                 "nebula"),
+    ("what is dark matter",                              "dark matter"),
+    ("what is dark energy",                              "dark energy"),
+    ("what is the big bang",                             "big bang"),
+    ("what is a supernova",                              "supernova"),
+    ("what is a neutron star",                           "neutron star"),
+    # "how far is X from Y"
+    ("how far is the moon from earth",                   "moon"),
+    ("how far is the sun from earth",                    "sun"),
+    # "how big is X"
+    ("how big is the milky way",                         "milky way"),
+    ("how big is jupiter",                               "jupiter"),
+    # "how many planets are in X"
+    ("how many planets are in the solar system",         "solar system"),
+    # "what is the largest planet"
+    ("what is the largest planet",                       "planet"),
+    # "how long does it take X to orbit Y"
+    ("how long does it take earth to orbit the sun",     "earth"),
+    # "what is the temperature on X"
+    ("what is the temperature on mars",                  "mars"),
+    ("what is the temperature on venus",                 "venus"),
+    # "how old is the universe"
+    ("how old is the universe",                          "universe"),
+    # "what is the speed of light"
+    ("what is the speed of light",                       "speed of light"),
+    # "how many moons does X have"
+    ("how many moons does jupiter have",                 "jupiter"),
+    ("how many moons does saturn have",                  "saturn"),
+    # "what is the closest star to earth"
+    ("what is the closest star to earth",                "star"),
+])
+def test_batch118_subject_extraction(question, expected):
+    """Batch 118: space/astronomy — celestial bodies, distances, temperatures, moons."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
