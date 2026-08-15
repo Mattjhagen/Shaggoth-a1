@@ -6980,3 +6980,87 @@ def test_batch166_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is psychology",                                    "psychology"),
+    ("what is anxiety",                                       "anxiety"),
+    ("what is depression",                                    "depression"),
+    ("what is schizophrenia",                                 "schizophrenia"),
+    ("what is bipolar disorder",                              "bipolar disorder"),
+    # "what is X theory" → X theory
+    ("what is attachment theory",                             "attachment theory"),
+    ("what is cognitive dissonance",                          "cognitive dissonance"),
+    # "how does X work" → X
+    ("how does memory work",                                  "memory"),
+    ("how does sleep work",                                   "sleep"),
+    # "what causes X" → X
+    ("what causes stress",                                    "stress"),
+    ("what causes phobias",                                   "phobias"),
+    # "what is X behavior" → X behavior
+    ("what is human behavior",                                "human behavior"),
+    # "what is the difference between X and Y" → X and Y
+    ("what is the difference between introvert and extrovert", "introvert and extrovert"),
+    # "what are the stages of X" → X
+    ("what are the stages of grief",                          "grief"),
+    # "how do X affect Y" → X (grammatical subject)
+    ("how do emotions affect decision making",                "emotions"),
+    # "what is X therapy" → X therapy
+    ("what is cognitive behavioral therapy",                  "cognitive behavioral therapy"),
+    # "what is X effect" → X effect
+    ("what is the placebo effect",                            "placebo effect"),
+    # "what is X" → X (cognitive biases)
+    ("what is confirmation bias",                             "confirmation bias"),
+    ("what is the dunning kruger effect",                     "dunning kruger effect"),
+    ("what is emotional intelligence",                        "emotional intelligence"),
+])
+def test_batch167_subject_extraction(question, expected):
+    """Batch 167: psychology/human behavior — disorders, theories, cognitive biases."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is basketball",                                    "basketball"),
+    ("what is soccer",                                        "soccer"),
+    ("what is tennis",                                        "tennis"),
+    # "who invented X" → X
+    ("who invented basketball",                               "basketball"),
+    # "how many players are on a X team" → X
+    ("how many players are on a basketball team",             "basketball"),
+    ("how many players are on a soccer team",                 "soccer"),
+    # "who won the X" → X
+    ("who won the world cup",                                 "world cup"),
+    ("who won the super bowl",                                "super bowl"),
+    # "what are the rules of X" → X
+    ("what are the rules of chess",                           "chess"),
+    # "how long is a X game" → X game
+    ("how long is a football game",                           "football game"),
+    # "who directed X" → X
+    ("who directed the godfather",                            "godfather"),
+    ("who directed titanic",                                  "titanic"),
+    # "who starred in X" → X
+    ("who starred in the matrix",                             "matrix"),
+    # "when did X come out" → X
+    ("when did the dark knight come out",                     "dark knight"),
+    # "what is X about" → X
+    ("what is the matrix about",                              "matrix"),
+    # "what is X" → X (entertainment institutions)
+    ("what is the oscars",                                    "oscars"),
+    ("what is the grammy",                                    "grammy"),
+    # "what X won the AWARD for CATEGORY" → CATEGORY (award-won strip)
+    ("what movie won the oscar for best picture",             "best picture"),
+    # "when was X born" → X
+    ("when was michael jordan born",                          "michael jordan"),
+    ("when was beethoven born",                               "beethoven"),
+])
+def test_batch168_subject_extraction(question, expected):
+    """Batch 168: sports/entertainment — games, films, awards, biographical queries."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

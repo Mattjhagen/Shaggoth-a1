@@ -552,6 +552,14 @@ def subject_of(question: str) -> str:
     # "effects of caffeine on sleep" → "caffeine on sleep" → strip "on sleep"
     if text != _before_scaffold_strip:
         text = re.sub(r"\s+(?:in|on)\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
+    # "movie won the oscar for best picture" → "oscar for best picture" so the causal-noun
+    # strip below can further reduce to "best picture".  Covers any THING that won/received
+    # a named award; the leading noun phrase (1-3 words) is stripped along with "won [the]".
+    text = re.sub(
+        r"^\w+(?:\s+\w+){0,2}\s+(?:won|received|earned)\s+(?:the\s+)?"
+        r"(?=(?:oscar|emmy|grammy|tony|bafta|award|prize|medal|trophy|pulitzer|nobel|booker)\b)",
+        "", text, flags=re.I,
+    )
     _before_causal_noun_strip = text
     text = re.sub(
         # Accept an optional adjective ("main", "primary", "key") between
