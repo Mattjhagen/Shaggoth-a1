@@ -624,6 +624,14 @@ def subject_of(question: str) -> str:
     # Leading temporal/locative/conditional conjunction left over after stripping
     # "what happens during/when/if X" → strip the conjunction.
     text = re.sub(r"^(?:during|when|if)\s+", "", text, flags=re.I)
+    # "how do I protect my computer from viruses" → "computer"
+    # "I VERB [my/the] OBJECT [from/against/with X]" after QW strips "how do ".
+    _m_first_person_action = re.match(
+        r"^i\s+\w+\s+(?:(?:my|your|our|the|a|an)\s+)?(.+?)(?:\s+(?:from|against|with|for|to)\s+\w+(?:\s+\w+)*)?\s*$",
+        text, re.I,
+    )
+    if _m_first_person_action:
+        text = _m_first_person_action.group(1)
     # "when you mix baking soda and vinegar" → strip "when " → "you mix baking soda ..."
     # → strip "you VERB " (generic pronoun + one verb) → "baking soda and vinegar".
     text = re.sub(r"^(?:you|we|they|people|someone|a\s+person)\s+\w+\s+", "", text, flags=re.I)

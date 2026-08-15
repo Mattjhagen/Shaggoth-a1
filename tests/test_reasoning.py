@@ -278,7 +278,7 @@ def test_subject_of_drops_the_trailing_verb_phrase():
     ("how is steel made", "steel"),
     ("how are vaccines produced", "vaccines"),
     ("how do earthquakes happen", "earthquakes"),
-    ("how can I fix a leaky faucet", "I fix a leaky faucet"),
+    ("how can I fix a leaky faucet", "leaky faucet"),
     ("what is the process of photosynthesis", "photosynthesis"),
     ("what is the cause of inflation", "inflation"),
     ("what happens when water boils", "water"),
@@ -6327,6 +6327,48 @@ def test_batch150_subject_extraction(question, expected):
 ])
 def test_batch151_subject_extraction(question, expected):
     """Batch 151: environment/ecology — passive-progressive fix, pollution, climate topics."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Batch 152: technology / internet — AI, security, protocols, "how do I"
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is artificial intelligence",                    "artificial intelligence"),
+    ("what is machine learning",                           "machine learning"),
+    ("what is blockchain",                                 "blockchain"),
+    ("what is the internet of things",                     "internet of things"),
+    ("what is cloud computing",                            "cloud computing"),
+    ("what is cybersecurity",                              "cybersecurity"),
+    ("what is encryption",                                 "encryption"),
+    ("what is a firewall",                                 "firewall"),
+    ("what is open source software",                       "open source software"),
+    # "how does X work" → X
+    ("how does the internet work",                         "internet"),
+    ("how does wifi work",                                 "wifi"),
+    ("how does gps work",                                  "gps"),
+    ("how does a computer work",                           "computer"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between http and https",      "http and https"),
+    ("what is the difference between ram and rom",         "ram and rom"),
+    # "who invented X" → X
+    ("who invented the internet",                          "internet"),
+    ("who invented the world wide web",                    "world wide web"),
+    # "what programming language is X written in" → X
+    ("what programming language is python written in",     "python"),
+    # "what is X used for" → X
+    ("what is python used for",                            "python"),
+    # first-person action: "how do I VERB [my/the] OBJECT [from X]" → OBJECT
+    ("how do I protect my computer from viruses",          "computer"),
+])
+def test_batch152_subject_extraction(question, expected):
+    """Batch 152: technology/internet — AI, crypto, protocols, first-person action."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
