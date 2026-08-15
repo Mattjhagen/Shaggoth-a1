@@ -1404,6 +1404,12 @@ def subject_of(question: str) -> str:
         r"(?:(?:a|an)\s+\w+|you|we|one|people|someone|i|they|he|she)\s+\w+\s*$",
         "", text, flags=re.I,
     )
+    # "what makes something a planet" → "something a planet" → "planet"
+    # Indefinite placeholder + "a/an NOUN" → the NOUN is the real subject.
+    text = re.sub(
+        r"^(?:something|someone|anything|anyone|everything|everyone|it|one)\s+(?:a|an)\s+(\w+)\s*$",
+        r"\1", text, flags=re.I,
+    )
     # "is pluto a planet" → bare opener → "pluto a planet" → strip trailing "a/an NOUN" → "pluto".
     # "sleep does a person need" → verb strip → "sleep does a person" → strip "a person" → "sleep does"
     # → secondary strips below finish it off.

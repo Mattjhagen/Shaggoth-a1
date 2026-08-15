@@ -12862,3 +12862,40 @@ def test_batch355_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "how does X work" → X
+    ("how does photosynthesis work",                             "photosynthesis"),
+    ("how does gravity work",                                    "gravity"),
+    ("how does the immune system work",                          "immune system"),
+    ("how does evolution work",                                  "evolution"),
+    ("how does wifi work",                                       "wifi"),
+    # "why is X Y" → X (not stripping Y when it's the subject qualifier)
+    ("why is the sky blue",                                      "sky"),
+    ("why is grass green",                                       "grass"),
+    ("why is water wet",                                         "water"),
+    ("why is ice cold",                                          "ice"),
+    # "what causes X" → X
+    ("what causes global warming",                               "global warming"),
+    ("what causes depression",                                   "depression"),
+    ("what causes earthquakes",                                  "earthquakes"),
+    ("what causes inflation",                                    "inflation"),
+    # "what are" plural
+    ("what are black holes",                                     "black holes"),
+    ("what are vitamins",                                        "vitamins"),
+    ("what are antibiotics",                                     "antibiotics"),
+    ("what are stem cells",                                      "stem cells"),
+    # "what makes X Y" → X; "what makes something a X" → X
+    ("what makes something a planet",                            "planet"),
+    ("what makes a good leader",                                 "good leader"),
+    # "what does X do" → X
+    ("what does the liver do",                                   "liver"),
+    ("what does the pancreas do",                                "pancreas"),
+])
+def test_batch356_subject_extraction(question, expected):
+    """Batch 356: how/why question patterns and 'what causes/makes/does' forms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
