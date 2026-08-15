@@ -495,7 +495,9 @@ def subject_of(question: str) -> str:
         # Plural only: singular "law of X", "rule of X", "principle of X" etc. may be topic titles
         r"laws|rules|principles|theories|concepts|aspects|applications|facts|"
         # Religion/ideology scaffold nouns: "beliefs of buddhism" → "buddhism"
-        r"beliefs?|teachings?|tenets?|practices?|doctrines?|rituals?)"
+        r"beliefs?|teachings?|tenets?|practices?|doctrines?|rituals?|"
+        # Ecology/nature scaffold nouns: "predators of rabbits" → "rabbits"
+        r"predators?|prey|habitat|diet|behavior|behaviour|lifecycle)"
         r"\s+of\s+", "", text, flags=re.I
     )
     # When scaffold strip fired, trailing "on/in <context>" is scaffolding too:

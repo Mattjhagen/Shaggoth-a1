@@ -4042,3 +4042,43 @@ def test_batch91_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is a X" (animal class) → X
+    ("what is a mammal",                               "mammal"),
+    ("what is a reptile",                              "reptile"),
+    ("what is an amphibian",                           "amphibian"),
+    ("what is a marsupial",                            "marsupial"),
+    # "how does X reproduce" → X
+    ("how does a shark reproduce",                     "shark"),
+    ("how does a frog reproduce",                      "frog"),
+    # "what does X eat" → X
+    ("what does a panda eat",                          "panda"),
+    ("what does a lion eat",                           "lion"),
+    ("what does a whale eat",                          "whale"),
+    # "where does X live" → X
+    ("where does a penguin live",                      "penguin"),
+    ("where does a polar bear live",                   "polar bear"),
+    # "how long does X live" → X
+    ("how long does an elephant live",                 "elephant"),
+    ("how long does a tortoise live",                  "tortoise"),
+    # "how fast can X run" → X
+    ("how fast can a cheetah run",                     "cheetah"),
+    ("how fast can a horse run",                       "horse"),
+    # "what is the habitat of X" → X (habitat causal noun)
+    ("what is the habitat of a tiger",                 "tiger"),
+    ("what is the habitat of a wolf",                  "wolf"),
+    # "what are the predators of X" → X (predators scaffold noun)
+    ("what are the predators of rabbits",              "rabbits"),
+    # "how do X migrate" → X
+    ("how do monarch butterflies migrate",             "monarch butterflies"),
+    # "what is the diet of X" → X (diet causal noun)
+    ("what is the diet of a bear",                     "bear"),
+])
+def test_batch92_subject_extraction(question, expected):
+    """Batch 92: animals & nature — habitat/diet causal nouns, predators scaffold, migration."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
