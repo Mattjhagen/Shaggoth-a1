@@ -563,6 +563,8 @@ def subject_of(question: str) -> str:
         r"capital|population|area|size|location|height|depth|width|length|"
         r"diameter|radius|circumference|velocity|acceleration|frequency|wavelength|pressure|charge|voltage|"
         r"distance|temperature|density|mass|weight|volume|age|name|time\s+zone|timezone|"
+        # Economic/financial property nouns: "value of the us dollar" → "us dollar"
+        r"value|price|cost|worth|exchange\s+rate|interest\s+rate|"
         # Role/title nouns: "president of france" → "france"
         r"president|prime\s+minister|king|queen|ruler|leader|founder|director|"
         r"inventor|discoverer|author|composer|painter|creator|"

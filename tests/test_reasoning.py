@@ -6075,3 +6075,33 @@ def test_batch144_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is capitalism",                                 "capitalism"),
+    ("what is inflation",                                  "inflation"),
+    ("what is gdp",                                        "gdp"),
+    ("what is supply and demand",                          "supply and demand"),
+    ("what is a stock market",                             "stock market"),
+    ("what is a recession",                                "recession"),
+    ("what is cryptocurrency",                             "cryptocurrency"),
+    ("how does the stock market work",                     "stock market"),
+    ("how does inflation work",                            "inflation"),
+    ("what causes inflation",                              "inflation"),
+    ("what causes a recession",                            "recession"),
+    ("what is the difference between capitalism and socialism", "capitalism and socialism"),
+    ("how do you invest in the stock market",              "stock market"),
+    ("what is income tax",                                 "income tax"),
+    ("what is the unemployment rate",                      "unemployment rate"),
+    ("what is keynesian economics",                        "keynesian economics"),
+    ("who founded amazon",                                 "amazon"),
+    ("what is the value of the us dollar",                 "us dollar"),
+    ("how do banks make money",                            "banks"),
+    ("what is a bond",                                     "bond"),
+])
+def test_batch145_subject_extraction(question, expected):
+    """Batch 145: business/economics — markets, indicators, concepts, institutions."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
