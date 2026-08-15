@@ -2822,3 +2822,38 @@ def test_batch56_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 57: capable-of adj strip; what-do-X-eat/look-like; made-of; role-of
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X capable of" → X  (strip "capable of" compound adj phrase)
+    ("what is a black hole capable of",                "black hole"),
+    ("what is a human capable of",                     "human"),
+    # "what do X eat/look-like" → X
+    ("what do elephants eat",                          "elephants"),
+    ("what do sharks eat",                             "sharks"),
+    ("what do platypuses look like",                   "platypuses"),
+    # "what are X made of" → X
+    ("what are bones made of",                         "bones"),
+    ("what are stars made of",                         "stars"),
+    ("what are clouds made of",                        "clouds"),
+    # "what is X used for" → X
+    ("what is aspirin used for",                       "aspirin"),
+    ("what are solar panels used for",                 "solar panels"),
+    # "what is the role of X in Y" → X
+    ("what is the role of insulin in the body",        "insulin"),
+    ("what is the role of dna in cells",               "dna"),
+    # "what is the difference between X and Y" → "X and Y" for split_subjects
+    ("what is the difference between cats and dogs",   "cats and dogs"),
+    ("what is the difference between tcp and udp",     "tcp and udp"),
+])
+def test_batch57_subject_extraction(question, expected):
+    """Batch 57: capable-of strip; what-do-X; made-of; used-for; role-of; difference-between."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

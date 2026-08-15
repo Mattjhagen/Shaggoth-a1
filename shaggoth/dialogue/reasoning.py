@@ -824,9 +824,12 @@ def subject_of(question: str) -> str:
         r"nocturnal|diurnal|crepuscular|aquatic|terrestrial|arboreal|"
         r"carnivorous|herbivorous|omnivorous|venomous|migratory|endangered|"
         r"solitary|social|colonial|sentient|conscious|intelligent|"
-        r"renewable|organic|inorganic|synthetic|artificial|natural)\s*$",
+        r"renewable|organic|inorganic|synthetic|artificial|natural|"
+        r"capable|able|unable|incapable|worthy|unworthy)\s*$",
         "", text, flags=re.I,
     )
+    # "X capable of" → strip "capable of" tail (compound adj phrase)
+    text = re.sub(r"\s+capable\s+of\s*$", "", text, flags=re.I)
     # Strip a trailing "not" that can remain after the negated auxiliary was
     # expanded and the verb phrase was stripped: "why does X not use Y" →
     # strips "why does " → "X not use Y" → trailing strip removes " use Y" →
