@@ -363,6 +363,17 @@ def subject_of(question: str) -> str:
     # "can fish drown" → "fish drown", "is the earth flat" → "earth flat",
     # "will the sun explode" → "the sun explode" → "sun explode".
     text = re.sub(r"^(?:is|are|was|were|does|do|did|can|could|would|should|will)\s+(?:a\s+|an\s+|the\s+)?", "", text, flags=re.I)
+    # "which is the largest country in the world" → "country in the world" (then location strips clean up)
+    # Handles "which is/are the SUPERLATIVE NOUN" — a different word order from _m_which below.
+    _m_which_copula = re.match(
+        r"^which\s+(?:is|are|was|were)\s+(?:the\s+|a\s+|an\s+)?"
+        r"(?:largest?|biggest?|smallest?|tallest?|shortest?|longest?|fastest?|slowest?|"
+        r"deepest?|widest?|narrowest?|lightest?|heaviest?|oldest?|youngest?|newest?|"
+        r"most\s+\w+|least\s+\w+)\s+(.+)$",
+        text, re.I,
+    )
+    if _m_which_copula:
+        text = _m_which_copula.group(1)
     # "which planet is closest to the sun" → "planet"; "which country has the largest population" → "country"
     _m_which = re.match(r"^which\s+(.+?)\s+(?:is|are|was|were|has|have|had|does|do|did)\b", text, re.I)
     if _m_which:
@@ -669,6 +680,8 @@ def subject_of(question: str) -> str:
         r"\s+(?:need|needs|require|requires|use[sd]?|produce[sd]?|"
         r"happen(?:ed|s)?|occur(?:red|s)?|exist(?:ed|s)?|"
         r"made|created|formed|produced|compos(?:ed|es?)?|prevented|caused|built|done|founded|"
+        # Irregular past-tense verbs common in hypothetical "if X lost/became Y" questions:
+        r"los(?:t|e[sd]?)|becam(?:e|es?)|forgot(?:ten)?|gain(?:ed|s)?|"
         r"get\s+\w+ed|become|start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|train[s]?|take[s]?|"

@@ -3121,3 +3121,35 @@ def test_batch67_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 68: "which is the SUPERLATIVE NOUN"; irregular past-tense hypotheticals
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "which is the SUPERLATIVE NOUN [LOCATION]" patterns
+    ("which is the largest country in the world",         "country"),
+    ("which is the tallest mountain on earth",            "mountain"),
+    ("which is the deepest lake in the world",            "lake"),
+    ("which is the fastest land animal",                  "land animal"),
+    ("which is the most populated city in asia",          "city"),
+    ("which is the smallest planet in the solar system",  "planet"),
+    # Regression: "which NOUN is/are" still works (handled by _m_which)
+    ("which planet is the largest",                       "planet"),
+    ("which animal is the fastest",                       "animal"),
+    ("which country has the most people",                 "country"),
+    # Irregular past-tense verbs in conditional hypotheticals
+    ("what would happen if humans lost their memory",     "humans"),
+    ("what would happen if species became extinct",       "species"),
+    ("what would happen if humans forgot language",       "humans"),
+    # "if you VERB OBJECT" → OBJECT (pronoun-verb strip, "you" is generic)
+    ("what happens if you drink salt water",              "salt water"),
+])
+def test_batch68_subject_extraction(question, expected):
+    """Batch 68: which-is-superlative pattern; irregular past verbs; pronoun-verb strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
