@@ -6873,8 +6873,8 @@ def test_batch163_subject_extraction(question, expected):
     # "what does X stand for" → X
     ("what does html stand for",                              "html"),
     ("what does cpu stand for",                               "cpu"),
-    # "denial of service attack" → "denial of service" (attack stripped as verb)
-    ("what is a denial of service attack",                    "denial of service"),
+    # "denial of service attack" kept intact — attack guard protects compound noun
+    ("what is a denial of service attack",                    "denial of service attack"),
     # "how do you write a function in python" → "function" (in-python context stripped)
     ("how do you write a function in python",                 "function"),
     # "what is the difference between X and Y" → X and Y
@@ -10586,6 +10586,36 @@ def test_batch278_subject_extraction(question, expected):
 ])
 def test_batch279_subject_extraction(question, expected):
     """Batch 279: adversarial compound nouns — give/make/break/play/hold/turn/shot/track/look."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a firewall",                                      "firewall"),
+    ("what is a man in the middle attack",                      "man in the middle attack"),
+    ("what is a denial of service attack",                      "denial of service attack"),
+    ("what is a distributed denial of service",                 "distributed denial of service"),
+    ("what is a buffer overflow",                               "buffer overflow"),
+    ("what is a race condition",                                "race condition"),
+    ("what is a memory leak",                                   "memory leak"),
+    ("what is a deadlock",                                      "deadlock"),
+    ("what is a mutex",                                         "mutex"),
+    ("what is a semaphore",                                     "semaphore"),
+    ("what is a hash function",                                 "hash function"),
+    ("what is a checksum",                                      "checksum"),
+    ("what is public key cryptography",                         "public key cryptography"),
+    ("what is a digital signature",                             "digital signature"),
+    ("what is a zero day exploit",                              "zero day exploit"),
+    ("what is a phishing attack",                               "phishing attack"),
+    ("what is ransomware",                                      "ransomware"),
+    ("what is a trojan horse",                                  "trojan horse"),
+    ("what is a backdoor",                                      "backdoor"),
+    ("what is network latency",                                 "network latency"),
+])
+def test_batch280_subject_extraction(question, expected):
+    """Batch 280: technology / security — compound terms and attack vector names."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"

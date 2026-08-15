@@ -1192,9 +1192,9 @@ def subject_of(question: str) -> str:
         r"conduct[s]?|generate[sd]?|transmit(?:ted|s)?|convert[s]?|transfer[s]?|"
         r"store[sd]?|release[sd]?|react[s]?|"
         # Immune/conflict/process verbs: "how does X fight Y", "how does X affect Y"
-        # "attack" is also a medical compound noun ("asthma attack", "heart attack"):
-        # protect those by requiring it not be preceded by a condition noun.
-        r"fight[s]?|(?<!asthma\s)(?<!heart\s)(?<!panic\s)(?<!anxiety\s)attack[s]?|"
+        # "attack" is also a compound noun tail (medical and security contexts):
+        # "heart/panic/anxiety attack", "phishing/cyber/DDoS/middle attack" etc.
+        r"fight[s]?|(?<!asthma\s)(?<!heart\s)(?<!panic\s)(?<!anxiety\s)(?<!phishing\s)(?<!service\s)(?<!middle\s)(?<!cyber\s)(?<!ddos\s)attack[s]?|"
         r"defend[s]?|protect[s]?|affect[s]?|impact[s]?|"
         # "break" is also a compound-noun tail ("tax break", "spring break", "coffee break",
         # "commercial break", "prison break", "lunch break", "clean break", "make or break")
@@ -1484,7 +1484,8 @@ def subject_of(question: str) -> str:
         text = _m_super_in.group(1)
     # "X in the <location>" → X  (e.g. "planets in the solar system" → "planets")
     # Require "in the" so bare "animals in water" is not affected.
-    text = re.sub(r"\s+in\s+the\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
+    # Guard "man in the middle" — protect "in the middle" from being stripped.
+    text = re.sub(r"\s+in\s+the\s+(?!middle\b)\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
     # Second-pass work[s] strip: "voting work" → "voting" when "in the X" was just removed.
     # The primary work strip at line 717 fires before location strips, so it misses this residue.
     text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
