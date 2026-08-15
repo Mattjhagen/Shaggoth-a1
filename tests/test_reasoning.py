@@ -13751,3 +13751,116 @@ def test_batch378_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "light" compound nouns
+    ("what is sunlight",                                         "sunlight"),
+    ("what is moonlight",                                        "moonlight"),
+    ("what is starlight",                                        "starlight"),
+    ("what is daylight",                                         "daylight"),
+    ("what is twilight",                                         "twilight"),
+    ("what is a flashlight",                                     "flashlight"),
+    ("what is a spotlight",                                      "spotlight"),
+    ("what is a streetlight",                                    "streetlight"),
+    ("what is a night light",                                    "night light"),
+    # "power" compound nouns
+    ("what is a power plant",                                    "power plant"),
+    ("what is a power grid",                                     "power grid"),
+    ("what is a power outage",                                   "power outage"),
+    ("what is a superpower",                                     "superpower"),
+    ("what is horsepower",                                       "horsepower"),
+    ("what is willpower",                                        "willpower"),
+    ("what is brainpower",                                       "brainpower"),
+    # "energy" compound nouns
+    ("what is solar energy",                                     "solar energy"),
+    ("what is wind energy",                                      "wind energy"),
+    ("what is nuclear energy",                                   "nuclear energy"),
+    ("what is renewable energy",                                 "renewable energy"),
+    ("what is kinetic energy",                                   "kinetic energy"),
+    # light/shadow
+    ("what is a shadow",                                         "shadow"),
+    ("what is an eclipse",                                       "eclipse"),
+])
+def test_batch379_subject_extraction(question, expected):
+    """Batch 379: light, power, and energy compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "time" compound nouns
+    ("what is overtime",                                         "overtime"),
+    ("what is downtime",                                         "downtime"),
+    ("what is halftime",                                         "halftime"),
+    ("what is bedtime",                                          "bedtime"),
+    ("what is a lifetime",                                       "lifetime"),
+    ("what is a pastime",                                        "pastime"),
+    ("what is a part time job",                                  "part time job"),
+    ("what is a full time job",                                  "full time job"),
+    ("what is prime time",                                       "prime time"),
+    ("what is real time",                                        "real time"),
+    # "day" compound nouns
+    ("what is a weekday",                                        "weekday"),
+    ("what is a birthday",                                       "birthday"),
+    ("what is a holiday",                                        "holiday"),
+    ("what is a workday",                                        "workday"),
+    ("what is a payday",                                         "payday"),
+    # "night" compound nouns
+    ("what is midnight",                                         "midnight"),
+    ("what is overnight",                                        "overnight"),
+    ("what is a nightshift",                                     "nightshift"),
+    # "year" compound nouns
+    ("what is a leap year",                                      "leap year"),
+    ("what is a fiscal year",                                    "fiscal year"),
+    ("what is a school year",                                    "school year"),
+    # temporal concepts
+    ("what is daylight saving time",                             "daylight saving time"),
+    ("what is a time zone",                                      "time zone"),
+])
+def test_batch380_subject_extraction(question, expected):
+    """Batch 380: time-related compound nouns and temporal expressions — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "mind" compound nouns
+    ("what is mindfulness",                                      "mindfulness"),
+    ("what is a mindset",                                        "mindset"),
+    ("what is a mind map",                                       "mind map"),
+    ("what is a hive mind",                                      "hive mind"),
+    ("what is open minded",                                      "open minded"),
+    # "heart" compound nouns
+    ("what is a heartbeat",                                      "heartbeat"),
+    ("what is heartburn",                                        "heartburn"),
+    ("what is a heartrate",                                      "heartrate"),
+    ("what is sweetheart",                                       "sweetheart"),
+    ("what is braveheart",                                       "braveheart"),
+    # "head" compound nouns
+    ("what is a headquarters",                                   "headquarters"),
+    ("what is a headband",                                       "headband"),
+    ("what is a headcount",                                      "headcount"),
+    ("what is a forehead",                                       "forehead"),
+    ("what is a figurehead",                                     "figurehead"),
+    # "hand" compound nouns
+    ("what is backhand",                                         "backhand"),
+    ("what is forehand",                                         "forehand"),
+    ("what is a handshake",                                      "handshake"),
+    ("what is handwriting",                                      "handwriting"),
+    ("what is shorthand",                                        "shorthand"),
+    # "eye" compound nouns
+    ("what is an eyelid",                                        "eyelid"),
+    ("what is an eyebrow",                                       "eyebrow"),
+    ("what is an eyeball",                                       "eyeball"),
+])
+def test_batch381_subject_extraction(question, expected):
+    """Batch 381: mind/heart/head/hand/eye compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
