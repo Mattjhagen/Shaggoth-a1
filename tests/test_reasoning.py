@@ -3388,3 +3388,42 @@ def test_batch75_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 76: "sweat" added to trailing-verb list; why-do/does/is/are/did/would
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "sweat" now in trailing-verb list
+    ("why do humans sweat",                         "humans"),
+    ("why do athletes sweat more",                  "athletes"),
+    # "why do/does X VERB" → X  (regression guards)
+    ("why do cats meow",                            "cats"),
+    ("why do fish swim in schools",                 "fish"),
+    ("why do dogs bark at strangers",               "dogs"),
+    ("why does bread rise",                         "bread"),
+    ("why does wood float on water",                "wood"),
+    ("why does copper turn green",                  "copper"),
+    # "why is X Y" → X  (regression guards)
+    ("why is grass green",                          "grass"),
+    ("why is urine yellow",                         "urine"),
+    ("why is gold so valuable",                     "gold"),
+    # "why are X Y" → X  (regression guards)
+    ("why are sunsets red",                         "sunsets"),
+    ("why are tears salty",                         "tears"),
+    ("why are rainbows curved",                     "rainbows"),
+    # "why did X happen" → X
+    ("why did the soviet union collapse",           "soviet union"),
+    ("why did napoleon lose at waterloo",           "napoleon"),
+    # "why can't/don't X VERB" → X
+    ("why can't humans fly",                        "humans"),
+    ("why don't birds freeze in winter",            "birds"),
+])
+def test_batch76_subject_extraction(question, expected):
+    """Batch 76: sweat verb added; why-do/does/is/are/did patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
