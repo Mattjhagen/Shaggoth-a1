@@ -4434,3 +4434,42 @@ def test_batch101_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Basic economic concepts
+    ("what is inflation",                               "inflation"),
+    ("what is gdp",                                     "gdp"),
+    ("what is supply and demand",                       "supply and demand"),
+    ("what is the stock market",                        "stock market"),
+    ("what is a recession",                             "recession"),
+    ("what is cryptocurrency",                          "cryptocurrency"),
+    ("what is interest rate",                           "interest rate"),
+    # "what causes X"
+    ("what causes inflation",                           "inflation"),
+    ("what causes a recession",                         "recession"),
+    # "how does X work / affect Y"
+    ("how does the stock market work",                  "stock market"),
+    ("how does inflation affect the economy",           "inflation"),
+    ("how does compound interest work",                 "compound interest"),
+    # difference between
+    ("what is the difference between stocks and bonds", "stocks and bonds"),
+    ("what is the difference between gdp and gnp",      "gdp and gnp"),
+    # "who founded X"
+    ("who founded apple",                               "apple"),
+    ("who founded amazon",                              "amazon"),
+    # measurement terms — "us" is not stripped as a pronoun
+    ("what is the us debt",                             "us debt"),
+    ("what is the minimum wage",                        "minimum wage"),
+    # "which CATEGORY has the SUPERLATIVE X" → CATEGORY (asking about which instance)
+    ("which country has the highest gdp",               "country"),
+    ("which country has the lowest unemployment rate",  "country"),
+    # "how many X are there in the world"
+    ("how many billionaires are there in the world",    "billionaires"),
+])
+def test_batch102_subject_extraction(question, expected):
+    """Batch 102: economics/business — concepts, causes, differences, founders, rank queries."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

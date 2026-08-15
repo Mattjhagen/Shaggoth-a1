@@ -807,7 +807,7 @@ def subject_of(question: str) -> str:
     # like "humans" fall through to the trailing-verb strip instead ("where did humans
     # originate" → verb strip removes "originate" → "humans").
     # Must fire BEFORE the trailing-verb strip, which would remove the verb first.
-    _m_we = re.match(r"^(?:we|us|you|one|people)\s+(\w+)\s*$", text, re.I)
+    _m_we = re.match(r"^(?:we|you|one|people)\s+(\w+)\s*$", text, re.I)
     if _m_we:
         text = _m_we.group(1)
     # "it VERB in X" → X  (dummy-subject weather/frequency questions)
