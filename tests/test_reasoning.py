@@ -12552,3 +12552,65 @@ def test_batch345_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a sales pitch",                                    "sales pitch"),
+    ("what is a baseball pitch",                                 "baseball pitch"),
+    ("what is a elevator pitch",                                 "elevator pitch"),
+    ("what is a forward pass",                                   "forward pass"),
+    ("what is a free pass",                                      "free pass"),
+    ("what is a hall pass",                                      "hall pass"),
+    ("what is a free kick",                                      "free kick"),
+    ("what is a penalty kick",                                   "penalty kick"),
+    ("what is a drop kick",                                      "drop kick"),
+    ("what is a hard drive",                                     "hard drive"),
+    ("what is a flash drive",                                    "flash drive"),
+    ("what is a test drive",                                     "test drive"),
+    ("what is a sliding tackle",                                 "sliding tackle"),
+    ("what is a mental block",                                   "mental block"),
+    ("what is a writer's block",                                 "writer's block"),
+    ("what is a stumbling block",                                "stumbling block"),
+    ("what is a javelin throw",                                  "javelin throw"),
+    ("what is a free throw",                                     "free throw"),
+    ("what is a penalty shootout",                               "penalty shootout"),
+    ("what is a mood swing",                                     "mood swing"),
+    ("what is a salary swing",                                   "salary swing"),
+])
+def test_batch346_subject_extraction(question, expected):
+    """Batch 346: sports/games compound nouns with action-word heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is eye strain",                                       "eye strain"),
+    ("what is muscle strain",                                    "muscle strain"),
+    ("what is back strain",                                      "back strain"),
+    ("what is brain drain",                                      "brain drain"),
+    ("what is talent drain",                                     "talent drain"),
+    ("what is a blood draw",                                     "blood draw"),
+    ("what is a lucky draw",                                     "lucky draw"),
+    ("what is a brain scan",                                     "brain scan"),
+    ("what is a body scan",                                      "body scan"),
+    ("what is a retinal scan",                                   "retinal scan"),
+    ("what is a blood test",                                     "blood test"),
+    ("what is a stress test",                                    "stress test"),
+    ("what is a drug test",                                      "drug test"),
+    ("what is a criminal charge",                                "criminal charge"),
+    ("what is a bank charge",                                    "bank charge"),
+    ("what is a surcharge",                                      "surcharge"),
+    ("what is a court order",                                    "court order"),
+    ("what is a restraining order",                              "restraining order"),
+    ("what is an executive order",                               "executive order"),
+    ("what is a press release",                                  "press release"),
+    ("what is a news release",                                   "news release"),
+])
+def test_batch347_subject_extraction(question, expected):
+    """Batch 347: medical/legal compound nouns with action-word heads; press/news release guard."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

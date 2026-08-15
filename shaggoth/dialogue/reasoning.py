@@ -1218,7 +1218,7 @@ def subject_of(question: str) -> str:
         r"(?<!probable\s)(?<!just\s)cause[sd]?|enable[sd]?|allow[s]?|prevent[s]?|"
         # Electrical/physical process verbs: "how does water conduct electricity"
         r"conduct[s]?|generate[sd]?|transmit(?:ted|s)?|convert[s]?|transfer[s]?|"
-        r"store[sd]?|release[sd]?|react[s]?|"
+        r"store[sd]?|(?<!press\s)(?<!news\s)(?<!album\s)(?<!product\s)release[sd]?|react[s]?|"
         # Immune/conflict/process verbs: "how does X fight Y", "how does X affect Y"
         # "attack" is also a compound noun tail (medical and security contexts):
         # "heart/panic/anxiety attack", "phishing/cyber/DDoS/middle attack" etc.
