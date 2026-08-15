@@ -525,7 +525,7 @@ def subject_of(question: str) -> str:
     # stripping "what are".
     # \d{1,3} only: 4-digit years/titles ("1984", "2001") are topics, not quantifiers.
     # "key" is protected when it forms a compound noun (key signature, key change).
-    text = re.sub(r"^(?:some|any|various|several|a few|all|different|main|major|key(?!\s+(?:signature|change))|\d{1,3}(?!\s+percent\b))\s+", "", text, flags=re.I)
+    text = re.sub(r"^(?:some|any|various|several|a few|all|different|main|major(?!\s+(?:scale|chord|key\b|third|seventh|sixth|second|fourth|mode|interval))|key(?!\s+(?:signature|change))|\d{1,3}(?!\s+percent\b))\s+", "", text, flags=re.I)
     # "difference between X and Y" / "similarity between X and Y" → "X and Y"
     _before_between = text
     text = re.sub(
@@ -1204,7 +1204,7 @@ def subject_of(question: str) -> str:
         # Assistance verbs: "how does sleep help the brain"
         r"help[s]?|assist[s]?|support[s]?|"
         # Comparison verbs: "how does X differ from Y" / "how does X compare to Y" → "X"
-        r"differ[sd]?|compare[sd]?|"
+        r"differ[sd]?|compare[sd]?|resolve[sd]?|"
         # Role verb: "what role does insulin play in the body" → after leading strip → "play"
         r"play(?:s|ed)?|"
         # Origin verb: "where did humans originate"
@@ -1660,7 +1660,7 @@ def subject_of(question: str) -> str:
     # → "main programming languages" → "programming languages".
     # Guard "multiple" against medical compound names: "multiple sclerosis" and "multiple myeloma"
     # must not lose "multiple" (it is part of the proper disease name, not a generic qualifier).
-    text = re.sub(r"^(?:different|main|major|key(?!\s+(?:signature|change))|various|multiple(?!\s+(?:sclerosis|myeloma)))\s+", "", text, flags=re.I)
+    text = re.sub(r"^(?:different|main|major(?!\s+(?:scale|chord|key\b|third|seventh|sixth|second|fourth|mode|interval))|key(?!\s+(?:signature|change))|various|multiple(?!\s+(?:sclerosis|myeloma)))\s+", "", text, flags=re.I)
     # Strip leading superlative/comparative adjective: "largest ocean" → "ocean",
     # "fastest animal" → "animal", "most common element" → "element".
     _before_super = text

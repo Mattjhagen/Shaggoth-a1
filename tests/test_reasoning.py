@@ -9509,3 +9509,33 @@ def test_batch243_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a major scale",                                    "major scale"),
+    ("what is a minor scale",                                    "minor scale"),
+    ("what is a chord",                                          "chord"),
+    ("what is a key signature",                                  "key signature"),
+    ("what is a time signature",                                 "time signature"),
+    ("what is counterpoint",                                     "counterpoint"),
+    ("what is harmony",                                          "harmony"),
+    ("what is rhythm",                                           "rhythm"),
+    ("what is a melody",                                         "melody"),
+    ("what is a fugue",                                          "fugue"),
+    ("what is a sonata",                                         "sonata"),
+    ("what is a concerto",                                       "concerto"),
+    ("what is a symphony",                                       "symphony"),
+    ("what is an interval",                                      "interval"),
+    ("what is a tritone",                                        "tritone"),
+    ("what is modal music",                                      "modal music"),
+    ("how does a piano work",                                    "piano"),
+    ("how does a guitar produce sound",                          "guitar"),
+    ("what is music theory",                                     "music theory"),
+    ("how do chords resolve",                                    "chords"),
+])
+def test_batch244_subject_extraction(question, expected):
+    """Batch 244: music theory — scales, chords, forms, instruments."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
