@@ -118,7 +118,7 @@ def test_enumerating_questions(question):
     ("how many planets are in the solar system", "solar system"),
     ("how many bones are in the human body", "human body"),
     # "how many X does Y have" → subject is Y (entity being described)
-    ("how many moons does Jupiter have", "Jupiter"),
+    ("how many moons does Jupiter have", "jupiter"),
     # "how long does X take" → strip degree word + trailing "take"
     ("how long does photosynthesis take", "photosynthesis"),
 ])
@@ -296,7 +296,7 @@ def test_subject_of_new_causal_patterns(question, expected):
     ("why do black holes form", "black holes"),
     ("how do plants make food", "plants"),
     ("how does deep learning train", "deep learning"),
-    ("what makes DNA replicate", "DNA"),
+    ("what makes DNA replicate", "dna"),
     # "are there" is question scaffolding, even when followed by a prep phrase
     ("what kinds of algae are there", "algae"),
     ("what kinds of planets are there in the solar system", "planets"),
@@ -325,12 +325,12 @@ def test_subject_of_new_causal_verb_patterns(question, expected):
 
 @pytest.mark.parametrize("question,expected", [
     # Past-tense "caused": was garbling to "d the Great Depression"
-    ("what caused the Great Depression", "Great Depression"),
+    ("what caused the Great Depression", "great depression"),
     ("what caused the financial crisis", "financial crisis"),
     # Extinction/state trailing verbs
     ("why did the dinosaurs go extinct", "dinosaurs"),
-    ("how did the Roman Empire fall", "Roman Empire"),
-    ("how did the Soviet Union collapse", "Soviet Union"),
+    ("how did the Roman Empire fall", "roman empire"),
+    ("how did the Soviet Union collapse", "soviet union"),
     # Enumeration with "some types" article prefix
     ("what are some types of cancer", "cancer"),
     # Imperative enumeration commands
@@ -346,7 +346,7 @@ def test_subject_of_new_patterns(question, expected):
     ("who invented the telephone", "telephone"),
     ("who discovered penicillin", "penicillin"),
     ("who developed the theory of relativity", "theory of relativity"),
-    ("who designed the Eiffel Tower", "Eiffel Tower"),
+    ("who designed the Eiffel Tower", "eiffel tower"),
     # "when" opening + passive attribution verb at the end
     ("when was the internet invented", "internet"),
     ("when was electricity discovered", "electricity"),
@@ -396,19 +396,19 @@ def test_split_subjects_relationship_and_trailing_related(question, expected):
 
 @pytest.mark.parametrize("question,expected", [
     # "fall/collapse/rise of X" — strip the event noun to get the core topic.
-    ("what caused the fall of the Roman Empire", "Roman Empire"),
-    ("what caused the collapse of the Soviet Union", "Soviet Union"),
+    ("what caused the fall of the Roman Empire", "roman empire"),
+    ("what caused the collapse of the Soviet Union", "soviet union"),
     ("what caused the rise of nationalism", "nationalism"),
     # "X fall" with no following "of" — "fall" IS a verb here; strip it too.
-    ("how did Rome fall", "Rome"),
-    ("why did the Soviet Union collapse", "Soviet Union"),
+    ("how did Rome fall", "rome"),
+    ("why did the Soviet Union collapse", "soviet union"),
     # "originate" is now in the trailing-verb list.
     ("where did humans originate", "humans"),
     ("where did life originate", "life"),
     # "role/function of X in Y" — "in Y" is context, not part of subject.
     ("what is the role of mitochondria in cell energy", "mitochondria"),
     ("what is the function of chlorophyll in photosynthesis", "chlorophyll"),
-    ("what is the role of ATP in muscle contraction", "ATP"),
+    ("what is the role of ATP in muscle contraction", "atp"),
     # "in the solar system" context stripped; "planets" is the KB lookup term.
     ("list the planets in the solar system", "planets"),
 ])
@@ -433,10 +433,10 @@ def test_causal_trigger_verbs(question):
 @pytest.mark.parametrize("question,expected", [
     # Attribution strip handles started/ended/sparked/stopped/brought about
     ("what started the industrial revolution", "industrial revolution"),
-    ("what ended the Cold War", "Cold War"),
-    ("what sparked the French Revolution", "French Revolution"),
+    ("what ended the Cold War", "cold war"),
+    ("what sparked the French Revolution", "french revolution"),
     ("what stopped the plague", "plague"),
-    ("what brought about the Great Depression", "Great Depression"),
+    ("what brought about the Great Depression", "great depression"),
     # Physics state-change verbs strip as trailing verbs
     ("why does ice float on water", "ice"),
     ("why does iron rust", "iron"),
@@ -467,8 +467,8 @@ def test_causal_past_tense_led(question):
     ("what are the causes of heart disease", "heart disease"),
     ("what are the signs of dehydration", "dehydration"),
     # 'what led to X' — past-tense lead; "fall of" stripped to core topic
-    ("what led to the fall of the Roman Empire", "Roman Empire"),
-    ("what led to World War 1", "World War 1"),
+    ("what led to the fall of the Roman Empire", "roman empire"),
+    ("what led to World War 1", "world war 1"),
     # 'have phases/feathers' — possession verb trailing strip
     ("why does the moon have phases", "moon"),
     ("why do birds have feathers", "birds"),
@@ -1196,7 +1196,7 @@ def test_batch11_enumerate_classify(question, expected_intent):
     # "components of X" and "parts of X" scaffold nouns → X
     ("what are the components of a cell", "cell"),
     ("what are the parts of the brain", "brain"),
-    ("what are the sections of DNA", "DNA"),
+    ("what are the sections of DNA", "dna"),
     ("what are the members of the solar system", "solar system"),
     # Biological/physical process verbs stripped trailing
     ("how does the kidney filter blood", "kidney"),
@@ -11647,7 +11647,7 @@ def test_batch315_subject_extraction(question, expected):
     ("what is a spin off",                                     "spin off"),
     ("what is a tailspin",                                     "tailspin"),
     ("what is a backspin",                                     "backspin"),
-    ("what is a U turn",                                       "U turn"),
+    ("what is a U turn",                                       "u turn"),
     ("what is an about turn",                                  "about turn"),
     ("what is an overturn",                                    "overturn"),
     ("what is a downturn",                                     "downturn"),
@@ -12209,6 +12209,45 @@ def test_batch333_subject_extraction(question, expected):
 ])
 def test_batch334_subject_extraction(question, expected):
     """Batch 334: environmental/earth science compound nouns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # contractions ("what's X" → X)
+    ("what's a black hole",                                       "black hole"),
+    ("what's the speed of light",                                 "speed of light"),
+    ("what's quantum entanglement",                               "quantum entanglement"),
+    ("what's osmosis",                                            "osmosis"),
+    # "what exactly is X"
+    ("what exactly is a black hole",                              "black hole"),
+    ("what exactly is machine learning",                          "machine learning"),
+    # "what really is X"
+    ("what really is consciousness",                              "consciousness"),
+    # "can you tell me what X is"
+    ("can you tell me what gravity is",                           "gravity"),
+    ("can you tell me what a genome is",                          "genome"),
+    # "i want to know about X" (regression)
+    ("i want to know about the universe",                         "universe"),
+    # "could you explain X"
+    ("could you explain photosynthesis",                          "photosynthesis"),
+    ("could you explain supply and demand",                       "supply and demand"),
+    # "just wondering what X is"
+    ("just wondering what osmosis is",                            "osmosis"),
+    # informal filler words
+    ("yo what is a black hole",                                   "black hole"),
+    ("so what is inflation",                                      "inflation"),
+    ("wait what is the stock market",                             "stock market"),
+    ("like what is cryptocurrency",                               "cryptocurrency"),
+    ("basically what is machine learning",                        "machine learning"),
+    # Title Case normalization
+    ("What is a neutron star",                                    "neutron star"),
+    ("What Is A Neural Network",                                  "neural network"),
+])
+def test_batch335_subject_extraction(question, expected):
+    """Batch 335: contractions, indirect questions, informal fillers, Title Case normalization."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"

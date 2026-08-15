@@ -282,7 +282,29 @@ def _expand_contractions(text: str) -> str:
 
 def subject_of(question: str) -> str:
     """The single subject of a causal or enumerating question."""
-    text = _expand_contractions((question or "").strip(" ?."))
+    text = _expand_contractions((question or "").strip(" ?.").lower())
+    # Strip informal leading filler/discourse markers before the question frame.
+    # "yo what is X" / "so what is X" / "like what is X" → "what is X"
+    text = re.sub(
+        r"^(?:yo|hey|wait|so|like|basically|actually|literally|"
+        r"honestly|seriously|right|ok|okay|alright)\s+",
+        "", text, flags=re.I,
+    )
+    # Indirect question: "can you tell me what gravity is" → "gravity"
+    _m_tell_me_what = re.match(
+        r"^(?:can|could|would)\s+you\s+(?:tell|show)\s+me\s+what\s+"
+        r"(?:a\s+|an\s+|the\s+)?(.+?)\s+is\s*$",
+        text, re.I,
+    )
+    if _m_tell_me_what:
+        return _m_tell_me_what.group(1)
+    # "just wondering what osmosis is" → "osmosis"
+    _m_wondering = re.match(
+        r"^(?:just\s+)?wondering\s+what\s+(?:a\s+|an\s+|the\s+)?(.+?)\s+is\s*$",
+        text, re.I,
+    )
+    if _m_wondering:
+        return _m_wondering.group(1)
     _original = text  # preserved for intent-specific guards below
     # "what vitamin helps with immune system" → "immune system"  (purpose is the lookup subject)
     # "what food helps with digestion" → "digestion"
