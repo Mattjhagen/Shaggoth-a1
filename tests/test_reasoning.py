@@ -5968,3 +5968,34 @@ def test_batch141_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is an atom",                                    "atom"),
+    ("what is a molecule",                                 "molecule"),
+    ("what is an electron",                                "electron"),
+    ("what is a proton",                                   "proton"),
+    ("what is entropy",                                    "entropy"),
+    ("what is thermodynamics",                             "thermodynamics"),
+    ("what is quantum mechanics",                          "quantum mechanics"),
+    ("what is the periodic table",                         "periodic table"),
+    ("what is radioactivity",                              "radioactivity"),
+    ("what is nuclear fission",                            "nuclear fission"),
+    ("what is nuclear fusion",                             "nuclear fusion"),
+    ("what is oxidation",                                  "oxidation"),
+    ("how does nuclear fission work",                      "nuclear fission"),
+    ("what is the atomic number of carbon",                "carbon"),
+    ("what is the boiling point of water",                 "water"),
+    ("what is the law of conservation of energy",          "law of conservation of energy"),
+    ("what is newton's law of gravitation",                "newton's law of gravitation"),
+    ("what element is gold",                               "gold"),
+    ("how do you make hydrogen",                           "hydrogen"),
+    ("what is the chemical formula for water",             "water"),
+    ("what is the speed of sound",                         "speed of sound"),
+])
+def test_batch142_subject_extraction(question, expected):
+    """Batch 142: chemistry/physics — atomic structure, reactions, laws, formulae."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
