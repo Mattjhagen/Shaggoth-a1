@@ -226,6 +226,34 @@ def test_best_chunks_empty_query(tmp_path):
     assert result == entry.content
 
 
+def test_best_chunks_no_duplicate_overlap_in_adjacent_chunks(tmp_path):
+    """Adjacent chunks share overlap words; best_chunks must not repeat them."""
+    from shaggoth.knowledge.engine import chunk_content
+    # Build content with a unique token in the overlap zone between chunk 0 and 1.
+    # chunk_content(chunk_size=10, overlap=3, threshold=800) gives step=7.
+    # chunk[0] = words[0:10], chunk[1] = words[7:17].
+    # Words 7,8,9 appear in both chunks -- they must appear only once in the result.
+    words = [f"w{i}" for i in range(20)]
+    content = " ".join(words)
+    chunks = chunk_content(content, chunk_size=10, overlap=3, threshold=5)
+    # Manually create an entry with two adjacent chunks both matching the query
+    from shaggoth.knowledge.engine import KnowledgeEntry
+    entry = KnowledgeEntry(
+        topic="Test", content=content, path="", word_count=len(words),
+        keywords=[], mtime=0.0,
+        chunks=chunks,
+        chunk_keywords=[chunks[i].split() for i in range(len(chunks))],
+    )
+    kb = KnowledgeBase(tmp_path)
+    # Ask a query that hits both chunk 0 (w0) and chunk 1 (w10+)
+    result = kb.best_chunks(entry, "w0 w10", max_chunks=2)
+    result_words = result.split()
+    # Every word should appear at most once
+    assert len(result_words) == len(set(result_words)), (
+        f"Duplicate words found: {[w for w in result_words if result_words.count(w) > 1]}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Reranking in query() — integration
 # ---------------------------------------------------------------------------

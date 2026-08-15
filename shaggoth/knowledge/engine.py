@@ -457,7 +457,24 @@ class KnowledgeBase:
         positive = [(s, i) for s, i in scored if s > 0]
         selected = positive[:max_chunks] if positive else scored[:max_chunks]
         best_indices = sorted(idx for _, idx in selected)
-        return "\n\n".join(entry.chunks[i] for i in best_indices)
+        # Strip duplicated overlap words when consecutive chunks are selected.
+        # chunk_content() produces overlapping windows; naively joining adjacent
+        # chunks would repeat the shared words.  Detect the overlap by finding
+        # the longest suffix of the previous chunk that equals the prefix of the
+        # current one, then strip that prefix from the current chunk.
+        parts: list[str] = []
+        for k, idx in enumerate(best_indices):
+            chunk = entry.chunks[idx]
+            if k > 0 and best_indices[k] == best_indices[k - 1] + 1 and parts:
+                prev_words = parts[-1].split()
+                next_words = chunk.split()
+                for n in range(min(len(prev_words), len(next_words)), 0, -1):
+                    if prev_words[-n:] == next_words[:n]:
+                        chunk = " ".join(next_words[n:])
+                        break
+            if chunk.strip():
+                parts.append(chunk)
+        return "\n\n".join(parts)
 
     def add_entry(self, topic: str, content: str) -> Path:
         with self._write_lock:
