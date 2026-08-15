@@ -593,7 +593,9 @@ def subject_of(question: str) -> str:
         # Literary/art property nouns: "theme of hamlet" → "hamlet", "plot of X" → X
         # "myth of sisyphus" → "sisyphus"; "legend of king arthur" → "king arthur"
         # "holy book of islam" → "islam" (with optional adjective "holy" captured above)
-        r"theme|plot|story|narrative|myth|legend|fable|tale|lore|setting|style|genre|format|book|text|scripture|"
+        # Guard theme/plot/narrative/story with (?!\s+in\b): "theme in literature" → "theme"
+        # (concept-definition question), while "theme of hamlet" → "hamlet" still fires.
+        r"theme(?!\s+in\b)|plot(?!\s+in\b)|story(?!\s+in\b)|narrative(?!\s+in\b)|myth|legend|fable|tale|lore|setting|style|genre|format|book|text|scripture|"
         # Measurement/property compounds: "boiling point of water" → "water"
         # "half life of carbon 14" → "carbon 14"
         r"point|rate|level|amount|number|count|percentage|quantity|fraction|proportion|"
@@ -1162,7 +1164,7 @@ def subject_of(question: str) -> str:
         r"pump[s]?|(?<!due )process(?:es)?|connect[s]?|"
         r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|consume[sd]?|"
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"
-        r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|"
+        r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|catch(?:es)?|caught|"
         r"come[s]?\s+from|get[s]?|navigate[sd]?|find[s]?|"
         r"purr[s]?|bark[s]?|meow[s]?|howl[s]?|chirp[s]?|sing[s]?|hum[s]?|roar[s]?|growl[s]?|"
         r"regrow[s]?|regenerate[sd]?|hibernate[sd]?|camouflage[sd]?|photosynthesize[sd]?|"
