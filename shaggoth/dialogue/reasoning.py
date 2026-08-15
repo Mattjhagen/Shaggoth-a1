@@ -767,6 +767,7 @@ def subject_of(question: str) -> str:
         r"^(?:animal|plant|mammal|reptile|bird|fish|insect|element|mineral|metal|"
         r"substance|compound|molecule|chemical|gas|liquid|solid|energy|"
         r"country|city|continent|region|language|sport|food|drug|disease|"
+        r"ocean|sea|lake|river|mountain|desert|forest|island|peninsula|canyon|"
         r"rock|mineral|gem|star|planet|galaxy|force|wave|particle|radiation|"
         r"nationality|genre|style|medium|technique|movement|era|format|type|color|colour|shape|material|occupation|religion)\s+(?:is|was|are|were)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
         text, re.I,

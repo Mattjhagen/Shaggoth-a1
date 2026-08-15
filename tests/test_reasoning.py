@@ -4586,3 +4586,40 @@ def test_batch105_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question, expected", [
+    # "what is X" geographic features
+    ("what is the amazon river",                        "amazon river"),
+    ("what is the sahara desert",                       "sahara desert"),
+    ("what is the great barrier reef",                  "great barrier reef"),
+    ("what is mount everest",                           "mount everest"),
+    ("what is the mariana trench",                      "mariana trench"),
+    # "where is X located" → X
+    ("where is the amazon river located",               "amazon river"),
+    ("where is mount everest located",                  "mount everest"),
+    ("where is the sahara desert located",              "sahara desert"),
+    # "what is the SUPERLATIVE X" → X (category)
+    ("what is the largest ocean",                       "ocean"),
+    ("what is the longest river",                       "river"),
+    ("what is the tallest mountain",                    "mountain"),
+    ("what is the largest country",                     "country"),
+    ("what is the smallest country",                    "country"),
+    # "how DEGREE is X"
+    ("how tall is mount everest",                       "mount everest"),
+    ("how deep is the mariana trench",                  "mariana trench"),
+    ("how long is the nile river",                      "nile river"),
+    # "what CATEGORY is X in/surrounded by" → X  (ocean/continent in _m_cat_is)
+    ("what continent is brazil in",                     "brazil"),
+    ("what continent is egypt in",                      "egypt"),
+    ("what ocean is australia surrounded by",           "australia"),
+    # "how many countries are in X" → X
+    ("how many countries are in europe",                "europe"),
+    ("how many countries are in africa",                "africa"),
+])
+def test_batch106_subject_extraction(question, expected):
+    """Batch 106: geography — features, superlatives, category-is pattern, ocean/continent."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
