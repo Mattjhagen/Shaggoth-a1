@@ -220,27 +220,26 @@ class CuriosityScheduler:
         if not self.config.proactive_topics or self.curiosity.is_running:
             return
 
-        # Find a topic we haven't explored yet or rarely explored
-        candidates = [
-            t for t in self.config.proactive_topics
-            if t not in self._explored_topics
-        ]
-
-        # If all topics explored, reset and pick randomly
-        if not candidates:
-            self._explored_topics.clear()
-            candidates = self.config.proactive_topics
-
-        if candidates:
+        with self._lock:
+            candidates = [
+                t for t in self.config.proactive_topics
+                if t not in self._explored_topics
+            ]
+            if not candidates:
+                self._explored_topics.clear()
+                candidates = list(self.config.proactive_topics)
+            if not candidates:
+                return
             topic = random.choice(candidates)
             self._explored_topics.add(topic)
-            print(f"[curiosity] proactive research: {topic!r}")
-            self.curiosity.research_topic(
-                topic,
-                max_results=self.config.max_results_per_topic,
-                max_pages=self.config.max_pages_per_topic,
-                background=False,
-            )
+
+        print(f"[curiosity] proactive research: {topic!r}")
+        self.curiosity.research_topic(
+            topic,
+            max_results=self.config.max_results_per_topic,
+            max_pages=self.config.max_pages_per_topic,
+            background=False,
+        )
 
     def trigger(self) -> dict:
         """Manually trigger an immediate curiosity cycle.

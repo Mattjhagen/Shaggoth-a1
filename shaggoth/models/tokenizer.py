@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
 from collections import defaultdict, Counter
 from pathlib import Path
 
@@ -151,11 +153,23 @@ class BPETokenizer:
         return dict(enumerate(self.vocab))
 
     def save(self, path: str) -> None:
-        Path(path).write_text(json.dumps({
+        p = Path(path)
+        data = json.dumps({
             "vocab": self.vocab,
             "merges": [[list(k), v] for k, v in self.merges.items()],
             "vocab_size": self.vocab_size,
-        }), encoding="utf-8")
+        })
+        fd, tmp = tempfile.mkstemp(dir=str(p.parent), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(data)
+            os.replace(tmp, p)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
 
     @classmethod
     def load(cls, path: str) -> BPETokenizer:

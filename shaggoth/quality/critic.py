@@ -180,7 +180,8 @@ class CriticLoop:
             return None
 
         self.stats.judged += 1
-        setattr(self.stats, verdict.verdict, getattr(self.stats, verdict.verdict) + 1)
+        if verdict.verdict in ("good", "weak", "bad"):
+            setattr(self.stats, verdict.verdict, getattr(self.stats, verdict.verdict) + 1)
 
         # Only a clear failure is filed. "weak" is not enough to spend a
         # research cycle on, and filing it would drown the genuine failures.

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 import threading
 import time
 from dataclasses import dataclass, asdict
@@ -94,9 +96,20 @@ class CuriosityEngine:
         return []
 
     def _save_history(self) -> None:
-        self.history_path.write_text(
-            json.dumps(self._history, indent=2), encoding="utf-8"
-        )
+        parent = self.history_path.parent
+        parent.mkdir(parents=True, exist_ok=True)
+        data = json.dumps(self._history, indent=2)
+        fd, tmp = tempfile.mkstemp(dir=str(parent), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(data)
+            os.replace(tmp, self.history_path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
 
     @property
     def is_running(self) -> bool:
@@ -218,9 +231,10 @@ class CuriosityEngine:
                 episode.error = str(exc)[:500]
             finally:
                 episode.ended_at = time.time()
-                self._history.append(asdict(episode))
-                if len(self._history) > 200:
-                    del self._history[:-100]
+                with self._lock:
+                    self._history.append(asdict(episode))
+                    if len(self._history) > 200:
+                        del self._history[:-100]
                 self._save_history()
                 self._fire_completion(episode)
 
@@ -402,12 +416,13 @@ class CuriosityEngine:
         with self._lock:
             running = self._running
             ep = self._current_episode
+            history_snapshot = list(self._history)
         entries = self.knowledge.list_entries()
         return {
             "is_running": running,
             "current_episode": asdict(ep) if ep else None,
-            "total_episodes": len(self._history),
-            "last_episode": self._history[-1] if self._history else None,
+            "total_episodes": len(history_snapshot),
+            "last_episode": history_snapshot[-1] if history_snapshot else None,
             "knowledge_entries": len(entries),
             # Actual corpus size. scraper_stats.total_words only counts pages
             # that went through the generic web-scraper table -- Wikipedia
@@ -421,4 +436,6 @@ class CuriosityEngine:
         }
 
     def history(self, limit: int = 10) -> list[dict]:
-        return self._history[-limit:]
+        with self._lock:
+            snapshot = list(self._history)
+        return snapshot[-limit:]

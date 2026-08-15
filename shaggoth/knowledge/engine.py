@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import difflib
 import math
+import os
 import re
+import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
@@ -454,7 +456,17 @@ class KnowledgeBase:
     def add_entry(self, topic: str, content: str) -> Path:
         with self._write_lock:
             fpath = self.directory / f"{self.slug_for(topic)}.md"
-            fpath.write_text(content, encoding="utf-8")
+            fd, tmp = tempfile.mkstemp(dir=str(self.directory), suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    fh.write(content)
+                os.replace(tmp, fpath)
+            except BaseException:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+                raise
             self._scan()
         return fpath
 
