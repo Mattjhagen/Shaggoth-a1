@@ -1488,3 +1488,40 @@ def test_batch18_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Modal opener: "can/could X VERB" → X
+    ("can humans survive in space",         "humans"),
+    ("can fish drown",                      "fish"),
+    ("can plants feel pain",                "plants"),
+    ("can robots think",                    "robots"),
+    ("could dinosaurs swim",                "dinosaurs"),
+    # "how long ago did X" → X
+    ("how long ago did dinosaurs go extinct", "dinosaurs"),
+    ("how long ago did life evolve",        "life"),
+    # "how long has X existed" → X  (has/have/had in auxiliary list)
+    ("how long has the universe existed",   "universe"),
+    ("how long has life existed on earth",  "life"),
+    # Orphaned-adverb strip: "when did humans first appear" → "humans"
+    ("when did humans first appear",        "humans"),
+    ("when did life first appear",          "life"),
+    # "dark matter": removing "matter" from verb list
+    ("what is dark matter",                 "dark matter"),
+    ("what is gray matter",                 "gray matter"),
+    # "what type of CATEGORY is X" → X
+    ("what type of animal is a whale",      "whale"),
+    ("what type of star is the sun",        "sun"),
+    ("what type of rock is granite",        "granite"),
+    ("what type of metal is gold",          "gold"),
+    # Role/title in causal-noun strip: "president of X" → X
+    ("who is the president of france",      "france"),
+    ("who is the king of spain",            "spain"),
+    ("who was the founder of apple",        "apple"),
+])
+def test_batch19_subject_extraction(question, expected):
+    """Batch 19: modal openers, ago, has-existed, orphaned-adverb, dark matter, cat-is, role-of."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

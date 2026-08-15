@@ -272,8 +272,8 @@ def subject_of(question: str) -> str:
         # "how fast does X", "how quickly does X" (any -ly adverb), "what year was X".
         r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low|"
         r"big|huge|tiny|heavy|hot|cold|"
-        r"year|century|decade|date)\b|\w+ly)?\s*"
-        r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
+        r"year|century|decade|date|ago)\b|\w+ly)?\s*"
+        r"(?:is|are|was|were|has|have|had|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
     )
     # Residual "not" after stripping the auxiliary: "why does not ice float" →
@@ -306,14 +306,18 @@ def subject_of(question: str) -> str:
         r"^(?:why|what|how|who|when|where)\s+"
         r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low|"
         r"big|huge|tiny|heavy|hot|cold|"
-        r"year|century|decade|date)\b|\w+ly)?\s*"
-        r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
+        r"year|century|decade|date|ago)\b|\w+ly)?\s*"
+        r"(?:is|are|was|were|has|have|had|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
     )
     text = re.sub(r"^not\s+", "", text, flags=re.I)
-    # Bare yes/no opener: "do humans have tails" → "humans have tails",
-    # "does a spider have a brain" → "spider have a brain" (article strip follows).
-    text = re.sub(r"^(?:does|do|did)\s+(?:a\s+|an\s+|the\s+)?", "", text, flags=re.I)
+    # Bare yes/no or modal opener: "do humans have tails" → "humans have tails",
+    # "can fish drown" → "fish drown", "can plants feel pain" → "plants feel pain".
+    text = re.sub(r"^(?:does|do|did|can|could|would|should)\s+(?:a\s+|an\s+|the\s+)?", "", text, flags=re.I)
+    # After "how long" is stripped, "ago" sometimes leads: "how long ago did X Y"
+    # → "ago did X Y". Strip "ago" plus any following auxiliary in one shot so the
+    # bare-opener strip doesn't need to run twice.
+    text = re.sub(r"^ago\s+(?:did|does|was|were|has|have|had|do)?\s*", "", text, flags=re.I)
     # Leading bare quantifier/qualifier left after stripping "what are":
     # "what are some programming languages" → "some programming languages" →
     # strip "some " → "programming languages".
@@ -352,6 +356,9 @@ def subject_of(question: str) -> str:
         # Factual property nouns: "capital of france" → "france"
         r"capital|population|area|size|location|height|depth|width|length|"
         r"distance|temperature|density|mass|weight|volume|age|name|"
+        # Role/title nouns: "president of france" → "france"
+        r"president|prime\s+minister|king|queen|ruler|leader|founder|director|"
+        r"inventor|discoverer|author|composer|painter|creator|"
         r"history|origin|meaning|definition|symbol|flag|currency|language|"
         # Measurement/property compounds: "boiling point of water" → "water"
         r"point|rate|level|amount|number|count|percentage|quantity)s?"
@@ -423,6 +430,21 @@ def subject_of(question: str) -> str:
     )
     if _m_prop_does:
         text = _m_prop_does.group(1)
+    # "what type of animal is a whale" → scaffold strip removes "type of" → "animal is a whale"
+    # → "CATEGORY is/was X" → X.  "animal|plant|element|mineral|metal|country|..." are category nouns
+    # that head this pattern after the scaffold strip fires.
+    _m_cat_is = re.match(
+        r"^(?:animal|plant|mammal|reptile|bird|fish|insect|element|mineral|metal|"
+        r"substance|compound|molecule|chemical|gas|liquid|solid|"
+        r"country|city|continent|region|language|sport|food|drug|disease|"
+        r"rock|mineral|gem|star|planet|galaxy)\s+(?:is|was|are|were)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
+        text, re.I,
+    )
+    if _m_cat_is:
+        _cat_captured = _m_cat_is.group(1)
+        # Don't fire for "country is X in/on/at" — that's handled by _m_loc_noun later.
+        if not re.search(r"\s+(?:in|on|at)\s*$", _cat_captured, re.I):
+            text = _cat_captured
     # "how long does it take to boil water" → "water";
     # "how long does it take for a bone to heal" → "bone".
     _m_it_takes = re.match(r"^it\s+takes?\s+to\s+\w+\s+(.+)$", text, re.I)
@@ -451,7 +473,7 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+are\s+(?:there\b|in\b|on\b|at\b).*$", "", text, flags=re.I)
     text = re.sub(
         r"\s+(?:need|needs|require|requires|use|uses|produce|produces|"
-        r"happen|happens|occur|occurs|exist|exists|matter|matters|"
+        r"happen(?:ed|s)?|occur(?:red|s)?|exist(?:ed|s)?|"
         r"made|created|formed|produced|prevented|caused|built|done|founded|"
         r"get\s+\w+ed|become|start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
@@ -460,6 +482,10 @@ def subject_of(question: str) -> str:
         r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|"
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"
         r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|"
+        # Sensory/cognitive/existence verbs
+        r"feel[s]?|sense[s]?|think[s]?|perceive[s]?|drown[s]?|survive[sd]?|"
+        r"appear[s]?|disappear[s]?|vanish(?:es)?|reproduct[s]?|reproduce[sd]?|"
+        r"behave[sd]?|communicate[sd]?|"
         r"have\b|has\b|"
         r"grow[s]?|spread[s]?|evolve[s]?|"
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
@@ -482,6 +508,7 @@ def subject_of(question: str) -> str:
         # Intransitive motion/perception/existence verbs: "why do stars twinkle",
         # "how fast does light travel", "why do we dream", "how does sound travel"
         r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|"
+        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
         # Duration/persistence verbs: "how long does pregnancy last" → "pregnancy"
@@ -538,6 +565,10 @@ def subject_of(question: str) -> str:
     # strips "why does " → "X not use Y" → trailing strip removes " use Y" →
     # "X not" → remove trailing " not" → "X".
     text = re.sub(r"\s+not\s*$", "", text, flags=re.I)
+    # Strip orphaned adverbs that remain after the trailing-verb strip removed the verb:
+    # "when did humans first appear" → "humans first appear" → verb strip → "humans first"
+    # → strip trailing "first" → "humans".
+    text = re.sub(r"\s+(?:first|last|now|still|already|yet|ever|always|never|once|again)\s*$", "", text, flags=re.I)
     # "leaves change color" → "leaves", "sun change seasons" → "sun".
     # Only fires when "change OBJECT" is at end of string (after location strips),
     # so "climate change" (no object) and "climate change affect X" (affect already
