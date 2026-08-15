@@ -596,7 +596,7 @@ def subject_of(question: str) -> str:
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"
         r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|"
         r"come[s]?\s+from|get[s]?|navigate[sd]?|find[s]?|"
-        r"purr[s]?|bark[s]?|meow[s]?|howl[s]?|chirp[s]?|"
+        r"purr[s]?|bark[s]?|meow[s]?|howl[s]?|chirp[s]?|sing[s]?|hum[s]?|roar[s]?|growl[s]?|"
         r"die[sd]?|dies|"
         # Sensory/cognitive/existence verbs
         r"feel[s]?|sense[s]?|think[s]?|perceive[s]?|drown[s]?|survive[sd]?|"
@@ -798,7 +798,12 @@ def subject_of(question: str) -> str:
         r"similar|different|related|connected|distinct|unique|identical|"
         r"dangerous|harmful|safe|harmless|poisonous|helpful|useful|effective|important|"
         r"good|bad|healthy|unhealthy|"
-        r"hard|soft|tough|fragile|brittle|flexible|rigid|elastic)\s*$",
+        r"hard|soft|tough|fragile|brittle|flexible|rigid|elastic|"
+        # Behavioral/ecological adjectives: "why are animals nocturnal" → "animals"
+        r"nocturnal|diurnal|crepuscular|aquatic|terrestrial|arboreal|"
+        r"carnivorous|herbivorous|omnivorous|venomous|migratory|endangered|"
+        r"solitary|social|colonial|sentient|conscious|intelligent|"
+        r"renewable|organic|inorganic|synthetic|artificial|natural)\s*$",
         "", text, flags=re.I,
     )
     # Strip a trailing "not" that can remain after the negated auxiliary was

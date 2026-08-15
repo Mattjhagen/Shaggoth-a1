@@ -2716,3 +2716,37 @@ def test_batch53_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 54: "sing" added to trailing-verb list; behavioral/ecological
+#           adjectives (nocturnal etc.) added to trailing-state-adj list
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "sing" now in trailing-verb list
+    ("why do birds sing",                              "birds"),
+    ("why do whales sing",                             "whales"),
+    # why-is/are adjective patterns (regression guard + new adj)
+    ("why is the sky blue",                            "sky"),
+    ("why is the ocean salty",                         "ocean"),
+    ("why are leaves green",                           "leaves"),
+    ("why are flamingos pink",                         "flamingos"),
+    # nocturnal and similar behavioral adjectives now in trailing-state-adj list
+    ("why are some animals nocturnal",                 "animals"),
+    ("why are bats nocturnal",                         "bats"),
+    ("why are sharks carnivorous",                     "sharks"),
+    # why-did patterns (regression guard)
+    ("why did the dinosaurs go extinct",               "dinosaurs"),
+    ("why did rome fall",                              "rome"),
+    # what-makes patterns
+    ("what makes diamonds hard",                       "diamonds"),
+    ("what makes humans unique",                       "humans"),
+])
+def test_batch54_subject_extraction(question, expected):
+    """Batch 54: sing verb; nocturnal/carnivorous/etc. adj; why-is/are/did."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
