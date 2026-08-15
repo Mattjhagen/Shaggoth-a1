@@ -76,21 +76,31 @@ _COMPARE = re.compile(
     r"|\b(?:relate|hold[s]?\s+up|stack[s]?\s+up)\b.*\b(?:to|against|next to)\b"
     # "why is X different from Y" is a comparison that happens to open with
     # "why"; classify() checks COMPARE first precisely so it lands here.
-    r"|\b(?:how|why|in what way(?:s)?) (?:is|are|does|do) .+ different\b",
+    r"|\b(?:how|why|in what way(?:s)?) (?:is|are|does|do) .+ different\b"
+    # "what separates X from Y", "what sets X apart from Y"
+    r"|\bseparate[sd]?\b|\bsets?\b.+\bapart\b",
     re.I,
 )
 _CONTRAST = re.compile(
     r"\b(?:similar|similarity|similarities|in common|alike|same as|"
-    r"related to|relationship between)\b",
+    # "related to" requires the preposition; plain "related" is enough for
+    # "how are X and Y related" which asks about their connection, not difference.
+    r"related\b|relationship between)\b",
     re.I,
 )
 _CAUSAL = re.compile(
-    r"^\s*(?:and |but |so )?why\b|\bwhat causes\b"
+    r"^\s*(?:and |but |so )?why\b|\bwhat (?:is\s+)?caus(?:es?|ing)\b"
     r"|\bhow (?:is|are|do|does|did|can|could|would|should) .+"
     r"|\bwhat (?:is|are) the (?:cause|process|mechanism|effect|result|purpose|role|function|"
     r"impact|consequence)s? (?:of|behind|in)\b"
     r"|\bwhat (?:leads?|trigger|triggers|drove|drives?|prompts?) .+\b"
-    r"|\bwhat happens\b|\bwhat makes\b|\breason (?:for|why)\b",
+    r"|\bwhat happens\b|\bwhat makes\b|\breason (?:for|why)\b"
+    # Enabling/blocking verbs — the mechanism rather than the definition
+    r"|\bwhat (?:enables?|allows?|permits?|prevents?|blocks?|stops?|inhibits?)\b"
+    # Responsibility and necessity ("what is responsible for X", "what is needed for X")
+    r"|\bwhat (?:is|are)\s+(?:responsible\s+for|needed\s+for|required\s+for|necessary\s+for)\b"
+    # "what is behind X" in the explanatory/causal sense
+    r"|\bwhat (?:is|are|lies?)\s+behind\b",
     re.I,
 )
 _ENUMERATE = re.compile(
@@ -111,6 +121,7 @@ _JOINERS = (
     r"\s+against\s+",
     r"\s+different\s+(?:from|to)\s+",  # "X different from Y"
     r"\s+and\s+",
+    r"\s+apart\s+from\s+",         # "sets X apart from Y" after lead-in strip
     r"\s+from\s+",                 # after "what distinguishes" lead-in strip
     r"\s+to\s+",                   # after "compare" lead-in strip
 )
@@ -123,6 +134,8 @@ _LEAD_IN = re.compile(
     r"^how (?:is|are|does|do)\s+"
     r"|^what do\s+"
     r"|^what distinguishes\s+"
+    r"|^what sets\s+"
+    r"|^what separates\s+"
     r"|^in what way(?:s)?\s+(?:is|are|do|does)\s+"
     # "compare X and Y" / "compare X to Y" as an imperative opens with the
     # verb "compare"; stripping it lets the joiner split correctly.
@@ -196,14 +209,43 @@ def subject_of(question: str) -> str:
         r"^(?:leads?|trigger[sd]?|drove|drives?|prompts?)\s+(?:to\s+)?",
         "", text, flags=re.I,
     )
+    # Causal verbs that head the remainder after stripping "what":
+    # "what enables X" → "enables X" → "X"
+    # "what is causing X" → "causing X" → "X"
+    text = re.sub(
+        r"^(?:enables?|allows?|permits?|prevents?|blocks?|stops?|inhibits?|"
+        r"caus(?:es?|ing))\s+",
+        "", text, flags=re.I,
+    )
+    # "what is responsible for X" → "responsible for X" → "X"
+    # "what is needed for X" → "needed for X" → "X"
+    # "what is behind X" → "behind X" → "X"
+    text = re.sub(
+        r"^(?:responsible|needed|required|necessary)\s+for\s+",
+        "", text, flags=re.I,
+    )
+    text = re.sub(r"^behind\s+", "", text, flags=re.I)
+    # "the temperature to rise" → strip "to <verb>" infinitive phrase at end
+    text = re.sub(r"\s+to\s+\w+(?:ing)?\s*$", "", text, flags=re.I)
     text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
+    # "X are there [in Y]" → X  (e.g. "what kinds of algae are there" → "algae",
+    # "what kinds of planets are there in the solar system" → "planets")
+    text = re.sub(r"\s+are\s+there\b.*$", "", text, flags=re.I)
     text = re.sub(
         r"\s+(?:need|needs|require|requires|use|uses|produce|produces|"
         r"happen|happens|occur|occurs|exist|exists|matter|matters|"
         r"made|created|formed|produced|prevented|caused|built|done|"
-        r"get\s+\w+ed|become|start|begin)\b.*$",
+        r"get\s+\w+ed|become|start|begin|"
+        # Action verbs trailing the subject in "how do X [verb]" patterns
+        r"form[s]?|make[s]?|replicate[s]?|train[s]?|"
+        r"grow[s]?|spread[s]?|evolve[s]?|"
+        r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?"
+        r")\b.*$",
         "", text, flags=re.I,
     )
+    # "X on <modifier>" → X  (e.g. "effect of gravity on time" → "gravity")
+    # Only strip trailing "on <1-3 words>" — not "on" inside a topic name.
+    text = re.sub(r"\s+on\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
     return text.strip(" ?.,")
 
 
@@ -337,6 +379,10 @@ _QUESTION_WORDS = {
 _TOPIC_STOPWORDS = frozenset({
     "an", "as", "at", "be", "by", "do", "go", "he", "if", "in", "is",
     "it", "me", "my", "no", "of", "on", "or", "so", "to", "up", "us", "we",
+    # Definite/indefinite articles: "the temperature" and "temperature" must
+    # produce the same topic words, otherwise "the" creates false overlaps
+    # when candidate-entry titles start with "The" (e.g. "The Internet").
+    "the",
     # Common conjunctions (3+ chars) not caught by the 2-char filter above.
     # Without these, subject_of("X and Y") keeps "and" in topic_words and
     # the on-topic check in _pick() fires on every sentence (all contain "and").

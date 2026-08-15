@@ -274,6 +274,15 @@ def test_acronym_keyword_extraction():
     assert "uk" in kw
 
 
+def test_acronym_keyword_extraction_alphanumeric():
+    """extract_keywords must capture alphanumeric acronyms like WW2, CO2, MP3."""
+    from shaggoth.memory.store import extract_keywords
+    assert "ww2" in extract_keywords("when did WW2 end")
+    assert "co2" in extract_keywords("CO2 emissions are rising")
+    assert "mp3" in extract_keywords("what is an MP3 file")
+    assert "ww1" in extract_keywords("who started WW1")
+
+
 def test_slug_never_returns_empty():
     assert KnowledgeBase.slug_for("!!!") == "untitled"
     assert KnowledgeBase.slug_for("") == "untitled"

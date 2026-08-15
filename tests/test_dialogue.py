@@ -386,6 +386,34 @@ class ConversationFlowTests(unittest.TestCase):
             self.assertIn("apple", result.lower(), result)
             self.assertNotIn("founded", result.lower(), result)
 
+    def test_describe_unknown_ww2_end_extracts_ww2(self):
+        """'when did WW2 end' should use 'ww2' as the subject, not 'end'."""
+        for _ in range(20):
+            result = describe_unknown("when did WW2 end", researching=False)
+            self.assertIn("ww2", result.lower(), result)
+            self.assertNotIn(" end", result.lower(), result)
+
+    def test_describe_unknown_end_filtered(self):
+        """'end' is a temporal verb that should not leak into the subject phrase."""
+        for _ in range(20):
+            result = describe_unknown("when did the war end", researching=False)
+            self.assertIn("war", result.lower(), result)
+            self.assertNotIn(" end", result.lower(), result)
+
+    def test_describe_unknown_start_filtered(self):
+        """'start' is a temporal verb in 'when did X start' questions."""
+        for _ in range(20):
+            result = describe_unknown("when did the Renaissance start", researching=False)
+            self.assertIn("renaissance", result.lower(), result)
+            self.assertNotIn("start", result.lower(), result)
+
+    def test_describe_unknown_finished_filtered(self):
+        """'finished' should not appear in the subject phrase."""
+        for _ in range(20):
+            result = describe_unknown("when did the project finish", researching=False)
+            self.assertIn("project", result.lower(), result)
+            self.assertNotIn("finish", result.lower(), result)
+
     def test_what_about_that_is_follow_up(self):
         self.assertTrue(is_follow_up("what about that"))
         self.assertTrue(is_follow_up("what about this?"))

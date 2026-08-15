@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 _WORD_RE = re.compile(r"[a-zA-Z][a-zA-Z'\-]{2,}")
-_ACRONYM_RE = re.compile(r"\b[A-Z]{2,5}\b")
+_ACRONYM_RE = re.compile(r"(?<!\w)[A-Z][A-Z0-9]{1,7}(?!\w)")
 
 # Common words that carry no topical signal.
 STOPWORDS = frozenset(

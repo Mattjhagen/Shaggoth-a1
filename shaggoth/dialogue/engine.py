@@ -1890,6 +1890,13 @@ _DESCRIBE_FILTER = frozenset({
     "founded",
     "painted",
     "composed",
+    # Temporal completion verbs at the end of "when did X [verb]" questions:
+    # "when did WW2 end", "when did the Renaissance start", "when did the war
+    # finish".  The verb names the temporal transition, not the topic.
+    "end", "ends", "ended", "ending",
+    "start", "starts", "started", "starting",
+    "finish", "finishes", "finished", "finishing",
+    "stop", "stops", "stopped", "stopping",
 })
 
 # Words that survive keyword extraction but can never be the *subject* of a

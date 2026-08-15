@@ -69,6 +69,27 @@ def test_causal_questions(question):
 
 
 @pytest.mark.parametrize("question", [
+    # Enabling/blocking causal verbs
+    "what enables photosynthesis",
+    "what allows plants to grow",
+    "what prevents rusting",
+    "what is causing the crisis",
+    # Responsibility and necessity
+    "what is responsible for climate change",
+    "what is needed for photosynthesis",
+    "what is required for respiration",
+    # Behind/explanatory
+    "what is behind inflation",
+    "what lies behind economic growth",
+    # Present progressive of "cause"
+    "what is causing the temperature to rise",
+])
+def test_causal_questions_extended(question):
+    """Causal question patterns beyond the original set."""
+    assert classify(question) == Intent.CAUSAL
+
+
+@pytest.mark.parametrize("question", [
     "what are the types of cryptography",
     "what kinds of algae exist",
     "give me examples of programming languages",
@@ -159,6 +180,24 @@ def test_what_distinguishes_is_compare_intent():
     assert classify("what distinguishes aeroponics from hydroponics") == Intent.COMPARE
 
 
+def test_split_subjects_what_separates():
+    """'what separates X from Y' is a comparison; strip the verb and split on 'from'."""
+    assert split_subjects("what separates aeroponics from hydroponics") == [
+        "aeroponics", "hydroponics"
+    ]
+    assert split_subjects("what separates socialism from communism") == [
+        "socialism", "communism"
+    ]
+
+
+def test_split_subjects_what_sets_apart():
+    """'what sets X apart from Y' must strip both 'what sets' and 'apart from'."""
+    assert split_subjects("what sets deep learning apart from machine learning") == [
+        "deep learning", "machine learning"
+    ]
+    assert split_subjects("what sets TCP apart from UDP") == ["TCP", "UDP"]
+
+
 def test_subject_of_drops_the_trailing_verb_phrase():
     """The subject is what to look up; the rest is what to look for."""
     assert subject_of("why does photosynthesis need light") == "photosynthesis"
@@ -181,6 +220,38 @@ def test_subject_of_drops_the_trailing_verb_phrase():
     ("what is the function of enzymes", "enzymes"),
 ])
 def test_subject_of_new_causal_patterns(question, expected):
+    assert subject_of(question) == expected
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Trailing action verbs should not become part of the subject
+    ("why do black holes form", "black holes"),
+    ("how do plants make food", "plants"),
+    ("how does deep learning train", "deep learning"),
+    ("what makes DNA replicate", "DNA"),
+    # "are there" is question scaffolding, even when followed by a prep phrase
+    ("what kinds of algae are there", "algae"),
+    ("what kinds of planets are there in the solar system", "planets"),
+    # "on <modifier>" after the subject should be stripped
+    ("what is the effect of gravity on time", "gravity"),
+    ("what is the impact of climate change on ecosystems", "climate change"),
+])
+def test_subject_of_trailing_verb_and_modifier_strips(question, expected):
+    assert subject_of(question) == expected
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Enabling/blocking causal verbs after "what"
+    ("what enables photosynthesis", "photosynthesis"),
+    ("what allows plants to grow", "plants"),
+    ("what prevents rusting", "rusting"),
+    # Responsibility / necessity
+    ("what is responsible for climate change", "climate change"),
+    ("what is needed for photosynthesis", "photosynthesis"),
+    # Behind / explanatory
+    ("what is behind inflation", "inflation"),
+])
+def test_subject_of_new_causal_verb_patterns(question, expected):
     assert subject_of(question) == expected
 
 
