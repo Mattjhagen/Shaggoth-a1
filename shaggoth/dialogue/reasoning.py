@@ -668,6 +668,10 @@ def subject_of(question: str) -> str:
     _title_attr_ctx = bool(re.search(
         r"\b(?:wrote?|written|directed?|composed?|painted?|sang|authored?|filmed?)\b",
         _original, re.I,
+    )) or bool(re.match(
+        # "what is to kill a mockingbird" — bare "what/who is to VERB" implies title lookup
+        r"^(?:what|who)\s+(?:is|are|was|were)\s+to\b",
+        _original, re.I,
     ))
     if not (_title_attr_ctx and len(text.split()) >= 3):
         text = re.sub(r"^to\s+", "", text, flags=re.I)

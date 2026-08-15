@@ -6136,3 +6136,34 @@ def test_batch146_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is hamlet",                                     "hamlet"),
+    ("what is moby dick",                                  "moby dick"),
+    ("what is 1984",                                       "1984"),
+    ("what is the great gatsby",                           "great gatsby"),
+    ("what is pride and prejudice",                        "pride and prejudice"),
+    ("what is to kill a mockingbird",                      "to kill a mockingbird"),
+    ("who wrote hamlet",                                   "hamlet"),
+    ("who wrote moby dick",                                "moby dick"),
+    ("who wrote 1984",                                     "1984"),
+    ("who wrote the great gatsby",                         "great gatsby"),
+    ("what is the theme of hamlet",                        "hamlet"),
+    ("what is the theme of 1984",                          "1984"),
+    ("what is the plot of moby dick",                      "moby dick"),
+    ("what happens in hamlet",                             "hamlet"),
+    ("what happens in 1984",                               "1984"),
+    ("who is gatsby in the great gatsby",                  "gatsby"),
+    ("when was hamlet written",                            "hamlet"),
+    ("what genre is 1984",                                 "1984"),
+    ("what is the setting of hamlet",                      "hamlet"),
+    ("how long is moby dick",                              "moby dick"),
+    ("is 1984 a novel",                                    "1984"),
+])
+def test_batch147_subject_extraction(question, expected):
+    """Batch 147: literature/books — titles, authorship, plot/theme queries."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
