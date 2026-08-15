@@ -2429,3 +2429,36 @@ def test_batch43_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "why is X important/bad/good for you" → X
+    ("why is exercise important",                          "exercise"),
+    ("why is sleep important",                             "sleep"),
+    ("why is water important",                             "water"),
+    ("why is sugar bad for you",                           "sugar"),
+    ("why is fiber good for you",                          "fiber"),
+    # "why do/does X VERB" → X  (leaves, volcanoes are entity nouns)
+    ("why do leaves change color",                         "leaves"),
+    ("why do volcanoes erupt",                             "volcanoes"),
+    # "why do we/you/one VERB" → the activity (generic pronoun)
+    ("why do we dream",                                    "dream"),
+    # "why does X happen" → X
+    ("why does thunder happen",                            "thunder"),
+    # "why does the sky turn ADJECTIVE at PLACE" → sky (turn added to trailing verb list)
+    ("why does the sky turn red at sunset",                "sky"),
+    # "when did X happen" → X
+    ("when did world war 2 end",                           "world war 2"),
+    ("when did the dinosaurs go extinct",                  "dinosaurs"),
+    # "when was X invented/born/become" → X
+    ("when was the internet invented",                     "internet"),
+    ("when was einstein born",                             "einstein"),
+    ("when did humans first walk on the moon",             "humans"),
+    ("when did antarctica become a continent",             "antarctica"),
+])
+def test_batch44_45_subject_extraction(question, expected):
+    """Batch 44-45: why-is/why-do/why-does; when-did/when-was; turn verb added."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
