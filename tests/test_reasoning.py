@@ -8102,3 +8102,46 @@ def test_batch194_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "who invented/created X" → X
+    ("who invented the internet",                              "internet"),
+    ("who invented the telephone",                             "telephone"),
+    ("who created linux",                                      "linux"),
+    ("who created python",                                     "python"),
+    # "what is X used for" → X
+    ("what is python used for",                                "python"),
+    ("what is javascript used for",                            "javascript"),
+    # "what is X" → X
+    ("what is machine learning",                               "machine learning"),
+    ("what is artificial intelligence",                        "artificial intelligence"),
+    # "how does X work" → X
+    ("how does the internet work",                             "internet"),
+    ("how does encryption work",                               "encryption"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between tcp and udp",             "tcp and udp"),
+    # "what programming language is X written in" → X
+    ("what programming language is linux written in",          "linux"),
+    # "best programming language for X" → X (superlative stripped; then category-for strip)
+    ("what is the best programming language for machine learning", "machine learning"),
+    # "how many X are in Y" → Y (container is the lookup subject)
+    ("how many bits are in a byte",                            "byte"),
+    # bare term lookups
+    ("what is an algorithm",                                   "algorithm"),
+    ("what is a database",                                     "database"),
+    ("what is cloud computing",                                "cloud computing"),
+    # "what does X stand for" → X
+    ("what does html stand for",                               "html"),
+    ("what does cpu stand for",                                "cpu"),
+    # "who makes X" → X
+    ("who makes the iphone",                                   "iphone"),
+    # "what year was X released" → X
+    ("what year was windows 95 released",                      "windows 95"),
+])
+def test_batch195_subject_extraction(question, expected):
+    """Batch 195: technology/computers — software, hardware, CS concepts."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

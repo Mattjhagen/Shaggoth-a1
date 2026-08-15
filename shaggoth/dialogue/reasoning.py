@@ -1570,6 +1570,14 @@ def subject_of(question: str) -> str:
     ))
     if not _is_award_ctx:
         text = re.sub(r"^(?:greatest|best|worst|most\s+\w+|least\s+\w+|top)\s+", "", text, flags=re.I)
+    # "programming language for machine learning" → "machine learning"
+    # "framework for web development" → "web development"
+    # Fires after "best" is stripped so "best programming language for X" → "programming language for X" → X.
+    text = re.sub(
+        r"^(?:programming\s+)?(?:language[s]?|framework[s]?|librar(?:y|ies)|tool[s]?|"
+        r"algorithm[s]?|platform[s]?|database[s]?|software)\s+for\s+",
+        "", text, flags=re.I,
+    )
     # "positions in baseball" / "formations in soccer" → "baseball"/"soccer".
     # These sport-scaffold nouns introduce a container that is the real topic.
     text = re.sub(
