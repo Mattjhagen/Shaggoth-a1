@@ -668,6 +668,72 @@ def test_causal_focus_excludes_conjunctions():
     assert "dioxide" in focus
 
 
+# --------------------------------------------------------------------------
+# Batch 5: expanded _CAUSAL_MARKER, _ENUM_MARKER, give-me subject strip
+# --------------------------------------------------------------------------
+
+
+def test_causal_marker_new_connectives():
+    """leads to / stems from / triggers / consequently / as a consequence /
+    contributes to are all causal connectives that should match _CAUSAL_MARKER
+    so that those sentences are selected when answering causal questions."""
+    from shaggoth.dialogue.reasoning import _CAUSAL_MARKER
+
+    sentences = [
+        "Heat leads to molecular expansion, causing pressure to rise.",
+        "The condition stems from a genetic mutation.",
+        "Cold air triggers vasoconstriction to preserve core temperature.",
+        "Consequently, the reaction releases carbon dioxide as a byproduct.",
+        "As a consequence of deforestation, regional rainfall patterns shifted.",
+        "Regular exercise contributes to improved cardiovascular health.",
+    ]
+    for sentence in sentences:
+        assert _CAUSAL_MARKER.search(sentence), (
+            f"_CAUSAL_MARKER should match: {sentence!r}"
+        )
+
+
+def test_enum_marker_the_following_and_there_are():
+    """'the following' and 'there are' are high-precision enumeration signals."""
+    from shaggoth.dialogue.reasoning import _ENUM_MARKER
+
+    sentences = [
+        "The following are the main types of cloud computing: IaaS, PaaS, and SaaS.",
+        "There are three primary types of rock: igneous, sedimentary, and metamorphic.",
+        "There are eight planets in the solar system.",
+    ]
+    for sentence in sentences:
+        assert _ENUM_MARKER.search(sentence), (
+            f"_ENUM_MARKER should match: {sentence!r}"
+        )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "give me examples of X" — previously the "give me" prefix blocked the
+    # types-of strip because the article word (the/some) was missing.
+    ("give me examples of renewable energy", "renewable energy"),
+    ("give examples of machine learning", "machine learning"),
+    # "show me" variant
+    ("show me some types of cancer", "cancer"),
+    ("give me the types of cryptography", "cryptography"),
+    # "give me some X" — with article word present
+    ("give me some examples of cloud computing", "cloud computing"),
+])
+def test_subject_of_give_me_examples(question, expected):
+    """'give me examples of X' must strip the imperative prefix and extract X."""
+    assert subject_of(question) == expected
+
+
+@pytest.mark.parametrize("question", [
+    "give me examples of renewable energy",
+    "give me the types of machine learning",
+    "show me some examples of cloud computing",
+])
+def test_enumerate_classify_give_me_questions(question):
+    """'give me examples of X' questions should classify as ENUMERATE."""
+    assert classify(question) == Intent.ENUMERATE
+
+
 def test_reasoner_has_seeded_rng():
     """The reasoner should use its own Random instance, not the global one."""
     r = _reasoner([AERO])
@@ -728,6 +794,96 @@ def test_causal_what_causes_prefers_effect_sentence():
     assert result is not None
     assert result.answer.startswith("Mass causes gravity"), (
         f"Expected 'Mass causes gravity' to lead; got: {result.answer!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Batch 6: comparison depth, snippet punctuation, extended bonus
+# --------------------------------------------------------------------------
+
+
+def test_comparison_includes_second_sentence_when_first_is_short():
+    """When the first sentence of an entry is < 100 chars, the comparison
+    answer should include the second sentence to give more substance."""
+    aero2 = FakeEntry(
+        "Aeroponics",
+        "Aeroponics grows plants in mist. It uses 95 percent less water than soil farming.",
+    )
+    hydro2 = FakeEntry(
+        "Hydroponics",
+        "Hydroponics grows plants in nutrient-rich water. No soil is required at all.",
+    )
+    result = _reasoner([aero2, hydro2]).reason("compare aeroponics and hydroponics")
+    assert result is not None
+    # Second sentence from each entry should appear in the combined answer.
+    assert "95 percent" in result.answer, (
+        f"Second sentence of aeroponics missing: {result.answer!r}"
+    )
+    assert "No soil" in result.answer, (
+        f"Second sentence of hydroponics missing: {result.answer!r}"
+    )
+
+
+def test_comparison_does_not_duplicate_second_sentence_for_long_first():
+    """When the first sentence is >= 100 chars it already carries enough
+    information, so the second sentence must NOT be appended."""
+    long_aero = FakeEntry(
+        "Aeroponics",
+        "Aeroponics is a highly efficient soil-free plant-growing method in which roots "
+        "are continuously misted with nutrient-rich water inside a sealed chamber. "
+        "This is the second sentence which must not appear.",
+    )
+    hydro2 = FakeEntry(
+        "Hydroponics",
+        "Hydroponics grows plants in water. No soil is needed.",
+    )
+    result = _reasoner([long_aero, hydro2]).reason("compare aeroponics and hydroponics")
+    assert result is not None
+    assert "must not appear" not in result.answer, (
+        f"Second sentence of long entry must be suppressed: {result.answer!r}"
+    )
+
+
+def test_search_snippets_get_terminal_punctuation():
+    """Snippets returned by the search callable that lack a sentence terminator
+    must get a '.' appended so they don't run together when joined."""
+    class FakeResult:
+        def __init__(self, snippet):
+            self.snippet = snippet
+            self.title = "Test"
+            self.url = "http://example.com"
+
+    def fake_search(query, limit):
+        return [
+            FakeResult("Tectonic plates move slowly over millions of years"),
+            FakeResult("This movement releases enormous amounts of energy!"),
+        ]
+
+    r = Reasoner(
+        FakeKnowledge([]),
+        summarize=lambda c, t: (c, True),
+        sentences=lambda c: [s.strip() + "." for s in c.split(".") if s.strip()],
+        search=fake_search,
+    )
+    snippets, _ = r._search_web("test query", limit=2)
+    assert snippets[0].endswith("."), f"Unpunctuated snippet should get '.': {snippets[0]!r}"
+    assert snippets[1].endswith("!"), f"Exclamation-terminated snippet unchanged: {snippets[1]!r}"
+
+
+def test_causal_what_triggers_prefers_object_position_sentence():
+    """'what triggers X' should prefer sentences where something triggers X
+    (X in object position) over sentences where X triggers something else.
+    Uses plural 'earthquakes' so the FakeKnowledge entry-title match succeeds."""
+    earthquake_article = (
+        "Earthquakes trigger tsunamis when they occur undersea. "
+        "Tectonic plate movement triggers earthquakes when accumulated stress releases. "
+        "Earthquakes also trigger landslides on unstable slopes."
+    )
+    entry = FakeEntry("Earthquakes", earthquake_article)
+    result = _reasoner([entry]).reason("what triggers earthquakes")
+    assert result is not None
+    assert "plate movement" in result.answer.lower() or "Tectonic" in result.answer, (
+        f"Expected 'plate movement triggers earthquakes'; got: {result.answer!r}"
     )
 
 

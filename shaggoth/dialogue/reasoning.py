@@ -232,8 +232,10 @@ def subject_of(question: str) -> str:
         "", text, flags=re.I,
     )
     # Imperative enumeration: "list the planets" / "name the types of X"
+    # Also handle "give me examples of X" / "show me some types of X" where the
+    # article-word ("the/some") may be absent and a noun like "examples" follows.
     text = re.sub(
-        r"^(?:name|list|give(?:\s+me)?|show)\s+(?:the|all|some|any|different)\s+",
+        r"^(?:name|list|give(?:\s+me)?|show(?:\s+me)?)\s+(?:(?:the|all|some|any|different|a few)\s+)?",
         "", text, flags=re.I,
     )
     text = re.sub(
@@ -330,13 +332,15 @@ def subject_of(question: str) -> str:
 _CAUSAL_MARKER = re.compile(
     r"\b(?:because|since|due to|owing to|as a result|therefore|thus|hence|"
     r"which causes|causes|caused by|results? in|results? from|so that|"
-    r"in order to|allows?|enables?|requires?|depends? on)\b",
+    r"in order to|allows?|enables?|requires?|depends? on|"
+    r"leads? to|lead to|led to|stems? from|triggers?|"
+    r"consequently|as a consequence|contribute[sd]? to)\b",
     re.I,
 )
 _ENUM_MARKER = re.compile(
     r"\b(?:include[sd]?|including|such as|categor(?:y|ies|ised|ized)|"
     r"classified|types?|kinds?|forms?|divided into|consists? of|"
-    r"comprises?|namely|for example|e\.g\.)\b",
+    r"comprises?|namely|for example|e\.g\.|the following|there are)\b",
     re.I,
 )
 
@@ -574,6 +578,11 @@ class Reasoner:
                 continue
 
             if snippet:
+                snippet = snippet.strip()
+                # Ensure each snippet ends with sentence-terminal punctuation so
+                # that joining them with a space doesn't produce run-together text.
+                if snippet and snippet[-1] not in ".!?":
+                    snippet += "."
                 snippets.append(snippet)
 
         return snippets, results
@@ -665,7 +674,13 @@ class Reasoner:
                 steps.append(Step("lookup", f"{subject}: nothing on file"))
                 continue
             summary, _is_def = self.summarize(entry.content, entry.topic)
-            first = summary.split(". ")[0].strip()
+            # Take up to two lead sentences so thin one-liners get some depth.
+            # If the first sentence is already long (≥100 chars) it stands alone.
+            parts = [p.strip() for p in summary.split(". ") if p.strip()]
+            if len(parts) >= 2 and len(parts[0]) < 100:
+                first = parts[0] + ". " + parts[1]
+            else:
+                first = parts[0] if parts else ""
             if not first:
                 missing.append(subject)
                 continue
@@ -765,13 +780,18 @@ class Reasoner:
         # attribution gave the latter a proper-noun quality penalty.
         bonus = None
         _CAUSE_VERB_Q = re.compile(
-            r"(?i)^(?:what|why)\s+(?:causes?|makes?|produces?|creates?|generates?)\s+",
+            r"(?i)^(?:what|why)\s+"
+            r"(?:causes?|makes?|produces?|creates?|generates?|triggers?|leads?\s+to)\s+",
         )
         if _CAUSE_VERB_Q.match(question):
             s = re.escape(subject)
             bonus = re.compile(
-                rf"\b(?:caus|mak)(?:e|es|ed|ing)\s+{s}\b"
-                rf"|\b{s}\s+(?:is|are|was|were)\s+(?:caused|produced|generated|created|made)\s+by\b",
+                # Active: "Y causes/triggers/leads to X"
+                rf"\b(?:causes?|makes?|triggers?|generates?|produces?|creates?"
+                rf"|leads?\s+to)\s+{s}\b"
+                # Passive: "X is caused/triggered/led by Y"
+                rf"|\b{s}\s+(?:is|are|was|were)\s+"
+                rf"(?:caused|produced|generated|created|made|triggered|led)\s+by\b",
                 re.I,
             )
         picked, used = self._pick_across(
