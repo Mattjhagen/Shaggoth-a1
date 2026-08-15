@@ -9569,3 +9569,33 @@ def test_batch245_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is inflation",                                        "inflation"),
+    ("what is deflation",                                        "deflation"),
+    ("what is interest rate",                                    "interest rate"),
+    ("what is gross domestic product",                           "gross domestic product"),
+    ("what is supply and demand",                                "supply and demand"),
+    ("what is a stock market",                                   "stock market"),
+    ("what is a bond",                                           "bond"),
+    ("what is monetary policy",                                  "monetary policy"),
+    ("what is fiscal policy",                                    "fiscal policy"),
+    ("what is a recession",                                      "recession"),
+    ("what is stagflation",                                      "stagflation"),
+    ("what is quantitative easing",                              "quantitative easing"),
+    ("what is a hedge fund",                                     "hedge fund"),
+    ("what is venture capital",                                  "venture capital"),
+    ("what is a cryptocurrency",                                 "cryptocurrency"),
+    ("how does the stock market work",                           "stock market"),
+    ("how does inflation affect the economy",                    "inflation"),
+    ("what is market capitalization",                            "market capitalization"),
+    ("what is compound interest",                                "compound interest"),
+    ("what is a central bank",                                   "central bank"),
+])
+def test_batch246_subject_extraction(question, expected):
+    """Batch 246: economics/finance — inflation, markets, monetary policy, instruments."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
