@@ -3961,3 +3961,44 @@ def test_batch89_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" (technology concept) → X
+    ("what is machine learning",                       "machine learning"),
+    ("what is artificial intelligence",                "artificial intelligence"),
+    ("what is a neural network",                       "neural network"),
+    ("what is blockchain",                             "blockchain"),
+    ("what is quantum computing",                      "quantum computing"),
+    # "how does X work" (technology) → X
+    ("how does machine learning work",                 "machine learning"),
+    ("how does a neural network work",                 "neural network"),
+    ("how does blockchain work",                       "blockchain"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between machine learning and deep learning",
+                                                       "machine learning and deep learning"),
+    ("what is the difference between ai and machine learning",
+                                                       "ai and machine learning"),
+    # "how is X used" → X
+    ("how is machine learning used",                   "machine learning"),
+    ("how is ai used in healthcare",                   "ai"),
+    # "what are the applications of X" → X
+    ("what are the applications of machine learning",  "machine learning"),
+    ("what are the applications of quantum computing", "quantum computing"),
+    # "who invented X" → X
+    ("who invented the internet",                      "internet"),
+    ("who invented the telephone",                     "telephone"),
+    # "when was X invented" → X
+    ("when was the internet invented",                 "internet"),
+    ("when was the telephone invented",                "telephone"),
+    # "what programming language is used for X" → category noun (grammar subject)
+    ("what programming language is used for machine learning", "programming language"),
+    # "what is a X" → X
+    ("what is a large language model",                 "large language model"),
+])
+def test_batch90_subject_extraction(question, expected):
+    """Batch 90: technology & AI — machine learning, blockchain, neural networks, invented."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
