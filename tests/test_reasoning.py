@@ -5780,3 +5780,34 @@ def test_batch135_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is sushi",                                      "sushi"),
+    ("what is pizza",                                      "pizza"),
+    ("what is pasta",                                      "pasta"),
+    ("what is curry",                                      "curry"),
+    ("what is a soufflé",                                  "soufflé"),
+    ("what is fermentation",                               "fermentation"),
+    ("what is gluten",                                     "gluten"),
+    ("what is umami",                                      "umami"),
+    ("how do you make bread",                              "bread"),
+    ("how do you make pasta",                              "pasta"),
+    ("how do you make sushi",                              "sushi"),
+    ("what are the ingredients in pizza",                  "pizza"),
+    ("what are the ingredients in curry",                  "curry"),
+    ("what is the recipe for chocolate cake",              "chocolate cake"),
+    ("how do you cook chicken",                            "chicken"),
+    ("how do you cook rice",                               "rice"),
+    ("what temperature do you bake bread at",              "bread"),
+    ("what is italian cuisine",                            "italian cuisine"),
+    ("what is japanese cuisine",                           "japanese cuisine"),
+    ("what is a croissant",                                "croissant"),
+    ("what is the difference between baking and cooking",  "baking and cooking"),
+])
+def test_batch136_subject_extraction(question, expected):
+    """Batch 136: cooking/food — cuisines, ingredients, recipes, cooking methods."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
