@@ -95,7 +95,7 @@ _CONTRAST = re.compile(
 )
 _CAUSAL = re.compile(
     r"^\s*(?:and |but |so )?why\b|\bwhat (?:is\s+)?caus(?:ing|e[ds]?)\b"
-    r"|\bhow (?:is|are|do|does|did|can|could|would|should) .+"
+    r"|\bhow (?:\w+\s+)?(?:is|are|do|does|did|can|could|would|should) .+"
     r"|\bwhat (?:is|are) the (?:\w+\s+)?(?:cause|process|mechanism|effect|result|purpose|role|function|"
     r"impact|consequence)s? (?:of|behind|in)\b"
     r"|\bwhat (?:leads?|led|trigger[sd]?|triggers|drove|drives?|prompts?|"
@@ -114,11 +114,15 @@ _CAUSAL = re.compile(
 )
 _ENUMERATE = re.compile(
     r"\b(?:types? of|kinds? of|sorts? of|categories of|examples? of|"
-    r"forms? of|list of|list (?:the|all|some) |what are the)\b"
+    r"forms? of|list of|list (?:the|all|some) |what are (?:(?:all|some|any|a few)\s+)?the)\b"
     # "how many X" asks for a count or list of items
     r"|\bhow many\b"
     # "what renewable energy sources are there" / "what languages exist"
-    r"|\bwhat .+(?:are|is|were|was)\s+(?:there|available|possible|common)\b",
+    r"|\bwhat .+(?:are|is|were|was)\s+(?:there|available|possible|common)\b"
+    # "name all the continents", "give me the main organs", "show me the planets"
+    r"|\b(?:name|give|show)\s+(?:me\s+)?(?:all|some|the|main|major|key)\b"
+    # "what elements are in water", "what gases are found in the atmosphere"
+    r"|\bwhat (?:\w+\s+){0,2}(?:are|were|is)\s+(?:in|inside|within|found in|part of)\b",
     re.I,
 )
 
@@ -259,10 +263,12 @@ def _expand_contractions(text: str) -> str:
 def subject_of(question: str) -> str:
     """The single subject of a causal or enumerating question."""
     text = _expand_contractions((question or "").strip(" ?."))
+    _original = text  # preserved for intent-specific guards below
     text = re.sub(
         r"^(?:and |but |so )?(?:why|what|how|who|when|where)\s+"
-        # Optional degree word after "how": "how many X", "how long does X", "how much Y"
-        r"(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low)?\s*"
+        # Optional degree word after "how": "how many X", "how long does X",
+        # "how fast does X", "how quickly does X" (any -ly adverb).
+        r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low)|\w+ly)?\s*"
         r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
     )
@@ -293,7 +299,7 @@ def subject_of(question: str) -> str:
     # "explain how X Y" → strip "explain " → "how X Y" → re-strip "how " → "X Y"
     text = re.sub(
         r"^(?:why|what|how|who|when|where)\s+"
-        r"(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low)?\s*"
+        r"(?:(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low)|\w+ly)?\s*"
         r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
     )
@@ -301,10 +307,12 @@ def subject_of(question: str) -> str:
     # Leading bare quantifier left after stripping "what are":
     # "what are some programming languages" → "some programming languages" →
     # strip "some " → "programming languages".
-    text = re.sub(r"^(?:some|any|various|several|a few)\s+", "", text, flags=re.I)
+    # Also handles "what are all the planets" → "all the planets" → "the planets" → "planets".
+    text = re.sub(r"^(?:some|any|various|several|a few|all)\s+", "", text, flags=re.I)
     text = re.sub(
-        r"^(?:(?:a|an|the|some|any|all|various|different|a few)\s+)?"
-        r"(?:types?|kinds?|sorts?|categories|examples?|forms?|list|"
+        # Allow up to two leading article/quantifier words: "the different types of X"
+        r"^(?:(?:a|an|the|some|any|all|various|different|main|major|key|primary|common|a few)\s+){0,2}"
+        r"(?:types?|kinds?|sorts?|categories|examples?|forms?|states?|list|"
         # Overview/summary nouns: "give me an overview of X", "give me a summary of X"
         r"overview|summary|summaries|introduction|definition|explanation|description|"
         # Medical/descriptive noun scaffolding: "what are the symptoms of X" → "X"
@@ -352,6 +360,18 @@ def subject_of(question: str) -> str:
         "", text, flags=re.I,
     )
     text = re.sub(r"^behind\s+", "", text, flags=re.I)
+    # "what elements are in water" → after "what " is stripped → "elements are in water"
+    # → look up "water" (the container), not "elements" (the thing counted).
+    # Guard: skip for "how many" count questions (e.g. "how many planets are in
+    # the solar system") where the counted noun IS the desired lookup subject.
+    _is_how_many = bool(re.match(r"^\s*(?:and |but |so )?how\s+many\b", _original, re.I))
+    if not _is_how_many:
+        _m = re.match(
+            r"^(\w+(?:\s+\w+){0,2})\s+(?:are|were|is|was)\s+(?:in|inside|within|found in|part of)\s+(.+)$",
+            text, re.I,
+        )
+        if _m:
+            text = _m.group(2)
     # "the temperature to rise" → strip "to <verb>" infinitive phrase at end
     text = re.sub(r"\s+to\s+\w+(?:ing)?\s*$", "", text, flags=re.I)
     text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
@@ -385,6 +405,10 @@ def subject_of(question: str) -> str:
         r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|"
         # Origin verb: "where did humans originate"
         r"originate[sd]?|"
+        # Intransitive motion/perception/existence verbs: "why do stars twinkle",
+        # "how fast does light travel", "why do we dream", "how does sound travel"
+        r"twinkle[sd]?|travel[s]?|dream[s]?|shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
+        r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
         # Extinction/movement verbs. Use negative lookahead (?!\s+of) so that
         # noun forms like "the fall of X" and "the collapse of Y" are preserved —
         # only the trailing verb use ("how did Rome fall") should be stripped.
@@ -395,12 +419,33 @@ def subject_of(question: str) -> str:
     # "X on <modifier>" → X  (e.g. "effect of gravity on time" → "gravity")
     # Only strip trailing "on <1-3 words>" — not "on" inside a topic name.
     text = re.sub(r"\s+on\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
+    # "X in the <location>" → X  (e.g. "planets in the solar system" → "planets")
+    # Require "in the" so bare "animals in water" is not affected.
+    text = re.sub(r"\s+in\s+the\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
+    # "X from <place>" → X  (e.g. "moon from earth" → "moon")
+    text = re.sub(r"\s+from\s+\w+(?:\s+\w+){0,1}\s*$", "", text, flags=re.I)
+    # Trailing state adjective in "why is X [adjective]" patterns.
+    # e.g. "sky blue" → "sky", "gold so valuable" → "gold"
+    text = re.sub(
+        # State/property adjectives that trail a subject in "why is X [adj]" patterns.
+        # Exclude ambiguous words that are also common nouns (light, fast, hard, etc.).
+        r"\s+(?:so\s+)?(?:blue|red|green|yellow|white|black|gray|grey|brown|orange|purple|pink|"
+        r"hot|cold|warm|cool|wet|dry|soft|bright|dark|"
+        r"valuable|expensive|cheap|rare|common|strong|weak|dense|flat|round|curved|"
+        r"sticky|slippery|rough|smooth|thin|thick|narrow|tall|short)\s*$",
+        "", text, flags=re.I,
+    )
     # Strip a trailing "not" that can remain after the negated auxiliary was
     # expanded and the verb phrase was stripped: "why does X not use Y" →
     # strips "why does " → "X not use Y" → trailing strip removes " use Y" →
     # "X not" → remove trailing " not" → "X".
     text = re.sub(r"\s+not\s*$", "", text, flags=re.I)
+    # Strip a leading bare article that remains after all other strips:
+    # "what is the speed of light" → after verb strip → "the speed of light" → "speed of light"
+    # "how does the immune system work" → "the immune system" → "immune system"
+    text = re.sub(r"^(?:the|a|an)\s+", "", text, flags=re.I)
     return text.strip(" ?.,")
+
 
 
 # -- sentence selection ----------------------------------------------------

@@ -271,7 +271,7 @@ def test_subject_of_drops_the_trailing_verb_phrase():
     assert subject_of("why does photosynthesis need light") == "photosynthesis"
     assert subject_of("what causes gravity") == "gravity"
     assert subject_of("what are the types of cryptography") == "cryptography"
-    assert subject_of("how does a river work") == "a river"
+    assert subject_of("how does a river work") == "river"
 
 
 @pytest.mark.parametrize("question,expected", [
@@ -283,7 +283,7 @@ def test_subject_of_drops_the_trailing_verb_phrase():
     ("what is the cause of inflation", "inflation"),
     ("what happens when water boils", "water"),
     ("what leads to inflation", "inflation"),
-    ("what triggers an earthquake", "an earthquake"),
+    ("what triggers an earthquake", "earthquake"),
     ("what is the role of mitochondria", "mitochondria"),
     ("what is the function of enzymes", "enzymes"),
 ])
@@ -325,17 +325,17 @@ def test_subject_of_new_causal_verb_patterns(question, expected):
 
 @pytest.mark.parametrize("question,expected", [
     # Past-tense "caused": was garbling to "d the Great Depression"
-    ("what caused the Great Depression", "the Great Depression"),
-    ("what caused the financial crisis", "the financial crisis"),
+    ("what caused the Great Depression", "Great Depression"),
+    ("what caused the financial crisis", "financial crisis"),
     # Extinction/state trailing verbs
-    ("why did the dinosaurs go extinct", "the dinosaurs"),
-    ("how did the Roman Empire fall", "the Roman Empire"),
-    ("how did the Soviet Union collapse", "the Soviet Union"),
+    ("why did the dinosaurs go extinct", "dinosaurs"),
+    ("how did the Roman Empire fall", "Roman Empire"),
+    ("how did the Soviet Union collapse", "Soviet Union"),
     # Enumeration with "some types" article prefix
     ("what are some types of cancer", "cancer"),
     # Imperative enumeration commands
     ("name the different types of machine learning", "machine learning"),
-    ("list the planets in the solar system", "planets in the solar system"),
+    ("list the planets in the solar system", "planets"),
 ])
 def test_subject_of_new_patterns(question, expected):
     assert subject_of(question) == expected
@@ -343,18 +343,18 @@ def test_subject_of_new_patterns(question, expected):
 
 @pytest.mark.parametrize("question,expected", [
     # "who" opening + attribution verb strip at the start
-    ("who invented the telephone", "the telephone"),
+    ("who invented the telephone", "telephone"),
     ("who discovered penicillin", "penicillin"),
-    ("who developed the theory of relativity", "the theory of relativity"),
-    ("who designed the Eiffel Tower", "the Eiffel Tower"),
+    ("who developed the theory of relativity", "theory of relativity"),
+    ("who designed the Eiffel Tower", "Eiffel Tower"),
     # "when" opening + passive attribution verb at the end
-    ("when was the internet invented", "the internet"),
+    ("when was the internet invented", "internet"),
     ("when was electricity discovered", "electricity"),
     # "what happens during X" → "during" preposition strip
     ("what happens during photosynthesis", "photosynthesis"),
-    ("what happens during an earthquake", "an earthquake"),
+    ("what happens during an earthquake", "earthquake"),
     # Action verb (fight/affect) at end — previously leaked into subject
-    ("how does the immune system fight viruses", "the immune system"),
+    ("how does the immune system fight viruses", "immune system"),
     ("how does stress affect the body", "stress"),
     ("how does sunscreen protect skin", "sunscreen"),
     # "what is the [adj] cause of X" — optional adjective before noun
@@ -396,12 +396,12 @@ def test_split_subjects_relationship_and_trailing_related(question, expected):
 
 @pytest.mark.parametrize("question,expected", [
     # "fall of X" — "fall" is a NOUN here; must not be stripped.
-    ("what caused the fall of the Roman Empire", "the fall of the Roman Empire"),
-    ("what caused the collapse of the Soviet Union", "the collapse of the Soviet Union"),
-    ("what caused the rise of nationalism", "the rise of nationalism"),
+    ("what caused the fall of the Roman Empire", "fall of the Roman Empire"),
+    ("what caused the collapse of the Soviet Union", "collapse of the Soviet Union"),
+    ("what caused the rise of nationalism", "rise of nationalism"),
     # "X fall" with no following "of" — "fall" IS a verb here; strip it.
     ("how did Rome fall", "Rome"),
-    ("why did the Soviet Union collapse", "the Soviet Union"),
+    ("why did the Soviet Union collapse", "Soviet Union"),
     # "originate" is now in the trailing-verb list.
     ("where did humans originate", "humans"),
     ("where did life originate", "life"),
@@ -409,8 +409,8 @@ def test_split_subjects_relationship_and_trailing_related(question, expected):
     ("what is the role of mitochondria in cell energy", "mitochondria"),
     ("what is the function of chlorophyll in photosynthesis", "chlorophyll"),
     ("what is the role of ATP in muscle contraction", "ATP"),
-    # Regression: "in the solar system" must NOT be stripped from enumeration.
-    ("list the planets in the solar system", "planets in the solar system"),
+    # "in the solar system" context stripped; "planets" is the KB lookup term.
+    ("list the planets in the solar system", "planets"),
 ])
 def test_subject_of_noun_forms_and_in_context_strip(question, expected):
     """fall/collapse/rise as nouns kept; originate stripped; role-of-X-in-Y context stripped."""
@@ -432,11 +432,11 @@ def test_causal_trigger_verbs(question):
 
 @pytest.mark.parametrize("question,expected", [
     # Attribution strip handles started/ended/sparked/stopped/brought about
-    ("what started the industrial revolution", "the industrial revolution"),
-    ("what ended the Cold War", "the Cold War"),
-    ("what sparked the French Revolution", "the French Revolution"),
-    ("what stopped the plague", "the plague"),
-    ("what brought about the Great Depression", "the Great Depression"),
+    ("what started the industrial revolution", "industrial revolution"),
+    ("what ended the Cold War", "Cold War"),
+    ("what sparked the French Revolution", "French Revolution"),
+    ("what stopped the plague", "plague"),
+    ("what brought about the Great Depression", "Great Depression"),
     # Physics state-change verbs strip as trailing verbs
     ("why does ice float on water", "ice"),
     ("why does iron rust", "iron"),
@@ -467,10 +467,10 @@ def test_causal_past_tense_led(question):
     ("what are the causes of heart disease", "heart disease"),
     ("what are the signs of dehydration", "dehydration"),
     # 'what led to X' — past-tense lead
-    ("what led to the fall of the Roman Empire", "the fall of the Roman Empire"),
+    ("what led to the fall of the Roman Empire", "fall of the Roman Empire"),
     ("what led to World War 1", "World War 1"),
     # 'have phases/feathers' — possession verb trailing strip
-    ("why does the moon have phases", "the moon"),
+    ("why does the moon have phases", "moon"),
     ("why do birds have feathers", "birds"),
 ])
 def test_subject_of_batch3_patterns(question, expected):
@@ -1059,3 +1059,74 @@ def test_classify_what_do_x_need_is_causal(question):
 def test_classify_what_x_are_there_is_enumerate(question):
     """'what X are there/available/common' asks for a list — an enumerate question."""
     assert classify(question) == Intent.ENUMERATE
+
+
+# ---------------------------------------------------------------------------
+# Batch 10: degree-adverb handling, "how fast/far/quickly", leading-article
+# strip, "X are in Y" container redirect, enumerate for "name all/give/show",
+# trailing intransitive verbs, trailing state adjectives
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("question,expected_intent,expected_subject", [
+    # "how fast/far/quickly does X" → CAUSAL + subject is X
+    ("how fast does light travel", Intent.CAUSAL, "light"),
+    ("how quickly does water evaporate", Intent.CAUSAL, "water"),
+    ("how far does sound travel", Intent.CAUSAL, "sound"),
+    ("how far is the moon from earth", Intent.CAUSAL, "moon"),
+    ("how slowly does a glacier move", Intent.CAUSAL, "glacier"),
+    # Leading "the" strip
+    ("what is the speed of light", Intent.DEFINE, "speed of light"),
+    ("how does the immune system work", Intent.CAUSAL, "immune system"),
+    ("what caused the great depression", Intent.CAUSAL, "great depression"),
+    # Leading "a/an" strip
+    ("why do stars twinkle", Intent.CAUSAL, "stars"),
+    # Trailing intransitive verbs
+    ("why do stars twinkle", Intent.CAUSAL, "stars"),
+    ("how does sound travel", Intent.CAUSAL, "sound"),
+    ("why do we dream", Intent.CAUSAL, "we"),
+    ("how does light shine", Intent.CAUSAL, "light"),
+    # Trailing state adjectives  
+    ("why is the sky blue", Intent.CAUSAL, "sky"),
+    ("why is gold so valuable", Intent.CAUSAL, "gold"),
+    # "what are the different states of matter" → ENUMERATE + "matter"
+    ("what are the different states of matter", Intent.ENUMERATE, "matter"),
+])
+def test_batch10_degree_adverb_and_subject_cleanup(question, expected_intent, expected_subject):
+    """Batch 10: degree adverbs, article strip, intransitive verbs, adjectives."""
+    assert classify(question) == expected_intent
+    assert subject_of(question) == expected_subject
+
+
+@pytest.mark.parametrize("question,expected_intent", [
+    # "name/give/show all/some/the X" should be enumerate
+    ("name all the continents", Intent.ENUMERATE),
+    ("give me the main organs of the body", Intent.ENUMERATE),
+    ("show me the planets", Intent.ENUMERATE),
+    # "what are all the X" should be enumerate
+    ("what are all the planets", Intent.ENUMERATE),
+    ("what are all the major oceans", Intent.ENUMERATE),
+    # "what X are in Y" should be enumerate
+    ("what elements are in water", Intent.ENUMERATE),
+    ("what gases are in the atmosphere", Intent.ENUMERATE),
+])
+def test_batch10_enumerate_patterns(question, expected_intent):
+    """Batch 10: 'name all', 'give me the', 'what X are in Y' → ENUMERATE."""
+    assert classify(question) == expected_intent
+
+
+@pytest.mark.parametrize("question,expected_subject", [
+    # "what X are in Y" → look up Y
+    ("what elements are in water", "water"),
+    ("what gases are in the atmosphere", "atmosphere"),
+    # "all" quantifier stripped
+    ("what are all the planets in the solar system", "planets"),
+    # "name all the X" → X
+    ("name all the continents", "continents"),
+    # "in the solar system" context stripped
+    ("list the planets in the solar system", "planets"),
+    # "from earth" trailing strip
+    ("how far is the moon from earth", "moon"),
+])
+def test_batch10_subject_extraction(question, expected_subject):
+    """Batch 10: container redirect, quantifier, article, and location strips."""
+    assert subject_of(question) == expected_subject
