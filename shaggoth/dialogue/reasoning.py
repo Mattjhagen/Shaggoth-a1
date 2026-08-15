@@ -415,6 +415,17 @@ def subject_of(question: str) -> str:
                 text = _m_it_to.group(1)
         else:
             text = _td_cap
+    # "what temperature should chicken be cooked to" → after QW strip:
+    # "temperature should chicken be cooked to" → "chicken"
+    # Handles measurement-property questions where the property noun leads the sentence.
+    _m_prop_should = re.match(
+        r"^(?:temperature|speed|pressure|voltage|current|frequency|dose|level|amount|"
+        r"quantity|rate|time|duration|distance|weight|size|age|height|depth|width)\s+"
+        r"should\s+(?:a\s+|an\s+|the\s+)?(.+?)\s+(?:be\s+)?\w+(?:\s+\w+)?\s*$",
+        text, re.I,
+    )
+    if _m_prop_should:
+        text = _m_prop_should.group(1)
     # Targeted possessive strip — only fires for specific property patterns, NOT named
     # concepts ("alzheimer's disease", "darwin's theory") or owned entities ("earth's atmosphere").
     # Pattern A: ENTITY's [MODIFIER] MEASUREMENT_NOUN — "sun's core temperature" → "sun"
@@ -778,10 +789,10 @@ def subject_of(question: str) -> str:
     )
     if _m_cat_is:
         _cat_captured = _m_cat_is.group(1)
-        # Don't fire for "country is X in/on/at" — that's handled by _m_loc_noun later.
+        # Don't fire for "country is X in/on/at/from" — that's handled by _m_loc_noun later.
         # Don't fire when the capture is a predicate adjective phrase ("element is most abundant"):
         # group(1) would be "most abundant on earth", not a noun.
-        if (not re.search(r"\s+(?:in|on|at)\s*$", _cat_captured, re.I)
+        if (not re.search(r"\s+(?:in|on|at|from)\s*$", _cat_captured, re.I)
                 and not re.match(r"^(?:most|least|very|quite|so|more|less|too)\b", _cat_captured, re.I)):
             text = _cat_captured
     # "what does it mean when X VERB" → X  (physiological/behavioral signal questions)
@@ -973,7 +984,7 @@ def subject_of(question: str) -> str:
     )
     if _m_cat_is2:
         _cat2 = _m_cat_is2.group(1)
-        if (not re.search(r"\s+(?:in|on|at)\s*$", _cat2, re.I)
+        if (not re.search(r"\s+(?:in|on|at|from)\s*$", _cat2, re.I)
                 and not re.match(r"^(?:most|least|very|quite|so|more|less|too)\b", _cat2, re.I)):
             text = _cat2
     # Temporal prefix: "when will the next solar eclipse be" → verb strip → "next solar eclipse"
@@ -1077,7 +1088,7 @@ def subject_of(question: str) -> str:
     # After "what " is stripped, text may be "country is tokyo in" etc.
     _m_loc_noun = re.match(
         r"^(?:country|city|state|province|continent|ocean|sea|river|lake|"
-        r"mountain|island|planet|galaxy|star|time\s+zone|timezone)\s+(?:is|was|are|were)\s+(.+?)\s+(?:in|on|at)\s*$",
+        r"mountain|island|planet|galaxy|star|time\s+zone|timezone)\s+(?:is|was|are|were)\s+(.+?)\s+(?:in|on|at|from)\s*$",
         text, re.I,
     )
     if _m_loc_noun:

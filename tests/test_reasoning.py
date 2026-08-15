@@ -4859,3 +4859,45 @@ def test_batch112_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question, expected", [
+    # "what is X"
+    ("what is sushi",                                    "sushi"),
+    ("what is pasta",                                    "pasta"),
+    ("what is tofu",                                     "tofu"),
+    ("what is umami",                                    "umami"),
+    ("what is gluten",                                   "gluten"),
+    # "what country is X from" — loc-noun pattern + from guard
+    ("what country is sushi from",                       "sushi"),
+    ("what country is pasta from",                       "pasta"),
+    # "how do you make X"
+    ("how do you make pasta",                            "pasta"),
+    ("how do you make sushi",                            "sushi"),
+    ("how do you make bread",                            "bread"),
+    # "what are the ingredients in X"
+    ("what are the ingredients in pizza",                "pizza"),
+    ("what are the ingredients in bread",                "bread"),
+    # "how long does it take to cook X"
+    ("how long does it take to cook a turkey",           "turkey"),
+    ("how long does it take to cook pasta",              "pasta"),
+    # "how many calories are in X"
+    ("how many calories are in an apple",                "apple"),
+    ("how many calories are in a slice of pizza",        "pizza"),
+    # difference
+    ("what is the difference between white and brown rice", "white and brown rice"),
+    # "what is the best way to cook X"
+    ("what is the best way to cook steak",               "steak"),
+    # predicate adjective
+    ("is dark chocolate healthy",                        "dark chocolate"),
+    # "what MEASUREMENT should X be cooked/baked to" — prop-should pattern
+    ("what temperature should chicken be cooked to",     "chicken"),
+    # "how much X should you eat"
+    ("how much protein should you eat per day",          "protein"),
+])
+def test_batch113_subject_extraction(question, expected):
+    """Batch 113: food/cooking — origin, ingredients, prep, calories, measurement-should pattern."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
