@@ -1271,7 +1271,7 @@ def subject_of(question: str) -> str:
         r"(?<!U\s)(?<!u\s)(?<!about\s)turn[s]?|transform[sd]?|"
         # Guard "rug burn", "chemical burn", "road burn" compound nouns.
         r"shine[sd]?|glow[s]?|(?<!rug\s)(?<!chemical\s)(?<!road\s)burn[s]?|move[sd]?|"
-        r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
+        r"orbit[s]?|revolve[sd]?|rotate[sd]?|(?<!quantum\s)(?<!back\s)(?<!top\s)spin[s]?|live[sd]?|breathe[sd]?|"
         # "stock market crash" is a noun compound: guard crash with (?=\s) so it only
         # strips as a verb when followed by more content (e.g. "crash and lose data").
         # "computer to crash" is already handled by the "to \w+" strip above.

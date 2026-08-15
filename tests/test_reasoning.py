@@ -12372,3 +12372,63 @@ def test_batch339_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a mountain range",                                 "mountain range"),
+    ("what is a firing range",                                   "firing range"),
+    ("what is a home range",                                     "home range"),
+    ("what is a rust belt",                                      "rust belt"),
+    ("what is a conveyor belt",                                  "conveyor belt"),
+    ("what is an asteroid belt",                                 "asteroid belt"),
+    ("what is a time zone",                                      "time zone"),
+    ("what is a combat zone",                                    "combat zone"),
+    ("what is an end zone",                                      "end zone"),
+    ("what is a flood plain",                                    "flood plain"),
+    ("what is a coastal plain",                                  "coastal plain"),
+    ("what is a river basin",                                    "river basin"),
+    ("what is an ocean basin",                                   "ocean basin"),
+    ("what is a mountain ridge",                                 "mountain ridge"),
+    ("what is a mid-ocean ridge",                                "mid-ocean ridge"),
+    ("what is a ocean trench",                                   "ocean trench"),
+    ("what is a deep trench",                                    "deep trench"),
+    ("what is a continental shelf",                              "continental shelf"),
+    ("what is an ice shelf",                                     "ice shelf"),
+    ("what is a river delta",                                    "river delta"),
+])
+def test_batch340_subject_extraction(question, expected):
+    """Batch 340: geography/place compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a magnetic field",                                 "magnetic field"),
+    ("what is an electric field",                                "electric field"),
+    ("what is a gravitational field",                            "gravitational field"),
+    ("what is a sound wave",                                     "sound wave"),
+    ("what is a light wave",                                     "light wave"),
+    ("what is a shock wave",                                     "shock wave"),
+    ("what is a strong force",                                   "strong force"),
+    ("what is a weak force",                                     "weak force"),
+    ("what is a dark force",                                     "dark force"),
+    ("what is a covalent bond",                                  "covalent bond"),
+    ("what is an ionic bond",                                    "ionic bond"),
+    ("what is a hydrogen bond",                                  "hydrogen bond"),
+    ("what is radioactive decay",                                "radioactive decay"),
+    ("what is beta decay",                                       "beta decay"),
+    ("what is nuclear decay",                                    "nuclear decay"),
+    ("what is magnetic flux",                                    "magnetic flux"),
+    ("what is heat flux",                                        "heat flux"),
+    ("what is electric charge",                                  "electric charge"),
+    ("what is a partial charge",                                 "partial charge"),
+    ("what is quantum spin",                                     "quantum spin"),
+])
+def test_batch341_subject_extraction(question, expected):
+    """Batch 341: physics/chemistry compound nouns; quantum/back/top spin guarded."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
