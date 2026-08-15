@@ -514,7 +514,7 @@ def subject_of(question: str) -> str:
     # stripping "what are".
     # \d{1,3} only: 4-digit years/titles ("1984", "2001") are topics, not quantifiers.
     # "key" is protected when it forms a compound noun (key signature, key change).
-    text = re.sub(r"^(?:some|any|various|several|a few|all|different|main|major|key(?!\s+(?:signature|change))|\d{1,3})\s+", "", text, flags=re.I)
+    text = re.sub(r"^(?:some|any|various|several|a few|all|different|main|major|key(?!\s+(?:signature|change))|\d{1,3}(?!\s+percent\b))\s+", "", text, flags=re.I)
     # "difference between X and Y" / "similarity between X and Y" → "X and Y"
     _before_between = text
     text = re.sub(
@@ -1154,7 +1154,7 @@ def subject_of(question: str) -> str:
         # Guard "run" against compound sports/activity nouns: "home run", "mile run",
         # "fun run", "dry run", "ski run", "test run" must not be stripped.
         r"(?<!home )(?<!mile )(?<!fun )(?<!dry )(?<!ski )(?<!test )(?<!long )run[s]?|"
-        r"jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|return[s]?|arrive[sd]?|mean[s]?|"
+        r"jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|return[s]?|arrive[sd]?|(?<!the )(?<!arithmetic )mean[s]?|"
         r"smell[s]?|taste[s]?|see[s]?|hear[s]?|sense[s]?|read[s]?|writ(?:e[s]?|ten)|coexist[s]?|"
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
         # Note: bare "rate" is NOT here — it's almost always a noun (interest rate, poverty rate).
@@ -1564,6 +1564,26 @@ def subject_of(question: str) -> str:
     # trailing content: "most wars" → "wars", "least developed" → "developed".
     # Fires after the superlative strip so "most common element" is already "element".
     text = re.sub(r"^(?:most|least)\s+", "", text, flags=re.I)
+    # Late second-pass causal-noun strip: catches property-noun phrases exposed by
+    # the late person-strip or the final article strip (both come after the main
+    # causal-noun pass at the top of the function).  For example:
+    # "how do you calculate the area of a circle"
+    #   → person strip → "the area of a circle" → article strip → "area of a circle"
+    #   → this strip → "circle"
+    # Includes optional article after the preposition to handle "area of a circle" → "circle".
+    text = re.sub(
+        r"^(?:the\s+)?(?:\w+\s+)?(?:area|volume|perimeter|circumference|"
+        r"formula|structure|composition|"
+        r"root|"
+        r"capital|population|size|location|height|depth|width|length|"
+        r"diameter|radius|velocity|acceleration|frequency|wavelength|"
+        r"distance|temperature|density|mass|weight|age|"
+        r"value|price|cost|worth|"
+        r"history|meaning(?!\s+of\s+life)|definition|"
+        r"rule|position|stat|statistic)s?"
+        r"\s+(?:of|behind|in|for)\s+(?:a\s+|an\s+|the\s+)?",
+        "", text, flags=re.I,
+    )
     return text.strip(" ?.,")
 
 
