@@ -2027,7 +2027,7 @@ def test_batch32_subject_extraction(question, expected):
     ("at what temperature does water freeze",       "water"),
     ("at what temperature does iron melt",          "iron"),
     # "difference between X and Y" — article strip guard keeps "and Y"
-    ("what is the difference between a virus and a bacteria", "virus and a bacteria"),
+    ("what is the difference between a virus and a bacteria", "virus and bacteria"),
     # "how do X and Y differ" → subject_of returns the full conjunction
     ("how do plants and animals differ",            "plants and animals"),
     # "what are the types of X"
@@ -3207,6 +3207,34 @@ def test_batch69_subject_extraction(question, expected):
 ])
 def test_batch70_subject_extraction(question, expected):
     """Batch 70: it-takes-for trailing content; dummy-it time idiom; how-many-in container."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "relationship between X and the Y" → "X and Y" (article stripped from second item)
+    ("what is the relationship between the brain and the mind",  "brain and mind"),
+    ("what is the difference between weather and climate",       "weather and climate"),
+    ("what is the difference between mitosis and meiosis",       "mitosis and meiosis"),
+    # "what triggers X" — compound-noun X preserved (attack not stripped)
+    ("what triggers an asthma attack",                           "asthma attack"),
+    ("what triggers a heart attack",                             "heart attack"),
+    ("what triggers a panic attack",                             "panic attack"),
+    # "attack" as verb still strips correctly
+    ("how does the immune system fight bacteria",                "immune system"),
+    # "what causes/prevents X" → X
+    ("what causes earthquakes",                                  "earthquakes"),
+    ("what causes thunder",                                      "thunder"),
+    ("what prevents blood clots",                                "blood clots"),
+    # "what are the benefits/symptoms/causes of X" → X
+    ("what are the benefits of meditation",                      "meditation"),
+    ("what are the symptoms of diabetes",                        "diabetes"),
+    ("what are the causes of climate change",                    "climate change"),
+])
+def test_batch71_subject_extraction(question, expected):
+    """Batch 71: between-strip article normalisation; compound-attack guard; trigger/cause/prevent."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"

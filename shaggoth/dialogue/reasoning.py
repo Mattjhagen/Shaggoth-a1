@@ -456,11 +456,15 @@ def subject_of(question: str) -> str:
     # stripping "what are".
     text = re.sub(r"^(?:some|any|various|several|a few|all|different|main|major|key|\d+)\s+", "", text, flags=re.I)
     # "difference between X and Y" / "similarity between X and Y" → "X and Y"
+    _before_between = text
     text = re.sub(
         r"^(?:the\s+)?(?:difference|differences|distinction|similarity|similarities|"
         r"relationship|connection|comparison)\s+between\s+(?:the\s+)?",
         "", text, flags=re.I,
     )
+    if text != _before_between:
+        # "brain and the mind" → "brain and mind" (strip article after "and")
+        text = re.sub(r"\s+and\s+(?:the|a|an)\s+", " and ", text, flags=re.I)
     _before_scaffold_strip = text
     text = re.sub(
         # Allow up to two leading article/quantifier/modifier words:
@@ -722,7 +726,10 @@ def subject_of(question: str) -> str:
         r"conduct[s]?|generate[sd]?|transmit(?:ted|s)?|convert[s]?|transfer[s]?|"
         r"store[sd]?|release[sd]?|react[s]?|"
         # Immune/conflict/process verbs: "how does X fight Y", "how does X affect Y"
-        r"fight[s]?|attack[s]?|defend[s]?|protect[s]?|affect[s]?|impact[s]?|"
+        # "attack" is also a medical compound noun ("asthma attack", "heart attack"):
+        # protect those by requiring it not be preceded by a condition noun.
+        r"fight[s]?|(?<!asthma\s)(?<!heart\s)(?<!panic\s)(?<!anxiety\s)attack[s]?|"
+        r"defend[s]?|protect[s]?|affect[s]?|impact[s]?|"
         # Physical / chemical state-change verbs: "why does ice float", "what makes iron rust"
         r"float[s]?|sink[s]?|rust[s]?|boil[s]?|melt[s]?|freeze[sd]?|evaporate[sd]?|"
         r"condense[sd]?|expand[s]?|contract[s]?|ignite[sd]?|dissolve[sd]?|"
