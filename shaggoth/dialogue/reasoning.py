@@ -96,7 +96,7 @@ _CONTRAST = re.compile(
 _CAUSAL = re.compile(
     r"^\s*(?:and |but |so )?why\b|\bwhat (?:is\s+)?caus(?:ing|e[ds]?)\b"
     r"|\bhow (?:is|are|do|does|did|can|could|would|should) .+"
-    r"|\bwhat (?:is|are) the (?:cause|process|mechanism|effect|result|purpose|role|function|"
+    r"|\bwhat (?:is|are) the (?:\w+\s+)?(?:cause|process|mechanism|effect|result|purpose|role|function|"
     r"impact|consequence)s? (?:of|behind|in)\b"
     r"|\bwhat (?:leads?|trigger|triggers|drove|drives?|prompts?) .+\b"
     r"|\bwhat happens\b|\bwhat makes\b|\breason (?:for|why)\b"
@@ -203,8 +203,15 @@ def subject_of(question: str) -> str:
     """The single subject of a causal or enumerating question."""
     text = (question or "").strip(" ?.")
     text = re.sub(
-        r"^(?:and |but |so )?(?:why|what|how)\s+"
+        r"^(?:and |but |so )?(?:why|what|how|who|when|where)\s+"
         r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
+        "", text, flags=re.I,
+    )
+    # After stripping "who", attribution verbs head the remainder:
+    # "who invented the telephone" → "invented the telephone" → "the telephone"
+    text = re.sub(
+        r"^(?:invented?|discover(?:ed|s)?|found(?:ed|s)?|built|creat(?:ed|es?)|"
+        r"wrote|written|painted?|composed?|designed?|develop(?:ed|s)?)\s+",
         "", text, flags=re.I,
     )
     # Imperative enumeration: "list the planets" / "name the types of X"
@@ -218,10 +225,15 @@ def subject_of(question: str) -> str:
         r"\s+of\s+", "", text, flags=re.I
     )
     text = re.sub(
-        r"^(?:the\s+)?(?:cause|process|mechanism|effect|result|purpose|"
+        # Accept an optional adjective ("main", "primary", "key") between
+        # "the" and the noun: "the main cause of X" → "cause of X" → "X"
+        r"^(?:the\s+)?(?:\w+\s+)?(?:cause|process|mechanism|effect|result|purpose|"
         r"role|function|impact|consequence)s?"
         r"\s+(?:of|behind|in)\s+", "", text, flags=re.I,
     )
+    # Leading temporal/locative preposition left over after "what happens during X"
+    # → "during X" → strip "during" → "X"
+    text = re.sub(r"^during\s+", "", text, flags=re.I)
     # "what leads to X", "what triggers X" → X
     text = re.sub(
         r"^(?:leads?|trigger[sd]?|drove|drives?|prompts?)\s+(?:to\s+)?",
@@ -258,6 +270,10 @@ def subject_of(question: str) -> str:
         r"form[s]?|make[s]?|replicate[s]?|train[s]?|"
         r"grow[s]?|spread[s]?|evolve[s]?|"
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
+        # Immune/conflict/process verbs: "how does X fight Y", "how does X affect Y"
+        r"fight[s]?|attack[s]?|defend[s]?|protect[s]?|affect[s]?|impact[s]?|"
+        # Passive attribution: "when was X invented", "where was Y discovered"
+        r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|"
         # Extinction/state verbs: "why did the dinosaurs go extinct", "how did X fall"
         r"go\s+extinct|fall[s]?|collapse[sd]?|rise[sd]?|rise"
         r")\b.*$",

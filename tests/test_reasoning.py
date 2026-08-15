@@ -304,6 +304,44 @@ def test_subject_of_new_patterns(question, expected):
     assert subject_of(question) == expected
 
 
+@pytest.mark.parametrize("question,expected", [
+    # "who" opening + attribution verb strip at the start
+    ("who invented the telephone", "the telephone"),
+    ("who discovered penicillin", "penicillin"),
+    ("who developed the theory of relativity", "the theory of relativity"),
+    ("who designed the Eiffel Tower", "the Eiffel Tower"),
+    # "when" opening + passive attribution verb at the end
+    ("when was the internet invented", "the internet"),
+    ("when was electricity discovered", "electricity"),
+    # "what happens during X" → "during" preposition strip
+    ("what happens during photosynthesis", "photosynthesis"),
+    ("what happens during an earthquake", "an earthquake"),
+    # Action verb (fight/affect) at end — previously leaked into subject
+    ("how does the immune system fight viruses", "the immune system"),
+    ("how does stress affect the body", "stress"),
+    ("how does sunscreen protect skin", "sunscreen"),
+    # "what is the [adj] cause of X" — optional adjective before noun
+    ("what is the main cause of global warming", "global warming"),
+    ("what is the primary effect of deforestation", "deforestation"),
+])
+def test_subject_of_who_when_attribution_and_action_verbs(question, expected):
+    """who/when opening, attribution verbs, during-strip, trailing action verbs."""
+    assert subject_of(question) == expected
+
+
+@pytest.mark.parametrize("question", [
+    # Adjective between "the" and the causal noun must still classify as CAUSAL
+    "what is the main cause of global warming",
+    "what is the primary effect of deforestation",
+    "what is the key role of enzymes in digestion",
+    # "what happens during X" is causal
+    "what happens during photosynthesis",
+])
+def test_causal_questions_with_optional_adjective(question):
+    """Adjective before causal noun (e.g. 'the main cause of') must classify CAUSAL."""
+    assert classify(question) == Intent.CAUSAL
+
+
 # --------------------------------------------------------------------------
 # The reasoner
 # --------------------------------------------------------------------------
