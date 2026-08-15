@@ -6461,3 +6461,45 @@ def test_batch154_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is jazz",                                        "jazz"),
+    ("what is a chord",                                     "chord"),
+    ("what is a melody",                                    "melody"),
+    ("what is a tempo",                                     "tempo"),
+    ("what is a scale in music",                            "scale"),
+    ("what is a symphony",                                  "symphony"),
+    # "who invented X" → X
+    ("who invented the piano",                              "piano"),
+    ("who invented the guitar",                             "guitar"),
+    # "how does X work" → X
+    ("how does a metronome work",                           "metronome"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between classical and jazz",   "classical and jazz"),
+    # "what are the X in a Y" (indefinite container) → Y
+    ("what are the notes in a c major scale",               "c major scale"),
+    # "how do you read X" → X
+    ("how do you read sheet music",                         "sheet music"),
+    # "who wrote X" → X
+    ("who wrote beethoven's 9th symphony",                  "beethoven's 9th symphony"),
+    # "what genre is X" → X
+    ("what genre is hip hop",                               "hip hop"),
+    # compound nouns: "key" not stripped as adjective
+    ("what is a bass guitar",                               "bass guitar"),
+    ("what is an octave",                                   "octave"),
+    ("what is a key signature",                             "key signature"),
+    # "how do you tune X" → X
+    ("how do you tune a guitar",                            "guitar"),
+    # superlative + category noun stripped
+    ("what is the most popular music genre",                "music genre"),
+    # "how many strings does X have" → X
+    ("how many strings does a violin have",                 "violin"),
+])
+def test_batch155_subject_extraction(question, expected):
+    """Batch 155: music — key-compound protection, indefinite-container rule, instruments."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

@@ -513,7 +513,8 @@ def subject_of(question: str) -> str:
     # "4 blood types" → "blood types". Also strips named quantifiers left after
     # stripping "what are".
     # \d{1,3} only: 4-digit years/titles ("1984", "2001") are topics, not quantifiers.
-    text = re.sub(r"^(?:some|any|various|several|a few|all|different|main|major|key|\d{1,3})\s+", "", text, flags=re.I)
+    # "key" is protected when it forms a compound noun (key signature, key change).
+    text = re.sub(r"^(?:some|any|various|several|a few|all|different|main|major|key(?!\s+(?:signature|change))|\d{1,3})\s+", "", text, flags=re.I)
     # "difference between X and Y" / "similarity between X and Y" → "X and Y"
     _before_between = text
     text = re.sub(
@@ -842,6 +843,17 @@ def subject_of(question: str) -> str:
         )
         if _m:
             text = _m.group(2)
+        elif re.match(r"^\s*(?:and |but |so )?what\s+are\s+", _original, re.I):
+            # "what are the notes in a c major scale" → "c major scale".
+            # Only fire when container uses indefinite "a/an" — that signals the
+            # container is the ENTITY being defined, not a well-known background
+            # ("the solar system" uses "the", so planets stay as the subject).
+            _m_parts_in = re.match(
+                r"^\w+(?:\s+\w+)?\s+in\s+(?:a|an)\s+(.+)$",
+                text, re.I,
+            )
+            if _m_parts_in:
+                text = _m_parts_in.group(1)
     # "what temperature does water boil" → "temperature does water boil" → "water boil"
     # → trailing verb strip removes "boil" → "water".
     # Catches any "MEASUREMENT does/do/did ENTITY VERB" form.
@@ -1442,7 +1454,7 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+and\s+(?:the|a|an)\s+", " and ", text, flags=re.I)
     # Strip qualifier adjective exposed after the article: "the main programming languages"
     # → "main programming languages" → "programming languages".
-    text = re.sub(r"^(?:different|main|major|key|various|multiple)\s+", "", text, flags=re.I)
+    text = re.sub(r"^(?:different|main|major|key(?!\s+(?:signature|change))|various|multiple)\s+", "", text, flags=re.I)
     # Strip leading superlative/comparative adjective: "largest ocean" → "ocean",
     # "fastest animal" → "animal", "most common element" → "element".
     _before_super = text
