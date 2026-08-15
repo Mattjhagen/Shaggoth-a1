@@ -1198,7 +1198,7 @@ def subject_of(question: str) -> str:
         r"filter[s]?|(?<!cash\s)(?<!data\s)(?<!control\s)(?<!lava\s)flow[s]?|carry|carries|digest[s]?|regulate[s]?|consume[sd]?|"
         # Guard "muscle pull" compound noun from being stripped.
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|(?<!muscle\s)pull[s]?|"
-        r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|(?<!safety\s)(?<!blind\s)catch(?:es)?|caught|"
+        r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|(?<!cake\s)(?<!trail\s)(?<!dry\s)(?<!brownie\s)(?<!cookie\s)mix(?:es)?|(?<!safety\s)(?<!blind\s)catch(?:es)?|caught|"
         r"come[s]?\s+from|get[s]?|navigate[sd]?|find[s]?|"
         r"purr[s]?|bark[s]?|meow[s]?|howl[s]?|chirp[s]?|sing[s]?|hum[s]?|roar[s]?|growl[s]?|"
         r"regrow[s]?|regenerate[sd]?|hibernate[sd]?|camouflage[sd]?|photosynthesize[sd]?|"
@@ -1211,7 +1211,7 @@ def subject_of(question: str) -> str:
         r"appear[s]?|disappear(?:s|ed)?|vanish(?:es|ed)?|reproduct[s]?|reproduce[sd]?|"
         r"behave[sd]?|communicate[sd]?|"
         r"have\b|has\b|be\b|become[s]?|doing\b|"
-        r"grow[s]?|spread[s]?|evolve[s]?|"
+        r"grow[s]?|(?<!sandwich\s)(?<!cheese\s)(?<!bread\s)(?<!butter\s)(?<!cream\s)spread[s]?|evolve[s]?|"
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
         # Causal/enabling verbs: "why don't vaccines cause autism" → "vaccines"
         # Guard "probable cause", "just cause" (legal compound nouns).
@@ -1230,7 +1230,7 @@ def subject_of(question: str) -> str:
         r"(?<!tax\s)(?<!spring\s)(?<!coffee\s)(?<!commercial\s)(?<!lunch\s)(?<!winter\s)(?<!summer\s)(?<!prison\s)(?<!clean\s)(?<!or\s)break[s]?|"
         # Physical / chemical state-change verbs: "why does ice float", "what makes iron rust"
         # "carbon sink" and "heat sink" are noun compounds — guard those prefixes.
-        r"float[s]?|(?<!carbon\s)(?<!heat\s)sink[s]?|rust[s]?|boil[s]?|melt[s]?|freeze[sd]?|evaporate[sd]?|"
+        r"float[s]?|(?<!carbon\s)(?<!heat\s)sink[s]?|rust[s]?|(?<!rolling\s)boil[s]?|melt[s]?|freeze[sd]?|evaporate[sd]?|"
         r"condense[sd]?|expand[s]?|(?<!social\s)(?<!labor\s)(?<!labour\s)contract[s]?(?!\s+(?:theory|law|clause|principle|agreement))|ignite[sd]?|dissolve[sd]?|"
         # Mass/cost verbs: "how much does a blue whale weigh" → "blue whale"
         # Guard "dollar cost averaging" compound noun.
@@ -1266,7 +1266,7 @@ def subject_of(question: str) -> str:
         # (interest rates, poverty rates, crime rates, exchange rates).
         # Only "rated" (passive participle, clearly a verb) is stripped.
         # Guard "margin call", "roll call", "curtain call", "covered call", "close call", "wake up call" compound nouns.
-        r"measure[sd]?|classif(?:ied|y|ies)?|(?<!margin\s)(?<!roll\s)(?<!curtain\s)(?<!covered\s)(?<!close\s)(?<!up\s)call(?:ed|s)?|rank(?:ed|s)?|rated|(?<!medical\s)treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|(?<!insurance\s)(?<!land\s)claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
+        r"measure[sd]?|classif(?:ied|y|ies)?|(?<!margin\s)(?<!roll\s)(?<!curtain\s)(?<!covered\s)(?<!close\s)(?<!up\s)call(?:ed|s)?|rank(?:ed|s)?|rated|(?<!medical\s)treat(?:ed|s)?|(?<!dry\s)(?<!salt\s)(?<!cold\s)cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|(?<!insurance\s)(?<!land\s)claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
         # Guard "U turn", "about turn", "downturn", "upturn" compound nouns.
         r"(?<!U\s)(?<!u\s)(?<!about\s)turn[s]?|transform[sd]?|"
         # Guard "rug burn", "chemical burn", "road burn" compound nouns.

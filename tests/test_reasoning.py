@@ -12432,3 +12432,33 @@ def test_batch341_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a smoothie blend",                                 "smoothie blend"),
+    ("what is a spice blend",                                    "spice blend"),
+    ("what is a cake mix",                                       "cake mix"),
+    ("what is a trail mix",                                      "trail mix"),
+    ("what is a pork chop",                                      "pork chop"),
+    ("what is a lamb chop",                                      "lamb chop"),
+    ("what is a sandwich spread",                                "sandwich spread"),
+    ("what is a cheese spread",                                  "cheese spread"),
+    ("what is a salsa dip",                                      "salsa dip"),
+    ("what is a sour cream dip",                                 "sour cream dip"),
+    ("what is a stir fry",                                       "stir fry"),
+    ("what is a deep fry",                                       "deep fry"),
+    ("what is a half bake",                                      "half bake"),
+    ("what is a slow roast",                                     "slow roast"),
+    ("what is a charcoal grill",                                 "charcoal grill"),
+    ("what is a rolling boil",                                   "rolling boil"),
+    ("what is a gentle simmer",                                  "gentle simmer"),
+    ("what is a dry cure",                                       "dry cure"),
+    ("what is a dill pickle",                                    "dill pickle"),
+    ("what is a lemon marinade",                                 "lemon marinade"),
+])
+def test_batch342_subject_extraction(question, expected):
+    """Batch 342: food/cooking compound nouns; mix/spread/boil/cure guards added."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
