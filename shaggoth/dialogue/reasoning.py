@@ -374,6 +374,9 @@ def subject_of(question: str) -> str:
     # → "ago did X Y". Strip "ago" plus any following auxiliary in one shot so the
     # bare-opener strip doesn't need to run twice.
     text = re.sub(r"^ago\s+(?:did|does|was|were|has|have|had|do)?\s*", "", text, flags=re.I)
+    # "the origin of X" → X — requires "the" so "origin of species" (book title)
+    # is NOT affected when it arrives without an article.
+    text = re.sub(r"^the\s+origin\s+of\s+(?:the\s+|a\s+|an\s+)?", "", text, flags=re.I)
     # Leading bare quantifier/qualifier left after stripping "what are":
     # "what are some programming languages" → "some programming languages" →
     # strip "some " → "programming languages".

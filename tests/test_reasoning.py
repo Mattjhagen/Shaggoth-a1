@@ -3057,3 +3057,31 @@ def test_batch65_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is the origin of X" → X (requires "the" so book-title "origin of species" unaffected)
+    ("what is the origin of the universe",             "universe"),
+    ("what is the origin of life",                     "life"),
+    ("what is the origin of language",                 "language"),
+    # Regression: bare "origin of species" (book title) must stay intact
+    ("who wrote origin of species",                    "origin of species"),
+    # "what is the significance of X" → X
+    ("what is the significance of the magna carta",    "magna carta"),
+    ("what is the importance of photosynthesis",       "photosynthesis"),
+    # "what is the history of X" → X
+    ("what is the history of the internet",            "internet"),
+    ("what is the history of chess",                   "chess"),
+    # "what are the effects of X on Y" → X (scaffold + on-context strips)
+    ("what are the effects of caffeine on sleep",      "caffeine"),
+    ("what are the effects of pollution on health",    "pollution"),
+    # "what happens to X when it Y" → X
+    ("what happens to water when it freezes",          "water"),
+    ("what happens to stars when they die",            "stars"),
+])
+def test_batch66_subject_extraction(question, expected):
+    """Batch 66: origin-of (with/without article), significance/history/effects patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
