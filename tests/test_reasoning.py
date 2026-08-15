@@ -9750,3 +9750,33 @@ def test_batch251_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is dna",                                              "dna"),
+    ("what is rna",                                              "rna"),
+    ("what is a gene",                                           "gene"),
+    ("what is a chromosome",                                     "chromosome"),
+    ("what is mitosis",                                          "mitosis"),
+    ("what is meiosis",                                          "meiosis"),
+    ("what is natural selection",                                "natural selection"),
+    ("what is evolution",                                        "evolution"),
+    ("what is a protein",                                        "protein"),
+    ("what is an enzyme",                                        "enzyme"),
+    ("what is photosynthesis",                                   "photosynthesis"),
+    ("what is cellular respiration",                             "cellular respiration"),
+    ("what is osmosis",                                          "osmosis"),
+    ("what is mutation",                                         "mutation"),
+    ("what is crispr",                                           "crispr"),
+    ("what is gene editing",                                     "gene editing"),
+    ("what is the human genome",                                 "human genome"),
+    ("how does dna replication work",                            "dna replication"),
+    ("what is a stem cell",                                      "stem cell"),
+    ("what is epigenetics",                                      "epigenetics"),
+])
+def test_batch252_subject_extraction(question, expected):
+    """Batch 252: biology/genetics — DNA, RNA, evolution, CRISPR, cellular processes."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
