@@ -3153,3 +3153,34 @@ def test_batch68_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 69: trailing classification nouns extended; "living organisms" compound
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Extended classification noun strip: "fish" as predicate
+    ("are dolphins fish",                                 "dolphins"),
+    ("are sharks fish",                                   "sharks"),
+    ("are whales fish",                                   "whales"),
+    # "living organisms/things/beings" compound tail
+    ("are viruses living organisms",                      "viruses"),
+    ("are corals living things",                          "corals"),
+    ("are crystals living beings",                        "crystals"),
+    # "strike" added to trailing verb list
+    ("can lightning strike twice in the same place",      "lightning"),
+    ("how often does lightning strike",                   "lightning"),
+    # Regression guards: "fish/bacteria/birds" as SUBJECT must not be stripped
+    ("what are the uses of hydrogen",                     "hydrogen"),
+    ("how many species of birds are there",               "species of birds"),
+    ("what is the difference between bacteria and viruses", "bacteria and viruses"),
+    ("are viruses and bacteria the same",                 "viruses and bacteria"),
+])
+def test_batch69_subject_extraction(question, expected):
+    """Batch 69: fish classification; living-organisms compound; strike verb; regression guards."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

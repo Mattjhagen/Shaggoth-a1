@@ -726,7 +726,7 @@ def subject_of(question: str) -> str:
         r"originate[sd]?|"
         # Intransitive motion/perception/existence verbs: "why do stars twinkle",
         # "how fast does light travel", "why do we dream", "how does sound travel"
-        r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|"
+        r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|strike[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
         r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|"
         r"smell[s]?|taste[s]?|see[s]?|hear[s]?|sense[s]?|read[s]?|writ(?:e[s]?|ten)|coexist[s]?|"
@@ -917,11 +917,12 @@ def subject_of(question: str) -> str:
     # strips "why does " → "X not use Y" → trailing strip removes " use Y" →
     # "X not" → remove trailing " not" → "X".
     text = re.sub(r"\s+not\s*$", "", text, flags=re.I)
-    # "are dolphins mammals" → "dolphins mammals" → strip trailing classification noun → "dolphins"
+    # "are dolphins mammals" / "are viruses living organisms" → strip trailing classification tail
+    text = re.sub(r"\s+living\s+(?:things?|organisms?|beings?|creatures?)\s*$", "", text, flags=re.I)
     text = re.sub(
         r"\s+(?:mammals?|reptiles?|amphibians?|arachnids?|crustaceans?|mollusks?|"
         r"insects?|invertebrates?|vertebrates?|primates?|carnivores?|herbivores?|"
-        r"omnivores?|parasites?|predators?|scavengers?|plankton)\s*$",
+        r"omnivores?|parasites?|predators?|scavengers?|plankton|fish)\s*$",
         "", text, flags=re.I,
     )
     # Strip a trailing bare copula: "blood sugar is" (after adj strip removed "low")
