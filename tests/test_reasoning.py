@@ -123,6 +123,22 @@ def test_a_comparison_beginning_with_why_is_still_a_comparison():
     assert classify("why is aeroponics different from hydroponics") == Intent.COMPARE
 
 
+@pytest.mark.parametrize("question,expected", [
+    # Comparative adjective + "than" patterns
+    ("is python faster than javascript", ["python", "javascript"]),
+    ("is nuclear energy safer than coal", ["nuclear energy", "coal"]),
+    # "which is [adj] X or Y" pattern
+    ("which is faster light or sound", ["light", "sound"]),
+    ("which is better python or javascript", ["python", "javascript"]),
+    ("which is more popular python or java", ["python", "java"]),
+    ("which is more efficient solar or wind power", ["solar", "wind power"]),
+])
+def test_split_subjects_comparative_questions(question, expected):
+    """Comparative 'is X faster than Y' and 'which is better X or Y' patterns."""
+    assert classify(question) == Intent.COMPARE
+    assert split_subjects(question) == expected
+
+
 # --------------------------------------------------------------------------
 # Subject extraction
 # --------------------------------------------------------------------------

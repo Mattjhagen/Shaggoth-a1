@@ -78,7 +78,12 @@ _COMPARE = re.compile(
     # "why"; classify() checks COMPARE first precisely so it lands here.
     r"|\b(?:how|why|in what way(?:s)?) (?:is|are|does|do) .+ different\b"
     # "what separates X from Y", "what sets X apart from Y"
-    r"|\bseparate[sd]?\b|\bsets?\b.+\bapart\b",
+    r"|\bseparate[sd]?\b|\bsets?\b.+\bapart\b"
+    # "is Python faster than JavaScript", "are solar panels better than coal"
+    # Any "is/are X [comparative adjective -er] than Y" construction.
+    r"|\b(?:is|are)\b.+\b\w+er\b.+\bthan\b"
+    # "which is faster/better X or Y", "which is more popular Python or Java"
+    r"|\bwhich (?:is|are|was|were)\b.+\bor\b",
     re.I,
 )
 _CONTRAST = re.compile(
@@ -120,7 +125,9 @@ _JOINERS = (
     r"\s+compared?\s+with\s+",     # "compare with" and "compared with"
     r"\s+against\s+",
     r"\s+different\s+(?:from|to)\s+",  # "X different from Y"
+    r"\s+\w+er\s+than\s+",         # "X faster than Y" after "is" lead-in strip
     r"\s+and\s+",
+    r"\s+or\s+",                   # "X or Y" after "which is better" lead-in strip
     r"\s+apart\s+from\s+",         # "sets X apart from Y" after lead-in strip
     r"\s+from\s+",                 # after "what distinguishes" lead-in strip
     r"\s+to\s+",                   # after "compare" lead-in strip
@@ -140,6 +147,11 @@ _LEAD_IN = re.compile(
     # "compare X and Y" / "compare X to Y" as an imperative opens with the
     # verb "compare"; stripping it lets the joiner split correctly.
     r"|^compare[ds]?\s+"
+    # "is Python faster than JavaScript" / "are X and Y similar"
+    r"|^(?:is|are)\s+"
+    # "which is faster X or Y" — strip "which is [adjective]" leaving subjects
+    # Limited to one optional degree word ("more"/"less") plus one adjective.
+    r"|^which (?:is|are|was|were)\s+(?:(?:more|less)\s+)?\w+\s+"
     r"|^(?:what(?:'s| is| are)?\s+)?(?:the\s+)?"
     r"(?:difference|differences|distinction|similarity|similarities)?\s*"
     r"(?:between\s+)?",
