@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mattjhagen.shaggoth",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
@@ -26,7 +26,7 @@
     },
     "android": {
       "package": "com.relayapp.pro",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#0D0D12",
         "foregroundImage": "./assets/adaptive-icon.png"
