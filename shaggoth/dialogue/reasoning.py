@@ -89,7 +89,7 @@ _CONTRAST = re.compile(
     re.I,
 )
 _CAUSAL = re.compile(
-    r"^\s*(?:and |but |so )?why\b|\bwhat (?:is\s+)?caus(?:es?|ing)\b"
+    r"^\s*(?:and |but |so )?why\b|\bwhat (?:is\s+)?caus(?:ing|e[ds]?)\b"
     r"|\bhow (?:is|are|do|does|did|can|could|would|should) .+"
     r"|\bwhat (?:is|are) the (?:cause|process|mechanism|effect|result|purpose|role|function|"
     r"impact|consequence)s? (?:of|behind|in)\b"
@@ -105,7 +105,7 @@ _CAUSAL = re.compile(
 )
 _ENUMERATE = re.compile(
     r"\b(?:types? of|kinds? of|sorts? of|categories of|examples? of|"
-    r"forms? of|list of|what are the)\b",
+    r"forms? of|list of|list (?:the|all|some) |what are the)\b",
     re.I,
 )
 
@@ -192,11 +192,17 @@ def subject_of(question: str) -> str:
     text = (question or "").strip(" ?.")
     text = re.sub(
         r"^(?:and |but |so )?(?:why|what|how)\s+"
-        r"(?:is|are|was|were|does|do|did|can|could|would|should|causes?|makes?|happens?)?\s*",
+        r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
+        "", text, flags=re.I,
+    )
+    # Imperative enumeration: "list the planets" / "name the types of X"
+    text = re.sub(
+        r"^(?:name|list|give(?:\s+me)?|show)\s+(?:the|all|some|any|different)\s+",
         "", text, flags=re.I,
     )
     text = re.sub(
-        r"^(?:the\s+)?(?:types?|kinds?|sorts?|categories|examples?|forms?|list)"
+        r"^(?:(?:the|some|any|all|various|different|a few)\s+)?"
+        r"(?:types?|kinds?|sorts?|categories|examples?|forms?|list)"
         r"\s+of\s+", "", text, flags=re.I
     )
     text = re.sub(
@@ -239,7 +245,9 @@ def subject_of(question: str) -> str:
         # Action verbs trailing the subject in "how do X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|train[s]?|"
         r"grow[s]?|spread[s]?|evolve[s]?|"
-        r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?"
+        r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
+        # Extinction/state verbs: "why did the dinosaurs go extinct", "how did X fall"
+        r"go\s+extinct|fall[s]?|collapse[sd]?|rise[sd]?|rise"
         r")\b.*$",
         "", text, flags=re.I,
     )

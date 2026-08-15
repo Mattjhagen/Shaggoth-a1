@@ -93,9 +93,24 @@ def test_causal_questions_extended(question):
     "what are the types of cryptography",
     "what kinds of algae exist",
     "give me examples of programming languages",
+    # Imperative list commands
+    "list the planets in the solar system",
+    "name the different types of machine learning",
+    # "some types of" variant
+    "what are some types of cancer",
 ])
 def test_enumerating_questions(question):
     assert classify(question) == Intent.ENUMERATE
+
+
+@pytest.mark.parametrize("question", [
+    # Past-tense "caused" — previously misclassified as DEFINE
+    "what caused the Great Depression",
+    "what caused the financial crisis",
+])
+def test_causal_questions_past_tense(question):
+    """'what caused X' uses past tense; classifier must handle it."""
+    assert classify(question) == Intent.CAUSAL
 
 
 def test_plain_definitions_are_left_to_retrieval():
@@ -252,6 +267,24 @@ def test_subject_of_trailing_verb_and_modifier_strips(question, expected):
     ("what is behind inflation", "inflation"),
 ])
 def test_subject_of_new_causal_verb_patterns(question, expected):
+    assert subject_of(question) == expected
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Past-tense "caused": was garbling to "d the Great Depression"
+    ("what caused the Great Depression", "the Great Depression"),
+    ("what caused the financial crisis", "the financial crisis"),
+    # Extinction/state trailing verbs
+    ("why did the dinosaurs go extinct", "the dinosaurs"),
+    ("how did the Roman Empire fall", "the Roman Empire"),
+    ("how did the Soviet Union collapse", "the Soviet Union"),
+    # Enumeration with "some types" article prefix
+    ("what are some types of cancer", "cancer"),
+    # Imperative enumeration commands
+    ("name the different types of machine learning", "machine learning"),
+    ("list the planets in the solar system", "planets in the solar system"),
+])
+def test_subject_of_new_patterns(question, expected):
     assert subject_of(question) == expected
 
 
