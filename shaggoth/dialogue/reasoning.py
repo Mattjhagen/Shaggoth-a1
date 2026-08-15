@@ -938,7 +938,7 @@ def subject_of(question: str) -> str:
         r"happen(?:ed|s)?|occur(?:red|s)?|exist(?:ed|s)?|"
         r"made|created|formed|produced|compos(?:ed|es?)?|prevented|caused|built|done|founded|"
         # Irregular past-tense verbs common in hypothetical "if X lost/became Y" questions:
-        r"los(?:t|e[sd]?)|becam(?:e|es?)|forgot(?:ten)?|gain(?:ed|s)?|"
+        r"los(?:t|e[sd]?)|becam(?:e|es?)|forgot(?:ten)?|gain(?:ed)?|"
         r"get\s+\w+ed|become|start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|train[s]?|take[s]?|"

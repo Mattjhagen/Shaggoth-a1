@@ -5400,3 +5400,123 @@ def test_batch125_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is climate change",                              "climate change"),
+    ("what is global warming",                              "global warming"),
+    ("what is the greenhouse effect",                       "greenhouse effect"),
+    ("what is carbon dioxide",                              "carbon dioxide"),
+    ("what is deforestation",                               "deforestation"),
+    # "what causes X"
+    ("what causes climate change",                          "climate change"),
+    ("what causes acid rain",                               "acid rain"),
+    ("what causes ozone depletion",                         "ozone depletion"),
+    # "what is the difference between X and Y"
+    ("what is the difference between weather and climate",  "weather and climate"),
+    # "how does X affect Y"
+    ("how does pollution affect the ocean",                 "pollution"),
+    ("how does deforestation affect climate",               "deforestation"),
+    # "what are the effects of X"
+    ("what are the effects of climate change",              "climate change"),
+    ("what are the effects of pollution",                   "pollution"),
+    # "how do you reduce X"
+    ("how do you reduce carbon emissions",                  "carbon emissions"),
+    ("how do you reduce plastic waste",                     "plastic waste"),
+    # "what is X energy"
+    ("what is solar energy",                                "solar energy"),
+    ("what is wind energy",                                 "wind energy"),
+    # "is X renewable"
+    ("is solar energy renewable",                           "solar energy"),
+    # "what is the ozone layer"
+    ("what is the ozone layer",                             "ozone layer"),
+    # "how do X work"
+    ("how do solar panels work",                            "solar panels"),
+    # "what percentage of X is Y"
+    ("what percentage of the earth is covered by water",    "earth"),
+])
+def test_batch126_subject_extraction(question, expected):
+    """Batch 126: environment/climate — greenhouse, renewables, pollution."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is inflation",                                   "inflation"),
+    ("what is gdp",                                         "gdp"),
+    ("what is a recession",                                 "recession"),
+    ("what is the stock market",                            "stock market"),
+    ("what is cryptocurrency",                              "cryptocurrency"),
+    ("what is a mortgage",                                  "mortgage"),
+    ("what is interest rate",                               "interest rate"),
+    # "how does X work"
+    ("how does the stock market work",                      "stock market"),
+    ("how does inflation work",                             "inflation"),
+    ("how does a mortgage work",                            "mortgage"),
+    # "what causes X"
+    ("what causes inflation",                               "inflation"),
+    ("what causes a recession",                             "recession"),
+    # "what is the difference between X and Y"
+    ("what is the difference between stocks and bonds",     "stocks and bonds"),
+    ("what is the difference between debit and credit",     "debit and credit"),
+    # "how do you invest in X"
+    ("how do you invest in stocks",                         "stocks"),
+    ("how do you invest in real estate",                    "real estate"),
+    # "what is X tax"
+    ("what is income tax",                                  "income tax"),
+    ("what is capital gains tax",                           "capital gains tax"),
+    # "how do you calculate X"
+    ("how do you calculate interest",                       "interest"),
+    # "what is a X"
+    ("what is a hedge fund",                                "hedge fund"),
+    ("what is a mutual fund",                               "mutual fund"),
+])
+def test_batch127_subject_extraction(question, expected):
+    """Batch 127: economics/finance — stock market, inflation, tax."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is democracy",                                   "democracy"),
+    ("what is communism",                                   "communism"),
+    ("what is capitalism",                                  "capitalism"),
+    ("what is socialism",                                   "socialism"),
+    ("what is a constitution",                              "constitution"),
+    ("what is the united nations",                          "united nations"),
+    # "how does X work"
+    ("how does democracy work",                             "democracy"),
+    ("how does the electoral college work",                 "electoral college"),
+    ("how does the supreme court work",                     "supreme court"),
+    # "what is the difference between X and Y"
+    ("what is the difference between democracy and republic", "democracy and republic"),
+    ("what is the difference between communism and socialism", "communism and socialism"),
+    # "what is X government/system"
+    ("what is a federal government",                        "federal government"),
+    ("what is a parliamentary system",                      "parliamentary system"),
+    # "who has X" → X
+    ("who has veto power in the un",                        "veto power"),
+    # "how many X are in Y" → Y (container is the lookup topic)
+    ("how many countries are in the united nations",        "united nations"),
+    # "what is X branch"
+    ("what is the executive branch",                        "executive branch"),
+    ("what is the judicial branch",                         "judicial branch"),
+    ("what is the legislative branch",                      "legislative branch"),
+    # named documents / organisations
+    ("what is the bill of rights",                          "bill of rights"),
+    ("what is the first amendment",                         "first amendment"),
+    ("what is nato",                                        "nato"),
+])
+def test_batch128_subject_extraction(question, expected):
+    """Batch 128: political science — government, constitutions, international bodies."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
