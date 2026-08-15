@@ -3646,3 +3646,45 @@ def test_batch81_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 82: technology and AI concept questions — what-is, how-does-work,
+#            difference-between, stand-for
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" (technology concept) → X
+    ("what is machine learning",                    "machine learning"),
+    ("what is artificial intelligence",             "artificial intelligence"),
+    ("what is blockchain",                          "blockchain"),
+    ("what is the cloud",                           "cloud"),
+    ("what is quantum computing",                   "quantum computing"),
+    # "how does X work" (technology) → X
+    ("how does wifi work",                          "wifi"),
+    ("how does bluetooth work",                     "bluetooth"),
+    ("how does gps work",                           "gps"),
+    ("how does a cpu work",                         "cpu"),
+    ("how does encryption work",                    "encryption"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between tcp and udp",  "tcp and udp"),
+    ("what is the difference between ram and rom",  "ram and rom"),
+    ("what is the difference between ai and ml",    "ai and ml"),
+    # "how do X and Y differ" → "X and Y"
+    ("how do python and java differ",               "python and java"),
+    # "what is a/an X" → X
+    ("what is a pixel",                             "pixel"),
+    ("what is an algorithm",                        "algorithm"),
+    ("what is a database",                          "database"),
+    # "what does X stand for" → X
+    ("what does cpu stand for",                     "cpu"),
+    ("what does html stand for",                    "html"),
+    ("what does api stand for",                     "api"),
+])
+def test_batch82_subject_extraction(question, expected):
+    """Batch 82: technology & AI questions — what-is, how-does-work, difference-between."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
