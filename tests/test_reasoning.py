@@ -6637,3 +6637,50 @@ def test_batch158_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is the capital of X" → X
+    ("what is the capital of japan",                           "japan"),
+    ("what is the capital of australia",                       "australia"),
+    # "where is X" → X
+    ("where is the amazon river",                              "amazon river"),
+    ("where is the sahara desert",                             "sahara desert"),
+    # "what is the largest country in X" → X
+    ("what is the largest country in south america",           "south america"),
+    # "how many countries are in X" → X
+    ("how many countries are in africa",                       "africa"),
+    # "what is the population of X" → X
+    ("what is the population of india",                        "india"),
+    # "what language do they speak in X" → X
+    ("what language do they speak in brazil",                  "brazil"),
+    # "what continent is X in" → X
+    ("what continent is egypt in",                             "egypt"),
+    # "what is the longest river in the world" → "river" (universal scope → superlative stripped)
+    ("what is the longest river in the world",                 "river"),
+    # "how big is X" → X
+    ("how big is antarctica",                                  "antarctica"),
+    # "what is X known for" → X
+    ("what is paris known for",                                "paris"),
+    # "what CATEGORY borders PLACE" → PLACE
+    ("what countries border france",                           "france"),
+    # "what is the highest mountain in X" → X
+    ("what is the highest mountain in europe",                 "europe"),
+    # "what CATEGORY borders PLACE" → PLACE (ocean variant)
+    ("what ocean borders australia",                           "australia"),
+    # "what is the currency of X" → X
+    ("what is the currency of mexico",                         "mexico"),
+    # "what timezone is X in" → X
+    ("what timezone is new york in",                           "new york"),
+    # "how far is X from Y" → X
+    ("how far is new york from london",                        "new york"),
+    # "what is X" → X (geographic entities)
+    ("what is the amazon rainforest",                          "amazon rainforest"),
+    ("what is the great barrier reef",                         "great barrier reef"),
+])
+def test_batch159_subject_extraction(question, expected):
+    """Batch 159: geography — capitals, borders, population, continent, distance."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

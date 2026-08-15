@@ -1052,11 +1052,14 @@ def subject_of(question: str) -> str:
     # When a category noun is the head and followed by a use/need verb and object,
     # the object is the real lookup target.
     _m_cat_uses = re.match(
-        r"^(?:sport|game|activity|animal|plant|country|language|instrument|drug|element|"
-        r"machine|device|vehicle|tool|substance|compound|mineral|organism|creature)\s+"
+        r"^(?:sport|game|activity|animal|plant|country|countries|language|instrument|drug|element|"
+        r"machine|device|vehicle|tool|substance|compound|mineral|organism|creature|"
+        r"ocean|sea|lake|river|mountain|city|cities|region|continent)\s+"
         r"(?:use[sd]?|need[sd]?|require[sd]?|involve[sd]?|contain[sd]?|produc(?:e[sd]?|es)|"
-        r"emit[sd]?|release[sd]?|create[sd]?|generate[sd]?)\s+"
-        r"(?:a|an|the)?\s*(.+)$",
+        r"emit[sd]?|release[sd]?|create[sd]?|generate[sd]?|"
+        r"border[sd]?|surround[sd]?|adjoin[sd]?|divide[sd]?|separate[sd]?|"
+        r"flow[sd]?\s+through)\s+"
+        r"(?:(?:a|an|the)\s+)?(.+)$",
         text, re.I,
     )
     if _m_cat_uses:
