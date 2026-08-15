@@ -7968,3 +7968,47 @@ def test_batch191_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "who played X in Y" → X (character); "played" stripped as leading verb
+    ("who played iron man in the avengers",                     "iron man"),
+    ("who played harry potter in the movies",                   "harry potter"),
+    # "who wrote X" → X
+    ("who wrote harry potter",                                  "harry potter"),
+    ("who wrote the great gatsby",                              "great gatsby"),
+    # "who directed X" → X
+    ("who directed titanic",                                    "titanic"),
+    ("who directed the dark knight",                            "dark knight"),
+    # "what year did X come out" → X
+    ("what year did titanic come out",                          "titanic"),
+    ("what year did the dark knight come out",                  "dark knight"),
+    # "who sang X" → X
+    ("who sang bohemian rhapsody",                              "bohemian rhapsody"),
+    ("who sang thriller",                                       "thriller"),
+    # "what genre is X" → X
+    ("what genre is bohemian rhapsody",                         "bohemian rhapsody"),
+    # "who created X" → X
+    ("who created star wars",                                   "star wars"),
+    ("who created the simpsons",                                "simpsons"),
+    # "what is X rated" → X
+    ("what is titanic rated",                                   "titanic"),
+    # "how many episodes are in X" → X
+    ("how many episodes are in game of thrones",                "game of thrones"),
+    # "who voiced X" → X; "voiced" stripped as leading verb
+    ("who voiced buzz lightyear",                               "buzz lightyear"),
+    # "what movie won X" → "movie won X" (no category-won pattern)
+    ("what movie won best picture",                             "movie won best picture"),
+    # "who won the X for Y" → Y
+    ("who won the grammy for best album",                       "best album"),
+    # "how many seasons does X have" → X; "bad" guarded from title strip
+    ("how many seasons does breaking bad have",                 "breaking bad"),
+    # "what is the highest grossing movie" → "movie" (superlative+participle stripped)
+    ("what is the highest grossing movie",                      "movie"),
+])
+def test_batch192_subject_extraction(question, expected):
+    """Batch 192: pop culture/entertainment — film, music, TV, actors."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

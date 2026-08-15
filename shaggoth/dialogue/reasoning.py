@@ -346,7 +346,7 @@ def subject_of(question: str) -> str:
         r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
         r"caus(?:ed|es?)|brought\s+about|coined|named|happen(?:ed|s)?|occur(?:red|s)?|"
         # Media/entertainment leading verbs: "who sang X" / "who directed X" → X
-        r"sang|direct(?:ed|s)?|starred\s+in|"
+        r"sang|direct(?:ed|s)?|starred\s+in|play(?:ed|s)?|voice(?:d|s)?|portray(?:ed|s)?|"
         # Political/civic verbs: "who elects the president" → "president"
         r"elect(?:s|ed)?|appoint(?:s|ed)?|nominate[sd]?|impeach(?:es|ed)?|ratif(?:y|ied|ies)?|"
         # "what affects/determines/produces/controls/influences/allows X" → X
@@ -1462,7 +1462,9 @@ def subject_of(question: str) -> str:
         r"sticky|slippery|rough|smooth|thin|thick|narrow|tall|short|"
         r"similar|different|related|connected|distinct|unique|identical|"
         r"dangerous|harmful|safe|harmless|poisonous|helpful|useful|effective|important|"
-        r"good|bad|healthy|unhealthy|contagious|infectious|transmissible|wrong|right|moral|immoral|ethical|unethical|illegal|legal|"
+        r"healthy|unhealthy|contagious|infectious|transmissible|"
+        r"wrong|right|moral|immoral|ethical|unethical|legal|illegal|"
+        r"true|false|correct|incorrect|accurate|inaccurate|"
         r"hard|soft|tough|fragile|brittle|flexible|rigid|elastic|"
         # Behavioral/ecological adjectives: "why are animals nocturnal" → "animals"
         r"nocturnal|diurnal|crepuscular|aquatic|terrestrial|arboreal|"
@@ -1470,6 +1472,13 @@ def subject_of(question: str) -> str:
         r"solitary|social|colonial|sentient|conscious|intelligent|"
         r"renewable|organic|inorganic|synthetic|artificial|natural|"
         r"capable|able|unable|incapable|worthy|unworthy)\s*$",
+        "", text, flags=re.I,
+    )
+    # "good|bad" require a copula before stripping to avoid eating compound proper nouns:
+    # "breaking bad" → must stay "breaking bad", not "breaking".
+    # "radiation is bad" → "radiation" (copula present).
+    text = re.sub(
+        r"\s+(?:is|are|was|were)\s+(?:(?:so|most|least|very|quite)\s+)?(?:good|bad)\s*$",
         "", text, flags=re.I,
     )
     # "X capable of" → strip "capable of" tail (compound adj phrase)
