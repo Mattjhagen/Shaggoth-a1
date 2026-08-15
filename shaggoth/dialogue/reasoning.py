@@ -499,7 +499,7 @@ def subject_of(question: str) -> str:
         # Factual property nouns: "capital of france" → "france"
         r"capital|population|area|size|location|height|depth|width|length|"
         r"diameter|radius|circumference|velocity|acceleration|frequency|wavelength|pressure|charge|voltage|"
-        r"distance|temperature|density|mass|weight|volume|age|name|"
+        r"distance|temperature|density|mass|weight|volume|age|name|time\s+zone|timezone|"
         # Role/title nouns: "president of france" → "france"
         r"president|prime\s+minister|king|queen|ruler|leader|founder|director|"
         r"inventor|discoverer|author|composer|painter|creator|"
@@ -942,6 +942,16 @@ def subject_of(question: str) -> str:
     # Second-pass work[s] strip: "voting work" → "voting" when "in the X" was just removed.
     # The primary work strip at line 717 fires before location strips, so it misses this residue.
     text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
+    # "largest country in africa" / "most popular sport in brazil" → location after "in".
+    # Must fire BEFORE the bare "in <word>" strip below, which would otherwise remove
+    # the location and leave the superlative+category for the superlative strip to
+    # reduce to just the category noun (e.g. "largest country" → "country").
+    _m_super_in = re.match(
+        r"^(?:most\s+\w+|\w+est)\s+\w+(?:\s+\w+)?\s+in\s+(?!the\b)(.+)$",
+        text, re.I,
+    )
+    if _m_super_in:
+        text = _m_super_in.group(1)
     # "X in <word>" → X  (e.g. "turbulence in planes" → "turbulence",
     # "pain in joints" → "pain"). Only strip a single word to avoid eating
     # compound subjects; "in the ..." is already handled above.

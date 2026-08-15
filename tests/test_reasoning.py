@@ -3882,3 +3882,42 @@ def test_batch87_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "where is X" → X
+    ("where is the eiffel tower",                      "eiffel tower"),
+    ("where is the amazon river",                      "amazon river"),
+    ("where is mount everest",                         "mount everest"),
+    # "what country is X in" → X
+    ("what country is the amazon river in",            "amazon river"),
+    ("what country is mount fuji in",                  "mount fuji"),
+    # "what is the capital/population of X" → X
+    ("what is the capital of france",                  "france"),
+    ("what is the capital of japan",                   "japan"),
+    ("what is the capital of australia",               "australia"),
+    ("what is the population of china",                "china"),
+    ("what is the population of india",                "india"),
+    # "what is the largest/smallest NOUN in X" → X (_m_super_in match)
+    ("what is the largest country in africa",          "africa"),
+    ("what is the largest city in europe",             "europe"),
+    # "what language do people in X speak" → X
+    ("what language do people in brazil speak",        "brazil"),
+    ("what language do people in japan speak",         "japan"),
+    # "what is the currency of X" → X
+    ("what is the currency of japan",                  "japan"),
+    ("what is the currency of the uk",                 "uk"),
+    # "how do you get to X" → X
+    ("how do you get to new zealand",                  "new zealand"),
+    # "what is the time zone of X" → X (time zone added to causal noun list)
+    ("what is the time zone of california",            "california"),
+    # "how far is X from Y" → X
+    ("how far is london from paris",                   "london"),
+])
+def test_batch88_subject_extraction(question, expected):
+    """Batch 88: geography & travel — time-zone causal noun, _m_super_in for
+    superlative+category+in+place patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
