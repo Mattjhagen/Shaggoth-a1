@@ -2127,3 +2127,94 @@ def test_batch35_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 36: who-invented/wrote/founded, when-did/why-did/how-did (regression)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "who invented/discovered/created X" → X
+    ("who invented the telephone",                  "telephone"),
+    ("who invented the light bulb",                 "light bulb"),
+    ("who discovered penicillin",                   "penicillin"),
+    ("who discovered gravity",                      "gravity"),
+    ("who created bitcoin",                         "bitcoin"),
+    ("who created the internet",                    "internet"),
+    # "who wrote/painted/founded X" → X
+    ("who wrote hamlet",                            "hamlet"),
+    ("who wrote the theory of evolution",           "theory of evolution"),
+    ("who painted the mona lisa",                   "mona lisa"),
+    ("who painted the sistine chapel",              "sistine chapel"),
+    ("who founded apple",                           "apple"),
+    ("who founded nasa",                            "nasa"),
+    # "who is responsible for X" → X
+    ("who is responsible for climate change",       "climate change"),
+    # "when did X happen/start" → X
+    ("when did world war two start",                "world war two"),
+    ("when did the dinosaurs go extinct",           "dinosaurs"),
+    ("when did humans first walk on the moon",      "humans"),
+    # "why did X happen" → X
+    ("why did the roman empire fall",               "roman empire"),
+    ("why did the titanic sink",                    "titanic"),
+    # "how did X start/form" → X
+    ("how did the universe begin",                  "universe"),
+    ("how did life on earth start",                 "life"),
+    ("how did the solar system form",               "solar system"),
+    # "what year was X born/founded" → X
+    ("what year was einstein born",                 "einstein"),
+    ("what year was america founded",               "america"),
+])
+def test_batch36_subject_extraction(question, expected):
+    """Batch 36: who/when/why/how-did patterns (all already passing — regression guard)."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Batch 37: consist/look-like/do-in, it-mean-when, bare-do tail strip
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what does X consist of" → X  (consist added to verb list)
+    ("what does water consist of",                  "water"),
+    ("what does the atmosphere consist of",         "atmosphere"),
+    # "what does X do in Y" → X  (bare "do" strip after "in Y" tail strip)
+    ("what does insulin do in the body",            "insulin"),
+    ("what does the liver do in digestion",         "liver"),
+    # "what does it mean when X VERB" → X
+    ("what does it mean when your heart races",     "heart"),
+    ("what does it mean when blood pressure is high", "blood pressure"),
+    # "what does X stand for" → X  (already works)
+    ("what does html stand for",                    "html"),
+    ("what does dna stand for",                     "dna"),
+    # "what does X eat/produce" → X
+    ("what does a whale eat",                       "whale"),
+    ("what does a black hole eat",                  "black hole"),
+    ("what does the sun produce",                   "sun"),
+    ("what does the liver produce",                 "liver"),
+    # "what do X look like" → X  (look added to verb list)
+    ("what do stars look like",                     "stars"),
+    ("what do black holes look like",               "black holes"),
+    # "what is X used for/made of" → X
+    ("what is carbon fiber used for",               "carbon fiber"),
+    ("what is graphene used for",                   "graphene"),
+    ("what is steel made of",                       "steel"),
+    ("what is rubber made from",                    "rubber"),
+    # "why does X cause Y" → X
+    ("why does smoking cause cancer",               "smoking"),
+    ("why does caffeine cause addiction",           "caffeine"),
+    # "how does X work" → X
+    ("how does a transformer work",                 "transformer"),
+    ("how does a nuclear reactor work",             "nuclear reactor"),
+])
+def test_batch37_subject_extraction(question, expected):
+    """Batch 37: consist/look verb, do-in tail, it-mean-when, bare-do strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

@@ -509,6 +509,13 @@ def subject_of(question: str) -> str:
         if (not re.search(r"\s+(?:in|on|at)\s*$", _cat_captured, re.I)
                 and not re.match(r"^(?:most|least|very|quite|so|more|less|too)\b", _cat_captured, re.I)):
             text = _cat_captured
+    # "what does it mean when X VERB" → X  (physiological/behavioral signal questions)
+    # e.g. "it mean when your heart races" → "heart"
+    _m_mean_when = re.match(
+        r"^it\s+means?\s+when\s+(?:your\s+|the\s+|a\s+|an\s+)?(.+?)\s+\w+\s*$", text, re.I
+    )
+    if _m_mean_when:
+        text = _m_mean_when.group(1)
     # "how long does it take to boil water" → "water";
     # "how long does it take for a bone to heal" → "bone";
     # "how long does it take light to reach earth" → "light".
@@ -599,7 +606,7 @@ def subject_of(question: str) -> str:
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
         r"stop(?:ped|s)?|end[s]?|explode[sd]?|collapse[sd]?(?!\s+of)|crash(?:es|ed)?|"
-        r"cover(?:ed|s)?|surround(?:ed|s)?|fill(?:ed|s)?|"
+        r"cover(?:ed|s)?|surround(?:ed|s)?|fill(?:ed|s)?|consist[s]?|look[s]?|"
         # Duration/persistence verbs: "how long does pregnancy last" → "pregnancy"
         r"last[s]?|persist[s]?|remain[s]?|"
         # Extinction/movement verbs. Use negative lookahead (?!\s+of) so that
@@ -687,6 +694,9 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+in\s+(?!the\b)\w+\s*$", "", text, flags=re.I)
     # "X from <place>" → X  (e.g. "moon from earth" → "moon")
     text = re.sub(r"\s+from\s+\w+(?:\s+\w+){0,1}\s*$", "", text, flags=re.I)
+    # Residual bare auxiliary after location-tail strips:
+    # "insulin do in the body" → "in the body" stripped above → "insulin do" → "insulin"
+    text = re.sub(r"\s+(?:do|does|did)\s*$", "", text, flags=re.I)
     # "moon at night" → "moon"  (time-of-day qualifier at tail)
     text = re.sub(
         r"\s+at\s+(?:night|day|dawn|dusk|noon|midnight|sunrise|sunset|daytime|nighttime)\s*$",
