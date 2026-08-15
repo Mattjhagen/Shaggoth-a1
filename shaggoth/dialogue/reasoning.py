@@ -836,6 +836,14 @@ def subject_of(question: str) -> str:
                             )
                             if _m_many_unit_in:
                                 text = _m_many_unit_in.group(1)
+                            else:
+                                # "how many laps is a mile run" → "mile run" (copula form)
+                                _m_many_unit_is = re.match(
+                                    r"^\w+(?:\s+\w+)?\s+is\s+(?:a|an)\s+(.+)$",
+                                    text, re.I,
+                                )
+                                if _m_many_unit_is:
+                                    text = _m_many_unit_is.group(1)
     else:
         _m = re.match(
             r"^(\w+(?:\s+\w+){0,2})\s+(?:are|were|is|was)\s+(?:in|inside|within|found in|part of)\s+(.+)$",
@@ -1040,6 +1048,28 @@ def subject_of(question: str) -> str:
     )
     if _m_super_cat_lead:
         text = _m_super_cat_lead.group(1)
+    # "what sport uses a puck" → QW strips "what " → "sport uses a puck" → "puck"
+    # When a category noun is the head and followed by a use/need verb and object,
+    # the object is the real lookup target.
+    _m_cat_uses = re.match(
+        r"^(?:sport|game|activity|animal|plant|country|language|instrument|drug|element|"
+        r"machine|device|vehicle|tool|substance|compound|mineral|organism|creature)\s+"
+        r"(?:use[sd]?|need[sd]?|require[sd]?|involve[sd]?|contain[sd]?|produc(?:e[sd]?|es)|"
+        r"emit[sd]?|release[sd]?|create[sd]?|generate[sd]?)\s+"
+        r"(?:a|an|the)?\s*(.+)$",
+        text, re.I,
+    )
+    if _m_cat_uses:
+        text = _m_cat_uses.group(1)
+    # "what equipment do you need for cycling" → "cycling"
+    # "NOUN do you need/want/use for ACTIVITY" → ACTIVITY
+    _m_need_for_act = re.match(
+        r"^\w+(?:\s+\w+)?\s+do\s+you\s+(?:need|want|use|require|get|wear|bring)\s+"
+        r"(?:for|to\s+do|to\s+play|to\s+learn)\s+(.+)$",
+        text, re.I,
+    )
+    if _m_need_for_act:
+        text = _m_need_for_act.group(1)
     # Trailing passive progressive: "amazon rainforest being destroyed" → "amazon rainforest"
     # Fires before the main trailing-verb strip, which only matches single active verbs.
     text = re.sub(r"\s+being\s+\w+(?:ed|en)\s*$", "", text, flags=re.I)
@@ -1099,7 +1129,11 @@ def subject_of(question: str) -> str:
         # "how fast does light travel", "why do we dream", "how does sound travel"
         r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|strike[s]?|sweat[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
-        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|return[s]?|arrive[sd]?|mean[s]?|"
+        r"swim[s]?|fly|flies|walk[s]?|"
+        # Guard "run" against compound sports/activity nouns: "home run", "mile run",
+        # "fun run", "dry run", "ski run", "test run" must not be stripped.
+        r"(?<!home )(?<!mile )(?<!fun )(?<!dry )(?<!ski )(?<!test )(?<!long )run[s]?|"
+        r"jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|return[s]?|arrive[sd]?|mean[s]?|"
         r"smell[s]?|taste[s]?|see[s]?|hear[s]?|sense[s]?|read[s]?|writ(?:e[s]?|ten)|coexist[s]?|"
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
         # Note: bare "rate" is NOT here — it's almost always a noun (interest rate, poverty rate).
@@ -1115,7 +1149,8 @@ def subject_of(question: str) -> str:
         # Extinction/movement verbs. Use negative lookahead (?!\s+of) so that
         # noun forms like "the fall of X" and "the collapse of Y" are preserved —
         # only the trailing verb use ("how did Rome fall") should be stripped.
-        r"go\s+extinct|fall[s]?(?!\s+of)|collapse[sd]?(?!\s+of)|rise[sd]?(?!\s+of)"
+        r"go\s+extinct|fall[s]?(?!\s+of)|collapse[sd]?(?!\s+of)|rise[sd]?(?!\s+of)|"
+        r"work[s]?"
         r")\b.*$",
         "", text, flags=re.I,
     )

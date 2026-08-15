@@ -6503,3 +6503,50 @@ def test_batch155_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X in Y" �� X
+    ("what is offside in soccer",                           "offside"),
+    ("what is a touchdown in football",                     "touchdown"),
+    ("what is a grand slam in tennis",                      "grand slam"),
+    ("what is doping in sports",                            "doping"),
+    # "how many players are in a X team" → X
+    ("how many players are in a soccer team",               "soccer"),
+    # "how long is a X game" → "X game"
+    ("how long is a basketball game",                       "basketball game"),
+    # "who holds the record for most X" → X (most stripped as quantifier)
+    ("who holds the record for most olympic gold medals",   "olympic gold medals"),
+    # "what are the rules of X" → X
+    ("what are the rules of chess",                         "chess"),
+    # "how do you score in X" → X
+    ("how do you score in bowling",                         "bowling"),
+    # "how does X work" �� X (trailing work stripped)
+    ("how does the offside rule work in soccer",            "offside rule"),
+    # difference between joined
+    ("what is the difference between rugby and american football", "rugby and american football"),
+    # "how many laps is a X" → X (copula form; run protected from verb strip)
+    ("how many laps is a mile run",                         "mile run"),
+    # "who won X" → X
+    ("who won the world cup in 2018",                       "world cup"),
+    # "what sport uses a X" → X (reverse-category lookup)
+    ("what sport uses a puck",                              "puck"),
+    # "how far is a X" → X
+    ("how far is a marathon",                               "marathon"),
+    # superlative + category noun stripped
+    ("what is the fastest sport in the world",              "sport"),
+    # "how do you serve/do X" → X
+    ("how do you serve in volleyball",                      "volleyball"),
+    # "what does X mean" → X
+    ("what does hat trick mean in sports",                  "hat trick"),
+    # "who invented X" → X
+    ("who invented basketball",                             "basketball"),
+    # "what NOUN do you need for X" → X
+    ("what equipment do you need for cycling",              "cycling"),
+])
+def test_batch156_subject_extraction(question, expected):
+    """Batch 156: sports — work/run strip guards, category reverse-lookup, unit conversion."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
