@@ -3803,3 +3803,41 @@ def test_batch85_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "who wrote/painted/composed X" → X
+    ("who wrote hamlet",                            "hamlet"),
+    ("who wrote the great gatsby",                  "great gatsby"),
+    ("who wrote don quixote",                       "don quixote"),
+    ("who painted the mona lisa",                   "mona lisa"),
+    ("who painted the sistine chapel",              "sistine chapel"),
+    ("who composed beethoven's fifth symphony",     "beethoven's fifth symphony"),
+    ("who composed swan lake",                      "swan lake"),
+    # "when was X written/published" → X
+    ("when was hamlet written",                     "hamlet"),
+    ("when was the great gatsby published",         "great gatsby"),
+    # "what is X about" → X (trailing about-strip)
+    ("what is hamlet about",                        "hamlet"),
+    ("what is the great gatsby about",              "great gatsby"),
+    # "what genre/style is X" → X (cat-is pattern)
+    ("what genre is hamlet",                        "hamlet"),
+    ("what style is the mona lisa",                 "mona lisa"),
+    # "in what year was X written" → X (in-what-year QW re-strip)
+    ("in what year was hamlet written",             "hamlet"),
+    # "what is the theme/plot of X" → X (causal noun strip)
+    ("what is the theme of hamlet",                 "hamlet"),
+    ("what is the plot of the great gatsby",        "great gatsby"),
+    # "how many acts does X have" → X
+    ("how many acts does hamlet have",              "hamlet"),
+    # "what is X known for" → X
+    ("what is shakespeare known for",               "shakespeare"),
+    ("what is beethoven known for",                 "beethoven"),
+])
+def test_batch86_subject_extraction(question, expected):
+    """Batch 86: literature & art — published passive, about-strip, theme/plot causal nouns,
+    in-what-year re-strip, style/genre cat-is expansion."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

@@ -504,6 +504,8 @@ def subject_of(question: str) -> str:
         r"president|prime\s+minister|king|queen|ruler|leader|founder|director|"
         r"inventor|discoverer|author|composer|painter|creator|"
         r"history|future|meaning|definition|significance|importance|symbol|flag|currency|language|"
+        # Literary/art property nouns: "theme of hamlet" → "hamlet", "plot of X" → X
+        r"theme|plot|story|narrative|setting|style|genre|format|"
         # Measurement/property compounds: "boiling point of water" → "water"
         # "half life of carbon 14" → "carbon 14"
         r"point|rate|level|amount|number|count|percentage|quantity|fraction|proportion|"
@@ -578,6 +580,15 @@ def subject_of(question: str) -> str:
     # "they speak in brazil" → pronoun+verb strip → "in brazil" → strip leading "in " → "brazil"
     # Safe: no subject begins with the preposition "in " (words like "insulin" have no space).
     text = re.sub(r"^in\s+(?:the\s+|a\s+|an\s+)?", "", text, flags=re.I)
+    # "in what year was hamlet written" → "in " stripped above → "what year was hamlet written"
+    # → trailing verb strips "written" → "what year was hamlet" → re-strip temporal QW residue.
+    text = re.sub(
+        r"^(?:why|what|how|who|when|where)\s+"
+        r"(?:(?:year|century|decade|era|period|day|month|time|date|ago)\b|\w+ly)?\s*"
+        r"(?:is|are|was|were|has|have|had|does|do|did|can|could|would|should)?\s*"
+        r"(?:the\s+|a\s+|an\s+)?",
+        "", text, flags=re.I,
+    )
     text = re.sub(r"\s+(?:when|if|once)\s+(?:it|they|you|we)\s+\w+\s*$", "", text, flags=re.I)
     # After "led to" is stripped, "the fall of the Roman Empire" remains.
     # Strip the event noun (fall/collapse/etc.) and its "of" connector so only
@@ -649,7 +660,7 @@ def subject_of(question: str) -> str:
         r"substance|compound|molecule|chemical|gas|liquid|solid|energy|"
         r"country|city|continent|region|language|sport|food|drug|disease|"
         r"rock|mineral|gem|star|planet|galaxy|force|wave|particle|radiation|"
-        r"nationality|genre|type|color|colour|shape|material|occupation|religion)\s+(?:is|was|are|were)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
+        r"nationality|genre|style|medium|technique|movement|era|format|type|color|colour|shape|material|occupation|religion)\s+(?:is|was|are|were)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
         text, re.I,
     )
     if _m_cat_is:
@@ -785,7 +796,7 @@ def subject_of(question: str) -> str:
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
         # Note: bare "rate" is NOT here — it's almost always a noun (interest rate, poverty rate).
         # Only inflected forms "rated"/"rates" used as verbs are stripped.
-        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rat(?:ed|es)|treat(?:ed|s)?|cure[sd]?|"
+        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rat(?:ed|es)|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|"
         r"turn[s]?|transform[sd]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
@@ -993,6 +1004,8 @@ def subject_of(question: str) -> str:
         r"(?:it|they|this|that|you)\s*\w*\s*$",
         "", text, flags=re.I,
     )
+    # "what is X about" → strip trailing " about" (topic preposition orphaned after QW strip)
+    text = re.sub(r"\s+about\s*$", "", text, flags=re.I)
     # Strip orphaned adverbs that remain after the trailing-verb strip removed the verb:
     # "when did humans first appear" → "humans first appear" → verb strip → "humans first"
     # → strip trailing "first" → "humans".
