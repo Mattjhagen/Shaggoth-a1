@@ -248,6 +248,10 @@ _CONTRACTIONS = [
     (re.compile(r"\bwhy's\b", re.I), "why is"),
     (re.compile(r"\bwhere's\b", re.I), "where is"),
     # Apostrophe-free contractions (informal/mobile typing): "dont", "doesnt", etc.
+    (re.compile(r"\bwhats\b", re.I), "what is"),
+    (re.compile(r"\bhows\b", re.I), "how is"),
+    (re.compile(r"\bwhys\b", re.I), "why is"),
+    (re.compile(r"\bwheres\b", re.I), "where is"),
     (re.compile(r"\bdont\b", re.I), "do not"),
     (re.compile(r"\bdoesnt\b", re.I), "does not"),
     (re.compile(r"\bdidnt\b", re.I), "did not"),
@@ -599,6 +603,10 @@ def subject_of(question: str) -> str:
     # via .*). "how is a virus different from a bacterium" — "different from" is not a verb,
     # strip it explicitly.
     text = re.sub(r"\s+different\s+from\s+.*$", "", text, flags=re.I)
+    # "stress related to heart disease" → "stress"  (predicate adj + prepositional tail)
+    text = re.sub(r"\s+related\s+to\b.*$", "", text, flags=re.I)
+    # "great wall of china called that" → "great wall of china"
+    text = re.sub(r"\s+called\s+(?:that|it|so|this)\s*$", "", text, flags=re.I)
     # "what if humans could photosynthesize" → after "what if" stripped, "humans could
     # photosynthesize". Trailing modal+verb: strip "could/would/can/might VERB" at end.
     text = re.sub(
@@ -685,6 +693,7 @@ def subject_of(question: str) -> str:
         r"low|high|normal|elevated|full|empty|alive|dead|active|inactive|"
         r"heavy|loud|quiet|dim|sharp|dull|"
         r"salty|sweet|sour|bitter|spicy|acidic|alkaline|toxic|magnetic|elastic|"
+        r"conductive|insulating|semiconducting|superconducting|"
         r"transparent|opaque|flammable|volatile|reactive|inert|radioactive|"
         r"valuable|expensive|cheap|rare|common|strong|weak|dense|flat|round|curved|"
         r"sticky|slippery|rough|smooth|thin|thick|narrow|tall|short|"

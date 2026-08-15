@@ -1953,3 +1953,48 @@ def test_batch31_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what if" counterfactuals
+    ("what if humans could photosynthesize",        "humans"),
+    ("what if the earth stopped spinning",          "earth"),
+    ("what would happen if the sun disappeared",    "sun"),
+    # Imperative openers
+    ("tell me about the solar system",              "solar system"),
+    ("explain the theory of evolution",             "theory of evolution"),
+    ("describe how the heart works",                "heart"),
+    # "is X related to Y" / "does X affect Y"
+    ("is stress related to heart disease",          "stress"),
+    ("does diet affect cancer risk",                "diet"),
+    # "how can X Y"
+    ("how can humans survive on mars",              "humans"),
+    ("how can the body fight infection",            "body"),
+    # "what makes X Y"
+    ("what makes a material conductive",            "material"),
+    ("what makes the sky blue",                     "sky"),
+    # "called that" tail
+    ("why is the great wall of china called that",  "great wall of china"),
+    # "can X Y"
+    ("can plants feel pain",                        "plants"),
+    ("can fish feel pain",                          "fish"),
+    # Possessive subjects
+    ("what is the earth's atmosphere made of",      "earth's atmosphere"),
+    ("what is the sun's core made of",              "sun's core"),
+    # Apostrophe-free informal contractions
+    ("whats the boiling point of water",            "water"),
+    ("hows a computer chip made",                   "computer chip"),
+    # Multi-word scientific phrases
+    ("what is the theory of general relativity",    "theory of general relativity"),
+    ("what is the law of conservation of energy",   "law of conservation of energy"),
+    # Negation contractions
+    ("why don't vaccines cause autism",             "vaccines"),
+    ("why doesn't wood conduct electricity",        "wood"),
+    ("why can't humans breathe underwater",         "humans"),
+])
+def test_batch32_subject_extraction(question, expected):
+    """Batch 32: whats/hows contractions, related-to strip, called-that strip, conductive adj."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
