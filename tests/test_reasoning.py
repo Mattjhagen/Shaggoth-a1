@@ -9599,3 +9599,34 @@ def test_batch246_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is linguistics",                                      "linguistics"),
+    ("what is phonology",                                        "phonology"),
+    ("what is morphology",                                       "morphology"),
+    ("what is syntax",                                           "syntax"),
+    ("what is semantics",                                        "semantics"),
+    ("what is pragmatics",                                       "pragmatics"),
+    ("what is a phoneme",                                        "phoneme"),
+    ("what is a morpheme",                                       "morpheme"),
+    ("what is a dialect",                                        "dialect"),
+    ("what is language acquisition",                             "language acquisition"),
+    ("what is the sapir-whorf hypothesis",                       "sapir-whorf hypothesis"),
+    ("what is code switching",                                   "code switching"),
+    ("what is a lingua franca",                                  "lingua franca"),
+    ("what is natural language processing",                      "natural language processing"),
+    ("how do children learn language",                           "children"),
+    ("what is a creole language",                                "creole language"),
+    ("what is a pidgin language",                                "pidgin language"),
+    ("what is an endangered language",                           "endangered language"),
+    ("how many languages are there in the world",                "languages"),
+    # Superlative strip is by design: "most spoken" → stripped like "fastest" in "fastest animal"
+    ("what is the most spoken language in the world",            "language"),
+])
+def test_batch247_subject_extraction(question, expected):
+    """Batch 247: linguistics — phonology, morphology, syntax, language acquisition."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
