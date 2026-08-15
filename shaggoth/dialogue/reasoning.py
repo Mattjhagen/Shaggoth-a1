@@ -989,6 +989,9 @@ def subject_of(question: str) -> str:
     )
     if _m_way_to:
         text = _m_way_to.group(1)
+    # Trailing passive progressive: "amazon rainforest being destroyed" → "amazon rainforest"
+    # Fires before the main trailing-verb strip, which only matches single active verbs.
+    text = re.sub(r"\s+being\s+\w+(?:ed|en)\s*$", "", text, flags=re.I)
     text = re.sub(
         # Negative lookbehind: don't strip "needs" in "hierarchy of needs" (noun phrase).
         r"(?<!of)\s+(?:need|needs|require|requires|use[sd]?|produce[sd]?|"

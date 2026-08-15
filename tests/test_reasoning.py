@@ -6243,3 +6243,91 @@ def test_batch148_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 150: animals / nature — navigation, diet, habitat, lifespan
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is a mammal",                                    "mammal"),
+    ("what is a reptile",                                   "reptile"),
+    ("what is hibernation",                                 "hibernation"),
+    ("what is migration",                                   "migration"),
+    ("what is camouflage",                                  "camouflage"),
+    # "how do X VERB" → X
+    ("how do bats navigate",                                "bats"),
+    ("how do birds fly",                                    "birds"),
+    ("how do fish breathe",                                 "fish"),
+    ("how do whales communicate",                           "whales"),
+    # "why do X VERB" → X
+    ("why do dogs bark",                                    "dogs"),
+    ("why do cats purr",                                    "cats"),
+    ("why do geese fly in a v formation",                   "geese"),
+    # "what do X eat" → X
+    ("what do wolves eat",                                  "wolves"),
+    ("what do giant pandas eat",                            "giant pandas"),
+    # "where do X live" → X
+    ("where do penguins live",                              "penguins"),
+    ("where do polar bears live",                           "polar bears"),
+    # "how long do X live" → X
+    ("how long do elephants live",                          "elephants"),
+    ("how long do turtles live",                            "turtles"),
+    # "what animal is SUPERLATIVE" → "animal"
+    ("what animal is the fastest on land",                  "animal"),
+    # "how many X are left in the wild" → X
+    ("how many tigers are left in the wild",                "tigers"),
+])
+def test_batch150_subject_extraction(question, expected):
+    """Batch 150: animals/nature — navigation, diet, habitat, lifespan, category-superlative."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Batch 151: environment / ecology — climate, pollution, renewable energy
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is climate change",                              "climate change"),
+    ("what is global warming",                              "global warming"),
+    ("what is the greenhouse effect",                       "greenhouse effect"),
+    ("what is deforestation",                               "deforestation"),
+    ("what is biodiversity",                                "biodiversity"),
+    ("what is an ecosystem",                                "ecosystem"),
+    ("what is a food chain",                                "food chain"),
+    ("what is renewable energy",                            "renewable energy"),
+    ("what is carbon dioxide",                              "carbon dioxide"),
+    # passive progressive: "why is X being VERB-ed" → X
+    ("why is the amazon rainforest being destroyed",        "amazon rainforest"),
+    # "how does X affect Y" → X
+    ("how does pollution affect the ocean",                 "pollution"),
+    ("how does deforestation affect climate",               "deforestation"),
+    # "what causes X" → X
+    ("what causes acid rain",                               "acid rain"),
+    ("what causes ocean acidification",                     "ocean acidification"),
+    # "what is the effect of X on Y" → X
+    ("what is the effect of plastic on marine life",        "plastic"),
+    # "how does X work" → X
+    ("how does solar energy work",                          "solar energy"),
+    # difference between X and Y → "X and Y"
+    ("what is the difference between climate and weather",  "climate and weather"),
+    # "how can we reduce X" → X
+    ("how can we reduce carbon emissions",                  "carbon emissions"),
+    # "what is the impact of X on Y" → X
+    ("what is the impact of oil spills on wildlife",        "oil spills"),
+    # "what are the effects of X" → X
+    ("what are the effects of global warming",              "global warming"),
+])
+def test_batch151_subject_extraction(question, expected):
+    """Batch 151: environment/ecology — passive-progressive fix, pollution, climate topics."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
