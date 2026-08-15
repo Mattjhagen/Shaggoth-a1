@@ -1218,7 +1218,8 @@ def subject_of(question: str) -> str:
         r"originate[sd]?|"
         # Intransitive motion/perception/existence verbs: "why do stars twinkle",
         # "how fast does light travel", "why do we dream", "how does sound travel"
-        r"twinkle[sd]?|(?<!time\s)(?<!air\s)(?<!sea\s)(?<!rail\s)(?<!road\s)(?<!space\s)travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|strike[s]?|sweat[s]?|"
+        # Guard "hunger strike", "lightning strike", "bowling strike", "air strike" compound nouns.
+        r"twinkle[sd]?|(?<!time\s)(?<!air\s)(?<!sea\s)(?<!rail\s)(?<!road\s)(?<!space\s)travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|(?<!hunger\s)(?<!lightning\s)(?<!bowling\s)(?<!bird\s)strike[s]?|sweat[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
         r"swim[s]?|fly|flies|walk[s]?|"
         # Guard "run" against compound sports/activity nouns: "home run", "mile run",
@@ -1230,7 +1231,8 @@ def subject_of(question: str) -> str:
         # Note: bare "rate" and plural "rates" are NOT here — they are almost always nouns
         # (interest rates, poverty rates, crime rates, exchange rates).
         # Only "rated" (passive participle, clearly a verb) is stripped.
-        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rated|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
+        # Guard "margin call", "roll call", "curtain call" compound nouns from being stripped.
+        r"measure[sd]?|classif(?:ied|y|ies)?|(?<!margin\s)(?<!roll\s)(?<!curtain\s)call(?:ed|s)?|rank(?:ed|s)?|rated|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
         r"turn[s]?|transform[sd]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
@@ -1245,8 +1247,9 @@ def subject_of(question: str) -> str:
         # Extinction/movement verbs. Use negative lookahead (?!\s+of) so that
         # noun forms like "the fall of X" and "the collapse of Y" are preserved —
         # only the trailing verb use ("how did Rome fall") should be stripped.
-        # "sea level rise", "temperature rise", "price rise" are noun compounds — guard level/price/wage.
-        r"go\s+extinct|fall[s]?(?!\s+of)|collapse[sd]?(?!\s+of)|(?<!level\s)(?<!price\s)(?<!wage\s)rise[sd]?(?!\s+of)|"
+        # "sea level rise", "temperature rise", "price rise", "power rise" are noun compounds.
+        # "free fall", "hard fall" are noun compounds — guard fall with lookbehinds.
+        r"go\s+extinct|(?<!free\s)(?<!hard\s)fall[s]?(?!\s+of)|collapse[sd]?(?!\s+of)|(?<!level\s)(?<!price\s)(?<!wage\s)(?<!power\s)rise[sd]?(?!\s+of)|"
         r"work[s]?"
         r")\b.*$",
         "", text, flags=re.I,
@@ -1644,7 +1647,7 @@ def subject_of(question: str) -> str:
     # Strip orphaned adverbs that remain after the trailing-verb strip removed the verb:
     # "when did humans first appear" → "humans first appear" → verb strip → "humans first"
     # → strip trailing "first" → "humans".
-    text = re.sub(r"\s+(?:first|last|now|still|already|yet|ever|always|never|once|again|eventually|soon|someday|sometime|fully|completely|partly|partially|finally|nearly|barely|rapidly|gradually|commonly|typically)\s*$", "", text, flags=re.I)
+    text = re.sub(r"\s+(?:first|last|now|still|already|yet|ever|always|never|once|twice|thrice|again|eventually|soon|someday|sometime|fully|completely|partly|partially|finally|nearly|barely|rapidly|gradually|commonly|typically)\s*$", "", text, flags=re.I)
     # "leaves change color" → "leaves", "sun change seasons" → "sun".
     # Only fires when "change OBJECT" is at end of string (after location strips),
     # so "climate change" (no object) and "climate change affect X" (affect already

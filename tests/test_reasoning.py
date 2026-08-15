@@ -3214,9 +3214,9 @@ def test_batch68_subject_extraction(question, expected):
     ("are viruses living organisms",                      "viruses"),
     ("are corals living things",                          "corals"),
     ("are crystals living beings",                        "crystals"),
-    # "strike" added to trailing verb list
-    ("can lightning strike twice in the same place",      "lightning"),
-    ("how often does lightning strike",                   "lightning"),
+    # "lightning strike" is a compound noun; verb stripping now preserves it
+    ("can lightning strike twice in the same place",      "lightning strike"),
+    ("how often does lightning strike",                   "lightning strike"),
     # Regression guards: "fish/bacteria/birds" as SUBJECT must not be stripped
     ("what are the uses of hydrogen",                     "hydrogen"),
     ("how many species of birds are there",               "species of birds"),
@@ -10286,6 +10286,186 @@ def test_batch268_subject_extraction(question, expected):
 ])
 def test_batch269_subject_extraction(question, expected):
     """Batch 269: idioms/fixed expressions — tricky English phrases and compound nouns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a panic attack",                                  "panic attack"),
+    ("what is a heart attack",                                  "heart attack"),
+    ("what is a stroke",                                        "stroke"),
+    ("what is blood pressure",                                  "blood pressure"),
+    ("what is insulin resistance",                              "insulin resistance"),
+    ("what is herd immunity",                                   "herd immunity"),
+    ("what is a clinical trial",                                "clinical trial"),
+    ("what is an immune response",                              "immune response"),
+    ("what is a placebo effect",                                "placebo effect"),
+    ("what is metabolic syndrome",                              "metabolic syndrome"),
+    ("what is chronic fatigue syndrome",                        "chronic fatigue syndrome"),
+    ("what is type 2 diabetes",                                 "type 2 diabetes"),
+    ("what is multiple sclerosis",                              "multiple sclerosis"),
+    ("what is post traumatic stress disorder",                  "post traumatic stress disorder"),
+    ("what is irritable bowel syndrome",                        "irritable bowel syndrome"),
+    ("what is attention deficit hyperactivity disorder",        "attention deficit hyperactivity disorder"),
+    ("what is a stress fracture",                               "stress fracture"),
+    ("what is deep vein thrombosis",                            "deep vein thrombosis"),
+    ("what is a brain stem",                                    "brain stem"),
+    ("what is rheumatoid arthritis",                            "rheumatoid arthritis"),
+])
+def test_batch270_subject_extraction(question, expected):
+    """Batch 270: medical/clinical terms — compound nouns and clinical nomenclature."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is social capital",                                  "social capital"),
+    ("what is cultural relativism",                             "cultural relativism"),
+    ("what is a rite of passage",                               "rite of passage"),
+    ("what is ethnocentrism",                                   "ethnocentrism"),
+    ("what is a social contract",                               "social contract"),
+    ("what is the social contract theory",                      "social contract theory"),
+    ("what is a caste system",                                  "caste system"),
+    ("what is social stratification",                           "social stratification"),
+    ("what is civil disobedience",                              "civil disobedience"),
+    ("what is cultural diffusion",                              "cultural diffusion"),
+    ("what is structural functionalism",                        "structural functionalism"),
+    ("what is symbolic interactionism",                         "symbolic interactionism"),
+    ("what is a stigma",                                        "stigma"),
+    ("what is groupthink",                                      "groupthink"),
+    ("what is a mob mentality",                                 "mob mentality"),
+    ("what is social mobility",                                 "social mobility"),
+    ("what is a class struggle",                                "class struggle"),
+    ("what is a culture shock",                                 "culture shock"),
+    ("what is a social norm",                                   "social norm"),
+    ("what is collective memory",                               "collective memory"),
+])
+def test_batch271_subject_extraction(question, expected):
+    """Batch 271: social sciences/anthropology — compound terms and conceptual nouns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a proof by contradiction",                        "proof by contradiction"),
+    ("what is a logical fallacy",                               "logical fallacy"),
+    ("what is set theory",                                      "set theory"),
+    ("what is a venn diagram",                                  "venn diagram"),
+    ("what is a boolean operator",                              "boolean operator"),
+    ("what is a prime number",                                  "prime number"),
+    ("what is the pythagorean theorem",                         "pythagorean theorem"),
+    ("what is a geometric series",                              "geometric series"),
+    ("what is a fibonacci sequence",                            "fibonacci sequence"),
+    ("what is an imaginary number",                             "imaginary number"),
+    ("what is a fractal",                                       "fractal"),
+    ("what is the chaos theory",                                "chaos theory"),
+    ("what is a bell curve",                                    "bell curve"),
+    ("what is a null hypothesis",                               "null hypothesis"),
+    ("what is standard deviation",                              "standard deviation"),
+    ("what is statistical significance",                        "statistical significance"),
+    ("what is the monty hall problem",                          "monty hall problem"),
+    ("what is the halting problem",                             "halting problem"),
+    ("what is a turing machine",                                "turing machine"),
+    ("what is bayes theorem",                                   "bayes theorem"),
+])
+def test_batch272_subject_extraction(question, expected):
+    """Batch 272: logic/math/formal concepts — theorems, paradoxes, proofs."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a bain marie",                                    "bain marie"),
+    ("what is mise en place",                                   "mise en place"),
+    ("what is a roux",                                          "roux"),
+    ("what is umami",                                           "umami"),
+    ("what is al dente",                                        "al dente"),
+    ("what is a sous vide",                                     "sous vide"),
+    ("what is blanching",                                       "blanching"),
+    ("what is caramelization",                                  "caramelization"),
+    ("what is maillard reaction",                               "maillard reaction"),
+    ("what is fermentation",                                    "fermentation"),
+    ("what is a stock in cooking",                              "stock"),
+    ("what is a reduction sauce",                               "reduction sauce"),
+    ("what is a beurre blanc",                                  "beurre blanc"),
+    ("what is a bechamel sauce",                                "bechamel sauce"),
+    ("what is gluten free",                                     "gluten free"),
+    ("what is a food allergy",                                  "food allergy"),
+    ("what is pasteurization",                                  "pasteurization"),
+    ("what is a whole grain",                                   "whole grain"),
+    ("what is the glycemic index",                              "glycemic index"),
+    ("what is a ketogenic diet",                                "ketogenic diet"),
+])
+def test_batch273_subject_extraction(question, expected):
+    """Batch 273: food/culinary — compound nouns, cooking terms, technique names."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a black hole",                                    "black hole"),
+    ("what is dark matter",                                     "dark matter"),
+    ("what is dark energy",                                     "dark energy"),
+    ("what is the big bang theory",                             "big bang theory"),
+    ("what is a neutron star",                                  "neutron star"),
+    ("what is a pulsar",                                        "pulsar"),
+    ("what is a white dwarf",                                   "white dwarf"),
+    ("what is a red giant",                                     "red giant"),
+    ("what is a solar flare",                                   "solar flare"),
+    ("what is a solar wind",                                    "solar wind"),
+    ("what is a light year",                                    "light year"),
+    ("what is an event horizon",                                "event horizon"),
+    ("what is a gravitational wave",                            "gravitational wave"),
+    ("what is the cosmic microwave background",                 "cosmic microwave background"),
+    ("what is a planetary nebula",                              "planetary nebula"),
+    ("what is stellar evolution",                               "stellar evolution"),
+    ("what is a red shift",                                     "red shift"),
+    ("what is a wormhole",                                      "wormhole"),
+    ("what is a binary star system",                            "binary star system"),
+    ("what is the oort cloud",                                  "oort cloud"),
+])
+def test_batch274_subject_extraction(question, expected):
+    """Batch 274: astronomy/cosmology — compound nouns, phenomena, named theories."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a dry run",                                       "dry run"),
+    ("what is a test run",                                      "test run"),
+    ("what is a home run",                                      "home run"),
+    ("what is a tax break",                                     "tax break"),
+    ("what is a spring break",                                  "spring break"),
+    ("what is a lunch break",                                   "lunch break"),
+    ("what is a price rise",                                    "price rise"),
+    ("what is a power rise",                                    "power rise"),
+    ("what is a free fall",                                     "free fall"),
+    ("what is a hard fall",                                     "hard fall"),
+    ("what is a flash drive",                                   "flash drive"),
+    ("what is a hard drive",                                    "hard drive"),
+    ("what is a thumb drive",                                   "thumb drive"),
+    ("what is a hunger strike",                                 "hunger strike"),
+    ("what is a lightning strike",                              "lightning strike"),
+    ("what is a margin call",                                   "margin call"),
+    ("what is a roll call",                                     "roll call"),
+    ("what is a benchmark",                                     "benchmark"),
+    ("what is a trade mark",                                    "trade mark"),
+    ("what is a water mark",                                    "water mark"),
+])
+def test_batch275_subject_extraction(question, expected):
+    """Batch 275: adversarial verb/noun-head ambiguity — dual-role words as noun components."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
