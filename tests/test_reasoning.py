@@ -3559,3 +3559,46 @@ def test_batch79_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 80: science process / biology questions — how-does-work, what-is,
+#            role-of, responsible-for, how-are-formed
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "how does X work" → X
+    ("how does the human immune system work",       "human immune system"),
+    ("how does photosynthesis work",                "photosynthesis"),
+    ("how does the internet work",                  "internet"),
+    ("how does a nuclear reactor work",             "nuclear reactor"),
+    ("how does dna replication work",               "dna replication"),
+    # "how does X form/erupt/occur" → X
+    ("how does lightning form",                     "lightning"),
+    ("how does a volcano erupt",                    "volcano"),
+    ("how does an earthquake occur",                "earthquake"),
+    # "what is X" (scientific concept) → X
+    ("what is photosynthesis",                      "photosynthesis"),
+    ("what is mitosis",                             "mitosis"),
+    ("what is gravity",                             "gravity"),
+    ("what is quantum entanglement",                "quantum entanglement"),
+    # "what is the process of X" → X
+    ("what is the process of osmosis",              "osmosis"),
+    ("what is the process of evolution",            "evolution"),
+    # "what is the role of X in Y" → X
+    ("what is the role of insulin in the body",     "insulin"),
+    ("what is the role of mitochondria in cells",   "mitochondria"),
+    # "what is X responsible for" → X
+    ("what is the liver responsible for",           "liver"),
+    ("what is the pancreas responsible for",        "pancreas"),
+    # "how are X formed" → X
+    ("how are volcanoes formed",                    "volcanoes"),
+    ("how are mountains formed",                    "mountains"),
+])
+def test_batch80_subject_extraction(question, expected):
+    """Batch 80: science process / biology how-does-work and what-is patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
