@@ -6044,3 +6044,34 @@ def test_batch143_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is depression",                                 "depression"),
+    ("what is anxiety",                                    "anxiety"),
+    ("what is schizophrenia",                              "schizophrenia"),
+    ("what is bipolar disorder",                           "bipolar disorder"),
+    ("what is autism",                                     "autism"),
+    ("what is ptsd",                                       "ptsd"),
+    ("what is adhd",                                       "adhd"),
+    ("what is dementia",                                   "dementia"),
+    ("what is ocd",                                        "ocd"),
+    ("how do you treat depression",                        "depression"),
+    ("how do you treat anxiety",                           "anxiety"),
+    ("what causes schizophrenia",                          "schizophrenia"),
+    ("what causes ptsd",                                   "ptsd"),
+    ("what are the symptoms of bipolar disorder",          "bipolar disorder"),
+    ("what are the symptoms of autism",                    "autism"),
+    ("what is the difference between anxiety and depression", "anxiety and depression"),
+    ("how does depression affect the brain",               "depression"),
+    ("is schizophrenia a mental illness",                  "schizophrenia"),
+    ("can depression be cured",                            "depression"),
+    ("what is cognitive behavioral therapy",               "cognitive behavioral therapy"),
+    ("who developed cognitive behavioral therapy",         "cognitive behavioral therapy"),
+])
+def test_batch144_subject_extraction(question, expected):
+    """Batch 144: psychology/mental health — disorders, symptoms, treatment."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
