@@ -436,6 +436,35 @@ def test_subject_of_trigger_verbs_and_physics(question, expected):
     assert subject_of(question) == expected
 
 
+@pytest.mark.parametrize("question", [
+    "what led to the fall of the Roman Empire",
+    "what led to World War 1",
+    "what led to the Great Depression",
+])
+def test_causal_past_tense_led(question):
+    """'what led to X' uses past tense; must classify as CAUSAL, not DEFINE."""
+    assert classify(question) == Intent.CAUSAL
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Medical/descriptive "of" nouns should strip cleanly to the real subject
+    ("what are the symptoms of diabetes", "diabetes"),
+    ("what are the effects of climate change", "climate change"),
+    ("what are the benefits of exercise", "exercise"),
+    ("what are the causes of heart disease", "heart disease"),
+    ("what are the signs of dehydration", "dehydration"),
+    # 'what led to X' — past-tense lead
+    ("what led to the fall of the Roman Empire", "the fall of the Roman Empire"),
+    ("what led to World War 1", "World War 1"),
+    # 'have phases/feathers' — possession verb trailing strip
+    ("why does the moon have phases", "the moon"),
+    ("why do birds have feathers", "birds"),
+])
+def test_subject_of_batch3_patterns(question, expected):
+    """Batch 3: descriptive-noun strip, 'led to', possession 'have'."""
+    assert subject_of(question) == expected
+
+
 # --------------------------------------------------------------------------
 # The reasoner
 # --------------------------------------------------------------------------

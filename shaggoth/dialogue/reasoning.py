@@ -98,7 +98,7 @@ _CAUSAL = re.compile(
     r"|\bhow (?:is|are|do|does|did|can|could|would|should) .+"
     r"|\bwhat (?:is|are) the (?:\w+\s+)?(?:cause|process|mechanism|effect|result|purpose|role|function|"
     r"impact|consequence)s? (?:of|behind|in)\b"
-    r"|\bwhat (?:leads?|trigger[sd]?|triggers|drove|drives?|prompts?|"
+    r"|\bwhat (?:leads?|led|trigger[sd]?|triggers|drove|drives?|prompts?|"
     r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|stop(?:ped|s)?|brought\s+about) .+\b"
     r"|\bwhat happens\b|\bwhat makes\b|\breason (?:for|why)\b"
     # Enabling/blocking verbs — the mechanism rather than the definition
@@ -233,7 +233,10 @@ def subject_of(question: str) -> str:
     )
     text = re.sub(
         r"^(?:(?:the|some|any|all|various|different|a few)\s+)?"
-        r"(?:types?|kinds?|sorts?|categories|examples?|forms?|list)"
+        r"(?:types?|kinds?|sorts?|categories|examples?|forms?|list|"
+        # Medical/descriptive noun scaffolding: "what are the symptoms of X" → "X"
+        r"symptoms?|signs?|benefits?|causes?|effects?|features?|"
+        r"properties|characteristics|risks?|advantages?|disadvantages?|uses?)"
         r"\s+of\s+", "", text, flags=re.I
     )
     _before_causal_noun_strip = text
@@ -255,9 +258,9 @@ def subject_of(question: str) -> str:
     # → "during X" / "when X boils" → strip leading word → "X" / "X boils"
     # (the trailing verb then strips the verb, yielding a clean subject)
     text = re.sub(r"^(?:during|when)\s+", "", text, flags=re.I)
-    # "what leads to X", "what triggers X" → X
+    # "what leads to X", "what led to X", "what triggers X" → X
     text = re.sub(
-        r"^(?:leads?|trigger[sd]?|drove|drives?|prompts?)\s+(?:to\s+)?",
+        r"^(?:leads?|led|trigger[sd]?|drove|drives?|prompts?)\s+(?:to\s+)?",
         "", text, flags=re.I,
     )
     # Causal verbs that head the remainder after stripping "what":
@@ -292,6 +295,7 @@ def subject_of(question: str) -> str:
         r"get\s+\w+ed|become|start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|train[s]?|take[s]?|"
+        r"have\b|has\b|"
         r"grow[s]?|spread[s]?|evolve[s]?|"
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
         # Immune/conflict/process verbs: "how does X fight Y", "how does X affect Y"
