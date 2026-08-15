@@ -8786,3 +8786,94 @@ def test_batch219_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("where is the amazon river",                             "amazon river"),
+    ("where is mount everest",                                "mount everest"),
+    ("where is the sahara desert",                            "sahara desert"),
+    ("where is the great barrier reef",                       "great barrier reef"),
+    ("where is the nile river",                               "nile river"),
+    ("what is the capital of france",                         "france"),
+    ("what is the capital of japan",                          "japan"),
+    ("what is the capital of australia",                      "australia"),
+    ("what country is the amazon in",                         "amazon"),
+    ("what is the largest country",                           "country"),
+    ("what is the population of china",                       "china"),
+    ("what is the population of india",                       "india"),
+    ("what is a continent",                                   "continent"),
+    ("what is a peninsula",                                   "peninsula"),
+    ("what is a delta",                                       "delta"),
+    ("what is a plateau",                                     "plateau"),
+    ("how long is the great wall of china",                   "great wall of china"),
+    ("how long is the amazon river",                          "amazon river"),
+    ("what is the highest mountain",                          "mountain"),
+    ("what is the amazon rainforest",                         "amazon rainforest"),
+])
+def test_batch220_subject_extraction(question, expected):
+    """Batch 220: geography/world places — rivers, mountains, capitals, features."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a calorie",                                     "calorie"),
+    ("what is protein",                                       "protein"),
+    ("what is carbohydrate",                                  "carbohydrate"),
+    ("what is a vitamin",                                     "vitamin"),
+    ("what is fiber",                                         "fiber"),
+    ("what is cholesterol",                                   "cholesterol"),
+    ("what is gluten",                                        "gluten"),
+    ("what foods contain vitamin c",                          "vitamin c"),
+    ("what foods contain protein",                            "protein"),
+    ("how many calories are in an apple",                     "apple"),
+    ("how many calories are in a banana",                     "banana"),
+    ("what is the ketogenic diet",                            "ketogenic diet"),
+    ("what is the mediterranean diet",                        "mediterranean diet"),
+    # "balanced" is not a stripped superlative — "balanced diet" is preserved as a concept
+    ("what is a balanced diet",                               "balanced diet"),
+    ("what is intermittent fasting",                          "intermittent fasting"),
+    ("what is a superfood",                                   "superfood"),
+    ("how does sugar affect health",                          "sugar"),
+    ("what are probiotics",                                   "probiotics"),
+    ("what is a macronutrient",                               "macronutrient"),
+    ("what is omega 3",                                       "omega 3"),
+])
+def test_batch221_subject_extraction(question, expected):
+    """Batch 221: nutrition/food — calories, vitamins, diets, macronutrients."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is physics",                                       "physics"),
+    ("what is quantum mechanics",                             "quantum mechanics"),
+    ("what is relativity",                                    "relativity"),
+    ("what is thermodynamics",                                "thermodynamics"),
+    ("what is electromagnetism",                              "electromagnetism"),
+    ("what is nuclear physics",                               "nuclear physics"),
+    ("what is newton's first law",                            "newton's first law"),
+    ("what is newton's second law",                           "newton's second law"),
+    ("what is newton's third law",                            "newton's third law"),
+    ("how does a nuclear reactor work",                       "nuclear reactor"),
+    ("how does a laser work",                                 "laser"),
+    ("what is entropy",                                       "entropy"),
+    ("what is momentum",                                      "momentum"),
+    ("what is kinetic energy",                                "kinetic energy"),
+    ("what is potential energy",                              "potential energy"),
+    ("what is the speed of sound",                            "speed of sound"),
+    ("what is a wave",                                        "wave"),
+    ("how does sound travel",                                 "sound"),
+    ("how does light travel",                                 "light"),
+    ("what is the electromagnetic spectrum",                  "electromagnetic spectrum"),
+])
+def test_batch222_subject_extraction(question, expected):
+    """Batch 222: physics — quantum mechanics, Newton's laws, energy, waves."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
