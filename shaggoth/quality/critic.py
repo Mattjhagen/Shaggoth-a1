@@ -53,20 +53,23 @@ class CriticStats:
     last_run: float = 0.0
     last_error: str = ""
     seconds_spent: float = 0.0
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
     def as_dict(self) -> dict:
-        return {
-            "judged": self.judged,
-            "good": self.good,
-            "weak": self.weak,
-            "bad": self.bad,
-            "skipped_busy": self.skipped_busy,
-            "unusable": self.unusable,
-            "last_run": self.last_run,
-            "last_error": self.last_error,
-            "seconds_spent": round(self.seconds_spent, 1),
-            "avg_seconds": round(self.seconds_spent / self.judged, 1) if self.judged else 0.0,
-        }
+        with self._lock:
+            judged = self.judged
+            return {
+                "judged": judged,
+                "good": self.good,
+                "weak": self.weak,
+                "bad": self.bad,
+                "skipped_busy": self.skipped_busy,
+                "unusable": self.unusable,
+                "last_run": self.last_run,
+                "last_error": self.last_error,
+                "seconds_spent": round(self.seconds_spent, 1),
+                "avg_seconds": round(self.seconds_spent / judged, 1) if judged else 0.0,
+            }
 
 
 def machine_busy(max_load: float = DEFAULT_MAX_LOAD) -> bool:
@@ -169,19 +172,19 @@ class CriticLoop:
         reply = self.engine.respond(question, session_id="critic", mode="no_drift")
         verdict = self.teacher.judge(question, reply.text)
 
-        self.stats.seconds_spent += verdict.seconds
         self._seen.add(question.lower())
         if len(self._seen) > self._seen_max:
             to_drop = list(self._seen)[:len(self._seen) // 2]
             self._seen -= set(to_drop)
 
-        if not verdict.usable:
-            self.stats.unusable += 1
-            return None
-
-        self.stats.judged += 1
-        if verdict.verdict in ("good", "weak", "bad"):
-            setattr(self.stats, verdict.verdict, getattr(self.stats, verdict.verdict) + 1)
+        with self.stats._lock:
+            self.stats.seconds_spent += verdict.seconds
+            if not verdict.usable:
+                self.stats.unusable += 1
+                return None
+            self.stats.judged += 1
+            if verdict.verdict in ("good", "weak", "bad"):
+                setattr(self.stats, verdict.verdict, getattr(self.stats, verdict.verdict) + 1)
 
         # Only a clear failure is filed. "weak" is not enough to spend a
         # research cycle on, and filing it would drown the genuine failures.

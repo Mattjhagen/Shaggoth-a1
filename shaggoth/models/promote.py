@@ -31,6 +31,7 @@ testable without training anything.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field, asdict
 
@@ -169,7 +170,9 @@ def decide(
             coherence=coh,
         )
 
-    if candidate_ppl != candidate_ppl or candidate_ppl == float("inf"):  # NaN/inf
+    # Perplexity must be a finite positive number. NaN, ±inf, zero, and negative
+    # values all indicate a failed or degenerate eval -- do not promote them.
+    if not math.isfinite(candidate_ppl) or candidate_ppl <= 0:
         return PromotionDecision(
             promote=False,
             reason=f"REJECT: candidate perplexity is {candidate_ppl}",
@@ -177,6 +180,11 @@ def decide(
             live_ppl=live_ppl,
             coherence=coh,
         )
+
+    # live_ppl must also be finite before we use it in comparisons;
+    # a NaN baseline would make the regression check always pass.
+    if live_ppl is not None and not math.isfinite(live_ppl):
+        live_ppl = None
 
     if live_ppl is None:
         if candidate_ppl > ABSOLUTE_PPL_CEILING:

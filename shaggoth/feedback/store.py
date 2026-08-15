@@ -116,10 +116,13 @@ class FeedbackStore:
             raw = raw.get("feedback") or []
         for item in raw if isinstance(raw, list) else []:
             if isinstance(item, dict) and item.get("question"):
-                self._items.append(Feedback(**{
-                    k: v for k, v in item.items()
-                    if k in Feedback.__dataclass_fields__
-                }))
+                try:
+                    self._items.append(Feedback(**{
+                        k: v for k, v in item.items()
+                        if k in Feedback.__dataclass_fields__
+                    }))
+                except Exception:
+                    pass
 
     def _save(self) -> None:
         try:

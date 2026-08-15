@@ -100,3 +100,61 @@ def test_empty_output_fails_rather_than_dividing_by_zero():
     rep = gate.coherence_report(silent, vocab)
     assert not rep.passed
     assert "emitted only 0 words" in rep.reason
+
+
+# --------------------------------------------------------------------------
+# Perplexity guard: non-positive and non-finite values must be rejected
+# --------------------------------------------------------------------------
+
+
+def _passing_coherence(vocab):
+    good = FakeModel(
+        "the sky is blue and water is made of hydrogen and oxygen "
+        "and the sun is a star that plants use for photosynthesis"
+    )
+    rep = gate.coherence_report(good, vocab)
+    assert rep.passed
+    return rep
+
+
+def test_negative_infinity_is_rejected():
+    vocab = gate.corpus_vocabulary(CORPUS)
+    rep = _passing_coherence(vocab)
+    decision = gate.decide(candidate_ppl=float("-inf"), coherence=rep, live_ppl=None)
+    assert decision.promote is False
+    assert "perplexity" in decision.reason.lower()
+
+
+def test_zero_perplexity_is_rejected():
+    vocab = gate.corpus_vocabulary(CORPUS)
+    rep = _passing_coherence(vocab)
+    decision = gate.decide(candidate_ppl=0.0, coherence=rep, live_ppl=None)
+    assert decision.promote is False
+
+
+def test_nan_perplexity_is_rejected():
+    import math
+    vocab = gate.corpus_vocabulary(CORPUS)
+    rep = _passing_coherence(vocab)
+    decision = gate.decide(candidate_ppl=float("nan"), coherence=rep, live_ppl=None)
+    assert decision.promote is False
+
+
+def test_nan_live_ppl_falls_back_to_ceiling_check():
+    """A NaN live_ppl must not silence the regression check by making any
+    comparison return False. The gate treats it as 'no live baseline'."""
+    import math
+    vocab = gate.corpus_vocabulary(CORPUS)
+    rep = _passing_coherence(vocab)
+    # NaN live_ppl with a candidate well below the ceiling -> should promote.
+    decision = gate.decide(candidate_ppl=80.0, coherence=rep, live_ppl=float("nan"))
+    assert decision.promote is True
+    assert decision.live_ppl is None  # NaN normalised away
+
+
+def test_inf_live_ppl_falls_back_to_ceiling_check():
+    vocab = gate.corpus_vocabulary(CORPUS)
+    rep = _passing_coherence(vocab)
+    decision = gate.decide(candidate_ppl=80.0, coherence=rep, live_ppl=float("inf"))
+    assert decision.promote is True
+    assert decision.live_ppl is None

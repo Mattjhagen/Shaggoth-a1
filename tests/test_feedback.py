@@ -173,3 +173,39 @@ def test_a_scheduler_without_feedback_still_works(tmp_path):
     sched = CuriosityScheduler(FakeCuriosity(), ScheduleConfig(refresh_stale_when_idle=True))
     sched._cycle()
     assert sched.curiosity.stale_refreshes == 1
+
+
+# --------------------------------------------------------------------------
+# _load robustness: malformed items must not crash the constructor
+# --------------------------------------------------------------------------
+
+
+def test_load_skips_item_missing_verdict(tmp_path):
+    """A stored item with a question but no verdict must be silently dropped,
+    not crash FeedbackStore.__init__ with TypeError."""
+    import json
+    path = tmp_path / "feedback.json"
+    path.write_text(json.dumps({
+        "feedback": [
+            {"question": "what is gravity"},           # missing verdict -> skip
+            {"question": "what is light", "verdict": "good"},  # valid
+        ],
+        "repaired": {},
+    }), encoding="utf-8")
+    store = FeedbackStore(path)   # must not raise
+    assert len(store._items) == 1
+    assert store._items[0].question == "what is light"
+
+
+def test_load_skips_entirely_malformed_item(tmp_path):
+    import json
+    path = tmp_path / "feedback.json"
+    path.write_text(json.dumps({
+        "feedback": [
+            "not a dict",
+            {"question": "fine", "verdict": "bad"},
+        ],
+        "repaired": {},
+    }), encoding="utf-8")
+    store = FeedbackStore(path)
+    assert len(store._items) == 1
