@@ -3239,3 +3239,32 @@ def test_batch71_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what language do they speak in X" → X
+    ("what language do they speak in brazil",   "brazil"),
+    ("what language do they speak in japan",    "japan"),
+    ("what language do people speak in france", "france"),
+    # "what country/continent is X in" → X (already passing; regression guard)
+    ("what country is paris in",                "paris"),
+    ("what continent is india in",              "india"),
+    # "what color is X" → X (regression guard)
+    ("what color is the sky",                   "sky"),
+    ("what color is blood",                     "blood"),
+    # "what is the capital/currency/population of X" → X (regression guard)
+    ("what is the capital of france",           "france"),
+    ("what is the currency of japan",           "japan"),
+    ("what is the population of china",         "china"),
+    # Superlative category: "what is the SUPERLATIVE X in/on Y" → X
+    ("what is the largest country in the world",        "country"),
+    ("what is the smallest planet in the solar system", "planet"),
+    ("what is the tallest building in the world",       "building"),
+    ("what is the deepest lake in the world",           "lake"),
+])
+def test_batch72_subject_extraction(question, expected):
+    """Batch 72: 'in X' cleanup after pronoun+verb strip; geography and superlative patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

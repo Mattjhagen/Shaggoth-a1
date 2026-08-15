@@ -549,6 +549,9 @@ def subject_of(question: str) -> str:
     # "what happens to X when/if it VERBS" → strip leading "to " → "X when it VERBS"
     # then strip trailing "when/if it VERB" clause.
     text = re.sub(r"^to\s+", "", text, flags=re.I)
+    # "they speak in brazil" → pronoun+verb strip → "in brazil" → strip leading "in " → "brazil"
+    # Safe: no subject begins with the preposition "in " (words like "insulin" have no space).
+    text = re.sub(r"^in\s+(?:the\s+|a\s+|an\s+)?", "", text, flags=re.I)
     text = re.sub(r"\s+(?:when|if|once)\s+(?:it|they|you|we)\s+\w+\s*$", "", text, flags=re.I)
     # After "led to" is stripped, "the fall of the Roman Empire" remains.
     # Strip the event noun (fall/collapse/etc.) and its "of" connector so only
