@@ -1875,7 +1875,7 @@ def test_batch29_subject_extraction(question, expected):
     # Food / nutrition
     ("what is gluten",                              "gluten"),
     ("why is sugar bad for you",                    "sugar"),
-    ("what foods are high in protein",              "foods"),
+    ("what foods are high in protein",              "protein"),
     ("how much protein does the body need",         "body"),
     ("what vitamins does the body need",            "body"),
     ("how does caffeine affect the body",           "caffeine"),
@@ -4349,6 +4349,87 @@ def test_batch98_subject_extraction(question, expected):
 ])
 def test_batch99_subject_extraction(question, expected):
     """Batch 99: technology — concepts, used-for purpose, invented, types, install."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" medical terms
+    ("what is diabetes",                                "diabetes"),
+    ("what is cancer",                                  "cancer"),
+    ("what is depression",                              "depression"),
+    ("what is hypertension",                            "hypertension"),
+    # "what causes X"
+    ("what causes diabetes",                            "diabetes"),
+    ("what causes high blood pressure",                 "high blood pressure"),
+    ("what causes migraines",                           "migraines"),
+    # "what are the symptoms of X"
+    ("what are the symptoms of covid",                  "covid"),
+    ("what are the symptoms of the flu",                "flu"),
+    # "how is X treated"
+    ("how is diabetes treated",                         "diabetes"),
+    ("how is cancer treated",                           "cancer"),
+    # "what is the cure for X" — "cold" must not be stripped from "common cold"
+    ("what is the cure for the common cold",            "common cold"),
+    # "how do you treat X"
+    ("how do you treat a sprained ankle",               "sprained ankle"),
+    # difference between
+    ("what is the difference between a virus and a bacteria", "virus and bacteria"),
+    # body effects
+    ("how does alcohol affect the body",                "alcohol"),
+    ("how does stress affect the body",                 "stress"),
+    # "what foods are good for X" — beneficiary is the lookup subject
+    ("what foods are good for the heart",               "heart"),
+    ("what foods are good for the brain",               "brain"),
+    # "how many calories are in X"
+    ("how many calories are in an apple",               "apple"),
+    ("how many calories are in a banana",               "banana"),
+])
+def test_batch100_subject_extraction(question, expected):
+    """Batch 100: health/medicine — diseases, causes, symptoms, cures, body effects, diet."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" food concepts
+    ("what is sourdough bread",                         "sourdough bread"),
+    ("what is umami",                                   "umami"),
+    ("what is gluten",                                  "gluten"),
+    # "how do you make X"
+    ("how do you make pasta",                           "pasta"),
+    ("how do you make bread",                           "bread"),
+    ("how do you make pizza",                           "pizza"),
+    # "what are the ingredients in X" — causal noun strips "ingredients in"
+    ("what are the ingredients in spaghetti carbonara", "spaghetti carbonara"),
+    ("what are the ingredients in hummus",              "hummus"),
+    # "how do you cook X"
+    ("how do you cook chicken",                         "chicken"),
+    ("how do you cook rice",                            "rice"),
+    # "how long does it take to cook X"
+    ("how long does it take to cook a turkey",          "turkey"),
+    ("how long does it take to boil an egg",            "egg"),
+    # temperature cooking question
+    ("what temperature do you cook chicken at",         "chicken"),
+    # difference between food items
+    ("what is the difference between baking soda and baking powder", "baking soda and baking powder"),
+    ("what is the difference between jam and jelly",    "jam and jelly"),
+    # "what foods are high in X" → X (beneficiary/content)
+    ("what foods are high in protein",                  "protein"),
+    ("what foods are high in iron",                     "iron"),
+    # "what is the best way to X" → subject of action
+    ("what is the best way to store bread",             "bread"),
+    ("what is the best way to ripen a banana",          "banana"),
+    # "how many calories are in a UNIT of X" → X
+    ("how many calories are in a slice of pizza",       "pizza"),
+    ("how many calories are in a cup of rice",          "rice"),
+])
+def test_batch101_subject_extraction(question, expected):
+    """Batch 101: food/cooking — ingredients, methods, differences, nutrient content, best-way."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"

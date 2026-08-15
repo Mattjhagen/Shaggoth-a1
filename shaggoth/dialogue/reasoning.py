@@ -673,6 +673,18 @@ def subject_of(question: str) -> str:
     )
     if _m_used_for:
         text = _m_used_for.group(1)
+    # "what foods are good for the heart" → "heart"
+    # "NOUN is/are [adj] for TARGET" → TARGET (the beneficiary is the lookup subject)
+    # Fires only when "is/are/was/were" is still present (copula not yet stripped),
+    # so bare "vegetables good for X" falls through to the adj-for strip instead.
+    _m_good_for = re.match(
+        r"^.+?\s+(?:is|are|was|were)\s+(?:(?:very|quite|so)\s+)?"
+        r"(?:good|bad|beneficial|healthy|helpful|important|essential|useful|harmful|dangerous|effective)"
+        r"\s+(?:for|to)\s+(?:the\s+|a\s+|an\s+)?(.+)$",
+        text, re.I,
+    )
+    if _m_good_for:
+        text = _m_good_for.group(1)
     # "what elements are in water" → after "what " is stripped → "elements are in water"
     # → look up "water" (the container), not "elements" (the thing counted).
     _is_how_many = bool(re.match(r"^\s*(?:and |but |so )?how\s+many\b", _original, re.I))
@@ -704,6 +716,16 @@ def subject_of(question: str) -> str:
                 )
                 if _m_many_in:
                     text = _m_many_in.group(1)
+                    # Strip leading unit/container nouns so "slice of pizza" → "pizza",
+                    # "cup of rice" → "rice", "glass of water" → "water", etc.
+                    text = re.sub(
+                        r"^(?:slice|piece|cup|bowl|glass|bottle|can|jar|bag|box|scoop|"
+                        r"serving|portion|helping|handful|spoonful|"
+                        r"teaspoon|tablespoon|ounce|oz|gram|kilogram|kg|pound|lb|"
+                        r"liter|litre|gallon|quart|pint|ml|"
+                        r"bite|sip|drop|pinch|dash|stick|bar|block)\s+of\s+",
+                        "", text, flags=re.I,
+                    )
     else:
         _m = re.match(
             r"^(\w+(?:\s+\w+){0,2})\s+(?:are|were|is|was)\s+(?:in|inside|within|found in|part of)\s+(.+)$",
@@ -841,6 +863,17 @@ def subject_of(question: str) -> str:
     # "what kinds of planets are there in the solar system" → "planets")
     # Also "X are in/on/at Y" (e.g. "how many planets are in the solar system" → "planets")
     text = re.sub(r"\s+are\s+(?:there\b|in\b|on\b|at\b).*$", "", text, flags=re.I)
+    # "best way to store bread" → "bread"; "best way to ripen a banana" → "banana"
+    # Pattern: "SUPERLATIVE way to VERB [article] OBJECT" → OBJECT.
+    # Must fire before the trailing verb strip which would consume "store bread".
+    _m_way_to = re.match(
+        r"^(?:best|easiest|quickest|fastest|simplest|proper|right|correct|optimal|"
+        r"most\s+\w+|safest|healthiest|cheapest)\s+way\s+to\s+\w+\s+"
+        r"(?:(?:a|an|the)\s+)?(.+)$",
+        text, re.I,
+    )
+    if _m_way_to:
+        text = _m_way_to.group(1)
     text = re.sub(
         r"\s+(?:need|needs|require|requires|use[sd]?|produce[sd]?|"
         r"happen(?:ed|s)?|occur(?:red|s)?|exist(?:ed|s)?|"
@@ -1045,6 +1078,17 @@ def subject_of(question: str) -> str:
     # Second-pass work[s] strip: "voting work" → "voting" when "in the X" was just removed.
     # The primary work strip at line 717 fires before location strips, so it misses this residue.
     text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
+    # "foods are high in protein" → "protein"; "milk is rich in calcium" → "calcium"
+    # Pattern: "X is/are [adj] in NUTRIENT/CONTENT" → NUTRIENT (the content is the lookup target)
+    # Must fire before the bare-in strip below which would strip " in protein" → "foods are high".
+    _m_adj_in = re.match(
+        r"^.+?\s+(?:is|are|was|were)\s+(?:(?:very|quite|extremely|so)\s+)?"
+        r"(?:high|low|rich|poor|lacking|deficient|abundant|dense|concentrated|elevated|"
+        r"depleted|packed|loaded|full|empty)\s+in\s+(?:the\s+|a\s+|an\s+)?(.+)$",
+        text, re.I,
+    )
+    if _m_adj_in:
+        text = _m_adj_in.group(1)
     # "X in <word>" → X  (e.g. "turbulence in planes" → "turbulence",
     # "pain in joints" → "pain"). Only strip a single word to avoid eating
     # compound subjects; "in the ..." is already handled above.
@@ -1083,7 +1127,7 @@ def subject_of(question: str) -> str:
         # (?:so|most|least|very|quite) handles superlatives: "element is most abundant" → "element"
         # Exclude ambiguous words that are also common nouns (light, fast, hard, etc.).
         r"\s+(?:(?:is|are|was|were)\s+)?(?:(?:so|most|least|very|quite)\s+)?(?:blue|red|green|yellow|white|black|gray|grey|brown|orange|purple|pink|"
-        r"hot|cold|warm|cool|wet|dry|soft|bright|dark|"
+        r"hot|(?<!common )cold|warm|cool|wet|dry|soft|bright|dark|"
         r"low|high|normal|elevated|full|empty|alive|dead|active|inactive|"
         r"heavy|loud|quiet|dim|sharp|dull|"
         r"salty|sweet|sour|bitter|spicy|acidic|alkaline|toxic|magnetic|elastic|"
