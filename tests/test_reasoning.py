@@ -3268,3 +3268,39 @@ def test_batch72_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X known for" → X
+    ("what is einstein known for",              "einstein"),
+    ("what is rome known for",                  "rome"),
+    ("what is japan known for",                 "japan"),
+    # "what is X used for" → X
+    ("what is graphene used for",               "graphene"),
+    ("what is aspirin used for",                "aspirin"),
+    # "what is X made of" → X
+    ("what is glass made of",                   "glass"),
+    ("what is steel made of",                   "steel"),
+    # "what is X composed of" → X
+    ("what is air composed of",                 "air"),
+    ("what is water composed of",               "water"),
+    # "what is X named after" → X
+    ("what is the moon named after",            "moon"),
+    ("what is america named after",             "america"),
+    # property-of: "boiling/melting point of X" → X
+    ("what is the boiling point of water",      "water"),
+    ("what is the boiling point of nitrogen",   "nitrogen"),
+    ("what is the melting point of iron",       "iron"),
+    # "speed of X" without article → canonical constant kept intact
+    ("what is the speed of sound",              "speed of sound"),
+    ("what is the speed of light",              "speed of light"),
+    # "half-life of X" → X
+    ("what is the half-life of carbon 14",      "carbon 14"),
+    ("what is the half life of uranium 235",    "uranium 235"),
+])
+def test_batch73_subject_extraction(question, expected):
+    """Batch 73: known-for, used-for, made-of, named-after, property-of, speed canonical."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
