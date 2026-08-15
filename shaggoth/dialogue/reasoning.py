@@ -721,24 +721,33 @@ def subject_of(question: str) -> str:
             if _m_many_has:
                 text = _m_many_has.group(1)
             else:
-                # "how many bones are in the human body" → after QW strip: "bones are in the human body"
-                # → extract the container ("human body"), not the counted noun ("bones").
-                _m_many_in = re.match(
-                    r"^\w+(?:\s+\w+)?\s+are\s+(?:in|inside|within)\s+(?:the\s+|a\s+|an\s+)?(.+)$",
+                # "how many oscars did titanic win" → after QW strip: "oscars did titanic win"
+                # Pattern: "PLURAL_NOUN did ENTITY VERB" → ENTITY
+                _m_many_did = re.match(
+                    r"^\w+(?:\s+\w+)?\s+did\s+(?:a\s+|an\s+|the\s+)?(.+?)\s+\w+\s*$",
                     text, re.I,
                 )
-                if _m_many_in:
-                    text = _m_many_in.group(1)
-                    # Strip leading unit/container nouns so "slice of pizza" → "pizza",
-                    # "cup of rice" → "rice", "glass of water" → "water", etc.
-                    text = re.sub(
-                        r"^(?:slice|piece|cup|bowl|glass|bottle|can|jar|bag|box|scoop|"
-                        r"serving|portion|helping|handful|spoonful|"
-                        r"teaspoon|tablespoon|ounce|oz|gram|kilogram|kg|pound|lb|"
-                        r"liter|litre|gallon|quart|pint|ml|"
-                        r"bite|sip|drop|pinch|dash|stick|bar|block)\s+of\s+",
-                        "", text, flags=re.I,
+                if _m_many_did:
+                    text = _m_many_did.group(1)
+                else:
+                    # "how many bones are in the human body" → after QW strip: "bones are in the human body"
+                    # → extract the container ("human body"), not the counted noun ("bones").
+                    _m_many_in = re.match(
+                        r"^\w+(?:\s+\w+)?\s+are\s+(?:in|inside|within)\s+(?:the\s+|a\s+|an\s+)?(.+)$",
+                        text, re.I,
                     )
+                    if _m_many_in:
+                        text = _m_many_in.group(1)
+                        # Strip leading unit/container nouns so "slice of pizza" → "pizza",
+                        # "cup of rice" → "rice", "glass of water" → "water", etc.
+                        text = re.sub(
+                            r"^(?:slice|piece|cup|bowl|glass|bottle|can|jar|bag|box|scoop|"
+                            r"serving|portion|helping|handful|spoonful|"
+                            r"teaspoon|tablespoon|ounce|oz|gram|kilogram|kg|pound|lb|"
+                            r"liter|litre|gallon|quart|pint|ml|"
+                            r"bite|sip|drop|pinch|dash|stick|bar|block)\s+of\s+",
+                            "", text, flags=re.I,
+                        )
     else:
         _m = re.match(
             r"^(\w+(?:\s+\w+){0,2})\s+(?:are|were|is|was)\s+(?:in|inside|within|found in|part of)\s+(.+)$",
@@ -1144,10 +1153,13 @@ def subject_of(question: str) -> str:
     # "oceans of the world" → "oceans", "continents of the world" → "continents".
     # Only fires when the causal-noun strip above did NOT already handle "of the X"
     # (e.g. "role of the king" → causal strip → "king" before we reach here).
-    # Guard: only fire when a single word precedes "of the", so multi-word titles like
-    # "dark side of the moon" are preserved ("dark side" → two words → no match).
+    # Guard: restrict the tail to known universal-scope words so that proper titles like
+    # "phantom of the opera", "lord of the flies", "silence of the lambs" are preserved.
     _m_of_the = re.match(
-        r"^(\w+)\s+of\s+the\s+\w+(?:\s+\w+)?\s*$", text, re.I,
+        r"^(\w+)\s+of\s+the\s+"
+        r"(?:world|earth|universe|solar\s+system|body|mind|internet|web|sky|sea|"
+        r"galaxy|cosmos|globe|ocean|heavens?)\s*$",
+        text, re.I,
     )
     if _m_of_the:
         text = _m_of_the.group(1)

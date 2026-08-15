@@ -4901,3 +4901,84 @@ def test_batch113_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is inflation",                                "inflation"),
+    ("what is gdp",                                      "gdp"),
+    ("what is the stock market",                         "stock market"),
+    ("what is a recession",                              "recession"),
+    ("what is cryptocurrency",                           "cryptocurrency"),
+    ("what is a mortgage",                               "mortgage"),
+    ("what is compound interest",                        "compound interest"),
+    ("what is supply and demand",                        "supply and demand"),
+    # "what causes X"
+    ("what causes inflation",                            "inflation"),
+    ("what causes a recession",                          "recession"),
+    # "how does X work"
+    ("how does the stock market work",                   "stock market"),
+    ("how does compound interest work",                  "compound interest"),
+    ("how does a mortgage work",                         "mortgage"),
+    # "what is the difference between X and Y"
+    ("what is the difference between stocks and bonds",  "stocks and bonds"),
+    ("what is the difference between inflation and deflation", "inflation and deflation"),
+    # "how do you invest in X"
+    ("how do you invest in stocks",                      "stocks"),
+    ("how do you invest in real estate",                 "real estate"),
+    # "what is the gdp of X"
+    ("what is the gdp of china",                         "china"),
+    ("what is the gdp of the united states",             "united states"),
+    # "how much does X cost"
+    ("how much does a house cost",                       "house"),
+    # "what is the minimum wage in X"
+    ("what is the minimum wage in the united states",    "minimum wage"),
+])
+def test_batch114_subject_extraction(question, expected):
+    """Batch 114: economics/finance — concepts, causes, comparisons, GDP, investment."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is hip hop",                                  "hip hop"),
+    ("what is jazz",                                     "jazz"),
+    ("what is opera",                                    "opera"),
+    ("what is a grammy",                                 "grammy"),
+    ("what is the billboard hot 100",                    "billboard hot 100"),
+    # "who sang X"
+    ("who sang bohemian rhapsody",                       "bohemian rhapsody"),
+    ("who sang thriller",                                "thriller"),
+    # "who wrote X"
+    ("who wrote the phantom of the opera",               "phantom of the opera"),
+    ("who wrote bohemian rhapsody",                      "bohemian rhapsody"),
+    # "who directed X"
+    ("who directed titanic",                             "titanic"),
+    ("who directed the godfather",                       "godfather"),
+    # "when was X released"
+    ("when was titanic released",                        "titanic"),
+    ("when was the iphone released",                     "iphone"),
+    # "who starred in X"
+    ("who starred in titanic",                           "titanic"),
+    # "what year did X come out"
+    ("what year did titanic come out",                   "titanic"),
+    # "what genre is X"
+    ("what genre is hip hop",                            "hip hop"),
+    ("what genre is jazz",                               "jazz"),
+    # "how many oscars did X win"
+    ("how many oscars did titanic win",                  "titanic"),
+    # "what is the best-selling album of all time"
+    ("what is the best selling album of all time",       "album"),
+    # "who is the most streamed artist on spotify"
+    ("who is the most streamed artist on spotify",       "artist"),
+    # "how long is X"
+    ("how long is the godfather",                        "godfather"),
+])
+def test_batch115_subject_extraction(question, expected):
+    """Batch 115: music/entertainment — genres, authorship, direction, awards, release dates."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
