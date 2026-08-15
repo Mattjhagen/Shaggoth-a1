@@ -12707,3 +12707,34 @@ def test_batch350_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is overtime",                                         "overtime"),
+    ("what is downtime",                                         "downtime"),
+    ("what is prime time",                                       "prime time"),
+    ("what is half time",                                        "half time"),
+    ("what is spare time",                                       "spare time"),
+    ("what is free time",                                        "free time"),
+    ("what is rush hour",                                        "rush hour"),
+    ("what is a comfort zone",                                   "comfort zone"),
+    ("what is an end zone",                                      "end zone"),
+    ("what is a time zone",                                      "time zone"),
+    ("what is a blind spot",                                     "blind spot"),
+    ("what is a hot spot",                                       "hot spot"),
+    ("what is a sweet spot",                                     "sweet spot"),
+    ("what is attention span",                                   "attention span"),
+    ("what is a life span",                                      "life span"),
+    ("what is the home stretch",                                 "home stretch"),
+    ("what is heart rate",                                       "heart rate"),
+    ("what is a workload",                                       "workload"),
+    ("what is a payload",                                        "payload"),
+    ("what is a microscope",                                     "microscope"),
+    ("what is the scope of work",                                "scope of work"),
+])
+def test_batch351_subject_extraction(question, expected):
+    """Batch 351: time/zone/spot compound nouns; scope-of-work guard."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

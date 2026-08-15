@@ -1065,7 +1065,8 @@ def subject_of(question: str) -> str:
         r"\w+(?:ing)?\s*$",
         "", text, flags=re.I,
     )
-    text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
+    # Guard "scope of work", "statement of work", "body of work" compound nouns.
+    text = re.sub(r"(?<!of)\s+work[s]?\s*$", "", text, flags=re.I)
     # "what does caffeine do to the brain" → QW strip → "caffeine do to the brain"
     # Strip "do to [article] NOUN[S]" tail → "caffeine"
     text = re.sub(r"\s+do\s+to\s+(?:(?:the|a|an|your|our|your)\s+)?\w+(?:\s+\w+)?\s*$", "", text, flags=re.I)
@@ -1520,7 +1521,7 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+in\s+the\s+(?!middle\b)\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
     # Second-pass work[s] strip: "voting work" → "voting" when "in the X" was just removed.
     # The primary work strip at line 717 fires before location strips, so it misses this residue.
-    text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
+    text = re.sub(r"(?<!of)\s+work[s]?\s*$", "", text, flags=re.I)
     # "foods are high in protein" → "protein"; "milk is rich in calcium" → "calcium"
     # Pattern: "X is/are [adj] in NUTRIENT/CONTENT" → NUTRIENT (the content is the lookup target)
     # Must fire before the bare-in strip below which would strip " in protein" → "foods are high".
