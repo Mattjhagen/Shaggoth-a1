@@ -574,6 +574,10 @@ def subject_of(question: str) -> str:
         r"cure|treatment|remedy|therapy|medication|symptom|cause|"
         # Food/cooking property nouns: "ingredients in pizza" → "pizza"
         r"ingredient|recipe|nutrition|calorie|flavor|taste|"
+        # Award/accolade nouns: "oscar for best picture" → "best picture"; "prize for X" → X
+        r"oscar|emmy|grammy|tony|bafta|award|prize|nomination|"
+        # Film/media production nouns: "screenplay for casablanca" → "casablanca"
+        r"screenplay|script|soundtrack|"
         # Mathematical property nouns: "square root of 144" → "144"
         r"root|"
         # Sport/game property nouns: "positions in baseball" → "baseball"; "offside rule in soccer" → "soccer"
@@ -1295,7 +1299,15 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+about\s*$", "", text, flags=re.I)
     # "greatest X of all time" → "X" — strip the superlative + temporal qualifier
     text = re.sub(r"\s+of\s+all\s+time\s*$", "", text, flags=re.I)
-    text = re.sub(r"^(?:greatest|best|worst|most\s+\w+|least\s+\w+|top)\s+", "", text, flags=re.I)
+    # Guard: don't strip "best/greatest" when original was an award-category query.
+    # "who won the oscar for best picture" → after causal-noun strip → "best picture";
+    # "best" is part of the award name, not a modifier to remove.
+    _is_award_ctx = bool(re.search(
+        r"\b(?:oscar|emmy|grammy|tony|bafta|award|prize|nomination|trophy|medal)\b",
+        _original, re.I,
+    ))
+    if not _is_award_ctx:
+        text = re.sub(r"^(?:greatest|best|worst|most\s+\w+|least\s+\w+|top)\s+", "", text, flags=re.I)
     # "positions in baseball" / "formations in soccer" → "baseball"/"soccer".
     # These sport-scaffold nouns introduce a container that is the real topic.
     text = re.sub(

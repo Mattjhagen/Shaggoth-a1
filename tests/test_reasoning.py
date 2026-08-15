@@ -5718,3 +5718,34 @@ def test_batch133_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a documentary",                              "documentary"),
+    ("what is a film noir",                                "film noir"),
+    ("what is cinematography",                             "cinematography"),
+    ("what is a screenplay",                               "screenplay"),
+    ("what is a blockbuster",                              "blockbuster"),
+    ("who directed titanic",                               "titanic"),
+    ("who directed the godfather",                         "godfather"),
+    ("who directed inception",                             "inception"),
+    ("who directed schindler's list",                      "schindler's list"),
+    ("who starred in titanic",                             "titanic"),
+    ("what is the plot of the godfather",                  "godfather"),
+    ("what is the plot of forrest gump",                   "forrest gump"),
+    ("when was titanic released",                          "titanic"),
+    ("who wrote the screenplay for casablanca",            "casablanca"),
+    ("what genre is inception",                            "inception"),
+    ("who won the oscar for best picture",                 "best picture"),
+    ("what is the academy awards",                         "academy awards"),
+    ("how long is the godfather",                          "godfather"),
+    ("who is spielberg",                                   "spielberg"),
+    ("who is kubrick",                                     "kubrick"),
+    ("what is a silent film",                              "silent film"),
+])
+def test_batch134_subject_extraction(question, expected):
+    """Batch 134: film/cinema — genres, directors, awards, 'screenplay for' strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
