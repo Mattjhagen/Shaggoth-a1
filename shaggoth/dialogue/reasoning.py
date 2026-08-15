@@ -111,7 +111,9 @@ _CAUSAL = re.compile(
 )
 _ENUMERATE = re.compile(
     r"\b(?:types? of|kinds? of|sorts? of|categories of|examples? of|"
-    r"forms? of|list of|list (?:the|all|some) |what are the)\b",
+    r"forms? of|list of|list (?:the|all|some) |what are the)\b"
+    # "how many X" asks for a count or list of items
+    r"|\bhow many\b",
     re.I,
 )
 
@@ -208,6 +210,8 @@ def subject_of(question: str) -> str:
     text = (question or "").strip(" ?.")
     text = re.sub(
         r"^(?:and |but |so )?(?:why|what|how|who|when|where)\s+"
+        # Optional degree word after "how": "how many X", "how long does X", "how much Y"
+        r"(?:many|much|long|far|old|often|fast|deep|wide|tall|large|small|high|low)?\s*"
         r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
     )
@@ -275,16 +279,19 @@ def subject_of(question: str) -> str:
     # "the temperature to rise" → strip "to <verb>" infinitive phrase at end
     text = re.sub(r"\s+to\s+\w+(?:ing)?\s*$", "", text, flags=re.I)
     text = re.sub(r"\s+work[s]?\s*$", "", text, flags=re.I)
+    # "X does/do/did Y have" → X  (e.g. "how many moons does Jupiter have" → "moons")
+    text = re.sub(r"\s+(?:does|do|did)\s+\w+(?:\s+\w+)?\s+have\s*$", "", text, flags=re.I)
     # "X are there [in Y]" → X  (e.g. "what kinds of algae are there" → "algae",
     # "what kinds of planets are there in the solar system" → "planets")
-    text = re.sub(r"\s+are\s+there\b.*$", "", text, flags=re.I)
+    # Also "X are in/on/at Y" (e.g. "how many planets are in the solar system" → "planets")
+    text = re.sub(r"\s+are\s+(?:there\b|in\b|on\b|at\b).*$", "", text, flags=re.I)
     text = re.sub(
         r"\s+(?:need|needs|require|requires|use|uses|produce|produces|"
         r"happen|happens|occur|occurs|exist|exists|matter|matters|"
         r"made|created|formed|produced|prevented|caused|built|done|"
         r"get\s+\w+ed|become|start|begin|"
-        # Action verbs trailing the subject in "how do X [verb]" patterns
-        r"form[s]?|make[s]?|replicate[s]?|train[s]?|"
+        # Action verbs trailing the subject in "how do/does X [verb]" patterns
+        r"form[s]?|make[s]?|replicate[s]?|train[s]?|take[s]?|"
         r"grow[s]?|spread[s]?|evolve[s]?|"
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
         # Immune/conflict/process verbs: "how does X fight Y", "how does X affect Y"

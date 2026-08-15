@@ -104,9 +104,27 @@ def test_causal_questions_extended(question):
     "name the different types of machine learning",
     # "some types of" variant
     "what are some types of cancer",
+    # "how many X" asks for a count/list
+    "how many planets are in the solar system",
+    "how many moons does Jupiter have",
+    "how many bones are in the human body",
 ])
 def test_enumerating_questions(question):
     assert classify(question) == Intent.ENUMERATE
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "how many X are in Y" → subject is X
+    ("how many planets are in the solar system", "planets"),
+    ("how many bones are in the human body", "bones"),
+    # "how many X does Y have" → subject is X
+    ("how many moons does Jupiter have", "moons"),
+    # "how long does X take" → strip degree word + trailing "take"
+    ("how long does photosynthesis take", "photosynthesis"),
+])
+def test_subject_of_how_many_and_how_long(question, expected):
+    """how many/long degree words and possessive 'does Y have' strip cleanly."""
+    assert subject_of(question) == expected
 
 
 @pytest.mark.parametrize("question", [
