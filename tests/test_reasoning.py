@@ -8276,3 +8276,45 @@ def test_batch198_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" (philosophy/ethics term) → X
+    ("what is ethics",                                              "ethics"),
+    ("what is philosophy",                                          "philosophy"),
+    ("what is morality",                                            "morality"),
+    ("what is utilitarianism",                                      "utilitarianism"),
+    ("what is existentialism",                                      "existentialism"),
+    # "who is X" (philosopher) → X
+    ("who is socrates",                                             "socrates"),
+    ("who is plato",                                                "plato"),
+    # "what did X believe" → X
+    ("what did aristotle believe",                                  "aristotle"),
+    ("what did kant believe",                                       "kant"),
+    # "what is the meaning of life" → "meaning of life"
+    ("what is the meaning of life",                                 "meaning of life"),
+    # "what is the trolley problem" → "trolley problem"
+    ("what is the trolley problem",                                 "trolley problem"),
+    # "what is X theory" → X theory
+    ("what is social contract theory",                              "social contract theory"),
+    # "is X morally ADJECTIVE" → X (\w+ly adverb stripped with predicate adj)
+    ("is lying morally wrong",                                      "lying"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between deontology and utilitarianism", "deontology and utilitarianism"),
+    # "what does X mean" → X
+    ("what does consciousness mean",                                "consciousness"),
+    # "what is free will" → "free will"
+    ("what is free will",                                           "free will"),
+    ("what is stoicism",                                            "stoicism"),
+    ("what is nihilism",                                            "nihilism"),
+    # "what is the philosophy of X" → "philosophy of X" (recognized academic subfield)
+    ("what is the philosophy of science",                           "philosophy of science"),
+    # "who founded X" → X
+    ("who founded stoicism",                                        "stoicism"),
+])
+def test_batch199_subject_extraction(question, expected):
+    """Batch 199: philosophy/ethics — terms, thinkers, moral predicates."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

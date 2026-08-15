@@ -1489,9 +1489,10 @@ def subject_of(question: str) -> str:
     text = re.sub(
         # State/property adjectives that trail a subject in "why is X [adj]" patterns.
         # Optional copula handles "blood sugar is low" as well as bare "ocean salty".
-        # (?:so|most|least|very|quite) handles superlatives: "element is most abundant" → "element"
+        # (?:so|most|least|very|quite|\w+ly) handles superlatives and -ly adverbs:
+        # "element is most abundant" → "element"; "lying morally wrong" → "lying"
         # Exclude ambiguous words that are also common nouns (light, fast, hard, etc.).
-        r"\s+(?:(?:is|are|was|were)\s+)?(?:(?:so|most|least|very|quite)\s+)?(?:blue|red|green|yellow|white|black|gray|grey|brown|orange|purple|pink|"
+        r"\s+(?:(?:is|are|was|were)\s+)?(?:(?:so|most|least|very|quite|\w+ly)\s+)?(?:blue|red|green|yellow|white|black|gray|grey|brown|orange|purple|pink|"
         r"hot|(?<!common )cold|warm|cool|wet|dry|soft|bright|dark|"
         r"low|high|normal|elevated|full|empty|alive|dead|active|inactive|"
         r"heavy|loud|quiet|dim|sharp|dull|"
