@@ -11732,3 +11732,63 @@ def test_batch318_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a hard drive",                                      "hard drive"),
+    ("what is a test drive",                                      "test drive"),
+    ("what is a flash drive",                                     "flash drive"),
+    ("what is a thumb drive",                                     "thumb drive"),
+    ("what is a sex drive",                                       "sex drive"),
+    ("what is a joyride",                                         "joyride"),
+    ("what is a hayride",                                         "hayride"),
+    ("what is a free ride",                                       "free ride"),
+    ("what is a landslide",                                       "landslide"),
+    ("what is a mudslide",                                        "mudslide"),
+    ("what is a rockslide",                                       "rockslide"),
+    ("what is a hang glide",                                      "hang glide"),
+    ("what is a rawhide",                                         "rawhide"),
+    ("what is a cowhide",                                         "cowhide"),
+    ("what is a ringside",                                        "ringside"),
+    ("what is a roadside",                                        "roadside"),
+    ("what is a countryside",                                     "countryside"),
+    ("what is a tour guide",                                      "tour guide"),
+    ("what is a study guide",                                     "study guide"),
+    ("what is a pride of lions",                                  "pride of lions"),
+])
+def test_batch319_subject_extraction(question, expected):
+    """Batch 319: adversarial — drive/ride/slide/glide/hide/side/guide/pride noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a brainstorm",                                      "brainstorm"),
+    ("what is a snowstorm",                                       "snowstorm"),
+    ("what is a firestorm",                                       "firestorm"),
+    ("what is a thunderstorm",                                    "thunderstorm"),
+    ("what is a platform",                                        "platform"),
+    ("what is a uniform",                                         "uniform"),
+    ("what is a waveform",                                        "waveform"),
+    ("what is a lifeform",                                        "lifeform"),
+    ("what is a lukewarm",                                        "lukewarm"),
+    ("what is a firearm",                                         "firearm"),
+    ("what is a sidearm",                                         "sidearm"),
+    ("what is a forearm",                                         "forearm"),
+    ("what is self harm",                                         "self harm"),
+    ("what is a lucky charm",                                     "lucky charm"),
+    ("what is a long term",                                       "long term"),
+    ("what is a short term",                                      "short term"),
+    ("what is a law firm",                                        "law firm"),
+    ("what is a bookworm",                                        "bookworm"),
+    ("what is a tapeworm",                                        "tapeworm"),
+    ("what is an earthworm",                                      "earthworm"),
+])
+def test_batch320_subject_extraction(question, expected):
+    """Batch 320: adversarial — storm/form/arm/harm/charm/term/firm/worm noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
