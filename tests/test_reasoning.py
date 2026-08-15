@@ -1628,3 +1628,30 @@ def test_batch22_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Apostrophe-free contraction expansion
+    ("why cant cats be vegan",                    "cats"),
+    ("why doesnt wood conduct electricity",       "wood"),
+    ("why dont fish drown in water",              "fish"),
+    # Trailing similar/different adj
+    ("how are plants and animals different",      "plants and animals"),
+    ("how are mitosis and meiosis similar",       "mitosis and meiosis"),
+    # Modal-verb tail: "what if X could VERB"
+    ("what if humans could photosynthesize",      "humans"),
+    # transmitted (past passive)
+    ("how is hiv transmitted",                    "hiv"),
+    # find - trailing verb
+    ("how do salmon find their way home",         "salmon"),
+    # purr - trailing verb
+    ("why do cats purr",                          "cats"),
+    # away after "how far"
+    ("how far away is the moon",                  "moon"),
+])
+def test_batch23_subject_extraction(question, expected):
+    """Batch 23: apostrophe-free contractions, similar/different adj, find/purr/transmitted verbs, away strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

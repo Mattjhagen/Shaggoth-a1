@@ -247,6 +247,20 @@ _CONTRACTIONS = [
     (re.compile(r"\bhow's\b", re.I), "how is"),
     (re.compile(r"\bwhy's\b", re.I), "why is"),
     (re.compile(r"\bwhere's\b", re.I), "where is"),
+    # Apostrophe-free contractions (informal/mobile typing): "dont", "doesnt", etc.
+    (re.compile(r"\bdont\b", re.I), "do not"),
+    (re.compile(r"\bdoesnt\b", re.I), "does not"),
+    (re.compile(r"\bdidnt\b", re.I), "did not"),
+    (re.compile(r"\bisnt\b", re.I), "is not"),
+    (re.compile(r"\barent\b", re.I), "are not"),
+    (re.compile(r"\bwasnt\b", re.I), "was not"),
+    (re.compile(r"\bwerent\b", re.I), "were not"),
+    (re.compile(r"\bcant\b", re.I), "can not"),
+    (re.compile(r"\bcouldnt\b", re.I), "could not"),
+    (re.compile(r"\bwouldnt\b", re.I), "would not"),
+    (re.compile(r"\bshouldnt\b", re.I), "should not"),
+    (re.compile(r"\bhavent\b", re.I), "have not"),
+    (re.compile(r"\bhasnt\b", re.I), "has not"),
 ]
 
 
@@ -279,6 +293,8 @@ def subject_of(question: str) -> str:
     # Residual "not" after stripping the auxiliary: "why does not ice float" →
     # strips "why does " → "not ice float" → strip leading "not" → "ice float"
     text = re.sub(r"^not\s+", "", text, flags=re.I)
+    # "how far away is X" → after "how far" stripped, "away" leads: strip it.
+    text = re.sub(r"^away\s+", "", text, flags=re.I)
     # After stripping "who"/"what", attribution and trigger verbs head the remainder:
     # "who invented the telephone" → "invented the telephone" → "the telephone"
     # "what started the industrial revolution" → "started the ..." → "the ..."
@@ -505,19 +521,20 @@ def subject_of(question: str) -> str:
         r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|"
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"
         r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|"
-        r"come[s]?\s+from|get[s]?|navigate[sd]?|"
+        r"come[s]?\s+from|get[s]?|navigate[sd]?|find[s]?|"
+        r"purr[s]?|bark[s]?|meow[s]?|howl[s]?|chirp[s]?|"
         r"die[sd]?|dies|"
         # Sensory/cognitive/existence verbs
         r"feel[s]?|sense[s]?|think[s]?|perceive[s]?|drown[s]?|survive[sd]?|"
         r"appear[s]?|disappear(?:s|ed)?|vanish(?:es|ed)?|reproduct[s]?|reproduce[sd]?|"
         r"behave[sd]?|communicate[sd]?|"
-        r"have\b|has\b|"
+        r"have\b|has\b|be\b|become[s]?|"
         r"grow[s]?|spread[s]?|evolve[s]?|"
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
         # Causal/enabling verbs: "why don't vaccines cause autism" → "vaccines"
         r"cause[sd]?|enable[sd]?|allow[s]?|prevent[s]?|"
         # Electrical/physical process verbs: "how does water conduct electricity"
-        r"conduct[s]?|generate[sd]?|transmit[s]?|convert[s]?|transfer[s]?|"
+        r"conduct[s]?|generate[sd]?|transmit(?:ted|s)?|convert[s]?|transfer[s]?|"
         r"store[sd]?|release[sd]?|react[s]?|"
         # Immune/conflict/process verbs: "how does X fight Y", "how does X affect Y"
         r"fight[s]?|attack[s]?|defend[s]?|protect[s]?|affect[s]?|impact[s]?|"
@@ -552,6 +569,12 @@ def subject_of(question: str) -> str:
     # via .*). "how is a virus different from a bacterium" — "different from" is not a verb,
     # strip it explicitly.
     text = re.sub(r"\s+different\s+from\s+.*$", "", text, flags=re.I)
+    # "what if humans could photosynthesize" → after "what if" stripped, "humans could
+    # photosynthesize". Trailing modal+verb: strip "could/would/can/might VERB" at end.
+    text = re.sub(
+        r"\s+(?:could|would|can|might|may|will|should)\s+\w+\s*$",
+        "", text, flags=re.I,
+    )
     # "how much water should you drink" → "water should you drink" →
     # strip the modal + generic pronoun/article+noun + verb tail → "water".
     # Also handles "sleep does a person need" → "sleep".
@@ -613,7 +636,8 @@ def subject_of(question: str) -> str:
         r"salty|sweet|sour|bitter|spicy|acidic|alkaline|toxic|magnetic|elastic|"
         r"transparent|opaque|flammable|volatile|reactive|inert|radioactive|"
         r"valuable|expensive|cheap|rare|common|strong|weak|dense|flat|round|curved|"
-        r"sticky|slippery|rough|smooth|thin|thick|narrow|tall|short)\s*$",
+        r"sticky|slippery|rough|smooth|thin|thick|narrow|tall|short|"
+        r"similar|different|related|connected|distinct|unique|identical)\s*$",
         "", text, flags=re.I,
     )
     # Strip a trailing "not" that can remain after the negated auxiliary was
