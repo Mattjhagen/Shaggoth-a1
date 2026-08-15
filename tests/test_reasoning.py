@@ -12614,3 +12614,35 @@ def test_batch347_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a stranglehold",                                   "stranglehold"),
+    ("what is a cargo hold",                                     "cargo hold"),
+    ("what is a chokehold",                                      "chokehold"),
+    ("what is a face lift",                                      "face lift"),
+    ("what is a ski lift",                                       "ski lift"),
+    ("what is an air lift",                                      "air lift"),
+    ("what is a hunger strike",                                  "hunger strike"),
+    ("what is a lightning strike",                               "lightning strike"),
+    ("what is a preemptive strike",                              "preemptive strike"),
+    ("what is a court appeal",                                   "court appeal"),
+    ("what is a tax appeal",                                     "tax appeal"),
+    ("what is a legal brief",                                    "legal brief"),
+    ("what is a news brief",                                     "news brief"),
+    ("what is a one night stand",                                "one night stand"),
+    ("what is a last stand",                                     "last stand"),
+    ("what is gravitational pull",                               "gravitational pull"),
+    ("what is a muscle pull",                                    "muscle pull"),
+    ("what is a hamstring pull",                                 "hamstring pull"),
+    ("what is a baby push",                                      "baby push"),
+    ("what is a push up",                                        "push up"),
+    ("what is continental drift",                                "continental drift"),
+    ("what is genetic drift",                                    "genetic drift"),
+])
+def test_batch348_subject_extraction(question, expected):
+    """Batch 348: action-word noun heads — hold/lift/strike/pull/drift guards."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

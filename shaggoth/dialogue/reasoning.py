@@ -1197,7 +1197,7 @@ def subject_of(question: str) -> str:
         # Guard "cash flow", "data flow", "control flow", "lava flow" compound nouns from being stripped.
         r"filter[s]?|(?<!cash\s)(?<!data\s)(?<!control\s)(?<!lava\s)flow[s]?|carry|carries|digest[s]?|regulate[s]?|consume[sd]?|"
         # Guard "muscle pull" compound noun from being stripped.
-        r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|(?<!muscle\s)pull[s]?|"
+        r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|(?<!muscle\s)(?<!hamstring\s)(?<!gravitational\s)(?<!groin\s)pull[s]?|"
         r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|(?<!cake\s)(?<!trail\s)(?<!dry\s)(?<!brownie\s)(?<!cookie\s)mix(?:es)?|(?<!safety\s)(?<!blind\s)catch(?:es)?|caught|"
         r"come[s]?\s+from|get[s]?|navigate[sd]?|find[s]?|"
         r"purr[s]?|bark[s]?|meow[s]?|howl[s]?|chirp[s]?|sing[s]?|hum[s]?|roar[s]?|growl[s]?|"
@@ -1252,14 +1252,14 @@ def subject_of(question: str) -> str:
         # Intransitive motion/perception/existence verbs: "why do stars twinkle",
         # "how fast does light travel", "why do we dream", "how does sound travel"
         # Guard "hunger strike", "lightning strike", "bowling strike", "air strike" compound nouns.
-        r"twinkle[sd]?|(?<!time\s)(?<!air\s)(?<!sea\s)(?<!rail\s)(?<!road\s)(?<!space\s)travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|(?<!hunger\s)(?<!lightning\s)(?<!bowling\s)(?<!bird\s)strike[s]?|sweat[s]?|"
+        r"twinkle[sd]?|(?<!time\s)(?<!air\s)(?<!sea\s)(?<!rail\s)(?<!road\s)(?<!space\s)travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|(?<!hunger\s)(?<!lightning\s)(?<!bowling\s)(?<!bird\s)(?<!preemptive\s)(?<!air\s)strike[s]?|sweat[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
         r"swim[s]?|fly|flies|walk[s]?|"
         # Guard "run" against compound nouns: "home run", "base run", "mile run", "fun run",
         # "dry run", "ski run", "test run", "bull run", "milk run", "trial run".
         r"(?<!home )(?<!base )(?<!mile )(?<!fun )(?<!dry )(?<!ski )(?<!test )(?<!long )(?<!bull )(?<!milk )(?<!trial )run[s]?|"
         # Guard "jump" against compound nouns: "long jump", "high jump", "ski jump".
-        r"(?<!long )(?<!high )(?<!ski )jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|(?<!plain\s)speak[s]?|(?<!pep\s)(?<!pillow\s)(?<!small\s)talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?(?!\s+round\b)|come[s]?|return[s]?|arrive[sd]?|(?<!the )(?<!arithmetic )mean[s]?|"
+        r"(?<!long )(?<!high )(?<!ski )jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|(?<!plain\s)speak[s]?|(?<!pep\s)(?<!pillow\s)(?<!small\s)talk[s]?|colonize[sd]?|know[s]?|(?<!cargo\s)(?<!bay\s)hold[s]?|go(?:es)?(?!\s+round\b)|come[s]?|return[s]?|arrive[sd]?|(?<!the )(?<!arithmetic )mean[s]?|"
         r"smell[s]?|(?<!blind\s)taste[s]?|see[s]?|hear[s]?|sense[s]?|(?<!speed\s)(?<!cold\s)(?<!lip\s)read[s]?|writ(?:e[s]?|ten)|coexist[s]?|"
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
         # Note: bare "rate" and plural "rates" are NOT here — they are almost always nouns
