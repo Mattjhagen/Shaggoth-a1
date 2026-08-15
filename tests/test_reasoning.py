@@ -1327,7 +1327,7 @@ def test_batch14_classify(question, expected_intent):
     ("what is the population of china",             "china"),
     ("what is the height of mount everest",         "mount everest"),
     ("what is the area of texas",                   "texas"),
-    ("what is the meaning of life",                 "life"),
+    ("what is the meaning of life",                 "meaning of life"),
     ("what is the definition of democracy",         "democracy"),
     # Historical event nouns: "fall/collapse/rise/decline of X" → X
     ("what caused the fall of the roman empire",    "roman empire"),
@@ -1940,7 +1940,7 @@ def test_batch30_subject_extraction(question, expected):
     ("how do submarines work",                      "submarines"),
     ("how does a nuclear reactor work",             "nuclear reactor"),
     # Philosophy / psychology
-    ("what is the meaning of life",                 "life"),
+    ("what is the meaning of life",                 "meaning of life"),
     ("what is cognitive dissonance",                "cognitive dissonance"),
     ("what is the placebo effect",                  "placebo effect"),
     ("what is confirmation bias",                   "confirmation bias"),
@@ -4025,7 +4025,7 @@ def test_batch90_subject_extraction(question, expected):
     ("what are the beliefs of buddhism",               "buddhism"),
     ("what are the beliefs of christianity",           "christianity"),
     # "what is the meaning of X" → X
-    ("what is the meaning of life",                    "life"),
+    ("what is the meaning of life",                    "meaning of life"),
     # "what is the purpose of X" → X
     ("what is the purpose of art",                     "art"),
     ("what is the purpose of religion",                "religion"),
@@ -5516,6 +5516,44 @@ def test_batch127_subject_extraction(question, expected):
 ])
 def test_batch128_subject_extraction(question, expected):
     """Batch 128: political science — government, constitutions, international bodies."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is ethics",                                      "ethics"),
+    ("what is philosophy",                                  "philosophy"),
+    ("what is morality",                                    "morality"),
+    ("what is existentialism",                              "existentialism"),
+    ("what is utilitarianism",                              "utilitarianism"),
+    ("what is stoicism",                                    "stoicism"),
+    ("what is nihilism",                                    "nihilism"),
+    # "meaning of life" is the lookup topic, not just "life"
+    ("what is the meaning of life",                         "meaning of life"),
+    # "who was X"
+    ("who was socrates",                                    "socrates"),
+    ("who was plato",                                       "plato"),
+    ("who was aristotle",                                   "aristotle"),
+    ("who was nietzsche",                                   "nietzsche"),
+    # "what did X believe"
+    ("what did socrates believe",                           "socrates"),
+    ("what did plato believe",                              "plato"),
+    # named philosophical problems / theories
+    ("what is the trolley problem",                         "trolley problem"),
+    ("what is the social contract theory",                  "social contract theory"),
+    ("what is virtue ethics",                               "virtue ethics"),
+    ("what is applied ethics",                              "applied ethics"),
+    # "is X wrong" → X (predicate adjective stripped)
+    ("is lying wrong",                                      "lying"),
+    # "what is free will"
+    ("what is free will",                                   "free will"),
+    ("what is the cosmological argument",                   "cosmological argument"),
+])
+def test_batch129_subject_extraction(question, expected):
+    """Batch 129: philosophy/ethics — meaning of life, contract theory, predicate adj."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
