@@ -582,7 +582,9 @@ def subject_of(question: str) -> str:
         # Factual property nouns: "capital of france" → "france"
         r"capital|population|area|size|location|height|depth|width|length|"
         r"diameter|radius|circumference|velocity|acceleration|frequency|wavelength|pressure|charge|voltage|"
-        r"distance|temperature|density|mass|weight|volume|age|name|time\s+zone|timezone|force|"
+        # Guard historical-period compounds "golden age", "bronze age", "stone age", "iron age",
+        # "ice age", "dark age", "silver age" from being stripped as property nouns.
+        r"distance|temperature|density|mass|weight|volume|(?<!golden\s)(?<!silver\s)(?<!bronze\s)(?<!stone\s)(?<!iron\s)(?<!ice\s)(?<!dark\s)age|name|time\s+zone|timezone|force|"
         # Economic/financial property nouns: "value of the us dollar" → "us dollar"
         r"value|price|cost|worth|exchange\s+rate|interest\s+rate|"
         # Role/title nouns: "president of france" → "france"
@@ -1704,7 +1706,8 @@ def subject_of(question: str) -> str:
         r"root|"
         r"capital|population|size|location|height|depth|width|length|"
         r"diameter|radius|velocity|acceleration|frequency|wavelength|"
-        r"distance|temperature|density|mass|weight|age|"
+        # Guard historical-period compounds "golden age", "bronze age" etc.
+        r"distance|temperature|density|mass|weight|(?<!golden\s)(?<!silver\s)(?<!bronze\s)(?<!stone\s)(?<!iron\s)(?<!ice\s)(?<!dark\s)age|"
         r"value|price|cost|worth|"
         r"history|meaning(?!\s+of\s+life)|definition|"
         # Guard "rule of law" (legal concept) from being stripped to "law".

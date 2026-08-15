@@ -9072,7 +9072,7 @@ def test_batch228_subject_extraction(question, expected):
     ("what is animation",                                        "animation"),
     ("what is a sequel",                                         "sequel"),
     ("what is a prequel",                                        "prequel"),
-    ("what is the golden age of hollywood",                      "hollywood"),
+    ("what is the golden age of hollywood",                      "golden age of hollywood"),
     ("what is film noir",                                        "film noir"),
     ("what is a director",                                       "director"),
     ("what is an oscar",                                         "oscar"),
@@ -9836,6 +9836,126 @@ def test_batch253_subject_extraction(question, expected):
 ])
 def test_batch254_subject_extraction(question, expected):
     """Batch 254: architecture/engineering — design compounds, structures, styles."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is quantum entanglement",                             "quantum entanglement"),
+    ("what is the higgs boson",                                  "higgs boson"),
+    ("what is dark matter",                                      "dark matter"),
+    ("what is dark energy",                                      "dark energy"),
+    ("what is the speed of light",                               "speed of light"),
+    ("what is a black hole",                                     "black hole"),
+    ("what is string theory",                                    "string theory"),
+    ("what is the uncertainty principle",                        "uncertainty principle"),
+    ("what is thermodynamics",                                   "thermodynamics"),
+    ("what is electromagnetism",                                 "electromagnetism"),
+    ("what is nuclear fusion",                                   "nuclear fusion"),
+    ("what is plasma",                                           "plasma"),
+    ("what is a neutron star",                                   "neutron star"),
+    ("what is gravitational waves",                              "gravitational waves"),
+    ("what is special relativity",                               "special relativity"),
+    ("what is general relativity",                               "general relativity"),
+    ("what is quantum mechanics",                                "quantum mechanics"),
+    ("what is the standard model",                               "standard model"),
+    ("what is a photon",                                         "photon"),
+    ("what is antimatter",                                       "antimatter"),
+])
+def test_batch255_subject_extraction(question, expected):
+    """Batch 255: physics — quantum, relativity, particles, cosmology."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is diabetes",                                         "diabetes"),
+    ("what is hypertension",                                     "hypertension"),
+    ("what is alzheimer's disease",                              "alzheimer's disease"),
+    ("what is cancer",                                           "cancer"),
+    ("what is a vaccine",                                        "vaccine"),
+    ("what is herd immunity",                                    "herd immunity"),
+    ("what is the immune system",                                "immune system"),
+    ("what is chemotherapy",                                     "chemotherapy"),
+    ("what is an mri",                                           "mri"),
+    ("what is a stem cell",                                      "stem cell"),
+    ("what is gene therapy",                                     "gene therapy"),
+    ("what is the blood brain barrier",                          "blood brain barrier"),
+    ("what is insulin",                                          "insulin"),
+    ("what is sepsis",                                           "sepsis"),
+    ("what is anesthesia",                                       "anesthesia"),
+    ("what is palliative care",                                  "palliative care"),
+    ("what is inflammation",                                     "inflammation"),
+    ("what is an antibiotic",                                    "antibiotic"),
+    ("what is chronic pain",                                     "chronic pain"),
+    ("what is a clinical trial",                                 "clinical trial"),
+])
+def test_batch256_subject_extraction(question, expected):
+    """Batch 256: medicine/healthcare — diseases, treatments, procedures."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is social stratification",                            "social stratification"),
+    ("what is cultural relativism",                              "cultural relativism"),
+    ("what is ethnocentrism",                                    "ethnocentrism"),
+    ("what is social mobility",                                  "social mobility"),
+    ("what is gender roles",                                     "gender roles"),
+    ("what is socialization",                                    "socialization"),
+    ("what is cultural diffusion",                               "cultural diffusion"),
+    ("what is a kinship system",                                 "kinship system"),
+    ("what is ritual",                                           "ritual"),
+    ("what is taboo",                                            "taboo"),
+    ("what is totemism",                                         "totemism"),
+    ("what is structural functionalism",                         "structural functionalism"),
+    ("what is conflict theory",                                  "conflict theory"),
+    ("what is symbolic interactionism",                          "symbolic interactionism"),
+    ("what is social capital",                                   "social capital"),
+    ("what is colonialism",                                      "colonialism"),
+    ("what is globalization",                                    "globalization"),
+    ("what is a caste system",                                   "caste system"),
+    ("what is deviance",                                         "deviance"),
+    ("what is social norms",                                     "social norms"),
+])
+def test_batch257_subject_extraction(question, expected):
+    """Batch 257: sociology/anthropology — stratification, theory, culture."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is impressionism",                                    "impressionism"),
+    ("what is surrealism",                                       "surrealism"),
+    ("what is abstract expressionism",                           "abstract expressionism"),
+    ("what is cubism",                                           "cubism"),
+    ("what is the renaissance",                                  "renaissance"),
+    ("what is baroque art",                                      "baroque art"),
+    ("what is romanticism",                                      "romanticism"),
+    ("what is modernism",                                        "modernism"),
+    ("what is postmodernism",                                    "postmodernism"),
+    ("what is dadaism",                                          "dadaism"),
+    ("what is pop art",                                          "pop art"),
+    ("what is minimalism",                                       "minimalism"),
+    ("what is fresco painting",                                  "fresco painting"),
+    ("what is chiaroscuro",                                      "chiaroscuro"),
+    ("what is perspective in art",                               "perspective"),
+    ("what is the golden age of dutch painting",                 "golden age of dutch painting"),
+    ("what is neoclassicism",                                    "neoclassicism"),
+    ("what is fauvism",                                          "fauvism"),
+    ("what is expressionism",                                    "expressionism"),
+    ("what is conceptual art",                                   "conceptual art"),
+])
+def test_batch258_subject_extraction(question, expected):
+    """Batch 258: art history — movements, techniques, historical periods."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
