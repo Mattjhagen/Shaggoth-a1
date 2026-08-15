@@ -9720,3 +9720,33 @@ def test_batch250_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is an algorithm",                                     "algorithm"),
+    ("what is a data structure",                                 "data structure"),
+    ("what is a hash table",                                     "hash table"),
+    ("what is a binary tree",                                    "binary tree"),
+    ("what is recursion",                                        "recursion"),
+    ("what is object oriented programming",                      "object oriented programming"),
+    ("what is functional programming",                           "functional programming"),
+    ("what is a database",                                       "database"),
+    ("what is sql",                                              "sql"),
+    ("what is machine learning",                                 "machine learning"),
+    ("what is a neural network",                                 "neural network"),
+    ("what is deep learning",                                    "deep learning"),
+    ("what is an api",                                           "api"),
+    ("what is big o notation",                                   "big o notation"),
+    ("what is a linked list",                                    "linked list"),
+    ("what is a stack",                                          "stack"),
+    ("what is a queue",                                          "queue"),
+    ("how does sorting work",                                    "sorting"),
+    ("what is a compiler",                                       "compiler"),
+    ("what is the internet",                                     "internet"),
+])
+def test_batch251_subject_extraction(question, expected):
+    """Batch 251: computer science — algorithms, data structures, ML, networking."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
