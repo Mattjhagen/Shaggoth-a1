@@ -1550,7 +1550,7 @@ def test_batch19_subject_extraction(question, expected):
     # Modal + subject + verb tail: "how much X should you VERB" → X
     ("how much water should you drink",             "water"),
     ("how much protein should you eat",             "protein"),
-    # Modal + article + noun + verb tail: "how much X does a NOUN VERB" → X
+    # "how much X does a NOUN VERB" → NOUN (entity is the lookup subject, consistent design)
     ("how much sleep does a person need",           "person"),
     ("how much oxygen does a human need",           "human"),
     # Unit-noun does pattern: "how many calories does X burn" → X
@@ -8184,6 +8184,51 @@ def test_batch195_subject_extraction(question, expected):
 ])
 def test_batch196_subject_extraction(question, expected):
     """Batch 196: geography/world — capitals, populations, rivers, locations."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" (medical/health term) → X
+    ("what is diabetes",                                       "diabetes"),
+    ("what is cancer",                                         "cancer"),
+    ("what is hypertension",                                   "hypertension"),
+    # "what causes X" → X
+    ("what causes diabetes",                                   "diabetes"),
+    ("what causes high blood pressure",                        "high blood pressure"),
+    # "how is X treated" → X
+    ("how is diabetes treated",                                "diabetes"),
+    ("how is cancer treated",                                  "cancer"),
+    # "what are the symptoms of X" → X
+    ("what are the symptoms of diabetes",                      "diabetes"),
+    ("what are the symptoms of covid",                         "covid"),
+    # "is X contagious" → X
+    ("is covid contagious",                                    "covid"),
+    ("is the flu contagious",                                  "flu"),
+    # "how do you treat X" → X
+    ("how do you treat a headache",                            "headache"),
+    ("how do you treat diabetes",                              "diabetes"),
+    # "what is the cure for X" → X
+    ("what is the cure for the common cold",                   "common cold"),
+    # "how long does X last" → X
+    ("how long does the flu last",                             "flu"),
+    # "what foods are good for X" → X
+    ("what foods are good for the heart",                      "heart"),
+    # "how does X spread" → X
+    ("how does covid spread",                                  "covid"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between a virus and a bacteria",  "virus and bacteria"),
+    # "what vitamin helps with X" → X
+    ("what vitamin helps with immune system",                  "immune system"),
+    # "is X bad for you" → X
+    ("is sugar bad for you",                                   "sugar"),
+    # "how much sleep does a person need" → person (entity is lookup subject)
+    ("how much sleep does a person need",                      "person"),
+])
+def test_batch197_subject_extraction(question, expected):
+    """Batch 197: health/medicine — symptoms, treatments, conditions, nutrition."""
     result = subject_of(question)
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
