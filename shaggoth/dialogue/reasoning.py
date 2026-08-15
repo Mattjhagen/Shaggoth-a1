@@ -377,6 +377,12 @@ def subject_of(question: str) -> str:
     )
     # "give me information about X" → after "give me " stripped, "information about X" remains
     text = re.sub(r"^information\s+about\s+", "", text, flags=re.I)
+    # "i want to know about X" / "i'd like to learn about X" → X
+    text = re.sub(
+        r"^(?:i|we)\s+(?:want|'d\s+like|would\s+like|need)\s+to\s+"
+        r"(?:know|learn|understand|find\s+out|hear)\s+(?:more\s+)?(?:about\s+)?",
+        "", text, flags=re.I,
+    )
     # After the imperative strip, a question word may be newly exposed:
     # "explain how X Y" → strip "explain " → "how X Y" → re-strip "how " → "X Y"
     text = re.sub(
@@ -539,7 +545,7 @@ def subject_of(question: str) -> str:
         r"beliefs?|teachings?|tenets?|practices?|doctrines?|rituals?|"
         # Ecology/nature scaffold nouns: "predators of rabbits" → "rabbits"
         r"predators?|prey|habitat|diet|behavior|behaviour|lifecycle)"
-        r"\s+of\s+", "", text, flags=re.I
+        r"\s+(?:of|about)\s+", "", text, flags=re.I
     )
     # When scaffold strip fired, trailing "on/in <context>" is scaffolding too:
     # "effects of caffeine on sleep" → "caffeine on sleep" → strip "on sleep"

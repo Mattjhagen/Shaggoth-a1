@@ -5999,3 +5999,48 @@ def test_batch142_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "tell me about X"
+    ("tell me about the french revolution",                "french revolution"),
+    ("tell me about quantum physics",                      "quantum physics"),
+    ("tell me about cleopatra",                            "cleopatra"),
+    # "explain X"
+    ("explain quantum mechanics",                          "quantum mechanics"),
+    ("explain the water cycle",                            "water cycle"),
+    ("explain photosynthesis",                             "photosynthesis"),
+    # "describe X"
+    ("describe the process of photosynthesis",             "photosynthesis"),
+    ("describe the french revolution",                     "french revolution"),
+    # "can you explain X"
+    ("can you explain evolution",                          "evolution"),
+    ("can you explain how gravity works",                  "gravity"),
+    # "i want to know about X"
+    ("i want to know about black holes",                   "black holes"),
+    # "give me information about X"
+    ("give me information about the amazon river",         "amazon river"),
+    # "what are some facts about X"
+    ("what are some facts about the moon",                 "moon"),
+    ("what are some facts about penguins",                 "penguins"),
+    # "is X a planet"
+    ("is pluto a planet",                                  "pluto"),
+    # "are X dangerous"
+    ("are sharks dangerous",                               "sharks"),
+    # "does X have X"
+    ("does mars have moons",                               "mars"),
+    # "can X do X"
+    ("can fish drown",                                     "fish"),
+    # "do X have X"
+    ("do dogs have feelings",                              "dogs"),
+    # "will X happen"
+    ("will the sun explode",                               "sun"),
+    # "is the earth flat"
+    ("is the earth flat",                                  "earth"),
+])
+def test_batch143_subject_extraction(question, expected):
+    """Batch 143: unusual/stress-test question patterns across domains."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
