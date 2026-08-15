@@ -175,6 +175,39 @@ def test_body_discusses_ignores_noise_sentences():
     )
 
 
+def test_body_discusses_incidental_mention_in_long_article():
+    """A single co-occurrence sentence inside a long article is a passing
+    reference, not evidence the article is about that topic.
+
+    'Gravitational waves propagate at the speed of light' makes 'speed' and
+    'light' co-occur in Gravity, but Gravity is not about the speed of light.
+    """
+    from shaggoth.dialogue.engine import _body_discusses, knowledge_is_relevant
+
+    gravity_body = (
+        "Gravity is the fundamental force that causes all objects with mass "
+        "to attract one another. "
+        "Mass causes gravity by curving spacetime. "
+        "Newton's law describes gravity as proportional to mass and inversely "
+        "proportional to the square of distance. "
+        "The gravitational constant G determines the strength of gravity. "
+        "Gravity causes the Earth to orbit the Sun and objects to fall. "
+        "On Earth, gravity accelerates falling objects at approximately 9.8 "
+        "metres per second squared. "
+        "Gravity is the weakest of the four fundamental forces yet dominates "
+        "at cosmic scales. "
+        "Black holes form when gravity causes the collapse of matter to extreme "
+        "density so not even light can escape. "
+        "Gravitational waves are ripples in spacetime that propagate at the "
+        "speed of light. "
+        "Gravity has not yet been reconciled with quantum mechanics."
+    )
+    assert not _body_discusses(gravity_body, {"speed", "light"})
+    assert not knowledge_is_relevant(
+        "Gravity", "what is the speed of light", gravity_body
+    )
+
+
 # --------------------------------------------------------------------------
 # Slugs: the filename stem IS the topic, so a bad slug is a permanent bad topic
 # --------------------------------------------------------------------------

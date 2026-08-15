@@ -1863,6 +1863,26 @@ _DESCRIBE_FILTER = frozenset({
     # exist") — must be in _DESCRIBE_FILTER (not _WEAK_SUBJECT) so compound-
     # noun preservation can't accidentally keep them after a substantive noun.
     "exist", "exists", "existed",
+    # Process/change verbs that appear at the end of "how did X [verb]" questions
+    # ("how did humans evolve", "how did species emerge").  The verb names the
+    # action being asked about, not the topic being asked about.
+    "evolve", "evolves", "evolved", "evolving",
+    "emerge", "emerges", "emerged", "emerging",
+    "adapt", "adapts", "adapted", "adapting",
+    # Historical/biographical question verbs: "who invented X", "who discovered X",
+    # "when did X happen", "when did X begin", "how did X collapse".  These are
+    # always verbal scaffolding around the actual subject.  Past-tense forms are
+    # especially safe — they never appear as parts of compound KB topic names.
+    "invent", "invents", "invented", "inventing",
+    "discover", "discovers", "discovered", "discovering",
+    "create", "creates", "created", "creating",
+    "happen", "happens", "happened", "happening",
+    "begin", "began", "begins",           # "beginning" is excluded — risky in titles
+    "occur", "occurs", "occurred", "occurring",
+    "collapse", "collapses", "collapsed", "collapsing",
+    "die", "dies", "died", "dying",
+    "fell",                                # past of "fall"; "fall" itself is too risky
+    "changed",                             # past of "change"; "climate change" blocks root
 })
 
 # Words that survive keyword extraction but can never be the *subject* of a
@@ -2127,12 +2147,22 @@ def _body_discusses(content: str, asked: set[str]) -> bool:
     nothing -- an encyclopedia entry contains most common words eventually.
     Appearing in the same sentence is what distinguishes "this document
     discusses the subject" from "these words happen to be in here".
+
+    Incidental mention guard: a single co-occurrence sentence in a long article
+    (> 6 valid sentences) is almost always a passing reference rather than the
+    article's subject.  "Gravitational waves propagate at the speed of light"
+    makes 'speed' and 'light' co-occur inside Gravity, but Gravity is not about
+    the speed of light -- and a short article about speed of light would discuss
+    it in most of its sentences.
     """
     cleaned = _protect_abbrevs(_break_navboxes(content.replace("\n", " ")))
+    total_valid = 0
+    matching = 0
     for sentence in _SENTENCE_SPLIT.split(cleaned):
         sentence = _restore_abbrevs(_scrub(" ".join(sentence.split())))
         if len(sentence) < 15 or _NOISE.search(sentence):
             continue
+        total_valid += 1
         tokens = set(re.findall(r"[a-z0-9]+", sentence.lower()))
         if not tokens:
             continue
@@ -2140,8 +2170,12 @@ def _body_discusses(content: str, asked: set[str]) -> bool:
             any(_stem_match(word, token, min_long_frac=0.55) for token in tokens)
             for word in asked
         ):
-            return True
-    return False
+            matching += 1
+    if not matching:
+        return False
+    if matching == 1 and total_valid > 6:
+        return False
+    return True
 
 
 def _snippet(text: str, limit: int = 80) -> str:

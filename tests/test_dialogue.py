@@ -329,6 +329,49 @@ class ConversationFlowTests(unittest.TestCase):
             result = describe_unknown("what distinguishes plants from animals", researching=False)
             self.assertNotIn("distinguishes", result.lower(), result)
 
+    def test_describe_unknown_evolve_filtered(self):
+        """'evolve' is the process verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("how did humans evolve", researching=False)
+            self.assertIn("human", result.lower(), result)
+            self.assertNotIn("evolve", result.lower(), result)
+
+    def test_describe_unknown_emerged_filtered(self):
+        """'emerged' is the process verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("how did life emerge from the oceans", researching=False)
+            self.assertNotIn("emerged", result.lower(), result)
+            self.assertNotIn("emerge", result.lower(), result)
+
+    def test_describe_unknown_invented_filtered(self):
+        """'invented' is the question verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("who invented electricity", researching=False)
+            self.assertIn("electric", result.lower(), result)
+            self.assertNotIn("invented", result.lower(), result)
+
+    def test_describe_unknown_discovered_filtered(self):
+        """'discovered' is the question verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("who discovered penicillin", researching=False)
+            self.assertIn("penicillin", result.lower(), result)
+            self.assertNotIn("discovered", result.lower(), result)
+
+    def test_describe_unknown_happened_filtered(self):
+        """'happened' is the question verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("when did the Renaissance happen", researching=False)
+            self.assertIn("renaissance", result.lower(), result)
+            self.assertNotIn("happened", result.lower(), result)
+
+    def test_describe_unknown_collapsed_filtered(self):
+        """'collapsed' is the question verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("how did the Roman Empire collapse", researching=False)
+            self.assertIn("roman", result.lower(), result)
+            self.assertNotIn("collapsed", result.lower(), result)
+            self.assertNotIn("collapse", result.lower(), result)
+
     def test_what_about_that_is_follow_up(self):
         self.assertTrue(is_follow_up("what about that"))
         self.assertTrue(is_follow_up("what about this?"))
