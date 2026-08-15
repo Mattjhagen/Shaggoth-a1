@@ -195,6 +195,11 @@ def split_subjects(question: str) -> list:
     is not really a comparison" rather than guessing at one.
     """
     text = _LEAD_IN.sub("", (question or "").strip(), count=1)
+    # Strip the comparison/relation verb that can appear between the first subject
+    # and the joiner after the lead-in is removed:
+    # "how does DNA differ from RNA" → "DNA differ from RNA" → "DNA from RNA"
+    # "how does X relate to Y" → "X relate to Y" → "X to Y"
+    text = re.sub(r"\s+(?:differs?|relates?|contrasts?)\b", "", text, flags=re.I)
     text = _TRAILING.sub("", text).strip(" ?.")
     for joiner in _JOINERS:
         parts = re.split(joiner, text, maxsplit=1, flags=re.I)

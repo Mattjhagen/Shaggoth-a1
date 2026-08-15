@@ -253,6 +253,19 @@ def test_split_subjects_what_sets_apart():
     assert split_subjects("what sets TCP apart from UDP") == ["TCP", "UDP"]
 
 
+@pytest.mark.parametrize("question,expected", [
+    # "how does X differ from Y" — "differ" is a comparison verb between subject and joiner
+    ("how does DNA differ from RNA", ["DNA", "RNA"]),
+    ("how does Python differ from JavaScript", ["Python", "JavaScript"]),
+    # "how does X relate to Y" — "relate" similarly sits between subject and joiner
+    ("how does photosynthesis relate to respiration", ["photosynthesis", "respiration"]),
+])
+def test_split_subjects_differ_and_relate(question, expected):
+    """Comparison verbs 'differ from' and 'relate to' must be stripped before splitting."""
+    assert classify(question) in (Intent.COMPARE, Intent.CONTRAST)
+    assert split_subjects(question) == expected
+
+
 def test_subject_of_drops_the_trailing_verb_phrase():
     """The subject is what to look up; the rest is what to look for."""
     assert subject_of("why does photosynthesis need light") == "photosynthesis"
