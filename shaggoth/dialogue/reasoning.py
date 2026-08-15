@@ -313,7 +313,15 @@ def subject_of(question: str) -> str:
     # strip "some " → "programming languages".
     # Also handles "what are all the planets" → "all the planets" → "the planets" → "planets".
     # "what are the different blood types" → "different blood types" → "blood types".
-    text = re.sub(r"^(?:some|any|various|several|a few|all|different|main|major|key)\s+", "", text, flags=re.I)
+    # Early article strip so numeric/qualifier strips below see past "the/a/an".
+    # "the 3 states of matter" → "3 states of matter"; "the main X" → "main X".
+    # The end-of-function strip is kept as a second pass for subjects that arrive
+    # there via different code paths.
+    text = re.sub(r"^(?:the|a|an)\s+", "", text, flags=re.I)
+    # Numeric quantifier: "3 states of matter" → "states of matter" → "matter";
+    # "4 blood types" → "blood types". Also strips named quantifiers left after
+    # stripping "what are".
+    text = re.sub(r"^(?:some|any|various|several|a few|all|different|main|major|key|\d+)\s+", "", text, flags=re.I)
     text = re.sub(
         # Allow up to two leading article/quantifier words: "the different types of X"
         r"^(?:(?:a|an|the|some|any|all|various|different|main|major|key|primary|common|a few)\s+){0,2}"
@@ -398,6 +406,7 @@ def subject_of(question: str) -> str:
         r"pump[s]?|process(?:es)?|connect[s]?|"
         r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|"
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"
+        r"erupt[s]?|"
         r"have\b|has\b|"
         r"grow[s]?|spread[s]?|evolve[s]?|"
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
@@ -432,6 +441,10 @@ def subject_of(question: str) -> str:
     # "X in the <location>" → X  (e.g. "planets in the solar system" → "planets")
     # Require "in the" so bare "animals in water" is not affected.
     text = re.sub(r"\s+in\s+the\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
+    # "X in <word>" → X  (e.g. "turbulence in planes" → "turbulence",
+    # "pain in joints" → "pain"). Only strip a single word to avoid eating
+    # compound subjects; "in the ..." is already handled above.
+    text = re.sub(r"\s+in\s+(?!the\b)\w+\s*$", "", text, flags=re.I)
     # "X from <place>" → X  (e.g. "moon from earth" → "moon")
     text = re.sub(r"\s+from\s+\w+(?:\s+\w+){0,1}\s*$", "", text, flags=re.I)
     # Trailing state adjective in "why is X [adjective]" patterns.
@@ -450,6 +463,11 @@ def subject_of(question: str) -> str:
     # strips "why does " → "X not use Y" → trailing strip removes " use Y" →
     # "X not" → remove trailing " not" → "X".
     text = re.sub(r"\s+not\s*$", "", text, flags=re.I)
+    # "leaves change color" → "leaves", "sun change seasons" → "sun".
+    # Only fires when "change OBJECT" is at end of string (after location strips),
+    # so "climate change" (no object) and "climate change affect X" (affect already
+    # stripped by the verb list above) are not affected.
+    text = re.sub(r"^(.+?)\s+change[s]?\s+\w+\s*$", r"\1", text, flags=re.I)
     # Strip a leading bare article that remains after all other strips:
     # "what is the speed of light" → after verb strip → "the speed of light" → "speed of light"
     # "how does the immune system work" → "the immune system" → "immune system"

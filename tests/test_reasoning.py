@@ -1265,3 +1265,51 @@ def test_batch13_subject_extraction(question, expected):
 def test_batch13_classify(question, expected_intent):
     """Batch 13: stages/phases/steps/organs/branches → ENUMERATE; new verbs → CAUSAL."""
     assert classify(question) == expected_intent
+
+
+# --------------------------------------------------------------------------
+# Batch 14: numeric/article leading strip, bare "in X" context strip,
+#            "change OBJECT" trailing strip, erupt verb
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Numeric quantifier + early article strip
+    ("what are the 3 states of matter",             "matter"),
+    ("what are the 4 blood types",                  "blood types"),
+    ("what are 5 types of clouds",                  "clouds"),
+    # "change OBJECT" trailing strip (verb use): subject precedes "change X"
+    ("why do leaves change color",                  "leaves"),
+    ("how does the sun change seasons",             "sun"),
+    ("how does a river change course",              "river"),
+    ("why do leaves change color in autumn",        "leaves"),
+    # "climate change" preserved as compound noun (no object after "change")
+    ("what is the impact of climate change on ecosystems", "climate change"),
+    ("how does climate change affect sea levels",   "climate change"),
+    ("why does the climate change",                 "climate change"),
+    # erupt trailing verb
+    ("why do volcanoes erupt",                      "volcanoes"),
+    # bare "in WORD" context strip
+    ("what causes turbulence in planes",            "turbulence"),
+    ("what causes pain in joints",                  "pain"),
+    ("what causes traffic in cities",               "traffic"),
+])
+def test_batch14_subject_extraction(question, expected):
+    """Batch 14: numeric strip, bare-in-word strip, change-object strip, erupt verb."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected_intent", [
+    ("what are the 3 states of matter",             Intent.ENUMERATE),
+    ("what are the 4 blood types",                  Intent.ENUMERATE),
+    ("why do leaves change color",                  Intent.CAUSAL),
+    ("why do volcanoes erupt",                      Intent.CAUSAL),
+    ("what causes turbulence in planes",            Intent.CAUSAL),
+    ("what is the impact of climate change on ecosystems", Intent.CAUSAL),
+])
+def test_batch14_classify(question, expected_intent):
+    """Batch 14: numeric → ENUMERATE; change/erupt/turbulence → CAUSAL."""
+    assert classify(question) == expected_intent
