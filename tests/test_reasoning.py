@@ -13093,3 +13093,123 @@ def test_batch361_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # celestial objects
+    ("what is a black hole",                                     "black hole"),
+    ("what is a neutron star",                                   "neutron star"),
+    ("what is a dwarf star",                                     "dwarf star"),
+    ("what is a white dwarf",                                    "white dwarf"),
+    ("what is a red giant",                                      "red giant"),
+    ("what is a supernova",                                      "supernova"),
+    ("what is a quasar",                                         "quasar"),
+    ("what is a pulsar",                                         "pulsar"),
+    # "light" compound nouns (space)
+    ("what is a light year",                                     "light year"),
+    ("what is sunlight",                                         "sunlight"),
+    ("what is starlight",                                        "starlight"),
+    ("what is moonlight",                                        "moonlight"),
+    # orbit/gravity concepts
+    ("what is a solar system",                                   "solar system"),
+    ("what is the milky way",                                    "milky way"),
+    ("what is dark matter",                                      "dark matter"),
+    ("what is dark energy",                                      "dark energy"),
+    ("what is a wormhole",                                       "wormhole"),
+    # "craft" compound nouns
+    ("what is a spacecraft",                                     "spacecraft"),
+    ("what is a hovercraft",                                     "hovercraft"),
+    ("what is a watercraft",                                     "watercraft"),
+    # telescope types
+    ("what is a space telescope",                                "space telescope"),
+    ("what is a radio telescope",                                "radio telescope"),
+    # missions
+    ("what is a space shuttle",                                  "space shuttle"),
+    ("what is a space station",                                  "space station"),
+])
+def test_batch362_subject_extraction(question, expected):
+    """Batch 362: space/astronomy compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "ball" compound nouns
+    ("what is a football",                                       "football"),
+    ("what is a basketball",                                     "basketball"),
+    ("what is a baseball",                                       "baseball"),
+    ("what is a volleyball",                                     "volleyball"),
+    ("what is a snowball",                                       "snowball"),
+    ("what is a fireball",                                       "fireball"),
+    # "track" compound nouns
+    ("what is a racetrack",                                      "racetrack"),
+    ("what is a soundtrack",                                     "soundtrack"),
+    ("what is a fast track",                                     "fast track"),
+    # "kick" compound nouns
+    ("what is a free kick",                                      "free kick"),
+    ("what is a dropkick",                                       "dropkick"),
+    ("what is a sidekick",                                       "sidekick"),
+    # "shot" compound nouns
+    ("what is a gunshot",                                        "gunshot"),
+    ("what is a headshot",                                       "headshot"),
+    ("what is a screenshot",                                     "screenshot"),
+    ("what is a long shot",                                      "long shot"),
+    # "match" compound nouns
+    ("what is a chess match",                                    "chess match"),
+    ("what is a boxing match",                                   "boxing match"),
+    # "game" compound nouns
+    ("what is a board game",                                     "board game"),
+    ("what is a war game",                                       "war game"),
+    ("what is a video game",                                     "video game"),
+    # "league" compound nouns
+    ("what is a little league",                                  "little league"),
+    ("what is the ivy league",                                   "ivy league"),
+])
+def test_batch363_subject_extraction(question, expected):
+    """Batch 363: sports/physical compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "mind" compound nouns
+    ("what is a mastermind",                                     "mastermind"),
+    ("what is a hive mind",                                      "hive mind"),
+    ("what is mindfulness",                                      "mindfulness"),
+    # "thought" compound nouns
+    ("what is a thought experiment",                             "thought experiment"),
+    ("what is deep thought",                                     "deep thought"),
+    # "sense" compound nouns — guard against verb-strip
+    ("what is common sense",                                     "common sense"),
+    ("what is a sixth sense",                                    "sixth sense"),
+    # "conscious" compound nouns
+    ("what is the subconscious",                                 "subconscious"),
+    ("what is the unconscious",                                  "unconscious"),
+    # mental health terms
+    ("what is anxiety",                                          "anxiety"),
+    ("what is schizophrenia",                                    "schizophrenia"),
+    ("what is bipolar disorder",                                 "bipolar disorder"),
+    ("what is ptsd",                                             "ptsd"),
+    ("what is ocd",                                              "ocd"),
+    ("what is adhd",                                             "adhd"),
+    # psychological concepts
+    ("what is cognitive dissonance",                             "cognitive dissonance"),
+    ("what is confirmation bias",                                "confirmation bias"),
+    ("what is the placebo effect",                               "placebo effect"),
+    ("what is classical conditioning",                           "classical conditioning"),
+    ("what is operant conditioning",                             "operant conditioning"),
+    # "ego" and self compound nouns
+    ("what is the ego",                                          "ego"),
+    ("what is self esteem",                                      "self esteem"),
+    ("what is self awareness",                                   "self awareness"),
+])
+def test_batch364_subject_extraction(question, expected):
+    """Batch 364: psychology/mental health; 'common sense/sixth sense' guard for verb-strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
