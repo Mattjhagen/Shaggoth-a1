@@ -347,6 +347,10 @@ def subject_of(question: str) -> str:
     # "can fish drown" → "fish drown", "is the earth flat" → "earth flat",
     # "will the sun explode" → "the sun explode" → "sun explode".
     text = re.sub(r"^(?:is|are|was|were|does|do|did|can|could|would|should|will)\s+(?:a\s+|an\s+|the\s+)?", "", text, flags=re.I)
+    # "which planet is closest to the sun" → "planet"; "which country has the largest population" → "country"
+    _m_which = re.match(r"^which\s+(.+?)\s+(?:is|are|was|were|has|have|had|does|do|did)\b", text, re.I)
+    if _m_which:
+        text = _m_which.group(1)
     # After "how long" is stripped, "ago" sometimes leads: "how long ago did X Y"
     # → "ago did X Y". Strip "ago" plus any following auxiliary in one shot so the
     # bare-opener strip doesn't need to run twice.
@@ -403,7 +407,7 @@ def subject_of(question: str) -> str:
         # Role/title nouns: "president of france" → "france"
         r"president|prime\s+minister|king|queen|ruler|leader|founder|director|"
         r"inventor|discoverer|author|composer|painter|creator|"
-        r"history|origin|meaning|definition|symbol|flag|currency|language|"
+        r"history|meaning|definition|symbol|flag|currency|language|"
         # Measurement/property compounds: "boiling point of water" → "water"
         # "half life of carbon 14" → "carbon 14"
         r"point|rate|level|amount|number|count|percentage|quantity|fraction|proportion|"

@@ -2303,3 +2303,37 @@ def test_batch39_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "which X is/are Y" → X
+    ("which planet is closest to the sun",          "planet"),
+    ("which country has the largest population",    "country"),
+    ("which animal is the fastest",                 "animal"),
+    ("which element has the highest melting point", "element"),
+    ("which vitamin is essential for bones",        "vitamin"),
+    # where/when/who — regression guards
+    ("where is the amazon river located",           "amazon river"),
+    ("where is mount everest located",              "mount everest"),
+    ("where do polar bears live",                   "polar bears"),
+    ("where do penguins live",                      "penguins"),
+    ("when was the telephone invented",             "telephone"),
+    ("when was penicillin discovered",              "penicillin"),
+    ("when did pluto become a dwarf planet",        "pluto"),
+    ("when did humans first walk on the moon",      "humans"),
+    ("who invented the telephone",                  "telephone"),
+    ("who invented the printing press",             "printing press"),
+    ("who discovered penicillin",                   "penicillin"),
+    ("who discovered gravity",                      "gravity"),
+    ("who created the internet",                    "internet"),
+    ("who created the theory of relativity",        "theory of relativity"),
+    ("who wrote hamlet",                            "hamlet"),
+    # "who wrote X" where X is a multi-word title containing a causal noun
+    ("who wrote origin of species",                 "origin of species"),
+])
+def test_batch40_subject_extraction(question, expected):
+    """Batch 40: which-X-is/has patterns; protect attribution-verb results from causal-noun stripping."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
