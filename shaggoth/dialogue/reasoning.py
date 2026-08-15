@@ -317,7 +317,8 @@ def subject_of(question: str) -> str:
     text = re.sub(
         # Allow up to two leading article/quantifier words: "the different types of X"
         r"^(?:(?:a|an|the|some|any|all|various|different|main|major|key|primary|common|a few)\s+){0,2}"
-        r"(?:types?|kinds?|sorts?|categories|examples?|forms?|states?|layers?|list|"
+        r"(?:types?|kinds?|sorts?|categories|examples?|forms?|states?|layers?|"
+        r"components?|parts?|members?|sections?|elements?|list|"
         # Overview/summary nouns: "give me an overview of X", "give me a summary of X"
         r"overview|summary|summaries|introduction|definition|explanation|description|"
         # Medical/descriptive noun scaffolding: "what are the symptoms of X" → "X"
@@ -394,6 +395,7 @@ def subject_of(question: str) -> str:
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|train[s]?|take[s]?|"
         r"pump[s]?|process(?:es)?|connect[s]?|"
+        r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|"
         r"have\b|has\b|"
         r"grow[s]?|spread[s]?|evolve[s]?|"
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"

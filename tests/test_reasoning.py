@@ -1185,3 +1185,40 @@ def test_batch11_subject_extraction(question, expected):
 def test_batch11_enumerate_classify(question, expected_intent):
     """'what are the layers/main/different X' should classify as ENUMERATE."""
     assert classify(question) == expected_intent
+
+
+# ---------------------------------------------------------------------------
+# Batch 12: components/parts scaffold nouns, biological/physical process verbs
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "components of X" and "parts of X" scaffold nouns → X
+    ("what are the components of a cell", "cell"),
+    ("what are the parts of the brain", "brain"),
+    ("what are the sections of DNA", "DNA"),
+    ("what are the members of the solar system", "solar system"),
+    # Biological/physical process verbs stripped trailing
+    ("how does the kidney filter blood", "kidney"),
+    ("how does electricity flow through a wire", "electricity"),
+    ("how do red blood cells carry oxygen", "red blood cells"),
+    ("how does the stomach digest food", "stomach"),
+    ("how does the body regulate temperature", "body"),
+])
+def test_batch12_subject_extraction(question, expected):
+    """Batch 12: components/parts scaffold, filter/flow/carry/digest/regulate verbs."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected_intent", [
+    ("what are the components of a cell", Intent.ENUMERATE),
+    ("what are the parts of the brain", Intent.ENUMERATE),
+    ("how does the kidney filter blood", Intent.CAUSAL),
+    ("how does electricity flow through a wire", Intent.CAUSAL),
+])
+def test_batch12_classify(question, expected_intent):
+    """Batch 12: components/parts → ENUMERATE; process verbs → CAUSAL."""
+    assert classify(question) == expected_intent
