@@ -9780,3 +9780,33 @@ def test_batch252_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is utilitarianism",                                   "utilitarianism"),
+    ("what is deontology",                                       "deontology"),
+    ("what is virtue ethics",                                    "virtue ethics"),
+    ("what is the trolley problem",                              "trolley problem"),
+    ("what is free will",                                        "free will"),
+    ("what is determinism",                                      "determinism"),
+    ("what is moral relativism",                                 "moral relativism"),
+    ("what is the hard problem of consciousness",                "hard problem of consciousness"),
+    ("what is qualia",                                           "qualia"),
+    ("what is the mind body problem",                            "mind body problem"),
+    ("what is philosophical zombies",                            "philosophical zombies"),
+    ("what is the chinese room argument",                        "chinese room argument"),
+    ("what is the turing test",                                  "turing test"),
+    ("what is artificial general intelligence",                  "artificial general intelligence"),
+    ("what is moral philosophy",                                 "moral philosophy"),
+    ("what is applied ethics",                                   "applied ethics"),
+    ("what is bioethics",                                        "bioethics"),
+    ("what is environmental ethics",                             "environmental ethics"),
+    ("what is social contract theory",                           "social contract theory"),
+    ("what is the veil of ignorance",                            "veil of ignorance"),
+])
+def test_batch253_subject_extraction(question, expected):
+    """Batch 253: ethics/philosophy of mind — free will, trolley problem, AI ethics."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
