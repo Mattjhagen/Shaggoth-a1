@@ -6853,3 +6853,46 @@ def test_batch163_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" → X
+    ("what is the internet",                                  "internet"),
+    ("what is machine learning",                              "machine learning"),
+    ("what is artificial intelligence",                       "artificial intelligence"),
+    ("what is a compiler",                                    "compiler"),
+    ("what is an operating system",                           "operating system"),
+    # "how does X work" → X
+    ("how does encryption work",                              "encryption"),
+    ("how does a cpu work",                                   "cpu"),
+    ("how does the internet work",                            "internet"),
+    # "what is X programming" → X programming
+    ("what is object oriented programming",                   "object oriented programming"),
+    # "what is the X programming language" → "X programming language"
+    ("what is the python programming language",               "python programming language"),
+    # "what does X stand for" → X
+    ("what does html stand for",                              "html"),
+    ("what does cpu stand for",                               "cpu"),
+    # "denial of service attack" → "denial of service" (attack stripped as verb)
+    ("what is a denial of service attack",                    "denial of service"),
+    # "how do you write a function in python" → "function" (in-python context stripped)
+    ("how do you write a function in python",                 "function"),
+    # "what is the difference between X and Y" → X and Y
+    ("what is the difference between tcp and udp",            "tcp and udp"),
+    # "what is X architecture" → X architecture
+    ("what is microservices architecture",                    "microservices architecture"),
+    # "what causes X" → X
+    ("what causes a computer to crash",                       "computer"),
+    # "how many bits does X have" → X
+    ("how many bits does a byte have",                        "byte"),
+    # "what is X used for" → X
+    ("what is sql used for",                                  "sql"),
+    # "what is X" → X (protocols)
+    ("what is http",                                          "http"),
+])
+def test_batch164_subject_extraction(question, expected):
+    """Batch 164: technology/computers — networking, languages, protocols, architecture."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
