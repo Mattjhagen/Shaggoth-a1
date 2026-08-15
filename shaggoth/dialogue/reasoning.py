@@ -290,18 +290,29 @@ def _pick(sentences, marker, topic_words, limit, min_len=40, focus=None):
     return [sentence for _hits, _quality, _pos, sentence in scored[:limit]]
 
 
-#: Interrogative scaffolding: present in the question, never the answer.
+#: Interrogative scaffolding and function words: present in the question but
+#: carry no topical signal and must not skew focus-word scoring in _pick().
+#: "and" is the most common offender — almost every English sentence contains
+#: it, so leaving it in the focus set makes every sentence score one hit and
+#: drowns out the words that actually matter.
 _QUESTION_WORDS = {
     "what", "when", "where", "which", "why", "how", "does", "did", "do",
     "is", "are", "was", "were", "the", "types", "kinds", "sorts", "forms",
     "examples", "categories", "list", "there", "many", "much", "need",
     "needs",
+    # Conjunctions that appear in multi-subject causal questions
+    # ("why does X need both A and B") but contribute nothing to ranking.
+    "and", "but", "nor", "yet", "both",
 }
 
 
 _TOPIC_STOPWORDS = frozenset({
     "an", "as", "at", "be", "by", "do", "go", "he", "if", "in", "is",
     "it", "me", "my", "no", "of", "on", "or", "so", "to", "up", "us", "we",
+    # Common conjunctions (3+ chars) not caught by the 2-char filter above.
+    # Without these, subject_of("X and Y") keeps "and" in topic_words and
+    # the on-topic check in _pick() fires on every sentence (all contain "and").
+    "and", "but", "nor", "for", "yet",
 })
 
 

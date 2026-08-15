@@ -69,6 +69,26 @@ class TopicExtractionTests(unittest.TestCase):
         topic = extract_topic_query("why is the sky blue")
         self.assertEqual(topic, "the sky blue")
 
+    def test_strips_trailing_use_verb(self):
+        """'use' was absent from _TRAILING_VERB, so 'how does X use Y'
+        returned 'X use Y' and polluted the knowledge base with oddly-named
+        entries instead of the plain subject 'X'."""
+        self.assertEqual(extract_topic_query("how does photosynthesis use light"), "photosynthesis")
+        self.assertEqual(extract_topic_query("how do plants use sunlight"), "plants")
+
+    def test_strips_trailing_produce_verb(self):
+        self.assertEqual(extract_topic_query("how does photosynthesis produce oxygen"), "photosynthesis")
+
+    def test_strips_trailing_exist_verb(self):
+        """'exist' must be stripped without also swallowing the preceding noun
+        phrase — 'dark matter' is a noun, not the verb 'matter'."""
+        self.assertEqual(extract_topic_query("why does dark matter exist"), "dark matter")
+
+    def test_strips_past_tense_trailing_verbs(self):
+        self.assertEqual(extract_topic_query("how was steel made"), "steel")
+        self.assertEqual(extract_topic_query("how was the internet created"), "the internet")
+        self.assertEqual(extract_topic_query("how were vaccines discovered"), "vaccines")
+
 
 class KeywordTests(unittest.TestCase):
     def test_extracts_keywords_from_topic(self):

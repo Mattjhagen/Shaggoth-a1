@@ -299,6 +299,35 @@ def test_causal_focus_does_not_leak_question_words():
     assert focus == {"light"}
 
 
+def test_topic_words_excludes_conjunctions():
+    """'and' in a subject like 'photosynthesis and respiration' must not
+    reach the on-topic check in _pick(), or every sentence qualifies."""
+    from shaggoth.dialogue.reasoning import _topic_words
+    words = _topic_words("photosynthesis and cellular respiration")
+    assert "and" not in words
+    assert "photosynthesis" in words
+    assert "cellular" in words
+    assert "respiration" in words
+
+
+def test_causal_focus_excludes_conjunctions():
+    """'and' appears in almost every English sentence, so leaving it in the
+    focus set means every sentence scores one focus hit and the words that
+    actually matter (light, carbon, dioxide) cannot separate the right
+    sentence from an irrelevant one."""
+    from shaggoth.dialogue.reasoning import _topic_words, subject_of, _QUESTION_WORDS
+
+    question = "why does photosynthesis need both light and carbon dioxide"
+    subject = subject_of(question)
+    focus = _topic_words(question) - _topic_words(subject) - _QUESTION_WORDS
+    assert "and" not in focus
+    assert "both" not in focus
+    # The real focus words must survive.
+    assert "light" in focus
+    assert "carbon" in focus
+    assert "dioxide" in focus
+
+
 def test_reasoner_has_seeded_rng():
     """The reasoner should use its own Random instance, not the global one."""
     r = _reasoner([AERO])
