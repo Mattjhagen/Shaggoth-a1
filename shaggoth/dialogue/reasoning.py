@@ -1176,7 +1176,7 @@ def subject_of(question: str) -> str:
         r"feel[s]?|sense[s]?|think[s]?|perceive[s]?|drown[s]?|survive[sd]?|"
         r"appear[s]?|disappear(?:s|ed)?|vanish(?:es|ed)?|reproduct[s]?|reproduce[sd]?|"
         r"behave[sd]?|communicate[sd]?|"
-        r"have\b|has\b|be\b|become[s]?|"
+        r"have\b|has\b|be\b|become[s]?|doing\b|"
         r"grow[s]?|spread[s]?|evolve[s]?|"
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
         # Causal/enabling verbs: "why don't vaccines cause autism" → "vaccines"

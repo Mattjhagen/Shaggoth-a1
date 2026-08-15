@@ -9267,3 +9267,93 @@ def test_batch235_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is deforestation",                                    "deforestation"),
+    ("what is pollution",                                        "pollution"),
+    ("what is sustainability",                                   "sustainability"),
+    ("what is renewable energy",                                 "renewable energy"),
+    ("what is solar energy",                                     "solar energy"),
+    ("what is wind energy",                                      "wind energy"),
+    ("what is nuclear energy",                                   "nuclear energy"),
+    ("what causes deforestation",                                "deforestation"),
+    ("what is the ozone layer",                                  "ozone layer"),
+    ("what is acid rain",                                        "acid rain"),
+    ("how does solar energy work",                               "solar energy"),
+    ("what is carbon dioxide",                                   "carbon dioxide"),
+    ("what is fossil fuels",                                     "fossil fuels"),
+    ("what is an endangered species",                            "endangered species"),
+    ("what is recycling",                                        "recycling"),
+    ("what is carbon footprint",                                 "carbon footprint"),
+    ("what is a carbon footprint",                               "carbon footprint"),
+    ("what is deforestation doing to the amazon",                "deforestation"),
+    ("what is fracking",                                         "fracking"),
+    ("what is an ecosystem service",                             "ecosystem service"),
+])
+def test_batch236_subject_extraction(question, expected):
+    """Batch 236: environment/ecology — pollution, climate, renewable energy."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is the internet",                                     "internet"),
+    ("what is the world wide web",                               "world wide web"),
+    ("what is artificial intelligence",                          "artificial intelligence"),
+    ("what is machine learning",                                 "machine learning"),
+    ("what is blockchain",                                       "blockchain"),
+    ("what is the cloud",                                        "cloud"),
+    ("what is cybersecurity",                                    "cybersecurity"),
+    ("what is open source",                                      "open source"),
+    ("how does the internet work",                               "internet"),
+    ("how does encryption work",                                 "encryption"),
+    ("what is a browser",                                        "browser"),
+    ("what is a search engine",                                  "search engine"),
+    ("what is wifi",                                             "wifi"),
+    ("what is a cpu",                                            "cpu"),
+    ("what is a gpu",                                            "gpu"),
+    ("what is ram",                                              "ram"),
+    ("what is social media",                                     "social media"),
+    ("what is an algorithm",                                     "algorithm"),
+    ("what is net neutrality",                                   "net neutrality"),
+    ("what is a server",                                         "server"),
+])
+def test_batch237_subject_extraction(question, expected):
+    """Batch 237: technology/internet — AI, blockchain, cloud, cybersecurity."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is fermentation",                                     "fermentation"),
+    ("what is pasteurization",                                   "pasteurization"),
+    ("what is the maillard reaction",                            "maillard reaction"),
+    ("what is umami",                                            "umami"),
+    ("what is gluten",                                           "gluten"),
+    ("what is italian cuisine",                                  "italian cuisine"),
+    ("what is french cuisine",                                   "french cuisine"),
+    ("how does fermentation work",                               "fermentation"),
+    ("what is caramelization",                                   "caramelization"),
+    ("what is emulsification",                                   "emulsification"),
+    ("what is a roux",                                           "roux"),
+    ("what is a brine",                                          "brine"),
+    ("what is blanching",                                        "blanching"),
+    ("what is braising",                                         "braising"),
+    ("what is sauteing",                                         "sauteing"),
+    ("what is a marinade",                                       "marinade"),
+    ("what is a stock",                                          "stock"),
+    ("what is yeast",                                            "yeast"),
+    ("how does yeast work",                                      "yeast"),
+    ("what is the difference between a stock and a broth",       "stock and broth"),
+])
+def test_batch238_subject_extraction(question, expected):
+    """Batch 238: cuisine/cooking — fermentation, maillard, umami, roux."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
