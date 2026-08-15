@@ -3726,3 +3726,41 @@ def test_batch83_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X" (economics/social science) → X
+    ("what is inflation",                                   "inflation"),
+    ("what is gdp",                                         "gdp"),
+    ("what is capitalism",                                  "capitalism"),
+    ("what is a recession",                                 "recession"),
+    ("what is democracy",                                   "democracy"),
+    ("what is globalization",                               "globalization"),
+    # "what causes X" (economic) → X
+    ("what causes inflation",                               "inflation"),
+    ("what causes a recession",                             "recession"),
+    # "what is the difference between X and Y" → "X and Y"
+    ("what is the difference between stocks and bonds",     "stocks and bonds"),
+    # "how does X affect Y" → X (trailing Y stripped by trailing verb strip)
+    ("how does inflation affect the economy",               "inflation"),
+    # "how does X rate affect Y" → "X rate" (bare rate protected as noun)
+    ("how does interest rate affect borrowing",             "interest rate"),
+    # "what is the gdp of X" → X (specific entity); "of a X" stays as gdp
+    ("what is the gdp of china",                            "china"),
+    ("what is the gdp of the united states",                "united states"),
+    # "what is the X rate" → "X rate" (rate protected as compound noun)
+    ("what is the unemployment rate",                       "unemployment rate"),
+    ("what is the poverty rate",                            "poverty rate"),
+    # "how does X work" (institutions) → X
+    ("how does the stock market work",                      "stock market"),
+    ("how does the federal reserve work",                   "federal reserve"),
+    # "what is X" further
+    ("what is communism",                                   "communism"),
+    ("what is feminism",                                    "feminism"),
+])
+def test_batch84_subject_extraction(question, expected):
+    """Batch 84: economics/social-science — rate noun fix, gdp-of entity, inflation."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

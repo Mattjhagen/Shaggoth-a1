@@ -527,6 +527,14 @@ def subject_of(question: str) -> str:
     # "speed of a cheetah" → "cheetah", "speed of the internet" → "internet",
     # but "speed of light" / "speed of sound" stay intact (no article = canonical constant).
     text = re.sub(r"^speed\s+of\s+(?:a|an|the)\s+", "", text, flags=re.I)
+    # Economic measurement acronyms: "gdp of china" → "china", "gdp of the usa" → "usa".
+    # Guard: NOT "of a/an [category]" — those are concept queries ("gdp of a country" → "gdp").
+    _m_econ = re.match(
+        r"^(?:gdp|gnp|gni|cpi|ppi)\s+of\s+(?!a\s|an\s|any\s)(?:the\s+)?(.+)$",
+        text, re.I,
+    )
+    if _m_econ:
+        text = _m_econ.group(1)
     # Leading temporal/locative/conditional conjunction left over after stripping
     # "what happens during/when/if X" → strip the conjunction.
     text = re.sub(r"^(?:during|when|if)\s+", "", text, flags=re.I)
@@ -775,7 +783,9 @@ def subject_of(question: str) -> str:
         r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|return[s]?|arrive[sd]?|"
         r"smell[s]?|taste[s]?|see[s]?|hear[s]?|sense[s]?|read[s]?|writ(?:e[s]?|ten)|coexist[s]?|"
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
-        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rate[sd]?|treat(?:ed|s)?|cure[sd]?|"
+        # Note: bare "rate" is NOT here — it's almost always a noun (interest rate, poverty rate).
+        # Only inflected forms "rated"/"rates" used as verbs are stripped.
+        r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rat(?:ed|es)|treat(?:ed|s)?|cure[sd]?|"
         r"turn[s]?|transform[sd]?|"
         r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
