@@ -7416,3 +7416,78 @@ def test_batch177_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Economic concepts
+    ("what is inflation",                                        "inflation"),
+    ("what is recession",                                        "recession"),
+    ("what is gdp",                                              "gdp"),
+    ("what is the stock market",                                 "stock market"),
+    ("what is supply and demand",                                "supply and demand"),
+    # Financial instruments
+    ("what is a bond",                                           "bond"),
+    ("what is a mutual fund",                                    "mutual fund"),
+    ("what is a hedge fund",                                     "hedge fund"),
+    ("what is cryptocurrency",                                   "cryptocurrency"),
+    ("what is bitcoin",                                          "bitcoin"),
+    # Economic institutions
+    ("what is the federal reserve",                              "federal reserve"),
+    ("what is the world bank",                                   "world bank"),
+    ("what is the imf",                                          "imf"),
+    # Economic theories
+    ("what is capitalism",                                       "capitalism"),
+    ("what is socialism",                                        "socialism"),
+    ("what is keynesian economics",                              "keynesian economics"),
+    # Cause/effect
+    ("how does inflation affect the economy",                    "inflation"),
+    # Difference queries
+    ("what is the difference between stocks and bonds",          "stocks and bonds"),
+    # Tax concepts
+    ("what is income tax",                                       "income tax"),
+    ("what is a tariff",                                         "tariff"),
+])
+def test_batch178_subject_extraction(question, expected):
+    """Batch 178: economics/finance — concepts, instruments, institutions, theories."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Mental health conditions
+    ("what is depression",                                       "depression"),
+    ("what is anxiety",                                          "anxiety"),
+    ("what is ptsd",                                             "ptsd"),
+    ("what is ocd",                                              "ocd"),
+    ("what is bipolar disorder",                                 "bipolar disorder"),
+    ("what is schizophrenia",                                    "schizophrenia"),
+    ("what is adhd",                                             "adhd"),
+    ("what is autism",                                           "autism"),
+    # Treatment queries
+    ("what is the treatment for depression",                     "depression"),
+    ("what is the treatment for anxiety",                        "anxiety"),
+    # Cause queries
+    ("what causes depression",                                   "depression"),
+    ("what causes anxiety",                                      "anxiety"),
+    # Psychological concepts
+    ("what is cognitive behavioral therapy",                     "cognitive behavioral therapy"),
+    ("what is mindfulness",                                      "mindfulness"),
+    ("what is the placebo effect",                               "placebo effect"),
+    # Effect queries
+    ("how does sleep affect mental health",                      "sleep"),
+    # Symptom queries
+    ("what are the symptoms of depression",                      "depression"),
+    ("what are the symptoms of anxiety",                         "anxiety"),
+    # Difference queries
+    ("what is the difference between depression and sadness",    "depression and sadness"),
+    # Therapy types
+    ("what is psychotherapy",                                    "psychotherapy"),
+])
+def test_batch179_subject_extraction(question, expected):
+    """Batch 179: mental health — conditions, treatments, causes, concepts, symptoms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
