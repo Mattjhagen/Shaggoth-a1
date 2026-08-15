@@ -5637,3 +5637,44 @@ def test_batch131_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what is X"
+    ("what is metaphor",                                    "metaphor"),
+    ("what is a sonnet",                                    "sonnet"),
+    ("what is impressionism",                               "impressionism"),
+    ("what is renaissance art",                             "renaissance art"),
+    ("what is surrealism",                                  "surrealism"),
+    # "who wrote X" — including infinitive-prefixed titles
+    ("who wrote hamlet",                                    "hamlet"),
+    ("who wrote to kill a mockingbird",                     "to kill a mockingbird"),
+    ("who wrote the iliad",                                 "iliad"),
+    # "who painted X"
+    ("who painted the mona lisa",                           "mona lisa"),
+    ("who painted the sistine chapel",                      "sistine chapel"),
+    # "who composed X"
+    ("who composed beethoven's fifth symphony",             "beethoven's fifth symphony"),
+    # "what is the theme/plot of X" → X
+    ("what is the theme of hamlet",                         "hamlet"),
+    ("what is the theme of 1984",                           "1984"),
+    ("what is the plot of romeo and juliet",                "romeo and juliet"),
+    # "who was X"
+    ("who was shakespeare",                                 "shakespeare"),
+    ("who was mozart",                                      "mozart"),
+    ("who was michelangelo",                                "michelangelo"),
+    # "what is X in art"
+    ("what is impressionism in art",                        "impressionism"),
+    # literary forms
+    ("what is a haiku",                                     "haiku"),
+    # "when was X written"
+    ("when was hamlet written",                             "hamlet"),
+    # named artworks
+    ("what is the mona lisa",                               "mona lisa"),
+])
+def test_batch132_subject_extraction(question, expected):
+    """Batch 132: literature/arts — titles (incl. To Kill a Mockingbird), artists."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

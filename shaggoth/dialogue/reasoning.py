@@ -642,7 +642,13 @@ def subject_of(question: str) -> str:
     text = re.sub(r"^(?:you|we|they|people|someone|a\s+person)\s+\w+\s+", "", text, flags=re.I)
     # "what happens to X when/if it VERBS" → strip leading "to " → "X when it VERBS"
     # then strip trailing "when/if it VERB" clause.
-    text = re.sub(r"^to\s+", "", text, flags=re.I)
+    # Guard: "who wrote to kill a mockingbird" → don't strip "to " when it's a title infinitive.
+    _title_attr_ctx = bool(re.search(
+        r"\b(?:wrote?|written|directed?|composed?|painted?|sang|authored?|filmed?)\b",
+        _original, re.I,
+    ))
+    if not (_title_attr_ctx and len(text.split()) >= 3):
+        text = re.sub(r"^to\s+", "", text, flags=re.I)
     # "where in the world is X" / "where on earth is X" → after "where" stripped:
     # "in the world is X" → strip "in the world is [article]" → X.
     # Must fire BEFORE the generic ^in strip to consume the full idiom.
@@ -1093,8 +1099,10 @@ def subject_of(question: str) -> str:
     # "sleep does a person need" → verb strip → "sleep does a person" → strip "a person" → "sleep does"
     # → secondary strips below finish it off.
     # Guard: don't strip when result would end with bare "and" (e.g. "virus and a bacteria" → keep as-is)
+    # Guard: don't strip when in title-attribution context (e.g. "kill a mockingbird" should stay intact)
     _before_an_strip = text
-    text = re.sub(r"\s+(?:a|an)\s+\w+\s*$", "", text, flags=re.I)
+    if not (_title_attr_ctx and len(text.split()) >= 3):
+        text = re.sub(r"\s+(?:a|an)\s+\w+\s*$", "", text, flags=re.I)
     if re.search(r"\s+and\s*$", text, re.I):
         text = _before_an_strip
     # "water a good solvent" (after "what makes water" QW strip) → "water"
