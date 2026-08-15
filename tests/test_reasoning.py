@@ -10620,3 +10620,123 @@ def test_batch280_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a neural network",                               "neural network"),
+    ("what is deep learning",                                  "deep learning"),
+    ("what is machine learning",                               "machine learning"),
+    ("what is a decision tree",                                "decision tree"),
+    ("what is a random forest",                                "random forest"),
+    ("what is gradient descent",                               "gradient descent"),
+    ("what is backpropagation",                                "backpropagation"),
+    ("what is overfitting",                                    "overfitting"),
+    ("what is underfitting",                                   "underfitting"),
+    ("what is a support vector machine",                       "support vector machine"),
+    ("what is k nearest neighbors",                            "k nearest neighbors"),
+    ("what is principal component analysis",                   "principal component analysis"),
+    ("what is natural language processing",                    "natural language processing"),
+    ("what is a transformer model",                            "transformer model"),
+    ("what is transfer learning",                              "transfer learning"),
+    ("what is reinforcement learning",                         "reinforcement learning"),
+    ("what is a convolutional neural network",                 "convolutional neural network"),
+    ("what is a recurrent neural network",                     "recurrent neural network"),
+    ("what is a generative adversarial network",               "generative adversarial network"),
+    ("what is a loss function",                                "loss function"),
+])
+def test_batch281_subject_extraction(question, expected):
+    """Batch 281: machine learning / AI — model types, training concepts, and evaluation terms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a primary key",                                  "primary key"),
+    ("what is a foreign key",                                  "foreign key"),
+    ("what is a database index",                               "database index"),
+    ("what is database normalization",                         "database normalization"),
+    ("what is a join in sql",                                  "join"),
+    ("what is a stored procedure",                             "stored procedure"),
+    ("what is a transaction",                                  "transaction"),
+    ("what is acid compliance",                                "acid compliance"),
+    ("what is a nosql database",                               "nosql database"),
+    ("what is a document database",                            "document database"),
+    ("what is a graph database",                               "graph database"),
+    ("what is a data warehouse",                               "data warehouse"),
+    ("what is a data lake",                                    "data lake"),
+    ("what is an etl pipeline",                                "etl pipeline"),
+    ("what is data partitioning",                              "data partitioning"),
+    ("what is sharding",                                       "sharding"),
+    ("what is database replication",                           "database replication"),
+    ("what is a cache",                                        "cache"),
+    ("what is an orm",                                         "orm"),
+    ("what is a message queue",                                "message queue"),
+])
+def test_batch282_subject_extraction(question, expected):
+    """Batch 282: databases / data engineering — SQL, NoSQL, and data pipeline terms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a rest api",                                     "rest api"),
+    ("what is a graphql api",                                  "graphql api"),
+    ("what is an http request",                                "http request"),
+    ("what is cors",                                           "cors"),
+    ("what is a cookie",                                       "cookie"),
+    ("what is a session token",                                "session token"),
+    ("what is oauth",                                          "oauth"),
+    ("what is a webhook",                                      "webhook"),
+    ("what is a cdn",                                          "cdn"),
+    ("what is server side rendering",                          "server side rendering"),
+    ("what is client side rendering",                          "client side rendering"),
+    ("what is a single page application",                      "single page application"),
+    ("what is a progressive web app",                          "progressive web app"),
+    ("what is lazy loading",                                   "lazy loading"),
+    ("what is a service worker",                               "service worker"),
+    ("what is websockets",                                     "websockets"),
+    ("what is load balancing",                                 "load balancing"),
+    ("what is a reverse proxy",                                "reverse proxy"),
+    ("what is http caching",                                   "http caching"),
+    ("what is cross site scripting",                           "cross site scripting"),
+])
+def test_batch283_subject_extraction(question, expected):
+    """Batch 283: web development — HTTP, APIs, frontend/backend patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a dry run",                                      "dry run"),
+    ("what is a test run",                                     "test run"),
+    ("what is a home run",                                     "home run"),
+    ("what is a bull run",                                     "bull run"),
+    ("what is a data set",                                     "data set"),
+    ("what is a training set",                                 "training set"),
+    ("what is a skill set",                                    "skill set"),
+    ("what is a mind set",                                     "mind set"),
+    ("what is a debug build",                                  "debug build"),
+    ("what is a nightly build",                                "nightly build"),
+    ("what is a boarding pass",                                "boarding pass"),
+    ("what is a hall pass",                                    "hall pass"),
+    ("what is an error log",                                   "error log"),
+    ("what is a change log",                                   "change log"),
+    ("what is a system log",                                   "system log"),
+    ("what is a heat map",                                     "heat map"),
+    ("what is a road map",                                     "road map"),
+    ("what is a mind map",                                     "mind map"),
+    ("what is a pattern match",                                "pattern match"),
+    ("what is a pull request merge",                           "pull request merge"),
+])
+def test_batch284_subject_extraction(question, expected):
+    """Batch 284: adversarial computing compound nouns — run/set/build/pass/log/map."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

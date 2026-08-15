@@ -1227,9 +1227,9 @@ def subject_of(question: str) -> str:
         r"twinkle[sd]?|(?<!time\s)(?<!air\s)(?<!sea\s)(?<!rail\s)(?<!road\s)(?<!space\s)travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|(?<!hunger\s)(?<!lightning\s)(?<!bowling\s)(?<!bird\s)strike[s]?|sweat[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
         r"swim[s]?|fly|flies|walk[s]?|"
-        # Guard "run" against compound sports/activity nouns: "home run", "mile run",
-        # "fun run", "dry run", "ski run", "test run" must not be stripped.
-        r"(?<!home )(?<!mile )(?<!fun )(?<!dry )(?<!ski )(?<!test )(?<!long )run[s]?|"
+        # Guard "run" against compound nouns: "home run", "mile run", "fun run", "dry run",
+        # "ski run", "test run", "bull run", "milk run", "trial run" must not be stripped.
+        r"(?<!home )(?<!mile )(?<!fun )(?<!dry )(?<!ski )(?<!test )(?<!long )(?<!bull )(?<!milk )(?<!trial )run[s]?|"
         r"jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|return[s]?|arrive[sd]?|(?<!the )(?<!arithmetic )mean[s]?|"
         r"smell[s]?|taste[s]?|see[s]?|hear[s]?|sense[s]?|read[s]?|writ(?:e[s]?|ten)|coexist[s]?|"
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
