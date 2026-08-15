@@ -353,8 +353,12 @@ class FallbackTeacher(_JudgeMixin):
 
     def _generate(self, prompt: str, max_tokens: int = MAX_TOKENS) -> tuple:
         text, seconds, error = "", 0.0, "no teacher configured"
-        while self._index < len(self._teachers):
-            teacher = self._teachers[self._index]
+        while True:
+            with self._lock:
+                idx = self._index
+                if idx >= len(self._teachers):
+                    break
+            teacher = self._teachers[idx]
             if not teacher.available():
                 self._advance("not available")
                 continue

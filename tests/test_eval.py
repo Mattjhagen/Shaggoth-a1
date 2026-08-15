@@ -39,7 +39,8 @@ class TestPerplexityEarlyReturn:
         result = perplexity(None, "x", _Tok(list(range(257))), block_size=256)
         assert result["perplexity"] == float("inf")
         assert "error" in result
-        assert result["tokens"] == 257
+        assert result["tokens_evaluated"] == 257
+        assert result["chunks"] == 0
 
     def test_block_size_minus_one_returns_inf(self):
         result = perplexity(None, "x", _Tok(list(range(255))), block_size=256)
@@ -48,7 +49,8 @@ class TestPerplexityEarlyReturn:
     def test_token_count_reported_in_early_return(self):
         ids = list(range(100))
         result = perplexity(None, "x", _Tok(ids), block_size=256)
-        assert result["tokens"] == 100
+        assert result["tokens_evaluated"] == 100
+        assert result["chunks"] == 0
 
     def test_custom_block_size_short_text(self):
         # block_size=4; need >= 6 tokens; 5 tokens → too short

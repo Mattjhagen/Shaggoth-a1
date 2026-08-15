@@ -46,8 +46,11 @@ def load_settings(path: str | os.PathLike | None = None) -> dict[str, Any]:
     settings = json.loads(json.dumps(DEFAULT_SETTINGS))
     candidate = Path(path) if path else CONFIG_DIR / "settings.json"
     if candidate.exists():
-        with open(candidate, encoding="utf-8") as fh:
-            settings.update(json.load(fh))
+        try:
+            with open(candidate, encoding="utf-8") as fh:
+                settings.update(json.load(fh))
+        except (OSError, ValueError):
+            pass  # corrupt or unreadable settings → fall back to defaults
     return settings
 
 

@@ -126,8 +126,11 @@ class MarkovModel(LanguageModel):
             raise
 
     def load(self, path: str) -> None:
-        with open(path, encoding="utf-8") as fh:
-            data = json.load(fh)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, ValueError) as exc:
+            raise RuntimeError(f"Could not load Markov model from {path}: {exc}") from exc
         self.order = data["order"]
         self.table = defaultdict(lambda: defaultdict(int))
         for key, counts in data["table"].items():

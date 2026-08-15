@@ -60,6 +60,42 @@ class TestMaybeReloadSeesDeletions:
         assert kb.maybe_reload() is False
 
 
+class TestMaybeReloadConcurrency:
+    """maybe_reload() _last_check read/write must be atomic.
+
+    Without the lock, two threads can both pass the interval check at the same
+    moment and trigger redundant _scan() calls. The fix gates the check-and-set
+    under _swap_lock so only one thread enters the scan per interval.
+    """
+
+    def test_concurrent_calls_scan_at_most_once(self, tmp_path):
+        import threading
+
+        (tmp_path / "a.md").write_text("Alpha is about alpha particles and physics.")
+        kb = KnowledgeBase(tmp_path)
+        # Reset both guards so maybe_reload() will pass the interval check and
+        # detect "changed paths", triggering _scan() exactly once.
+        kb._last_check = 0
+        kb._known_paths = set()  # force the path-set comparison to mismatch
+
+        scan_count = []
+        original_scan = kb._scan
+
+        def counting_scan():
+            scan_count.append(1)
+            original_scan()
+
+        kb._scan = counting_scan
+
+        threads = [threading.Thread(target=kb.maybe_reload) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert sum(scan_count) == 1, f"Expected 1 scan, got {sum(scan_count)}"
+
+
 class TestDescribeUnknownSubject:
     """It printed the first extracted keywords raw, with no check that they
     formed a subject -- so meta-questions and filler came back as nonsense."""

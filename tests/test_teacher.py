@@ -474,6 +474,43 @@ class TestFallbackTeacher:
         assert ft._index >= len(ft._teachers)
         ft._advance("extra call")   # must not raise IndexError
 
+    def test_generate_reads_index_under_lock(self):
+        """Concurrent _generate() calls must not cause IndexError.
+
+        The pre-fix code read self._index outside the lock; a concurrent
+        _advance() between the while-check and the subscript could produce
+        an index that was valid during the check but out-of-range at use.
+        """
+        import threading
+
+        calls: list[str] = []
+        errors: list[Exception] = []
+
+        class DelayedExhaustTeacher(_StubTeacher):
+            """Reports 'available' but returns an exhaustion error on first call."""
+            def _generate(self, prompt, max_tokens=8):
+                self.calls += 1
+                calls.append(self.model)
+                return ("", 1.0, "429 quota exceeded")
+
+        a = DelayedExhaustTeacher("a")
+        b = _StubTeacher("b", result=("good", 1.0, ""))
+        ft = FallbackTeacher([a, b])
+
+        def call_judge():
+            try:
+                ft.judge("q", "answer text")
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=call_judge) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors, f"Thread-safety errors: {errors}"
+
 
 # ---------------------------------------------------------------------------
 # build_teacher("auto"): the cascading chain, priority order and gating

@@ -8,7 +8,7 @@ def perplexity(model, text: str, tokenizer, block_size: int = 256) -> dict:
     # Need at least block_size+2 tokens so the sliding window produces one chunk:
     # range(0, len(ids)-block_size-1, stride) is empty when len==block_size+1.
     if len(ids) < block_size + 2:
-        return {"perplexity": float("inf"), "loss": float("inf"), "tokens": len(ids), "error": "text too short"}
+        return {"perplexity": float("inf"), "loss": float("inf"), "tokens_evaluated": len(ids), "chunks": 0, "error": "text too short"}
 
     import torch  # optional dep; only import after the cheap early-return guard
 

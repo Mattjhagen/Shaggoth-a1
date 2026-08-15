@@ -187,9 +187,10 @@ class KnowledgeBase:
 
     def maybe_reload(self) -> bool:
         now = time.time()
-        if now - self._last_check < self._RELOAD_CHECK_INTERVAL:
-            return False
-        self._last_check = now
+        with self._swap_lock:
+            if now - self._last_check < self._RELOAD_CHECK_INTERVAL:
+                return False
+            self._last_check = now
         # Compare the whole path set, not just mtimes. Iterating only the files
         # that still exist can never observe a deletion, so a removed entry
         # used to stay queryable until the process restarted -- and it only
