@@ -330,10 +330,12 @@ def subject_of(question: str) -> str:
     # "tell me about different types of X", "explain X", "describe X".
     text = re.sub(
         r"^(?:name|list|give(?:\s+me)?|show(?:\s+me)?|"
-        r"tell(?:\s+me)?(?:\s+about)?|explain|describe|discuss)"
+        r"tell(?:\s+me)?(?:\s+about)?|explain|describe|discuss|define|compare)"
         r"\s+(?:(?:the|all|some|any|different|a few|various)\s+)?",
         "", text, flags=re.I,
     )
+    # "give me information about X" → after "give me " stripped, "information about X" remains
+    text = re.sub(r"^information\s+about\s+", "", text, flags=re.I)
     # After the imperative strip, a question word may be newly exposed:
     # "explain how X Y" → strip "explain " → "how X Y" → re-strip "how " → "X Y"
     text = re.sub(
@@ -710,6 +712,8 @@ def subject_of(question: str) -> str:
     # "X on <modifier>" → X  (e.g. "effect of gravity on time" → "gravity")
     # Only strip trailing "on <1-3 words>" — not "on" inside a topic name.
     text = re.sub(r"\s+on\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
+    # "quantum physics in simple terms" → "quantum physics"  (explanation-register qualifier)
+    text = re.sub(r"\s+in\s+(?:simple|plain|basic|easy|everyday|lay(?:man[\'s]*)?)\s+terms\s*$", "", text, flags=re.I)
     # "X in the <location>" → X  (e.g. "planets in the solar system" → "planets")
     # Require "in the" so bare "animals in water" is not affected.
     text = re.sub(r"\s+in\s+the\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)

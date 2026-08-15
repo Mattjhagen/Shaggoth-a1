@@ -2401,3 +2401,31 @@ def test_batch42_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # imperative "compare X and Y" / "define X" → subject
+    ("compare cats and dogs",                           "cats and dogs"),
+    ("compare mitosis and meiosis",                     "mitosis and meiosis"),
+    ("define photosynthesis",                           "photosynthesis"),
+    ("define mitosis",                                  "mitosis"),
+    # "give me information about X" → X  (information-about scaffold stripped)
+    ("give me information about climate change",        "climate change"),
+    ("give me information about black holes",           "black holes"),
+    # "what is X in simple/plain terms" → X
+    ("what is quantum physics in simple terms",         "quantum physics"),
+    ("what is dna in simple terms",                     "dna"),
+    # regression guards
+    ("tell me about the human brain",                   "human brain"),
+    ("tell me about quantum physics",                   "quantum physics"),
+    ("explain photosynthesis to me",                    "photosynthesis"),
+    ("what is the difference between cats and dogs",    "cats and dogs"),
+    ("how does solar energy compare to wind energy",    "solar energy"),
+    ("what are some examples of renewable energy",      "renewable energy"),
+])
+def test_batch43_subject_extraction(question, expected):
+    """Batch 43: compare/define imperatives; information-about scaffold; in-simple-terms tail."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
