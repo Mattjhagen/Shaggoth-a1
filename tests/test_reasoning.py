@@ -1912,3 +1912,44 @@ def test_batch30_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Music / arts
+    ("how does music affect the brain",             "music"),
+    ("what is jazz",                                "jazz"),
+    ("who invented the piano",                      "piano"),
+    ("how do you read sheet music",                 "sheet music"),
+    # Sports / fitness
+    ("how do muscles grow",                         "muscles"),
+    ("why do muscles get sore after exercise",      "muscles"),
+    ("how does the body burn fat",                  "body"),
+    ("what is a calorie",                           "calorie"),
+    ("how long does it take to run a marathon",     "marathon"),
+    # Geography / earth science
+    ("how deep is the ocean",                       "ocean"),
+    ("how tall is mount everest",                   "mount everest"),
+    ("what is the longest river in the world",      "river"),
+    ("why does the earth have seasons",             "earth"),
+    ("what causes the northern lights",             "northern lights"),
+    ("what is the water cycle",                     "water cycle"),
+    # Vehicles / engineering
+    ("how does a jet engine work",                  "jet engine"),
+    ("how does a car engine work",                  "car engine"),
+    ("how do planes fly",                           "planes"),
+    ("how do submarines work",                      "submarines"),
+    ("how does a nuclear reactor work",             "nuclear reactor"),
+    # Philosophy / psychology
+    ("what is the meaning of life",                 "life"),
+    ("what is cognitive dissonance",                "cognitive dissonance"),
+    ("what is the placebo effect",                  "placebo effect"),
+    ("what is confirmation bias",                   "confirmation bias"),
+    ("why do people dream",                         "dream"),
+    ("why do people lie",                           "lie"),
+])
+def test_batch31_subject_extraction(question, expected):
+    """Batch 31: longest/narrowest superlatives, music/sports/geo/engineering/philosophy patterns."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

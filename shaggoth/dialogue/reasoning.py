@@ -728,8 +728,8 @@ def subject_of(question: str) -> str:
     # Strip leading superlative/comparative adjective: "largest ocean" → "ocean",
     # "fastest animal" → "animal", "most common element" → "element".
     text = re.sub(
-        r"^(?:largest?|biggest?|smallest?|tallest?|shortest?|fastest?|slowest?|"
-        r"deepest?|widest?|lightest?|heaviest?|oldest?|youngest?|newest?|"
+        r"^(?:largest?|biggest?|smallest?|tallest?|shortest?|longest?|fastest?|slowest?|"
+        r"deepest?|widest?|narrowest?|lightest?|heaviest?|oldest?|youngest?|newest?|"
         r"most\s+\w+|least\s+\w+)\s+",
         "", text, flags=re.I,
     )
