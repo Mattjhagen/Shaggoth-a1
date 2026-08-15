@@ -1601,7 +1601,7 @@ def subject_of(question: str) -> str:
         r"similar|different|related|connected|distinct|unique|identical|"
         r"dangerous|harmful|safe|harmless|poisonous|helpful|useful|effective|important|"
         r"healthy|unhealthy|contagious|infectious|transmissible|"
-        r"wrong|right|moral|immoral|ethical|unethical|legal|illegal|"
+        r"wrong|(?<!civil )(?<!human )(?<!legal )(?<!basic )(?<!divine )(?<!voting )right|moral|immoral|ethical|unethical|legal|illegal|"
         r"true|false|correct|incorrect|accurate|inaccurate|"
         r"hard|soft|tough|fragile|brittle|flexible|rigid|elastic|"
         # Behavioral/ecological adjectives: "why are animals nocturnal" → "animals"

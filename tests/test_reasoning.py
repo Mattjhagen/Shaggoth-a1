@@ -12899,3 +12899,120 @@ def test_batch356_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "bone" compound nouns
+    ("what is a backbone",                                       "backbone"),
+    ("what is a cheekbone",                                      "cheekbone"),
+    ("what is a jawbone",                                        "jawbone"),
+    ("what is a kneecap",                                        "kneecap"),
+    ("what is a shinbone",                                       "shinbone"),
+    ("what is a collarbone",                                     "collarbone"),
+    # "heart" compound nouns
+    ("what is a heartbeat",                                      "heartbeat"),
+    ("what is heartburn",                                        "heartburn"),
+    ("what is heartache",                                        "heartache"),
+    ("what is a sweetheart",                                     "sweetheart"),
+    # "blood" compound nouns
+    ("what is bloodstream",                                      "bloodstream"),
+    ("what is bloodshot",                                        "bloodshot"),
+    ("what is bloodwork",                                        "bloodwork"),
+    # "nerve" compound nouns
+    ("what is a nerve ending",                                   "nerve ending"),
+    ("what is a nerve cell",                                     "nerve cell"),
+    # medical conditions
+    ("what is a fracture",                                       "fracture"),
+    ("what is inflammation",                                     "inflammation"),
+    ("what is hypertension",                                     "hypertension"),
+    ("what is diabetes",                                         "diabetes"),
+    ("what is osteoporosis",                                     "osteoporosis"),
+    # "cell" compound nouns
+    ("what is a red blood cell",                                 "red blood cell"),
+    ("what is a white blood cell",                               "white blood cell"),
+    ("what is a stem cell",                                      "stem cell"),
+])
+def test_batch357_subject_extraction(question, expected):
+    """Batch 357: body parts, medical anatomy compound nouns and conditions — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "bread" compound nouns
+    ("what is cornbread",                                        "cornbread"),
+    ("what is sourdough",                                        "sourdough"),
+    ("what is a bread crumb",                                    "bread crumb"),
+    ("what is flatbread",                                        "flatbread"),
+    # "cake" compound nouns
+    ("what is a cheesecake",                                     "cheesecake"),
+    ("what is a pancake",                                        "pancake"),
+    ("what is a cupcake",                                        "cupcake"),
+    # "butter" compound nouns
+    ("what is buttermilk",                                       "buttermilk"),
+    ("what is a butterfly",                                      "butterfly"),
+    ("what is peanut butter",                                    "peanut butter"),
+    # "sauce" compound nouns
+    ("what is worcestershire sauce",                             "worcestershire sauce"),
+    ("what is hot sauce",                                        "hot sauce"),
+    ("what is soy sauce",                                        "soy sauce"),
+    # "stock" compound nouns (cooking context)
+    ("what is chicken stock",                                    "chicken stock"),
+    ("what is beef stock",                                       "beef stock"),
+    ("what is fish stock",                                       "fish stock"),
+    # cooking techniques
+    ("what is sauteing",                                         "sauteing"),
+    ("what is blanching",                                        "blanching"),
+    ("what is braising",                                         "braising"),
+    # "oil" compound nouns
+    ("what is olive oil",                                        "olive oil"),
+    ("what is coconut oil",                                      "coconut oil"),
+    ("what is vegetable oil",                                    "vegetable oil"),
+])
+def test_batch358_subject_extraction(question, expected):
+    """Batch 358: food/cooking compound nouns and kitchen terms — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "law" compound nouns
+    ("what is common law",                                       "common law"),
+    ("what is martial law",                                      "martial law"),
+    ("what is case law",                                         "case law"),
+    ("what is tax law",                                          "tax law"),
+    ("what is a lawsuit",                                        "lawsuit"),
+    ("what is a bylaw",                                          "bylaw"),
+    # "court" compound nouns
+    ("what is a courthouse",                                     "courthouse"),
+    ("what is a courtyard",                                      "courtyard"),
+    ("what is a courtroom",                                      "courtroom"),
+    # "trial" compound nouns
+    ("what is a mistrial",                                       "mistrial"),
+    ("what is a trial period",                                   "trial period"),
+    # legal terms
+    ("what is a subpoena",                                       "subpoena"),
+    ("what is a deposition",                                     "deposition"),
+    ("what is an injunction",                                    "injunction"),
+    ("what is habeas corpus",                                    "habeas corpus"),
+    ("what is due process",                                      "due process"),
+    # "vote" compound nouns
+    ("what is a popular vote",                                   "popular vote"),
+    ("what is an electoral vote",                                "electoral vote"),
+    # "right" compound nouns — guard against adjective strip
+    ("what is a civil right",                                    "civil right"),
+    ("what is copyright",                                        "copyright"),
+    # government terms
+    ("what is a referendum",                                     "referendum"),
+    ("what is bureaucracy",                                      "bureaucracy"),
+])
+def test_batch359_subject_extraction(question, expected):
+    """Batch 359: law/legal/government compound nouns; 'civil right' guard for adj-strip."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
