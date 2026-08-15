@@ -313,7 +313,9 @@ def subject_of(question: str) -> str:
         r"wrote|written|painted?|composed?|designed?|develop(?:ed|s)?|"
         r"won|ruled|fought|signed|explored|colonized?|commanded?|"
         r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
-        r"caus(?:ed|es?)|brought\s+about)\s+",
+        r"caus(?:ed|es?)|brought\s+about|"
+        # "what affects/determines/produces/controls/influences/allows X" → X
+        r"affect(?:ed|s)?|determine[sd]?|produce[sd]?|control[sd]?|influence[sd]?|allow[sd]?)\s+",
         "", text, flags=re.I,
     )
     # "who was the first person to walk on the moon" → after QW strip:
@@ -629,6 +631,8 @@ def subject_of(question: str) -> str:
     # via .*). "how is a virus different from a bacterium" — "different from" is not a verb,
     # strip it explicitly.
     text = re.sub(r"\s+different\s+from\s+.*$", "", text, flags=re.I)
+    # "birds to" (after "fly" was verb-stripped from "birds to fly") → "birds"
+    text = re.sub(r"\s+to\s*$", "", text, flags=re.I)
     # "stress related to heart disease" → "stress"  (predicate adj + prepositional tail)
     text = re.sub(r"\s+related\s+to\b.*$", "", text, flags=re.I)
     # "virus the same as bacteria" → "virus"
@@ -663,6 +667,10 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+(?:a|an)\s+\w+\s*$", "", text, flags=re.I)
     if re.search(r"\s+and\s*$", text, re.I):
         text = _before_an_strip
+    # "water a good solvent" (after "what makes water" QW strip) → "water"
+    # Only fire when the entire text is exactly ONE_WORD + "a/an ADJ NOUN" (4 tokens).
+    # Guards against "I fix a leaky faucet" (5 tokens) which must stay intact.
+    text = re.sub(r"^\s*(\w+)\s+(?:a|an)\s+\w+\s+\w+\s*$", r"\1", text, flags=re.I)
     # Secondary cleanup for residual "modal PRONOUN" (verb already stripped by main verb block):
     # "water should you" (drink was stripped) → "water".
     text = re.sub(
