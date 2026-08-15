@@ -754,7 +754,7 @@ def subject_of(question: str) -> str:
         # "how fast does light travel", "why do we dream", "how does sound travel"
         r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|strike[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
-        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|"
+        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|return[s]?|arrive[sd]?|"
         r"smell[s]?|taste[s]?|see[s]?|hear[s]?|sense[s]?|read[s]?|writ(?:e[s]?|ten)|coexist[s]?|"
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
         r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rate[sd]?|"
@@ -772,6 +772,10 @@ def subject_of(question: str) -> str:
         r")\b.*$",
         "", text, flags=re.I,
     )
+    # Temporal prefix: "when will the next solar eclipse be" → verb strip → "next solar eclipse"
+    # → strip leading "next"/"upcoming" → "solar eclipse". Safe: temporal modifiers add nothing
+    # to a knowledge lookup; "next X" and "upcoming X" both look up the same concept.
+    text = re.sub(r"^(?:next|upcoming)\s+", "", text, flags=re.I)
     # Orphaned "which" left when _m_which missed (aux verb absent) and trailing verb strip
     # removed the main verb: "which animal runs the fastest" → verb strip → "which animal"
     # → strip "which " → "animal".

@@ -3304,3 +3304,44 @@ def test_batch73_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Batch 74: "when will X return/arrive" (return/arrive verbs added);
+#           "when will the next X be" (next temporal prefix stripped)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "when will X VERB" → X  (return/arrive now in trailing-verb list)
+    ("when will halley's comet return",                  "halley's comet"),
+    ("when will the astronauts arrive",                  "astronauts"),
+    # "when will the next X VERB" → X  (next stripped as temporal prefix)
+    ("when will the next solar eclipse be",              "solar eclipse"),
+    ("when will the next world cup be",                  "world cup"),
+    ("when will the next election be",                   "election"),
+    # "when did/was" — regression guards (these passed before; protect them)
+    ("when did the berlin wall fall",                    "berlin wall"),
+    ("when did world war 2 end",                         "world war 2"),
+    ("when did the french revolution happen",            "french revolution"),
+    ("when did the titanic sink",                        "titanic"),
+    ("when did the cold war end",                        "cold war"),
+    ("when was napoleon born",                           "napoleon"),
+    ("when was the eiffel tower built",                  "eiffel tower"),
+    ("when was the telephone invented",                  "telephone"),
+    ("when was the united nations founded",              "united nations"),
+    ("when did the dinosaurs go extinct",                "dinosaurs"),
+    # "when does X occur" — regression guards
+    ("when does daylight saving time end",               "daylight saving time"),
+    ("when does the summer solstice occur",              "summer solstice"),
+    # "when is X" — regression guards
+    ("when is christmas",                                "christmas"),
+    ("when is thanksgiving",                             "thanksgiving"),
+    ("when is the super bowl",                           "super bowl"),
+])
+def test_batch74_subject_extraction(question, expected):
+    """Batch 74: return/arrive trailing verbs; next temporal prefix strip; when-did/was guards."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
