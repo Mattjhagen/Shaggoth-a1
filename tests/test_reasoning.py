@@ -11580,3 +11580,64 @@ def test_batch313_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a stronghold",                                   "stronghold"),
+    ("what is a household",                                    "household"),
+    ("what is a threshold",                                    "threshold"),
+    ("what is a chokehold",                                    "chokehold"),
+    ("what is a body build",                                   "body build"),
+    ("what is a build up",                                     "build up"),
+    ("what is a landslide win",                                "landslide win"),
+    ("what is a walkover win",                                 "walkover win"),
+    ("what is a brain gain",                                   "brain gain"),
+    ("what is a regrowth",                                     "regrowth"),
+    ("what is outgrow",                                        "outgrow"),
+    ("what is a keep sake",                                    "keep sake"),
+    ("what is a bookkeep",                                     "bookkeep"),
+    ("what is a remake",                                       "remake"),
+    ("what is a make shift",                                   "make shift"),
+    ("what is a make up",                                      "make up"),
+    ("what is an intake",                                      "intake"),
+    ("what is an outtake",                                     "outtake"),
+    ("what is a take out",                                     "take out"),
+    ("what is a giveaway",                                     "giveaway"),
+    ("what is a forgive",                                      "forgive"),
+])
+def test_batch314_subject_extraction(question, expected):
+    """Batch 314: adversarial — hold/build/win/gain/grow/keep/make/take/give noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is social stratification",                         "social stratification"),
+    ("what is a social norm",                                  "social norm"),
+    ("what is cultural appropriation",                         "cultural appropriation"),
+    ("what is an echo chamber",                                "echo chamber"),
+    ("what is groupthink",                                     "groupthink"),
+    ("what is a glass ceiling",                                "glass ceiling"),
+    ("what is systemic racism",                                "systemic racism"),
+    ("what is institutional racism",                           "institutional racism"),
+    ("what is intersectionality",                              "intersectionality"),
+    ("what is implicit bias",                                  "implicit bias"),
+    ("what is a racial profiling",                             "racial profiling"),
+    ("what is gentrification",                                 "gentrification"),
+    ("what is social mobility",                                "social mobility"),
+    ("what is wealth inequality",                              "wealth inequality"),
+    ("what is income inequality",                              "income inequality"),
+    ("what is a welfare state",                                "welfare state"),
+    ("what is a social safety net",                            "social safety net"),
+    ("what is universal basic income",                         "universal basic income"),
+    ("what is a civic duty",                                   "civic duty"),
+    ("what is civil society",                                  "civil society"),
+])
+def test_batch315_subject_extraction(question, expected):
+    """Batch 315: social science/sociology — stratification, inequality, and social concepts."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

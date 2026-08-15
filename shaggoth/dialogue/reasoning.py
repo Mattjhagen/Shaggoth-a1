@@ -1163,8 +1163,8 @@ def subject_of(question: str) -> str:
         r"happen(?:ed|s)?|occur(?:red|s)?|exist(?:ed|s)?|"
         r"made|created|formed|produced|compos(?:ed|es?)?|prevented|caused|built|done|founded|"
         # Irregular past-tense verbs common in hypothetical "if X lost/became Y" questions:
-        # Guard "capital gain", "weight gain", "net gain" compound nouns.
-        r"los(?:t|e[sd]?)|becam(?:e|es?)|forgot(?:ten)?|(?<!capital\s)(?<!weight\s)(?<!net\s)gain(?:ed)?|"
+        # Guard "capital gain", "weight gain", "net gain", "brain gain" compound nouns.
+        r"los(?:t|e[sd]?)|becam(?:e|es?)|forgot(?:ten)?|(?<!capital\s)(?<!weight\s)(?<!net\s)(?<!brain\s)gain(?:ed)?|"
         # Guard "head start", "false start", "jump start", "push start" compound nouns.
         r"get\s+\w+ed|become|(?<!head\s)(?<!false\s)(?<!jump\s)(?<!push\s)start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
