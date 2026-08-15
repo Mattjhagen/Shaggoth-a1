@@ -5937,3 +5937,34 @@ def test_batch140_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is the cold war",                               "cold war"),
+    ("what is the french revolution",                      "french revolution"),
+    ("what is the renaissance",                            "renaissance"),
+    ("what is the industrial revolution",                  "industrial revolution"),
+    ("what is world war 2",                                "world war 2"),
+    ("what is the civil rights movement",                  "civil rights movement"),
+    ("who was napoleon",                                   "napoleon"),
+    ("who was cleopatra",                                  "cleopatra"),
+    ("who was julius caesar",                              "julius caesar"),
+    ("who was abraham lincoln",                            "abraham lincoln"),
+    ("who was martin luther king",                         "martin luther king"),
+    ("who was nelson mandela",                             "nelson mandela"),
+    ("when did world war 2 end",                           "world war 2"),
+    ("when did the berlin wall fall",                      "berlin wall"),
+    ("what caused world war 1",                            "world war 1"),
+    ("what caused the great depression",                   "great depression"),
+    ("where did the french revolution happen",             "french revolution"),
+    ("who invented the printing press",                    "printing press"),
+    ("who invented the steam engine",                      "steam engine"),
+    ("who discovered america",                             "america"),
+    ("what is the significance of the magna carta",        "magna carta"),
+])
+def test_batch141_subject_extraction(question, expected):
+    """Batch 141: history/social studies — wars, revolutions, historical figures."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
