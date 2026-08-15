@@ -433,7 +433,9 @@ def subject_of(question: str) -> str:
         # "half life of carbon 14" → "carbon 14"
         r"point|rate|level|amount|number|count|percentage|quantity|fraction|proportion|"
         r"formula|structure|composition|"
-        r"life|lifetime|lifespan|period|span|half.life)s?"
+        r"life|lifetime|lifespan|period|span|half.life|"
+        # Ecology/biology property nouns: "habitat of the polar bear" → "polar bear"
+        r"habitat|territory|diet|range|distribution)s?"
         r"\s+(?:of|behind|in|for)\s+", "", text, flags=re.I,
     )
     # When the causal-noun strip fired, a trailing "in/on <context>" phrase
@@ -620,7 +622,7 @@ def subject_of(question: str) -> str:
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|train[s]?|take[s]?|"
         r"pump[s]?|process(?:es)?|connect[s]?|"
-        r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|"
+        r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|consume[sd]?|"
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"
         r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|"
         r"come[s]?\s+from|get[s]?|navigate[sd]?|find[s]?|"
@@ -680,6 +682,10 @@ def subject_of(question: str) -> str:
         r")\b.*$",
         "", text, flags=re.I,
     )
+    # Orphaned "which" left when _m_which missed (aux verb absent) and trailing verb strip
+    # removed the main verb: "which animal runs the fastest" → verb strip → "which animal"
+    # → strip "which " → "animal".
+    text = re.sub(r"^which\s+", "", text, flags=re.I)
     # "how does mitosis differ from meiosis" → verb strip removes "differ" (and "from meiosis"
     # via .*). "how is a virus different from a bacterium" — "different from" is not a verb,
     # strip it explicitly.

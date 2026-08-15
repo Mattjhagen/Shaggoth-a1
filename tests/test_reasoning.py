@@ -2997,3 +2997,35 @@ def test_batch63_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "which NOUN VERB" where VERB is a main verb (not aux) → NOUN
+    ("which animal runs the fastest",                      "animal"),
+    ("which bird flies highest",                           "bird"),
+    ("which planet spins fastest",                         "planet"),
+    # "what do X consume" → X
+    ("what do black holes consume",                        "black holes"),
+    ("what do carnivores consume",                         "carnivores"),
+    # "what is the habitat of X" → X (causal-noun strip fires for "habitat")
+    ("what is the habitat of the polar bear",              "polar bear"),
+    ("what is the habitat of a penguin",                   "penguin"),
+    ("what is the natural habitat of a tiger",             "tiger"),
+    # "what is the diet of X" → X
+    ("what is the diet of a koala",                        "koala"),
+    ("what is the diet of wolves",                         "wolves"),
+    # "what is the territory of X" → X
+    ("what is the territory of a grizzly bear",            "grizzly bear"),
+    # Regression: existing which-aux patterns still work
+    ("which planet is closest to the sun",                 "planet"),
+    ("which country has the largest population",           "country"),
+    # Regression: causal-noun strip still works for capital/population
+    ("what is the capital of france",                      "france"),
+    ("what is the population of china",                    "china"),
+])
+def test_batch64_subject_extraction(question, expected):
+    """Batch 64: which-main-verb, consume, habitat/diet/territory of X."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
