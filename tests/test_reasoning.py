@@ -1525,3 +1525,54 @@ def test_batch19_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Bare "is/are" opener: "is the earth flat" → "earth"
+    ("is the earth flat",                           "earth"),
+    ("is lightning hot",                            "lightning"),
+    ("is the sky blue",                             "sky"),
+    # Trailing "a/an NOUN" copular predicate: "is pluto a planet" → "pluto"
+    ("is pluto a planet",                           "pluto"),
+    ("is a virus alive",                            "virus"),
+    # "what has caused X" → classify CAUSAL, subject = X
+    ("what has caused the most wars",               "wars"),
+    ("what has caused the extinction of dinosaurs", "dinosaurs"),
+    # "why doesn't X mix with Y" → X  (mix added to trailing verb list)
+    ("why doesn't oil mix with water",              "oil"),
+    ("why doesn't water mix with oil",              "water"),
+    # "what happens when X dies/boils/rusts" → X
+    ("what happens when a star dies",               "star"),
+    ("what happens when iron rusts",                "iron"),
+    # Predicate copula: "what happens when blood sugar is low" → "blood sugar"
+    ("what happens when blood sugar is low",        "blood sugar"),
+    ("what happens when body temperature is high",  "body temperature"),
+    # Modal + subject + verb tail: "how much X should you VERB" → X
+    ("how much water should you drink",             "water"),
+    ("how much protein should you eat",             "protein"),
+    # Modal + article + noun + verb tail: "how much X does a NOUN VERB" → X
+    ("how much sleep does a person need",           "sleep"),
+    ("how much oxygen does a human need",           "oxygen"),
+    # Unit-noun does pattern: "how many calories does X burn" → X
+    ("how many calories does running burn",         "running"),
+    ("how many calories does swimming burn",        "swimming"),
+    # "when you mix X and Y" → "X and Y"
+    ("what happens when you mix baking soda and vinegar", "baking soda and vinegar"),
+    ("what happens when you combine hydrogen and oxygen",  "hydrogen and oxygen"),
+])
+def test_batch20_subject_extraction(question, expected):
+    """Batch 20: bare is/are opener, trailing a/an-noun, mix/dies verbs, modal tails, unit-does."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected_intent", [
+    ("what has caused the most wars",           Intent.CAUSAL),
+    ("what has caused global warming",          Intent.CAUSAL),
+    ("what has caused the extinction of birds", Intent.CAUSAL),
+])
+def test_batch20_classify(question, expected_intent):
+    """Batch 20: 'what has caused' should classify as CAUSAL not DEFINE."""
+    assert classify(question) == expected_intent

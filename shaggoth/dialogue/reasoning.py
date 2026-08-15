@@ -94,7 +94,7 @@ _CONTRAST = re.compile(
     re.I,
 )
 _CAUSAL = re.compile(
-    r"^\s*(?:and |but |so )?why\b|\bwhat (?:is\s+)?caus(?:ing|e[ds]?)\b"
+    r"^\s*(?:and |but |so )?why\b|\bwhat (?:has\s+|have\s+|had\s+|is\s+)?caus(?:ing|e[ds]?)\b"
     r"|\bhow (?:\w+\s+)?(?:is|are|do|does|did|can|could|would|should) .+"
     r"|\bwhat (?:is|are) the (?:\w+\s+)?(?:cause|process|mechanism|effect|result|purpose|role|function|"
     r"impact|consequence)s? (?:of|behind|in)\b"
@@ -288,7 +288,7 @@ def subject_of(question: str) -> str:
         r"wrote|written|painted?|composed?|designed?|develop(?:ed|s)?|"
         r"won|ruled|fought|signed|explored|colonized?|commanded?|"
         r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
-        r"brought\s+about)\s+",
+        r"caus(?:ed|es?)|brought\s+about)\s+",
         "", text, flags=re.I,
     )
     # Imperative enumeration: "list the planets" / "name the types of X"
@@ -312,8 +312,8 @@ def subject_of(question: str) -> str:
     )
     text = re.sub(r"^not\s+", "", text, flags=re.I)
     # Bare yes/no or modal opener: "do humans have tails" → "humans have tails",
-    # "can fish drown" → "fish drown", "can plants feel pain" → "plants feel pain".
-    text = re.sub(r"^(?:does|do|did|can|could|would|should)\s+(?:a\s+|an\s+|the\s+)?", "", text, flags=re.I)
+    # "can fish drown" → "fish drown", "is the earth flat" → "earth flat".
+    text = re.sub(r"^(?:is|are|was|were|does|do|did|can|could|would|should)\s+(?:a\s+|an\s+|the\s+)?", "", text, flags=re.I)
     # After "how long" is stripped, "ago" sometimes leads: "how long ago did X Y"
     # → "ago did X Y". Strip "ago" plus any following auxiliary in one shot so the
     # bare-opener strip doesn't need to run twice.
@@ -375,6 +375,9 @@ def subject_of(question: str) -> str:
     # → "during X" / "when X boils" → strip leading word → "X" / "X boils"
     # (the trailing verb then strips the verb, yielding a clean subject)
     text = re.sub(r"^(?:during|when)\s+", "", text, flags=re.I)
+    # "when you mix baking soda and vinegar" → strip "when " → "you mix baking soda ..."
+    # → strip "you VERB " (generic pronoun + one verb) → "baking soda and vinegar".
+    text = re.sub(r"^(?:you|we|they|people|someone|a\s+person)\s+\w+\s+", "", text, flags=re.I)
     # "what leads to X", "what led to X", "what triggers X" → X
     text = re.sub(
         r"^(?:leads?|led|trigger[sd]?|drove|drives?|prompts?)\s+(?:to\s+)?",
@@ -387,6 +390,7 @@ def subject_of(question: str) -> str:
     text = re.sub(
         r"^(?:the\s+)?(?:fall|collapse|rise|decline|end|defeat|death|birth|"
         r"founding|discovery|invention|establishment|creation|formation|"
+        r"extinction|expansion|adoption|rejection|abolition|unification|"
         r"start|beginning|victory|loss|destruction|liberation|emergence|"
         r"spread|growth|development)\s+of\s+(?:the\s+)?",
         "", text, flags=re.I,
@@ -424,7 +428,9 @@ def subject_of(question: str) -> str:
     # Catches any "MEASUREMENT does/do/did ENTITY VERB" form.
     _m_prop_does = re.match(
         r"^(?:temperature|speed|rate|pressure|altitude|depth|angle|"
-        r"frequency|voltage|force|power|amount|level|distance)\s+"
+        r"frequency|voltage|force|power|amount|level|distance|"
+        r"calories?|grams?|kilograms?|pounds?|kilometers?|miles?|meters?|"
+        r"liters?|gallons?|watts?|volts?|dollars?|hours?|days?|months?)\s+"
         r"(?:does|do|did)\s+(.+)$",
         text, re.I,
     )
@@ -481,7 +487,8 @@ def subject_of(question: str) -> str:
         r"pump[s]?|process(?:es)?|connect[s]?|"
         r"filter[s]?|flow[s]?|carry|carries|digest[s]?|regulate[s]?|"
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"
-        r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|"
+        r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|"
+        r"die[sd]?|dies|"
         # Sensory/cognitive/existence verbs
         r"feel[s]?|sense[s]?|think[s]?|perceive[s]?|drown[s]?|survive[sd]?|"
         r"appear[s]?|disappear[s]?|vanish(?:es)?|reproduct[s]?|reproduce[sd]?|"
@@ -520,6 +527,27 @@ def subject_of(question: str) -> str:
         r")\b.*$",
         "", text, flags=re.I,
     )
+    # "how much water should you drink" → "water should you drink" →
+    # strip the modal + generic pronoun/article+noun + verb tail → "water".
+    # Also handles "sleep does a person need" → "sleep".
+    text = re.sub(
+        r"\s+(?:should|must|can|could|would|may|might|do|does|did)\s+"
+        r"(?:(?:a|an)\s+\w+|you|we|one|people|someone|i|they|he|she)\s+\w+\s*$",
+        "", text, flags=re.I,
+    )
+    # "is pluto a planet" → bare opener → "pluto a planet" → strip trailing "a/an NOUN" → "pluto".
+    # "sleep does a person need" → verb strip → "sleep does a person" → strip "a person" → "sleep does"
+    # → secondary strips below finish it off.
+    text = re.sub(r"\s+(?:a|an)\s+\w+\s*$", "", text, flags=re.I)
+    # Secondary cleanup for residual "modal PRONOUN" (verb already stripped by main verb block):
+    # "water should you" (drink was stripped) → "water".
+    text = re.sub(
+        r"\s+(?:should|must|can|could|would|may|might|do|does|did)\s+"
+        r"(?:you|we|one|people|someone|i|they|he|she)\s*$",
+        "", text, flags=re.I,
+    )
+    # Bare trailing auxiliary: "sleep does" → "sleep".
+    text = re.sub(r"\s+(?:does|did|do|can|could|should|would|has|had|have)\s*$", "", text, flags=re.I)
     # "what does nasa stand for" → "nasa stand for" → strip "stand for" → "nasa"
     text = re.sub(r"\s+stands?\s+for\s*$", "", text, flags=re.I)
     # "what country/continent is X in/on" → X.
@@ -551,9 +579,11 @@ def subject_of(question: str) -> str:
     # e.g. "sky blue" → "sky", "gold so valuable" → "gold"
     text = re.sub(
         # State/property adjectives that trail a subject in "why is X [adj]" patterns.
+        # Optional copula handles "blood sugar is low" as well as bare "ocean salty".
         # Exclude ambiguous words that are also common nouns (light, fast, hard, etc.).
-        r"\s+(?:so\s+)?(?:blue|red|green|yellow|white|black|gray|grey|brown|orange|purple|pink|"
+        r"\s+(?:(?:is|are|was|were)\s+)?(?:so\s+)?(?:blue|red|green|yellow|white|black|gray|grey|brown|orange|purple|pink|"
         r"hot|cold|warm|cool|wet|dry|soft|bright|dark|"
+        r"low|high|normal|elevated|full|empty|alive|dead|active|inactive|"
         r"salty|sweet|sour|bitter|spicy|acidic|alkaline|toxic|magnetic|elastic|"
         r"transparent|opaque|flammable|volatile|reactive|inert|radioactive|"
         r"valuable|expensive|cheap|rare|common|strong|weak|dense|flat|round|curved|"
@@ -565,6 +595,9 @@ def subject_of(question: str) -> str:
     # strips "why does " → "X not use Y" → trailing strip removes " use Y" →
     # "X not" → remove trailing " not" → "X".
     text = re.sub(r"\s+not\s*$", "", text, flags=re.I)
+    # Strip a trailing bare copula: "blood sugar is" (after adj strip removed "low")
+    # → "blood sugar". Only fires when nothing else could have consumed it.
+    text = re.sub(r"\s+(?:is|are|was|were)\s*$", "", text, flags=re.I)
     # Strip orphaned adverbs that remain after the trailing-verb strip removed the verb:
     # "when did humans first appear" → "humans first appear" → verb strip → "humans first"
     # → strip trailing "first" → "humans".
@@ -589,6 +622,10 @@ def subject_of(question: str) -> str:
         r"most\s+\w+|least\s+\w+)\s+",
         "", text, flags=re.I,
     )
+    # Bare "most/least" quantifier that superlative strip left because it had no
+    # trailing content: "most wars" → "wars", "least developed" → "developed".
+    # Fires after the superlative strip so "most common element" is already "element".
+    text = re.sub(r"^(?:most|least)\s+", "", text, flags=re.I)
     return text.strip(" ?.,")
 
 
