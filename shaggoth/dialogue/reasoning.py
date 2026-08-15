@@ -284,6 +284,10 @@ def subject_of(question: str) -> str:
     """The single subject of a causal or enumerating question."""
     text = _expand_contractions((question or "").strip(" ?."))
     _original = text  # preserved for intent-specific guards below
+    # "what key is X in" → X  (music theory; must fire before scaffold strips "key")
+    _m_key_q = re.match(r"^what\s+key\s+(?:is|are|was)\s+(.+?)\s+in\s*$", text, re.I)
+    if _m_key_q:
+        return _m_key_q.group(1)
     # "what is X like" / "what are X like" → X  (early-exit before location strips fire)
     _m_what_like = re.match(
         r"^(?:what|how)\s+(?:is|are|was|were)\s+(?:a\s+|an\s+|the\s+)?(.+?)\s+like\s*$",
@@ -342,7 +346,7 @@ def subject_of(question: str) -> str:
     text = re.sub(
         r"^(?:invented?|discover(?:ed|s)?|found(?:ed|s)?|built|creat(?:ed|es?)|"
         r"wrote|written|painted?|composed?|designed?|develop(?:ed|s)?|prov(?:ed|en|es?)?|"
-        r"won(?!\s+(?:the\s+)?most)|ruled|fought|signed|explored|colonized?|commanded?|"
+        r"won(?!\s+(?:the\s+)?most)|ruled|fought|signed|explored|colonized?|commanded?|led(?!\s+to\b)|"
         r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
         r"caus(?:ed|es?)|brought\s+about|coined|named|happen(?:ed|s)?|occur(?:red|s)?|"
         # Media/entertainment leading verbs: "who sang X" / "who directed X" → X
@@ -670,8 +674,16 @@ def subject_of(question: str) -> str:
     elif re.match(r"^most\s+", text, re.I) and re.match(r"^who\s+ha[sd]\b", _original, re.I):
         text = re.sub(r"^most\s+", "", text, flags=re.I)
     # "what leads to X", "what led to X", "what triggers X" → X
+    # "leads/led" require "to" so "lead singer of X" is not stripped.
     text = re.sub(
-        r"^(?:leads?|led|trigger[sd]?|drove|drives?|prompts?)\s+(?:to\s+)?",
+        r"^(?:leads?\s+to|led\s+to|trigger[sd]?|drove|drives?|prompts?)\s+",
+        "", text, flags=re.I,
+    )
+    # "lead singer of queen" / "singer of the beatles" → band name
+    # (covers residual ROLE after scaffold removed "lead")
+    text = re.sub(
+        r"^(?:lead\s+)?(?:singer|vocalist|guitarist|bassist|drummer|keyboardist|"
+        r"frontman|frontwoman)\s+of\s+(?:the\s+)?",
         "", text, flags=re.I,
     )
     # "what role does insulin play in the body" → after "what" stripped → "role does insulin play"
@@ -1377,6 +1389,20 @@ def subject_of(question: str) -> str:
     )
     if _m_existential:
         text = _m_existential.group(1)
+    # "guitar on bohemian rhapsody" → "bohemian rhapsody"
+    # After leading-verb strip "played guitar on X" → "guitar on X"; recover the work title.
+    text = re.sub(
+        r"^(?:guitar|bass(?:\s+guitar)?|drums?|piano|keyboard[s]?|violin|vocals?|"
+        r"trumpet|saxophone|flute|cello|percussion|strings?|backing\s+vocals?)\s+on\s+",
+        "", text, flags=re.I,
+    )
+    # "tempo of bohemian rhapsody" → "bohemian rhapsody"
+    # Music theory property questions: the work title is the lookup subject.
+    text = re.sub(
+        r"^(?:tempo|rhythm|beat|time\s+signature|chord(?:\s+progression)?|"
+        r"melody|harmony|key)\s+of\s+(?:the\s+|a\s+|an\s+)?",
+        "", text, flags=re.I,
+    )
     # "X on <modifier>" → X  (e.g. "effect of gravity on time" → "gravity")
     # Only strip trailing "on <1-3 words>" — not "on" inside a topic name.
     text = re.sub(r"\s+on\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)

@@ -8057,3 +8057,48 @@ def test_batch193_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "who sang X" → X
+    ("who sang bohemian rhapsody",                             "bohemian rhapsody"),
+    ("who sang thriller",                                      "thriller"),
+    # "who wrote X" (song) → X
+    ("who wrote imagine",                                      "imagine"),
+    ("who wrote smells like teen spirit",                      "smells like teen spirit"),
+    # "what album is X on" → X
+    ("what album is thriller on",                              "thriller"),
+    # "what genre is X" → X
+    ("what genre is jazz",                                     "jazz"),
+    ("what genre is bohemian rhapsody",                        "bohemian rhapsody"),
+    # "who produced X" → X
+    ("who produced thriller",                                  "thriller"),
+    # "who is the lead singer of X" → X (lead stripped as scaffold; singer-of stripped next)
+    ("who is the lead singer of queen",                        "queen"),
+    ("who is the lead singer of the beatles",                  "beatles"),
+    # "what year did X come out" → X
+    ("what year did thriller come out",                        "thriller"),
+    ("what year did bohemian rhapsody come out",               "bohemian rhapsody"),
+    # "how many albums does X have" → X
+    ("how many albums does taylor swift have",                 "taylor swift"),
+    # "who played INSTRUMENT on X" → X (instrument stripped after verb strip; then on-work)
+    ("who played guitar on bohemian rhapsody",                 "bohemian rhapsody"),
+    # "what instruments are used in X" → X
+    ("what instruments are used in jazz",                      "jazz"),
+    # "what is the tempo of X" → X
+    ("what is the tempo of bohemian rhapsody",                 "bohemian rhapsody"),
+    # "what key is X in" → X (early match before scaffold strips "key")
+    ("what key is imagine in",                                 "imagine"),
+    # "who invented X" → X
+    ("who invented jazz",                                      "jazz"),
+    # "who wrote the national anthem" → national anthem
+    ("who wrote the national anthem",                          "national anthem"),
+    # "how long is X" → X
+    ("how long is bohemian rhapsody",                          "bohemian rhapsody"),
+])
+def test_batch194_subject_extraction(question, expected):
+    """Batch 194: music — songs, bands, production, music theory."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
