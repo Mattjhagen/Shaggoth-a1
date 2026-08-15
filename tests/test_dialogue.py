@@ -372,6 +372,20 @@ class ConversationFlowTests(unittest.TestCase):
             self.assertNotIn("collapsed", result.lower(), result)
             self.assertNotIn("collapse", result.lower(), result)
 
+    def test_describe_unknown_wrote_filtered(self):
+        """'wrote' is the attribution verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("who wrote Hamlet", researching=False)
+            self.assertIn("hamlet", result.lower(), result)
+            self.assertNotIn("wrote", result.lower(), result)
+
+    def test_describe_unknown_founded_filtered(self):
+        """'founded' is the attribution verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("who founded Apple", researching=False)
+            self.assertIn("apple", result.lower(), result)
+            self.assertNotIn("founded", result.lower(), result)
+
     def test_what_about_that_is_follow_up(self):
         self.assertTrue(is_follow_up("what about that"))
         self.assertTrue(is_follow_up("what about this?"))

@@ -1883,6 +1883,13 @@ _DESCRIBE_FILTER = frozenset({
     "die", "dies", "died", "dying",
     "fell",                                # past of "fall"; "fall" itself is too risky
     "changed",                             # past of "change"; "climate change" blocks root
+    # Attribution verbs in "who wrote X", "who built X", "who founded X" questions.
+    # Past-tense/participle forms that never appear in compound KB topic names.
+    "wrote", "authored",
+    "built",
+    "founded",
+    "painted",
+    "composed",
 })
 
 # Words that survive keyword extraction but can never be the *subject* of a
