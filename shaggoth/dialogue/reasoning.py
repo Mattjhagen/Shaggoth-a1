@@ -1164,8 +1164,8 @@ def subject_of(question: str) -> str:
         r"made|created|formed|produced|compos(?:ed|es?)?|prevented|caused|built|done|founded|"
         # Irregular past-tense verbs common in hypothetical "if X lost/became Y" questions:
         r"los(?:t|e[sd]?)|becam(?:e|es?)|forgot(?:ten)?|gain(?:ed)?|"
-        # Guard "head start", "false start", "jump start" compound nouns.
-        r"get\s+\w+ed|become|(?<!head\s)(?<!false\s)(?<!jump\s)start|begin|"
+        # Guard "head start", "false start", "jump start", "push start" compound nouns.
+        r"get\s+\w+ed|become|(?<!head\s)(?<!false\s)(?<!jump\s)(?<!push\s)start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|(?<!bullet )(?<!maglev )(?<!steam )(?<!freight )(?<!commuter )(?<!fastest )train[s]?|take[s]?|"
         # "heat pump", "sump pump", "water pump", "fuel pump" are noun compounds.
