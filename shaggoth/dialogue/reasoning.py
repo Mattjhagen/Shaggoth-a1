@@ -1163,15 +1163,16 @@ def subject_of(question: str) -> str:
         r"happen(?:ed|s)?|occur(?:red|s)?|exist(?:ed|s)?|"
         r"made|created|formed|produced|compos(?:ed|es?)?|prevented|caused|built|done|founded|"
         # Irregular past-tense verbs common in hypothetical "if X lost/became Y" questions:
-        r"los(?:t|e[sd]?)|becam(?:e|es?)|forgot(?:ten)?|gain(?:ed)?|"
+        # Guard "capital gain", "weight gain", "net gain" compound nouns.
+        r"los(?:t|e[sd]?)|becam(?:e|es?)|forgot(?:ten)?|(?<!capital\s)(?<!weight\s)(?<!net\s)gain(?:ed)?|"
         # Guard "head start", "false start", "jump start", "push start" compound nouns.
         r"get\s+\w+ed|become|(?<!head\s)(?<!false\s)(?<!jump\s)(?<!push\s)start|begin|"
         # Action verbs trailing the subject in "how do/does X [verb]" patterns
         r"form[s]?|make[s]?|replicate[s]?|(?<!bullet )(?<!maglev )(?<!steam )(?<!freight )(?<!commuter )(?<!fastest )train[s]?|take[s]?|"
         # "heat pump", "sump pump", "water pump", "fuel pump" are noun compounds.
-        r"(?<!heat\s)(?<!sump\s)(?<!water\s)(?<!fuel\s)(?<!vacuum\s)pump[s]?|(?<!due )process(?:es)?|connect[s]?|"
-        # Guard "cash flow" compound noun from being stripped.
-        r"filter[s]?|(?<!cash\s)flow[s]?|carry|carries|digest[s]?|regulate[s]?|consume[sd]?|"
+        r"(?<!heat\s)(?<!sump\s)(?<!water\s)(?<!fuel\s)(?<!vacuum\s)pump[s]?|(?<!due\s)(?<!batch\s)(?<!natural\s)process(?:es)?|connect[s]?|"
+        # Guard "cash flow", "data flow", "control flow", "lava flow" compound nouns from being stripped.
+        r"filter[s]?|(?<!cash\s)(?<!data\s)(?<!control\s)(?<!lava\s)flow[s]?|carry|carries|digest[s]?|regulate[s]?|consume[sd]?|"
         # Guard "muscle pull" compound noun from being stripped.
         r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|(?<!muscle\s)pull[s]?|"
         r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|catch(?:es)?|caught|"

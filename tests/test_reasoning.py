@@ -11190,3 +11190,153 @@ def test_batch300_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a hedge fund",                                   "hedge fund"),
+    ("what is a mutual fund",                                  "mutual fund"),
+    ("what is a trust fund",                                   "trust fund"),
+    ("what is a slush fund",                                   "slush fund"),
+    ("what is an index fund",                                  "index fund"),
+    ("what is a bond market",                                  "bond market"),
+    ("what is a stock market",                                 "stock market"),
+    ("what is a bear market",                                  "bear market"),
+    ("what is a bull market",                                  "bull market"),
+    ("what is a market cap",                                   "market cap"),
+    ("what is a venture capital",                              "venture capital"),
+    ("what is a capital gain",                                 "capital gain"),
+    ("what is a net worth",                                    "net worth"),
+    ("what is a balance sheet",                                "balance sheet"),
+    ("what is a cash flow",                                    "cash flow"),
+    ("what is a profit margin",                                "profit margin"),
+    ("what is a gross profit",                                 "gross profit"),
+    ("what is a net profit",                                   "net profit"),
+    ("what is a compound interest",                            "compound interest"),
+    ("what is a prime rate",                                   "prime rate"),
+])
+def test_batch301_subject_extraction(question, expected):
+    """Batch 301: financial/economics — markets, banking, and investment terms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a search warrant",                               "search warrant"),
+    ("what is an arrest warrant",                              "arrest warrant"),
+    ("what is a court order",                                  "court order"),
+    ("what is a restraining order",                            "restraining order"),
+    ("what is due process",                                    "due process"),
+    ("what is probable cause",                                 "probable cause"),
+    ("what is a class action",                                 "class action"),
+    ("what is a civil suit",                                   "civil suit"),
+    ("what is a class action lawsuit",                         "class action lawsuit"),
+    ("what is a plea bargain",                                 "plea bargain"),
+    ("what is a hung jury",                                    "hung jury"),
+    ("what is contempt of court",                              "contempt of court"),
+    ("what is a deposition",                                   "deposition"),
+    ("what is an affidavit",                                   "affidavit"),
+    ("what is habeas corpus",                                  "habeas corpus"),
+    ("what is an injunction",                                  "injunction"),
+    ("what is a subpoena",                                     "subpoena"),
+    ("what is a tort",                                         "tort"),
+    ("what is a statute of limitations",                       "statute of limitations"),
+    ("what is double jeopardy",                                "double jeopardy"),
+])
+def test_batch302_subject_extraction(question, expected):
+    """Batch 302: legal/law — court procedures, rights, and legal concepts."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a catch phrase",                                 "catch phrase"),
+    ("what is a catch 22",                                     "catch 22"),
+    ("what is a match point",                                  "match point"),
+    ("what is a perfect match",                                "perfect match"),
+    ("what is a test match",                                   "test match"),
+    ("what is a software patch",                               "software patch"),
+    ("what is a eye patch",                                    "eye patch"),
+    ("what is a nicotine patch",                               "nicotine patch"),
+    ("what is a batch process",                                "batch process"),
+    ("what is a batch file",                                   "batch file"),
+    ("what is a neighborhood watch",                           "neighborhood watch"),
+    ("what is a death watch",                                  "death watch"),
+    ("what is a smartwatch",                                   "smartwatch"),
+    ("what is a scratch card",                                 "scratch card"),
+    ("what is a scratch pad",                                  "scratch pad"),
+    ("what is a rough sketch",                                 "rough sketch"),
+    ("what is a data fetch",                                   "data fetch"),
+    ("what is a google search",                                "google search"),
+    ("what is a web search",                                   "web search"),
+    ("what is a job search",                                   "job search"),
+])
+def test_batch303_subject_extraction(question, expected):
+    """Batch 303: adversarial — catch/match/patch/batch/watch/scratch/search as noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a thesis statement",                             "thesis statement"),
+    ("what is a research paper",                               "research paper"),
+    ("what is a peer review",                                  "peer review"),
+    ("what is a citation",                                     "citation"),
+    ("what is a bibliography",                                 "bibliography"),
+    ("what is a literature review",                            "literature review"),
+    ("what is a case study",                                   "case study"),
+    ("what is a control group",                                "control group"),
+    ("what is a placebo",                                      "placebo"),
+    ("what is a placebo effect",                               "placebo effect"),
+    ("what is a double blind study",                           "double blind study"),
+    ("what is critical thinking",                              "critical thinking"),
+    ("what is a learning disability",                          "learning disability"),
+    ("what is a standardized test",                            "standardized test"),
+    ("what is a grade point average",                          "grade point average"),
+    ("what is academic integrity",                             "academic integrity"),
+    ("what is a scholarship",                                  "scholarship"),
+    ("what is a fellowship",                                   "fellowship"),
+    ("what is a tenure track",                                 "tenure track"),
+    ("what is peer pressure",                                  "peer pressure"),
+])
+def test_batch304_subject_extraction(question, expected):
+    """Batch 304: educational/academic — learning, research, and academic terms."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a cash flow",                                    "cash flow"),
+    ("what is a workflow",                                     "workflow"),
+    ("what is a data flow",                                    "data flow"),
+    ("what is a control flow",                                 "control flow"),
+    ("what is an overflow",                                    "overflow"),
+    ("what is a talk show",                                    "talk show"),
+    ("what is a game show",                                    "game show"),
+    ("what is a road show",                                    "road show"),
+    ("what is a floor show",                                   "floor show"),
+    ("what is a peep show",                                    "peep show"),
+    ("what is a free throw",                                   "free throw"),
+    ("what is a stone throw",                                  "stone throw"),
+    ("what is an overthrow",                                   "overthrow"),
+    ("what is a death blow",                                   "death blow"),
+    ("what is a body blow",                                    "body blow"),
+    ("what is an afterglow",                                   "afterglow"),
+    ("what is a death row",                                    "death row"),
+    ("what is skid row",                                       "skid row"),
+    ("what is a vertigo",                                      "vertigo"),
+    ("what is a lingo",                                        "lingo"),
+])
+def test_batch305_subject_extraction(question, expected):
+    """Batch 305: adversarial — flow/show/throw/blow/glow/row and -go suffixes as noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
