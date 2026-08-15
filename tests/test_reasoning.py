@@ -12646,3 +12646,34 @@ def test_batch348_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a gamma ray burst",                                "gamma ray burst"),
+    ("what is a solar burst",                                    "solar burst"),
+    ("what is a data burst",                                     "data burst"),
+    ("what is a paradigm shift",                                 "paradigm shift"),
+    ("what is a red shift",                                      "red shift"),
+    ("what is a gear shift",                                     "gear shift"),
+    ("what is a mountain peak",                                  "mountain peak"),
+    ("what is a demand peak",                                    "demand peak"),
+    ("what is a heat wave",                                      "heat wave"),
+    ("what is a sound wave",                                     "sound wave"),
+    ("what is a shock wave",                                     "shock wave"),
+    ("what is a laser pulse",                                    "laser pulse"),
+    ("what is a radio pulse",                                    "radio pulse"),
+    ("what is a microchip",                                      "microchip"),
+    ("what is a computer chip",                                  "computer chip"),
+    ("what is a silicon chip",                                   "silicon chip"),
+    ("what is a gift wrap",                                      "gift wrap"),
+    ("what is a body wrap",                                      "body wrap"),
+    ("what is a chain link",                                     "chain link"),
+    ("what is a weak link",                                      "weak link"),
+    ("what is a hyperlink",                                      "hyperlink"),
+])
+def test_batch349_subject_extraction(question, expected):
+    """Batch 349: science/tech compound nouns with action heads — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
