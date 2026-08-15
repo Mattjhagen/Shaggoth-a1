@@ -381,8 +381,11 @@ def subject_of(question: str) -> str:
     )
     _before_scaffold_strip = text
     text = re.sub(
-        # Allow up to two leading article/quantifier words: "the different types of X"
-        r"^(?:(?:a|an|the|some|any|all|various|different|main|major|key|primary|common|a few)\s+){0,2}"
+        # Allow up to two leading article/quantifier/modifier words:
+        # "the different types of X", "long term effects of X", "health benefits of X"
+        r"^(?:(?:a|an|the|some|any|all|various|different|main|major|key|primary|common|"
+        r"long|short|term|health|mental|physical|environmental|economic|social|cultural|"
+        r"potential|possible|adverse|negative|positive|general|overall|known|a few)\s+){0,3}"
         r"(?:types?|kinds?|sorts?|categories|examples?|forms?|states?|layers?|"
         r"components?|parts?|members?|sections?|elements?|"
         r"stages?|phases?|steps?|organs?|branches?|list|"
@@ -411,7 +414,7 @@ def subject_of(question: str) -> str:
         # Role/title nouns: "president of france" → "france"
         r"president|prime\s+minister|king|queen|ruler|leader|founder|director|"
         r"inventor|discoverer|author|composer|painter|creator|"
-        r"history|meaning|definition|symbol|flag|currency|language|"
+        r"history|meaning|definition|significance|importance|symbol|flag|currency|language|"
         # Measurement/property compounds: "boiling point of water" → "water"
         # "half life of carbon 14" → "carbon 14"
         r"point|rate|level|amount|number|count|percentage|quantity|fraction|proportion|"
@@ -615,7 +618,7 @@ def subject_of(question: str) -> str:
         # "how fast does light travel", "why do we dream", "how does sound travel"
         r"twinkle[sd]?|travel[s]?|dream[s]?|sleep[s]?|yawn[s]?|learn[s]?|"
         r"mutate[sd]?|neutralize[sd]?|"
-        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|"
+        r"swim[s]?|fly|flies|walk[s]?|run[s]?|jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|speak[s]?|talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|"
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
         r"measure[sd]?|classif(?:ied|y|ies)?|call(?:ed|s)?|rank(?:ed|s)?|rate[sd]?|"
         r"turn[s]?|transform[sd]?|"

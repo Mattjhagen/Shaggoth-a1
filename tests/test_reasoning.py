@@ -2462,3 +2462,31 @@ def test_batch44_45_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Multi-word modifer + scaffold noun: long-term effects, health benefits
+    ("what are the long term effects of smoking",          "smoking"),
+    ("what are the long term effects of stress",           "stress"),
+    ("what are the health benefits of exercise",           "exercise"),
+    ("what are the health benefits of green tea",          "green tea"),
+    # "significance of X" → X  (significance added to causal-noun list)
+    ("what is the significance of the magna carta",        "magna carta"),
+    ("what is the significance of the dna discovery",      "dna discovery"),
+    # "where do X go to Y" → X  (go/come added to trailing verb list)
+    ("where do salmon go to spawn",                        "salmon"),
+    # regression guards: location/who questions
+    ("where is the eiffel tower located",                  "eiffel tower"),
+    ("where does coffee come from",                        "coffee"),
+    ("who invented the telephone",                         "telephone"),
+    ("who discovered penicillin",                          "penicillin"),
+    ("what are the stages of cancer",                      "cancer"),
+    ("what are the symptoms of diabetes",                  "diabetes"),
+    ("what is the relationship between stress and health", "stress and health"),
+])
+def test_batch46_subject_extraction(question, expected):
+    """Batch 46: scaffold prefix expansion; significance causal-noun; go/come motion verbs."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
