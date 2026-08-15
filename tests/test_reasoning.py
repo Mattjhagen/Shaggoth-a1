@@ -41,6 +41,12 @@ def test_comparison_questions(question):
     "how are aeroponics and hydroponics similar",
     "what do aeroponics and hydroponics have in common",
     "what is the relationship between light and photosynthesis",
+    # "connection between" is a relationship question (new)
+    "what is the connection between gravity and time",
+    # "how are X and Y related" ending with "related" (new)
+    "how are photosynthesis and respiration related",
+    # "how similar are X and Y" with adjective between how and auxiliary (new)
+    "how similar are TCP and UDP",
 ])
 def test_contrast_questions(question):
     assert classify(question) == Intent.CONTRAST
@@ -244,7 +250,7 @@ def test_subject_of_drops_the_trailing_verb_phrase():
     ("how can I fix a leaky faucet", "I fix a leaky faucet"),
     ("what is the process of photosynthesis", "photosynthesis"),
     ("what is the cause of inflation", "inflation"),
-    ("what happens when water boils", "when water boils"),
+    ("what happens when water boils", "water"),
     ("what leads to inflation", "inflation"),
     ("what triggers an earthquake", "an earthquake"),
     ("what is the role of mitochondria", "mitochondria"),
@@ -340,6 +346,76 @@ def test_subject_of_who_when_attribution_and_action_verbs(question, expected):
 def test_causal_questions_with_optional_adjective(question):
     """Adjective before causal noun (e.g. 'the main cause of') must classify CAUSAL."""
     assert classify(question) == Intent.CAUSAL
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "relationship between" and "connection between" must split correctly.
+    ("what is the relationship between TCP and UDP", ["TCP", "UDP"]),
+    ("what is the connection between gravity and time", ["gravity", "time"]),
+    # Trailing "related" must be stripped so right subject is clean.
+    ("how are photosynthesis and respiration related", ["photosynthesis", "respiration"]),
+    # "how [adjective] are X and Y" — adjective between how and auxiliary.
+    ("how similar are TCP and UDP", ["TCP", "UDP"]),
+    ("how different are quantum and classical computing", ["quantum", "classical computing"]),
+])
+def test_split_subjects_relationship_and_trailing_related(question, expected):
+    """relationship/connection between + trailing 'related' + 'how adj are'."""
+    assert split_subjects(question) == expected
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "fall of X" — "fall" is a NOUN here; must not be stripped.
+    ("what caused the fall of the Roman Empire", "the fall of the Roman Empire"),
+    ("what caused the collapse of the Soviet Union", "the collapse of the Soviet Union"),
+    ("what caused the rise of nationalism", "the rise of nationalism"),
+    # "X fall" with no following "of" — "fall" IS a verb here; strip it.
+    ("how did Rome fall", "Rome"),
+    ("why did the Soviet Union collapse", "the Soviet Union"),
+    # "originate" is now in the trailing-verb list.
+    ("where did humans originate", "humans"),
+    ("where did life originate", "life"),
+    # "role/function of X in Y" — "in Y" is context, not part of subject.
+    ("what is the role of mitochondria in cell energy", "mitochondria"),
+    ("what is the function of chlorophyll in photosynthesis", "chlorophyll"),
+    ("what is the role of ATP in muscle contraction", "ATP"),
+    # Regression: "in the solar system" must NOT be stripped from enumeration.
+    ("list the planets in the solar system", "planets in the solar system"),
+])
+def test_subject_of_noun_forms_and_in_context_strip(question, expected):
+    """fall/collapse/rise as nouns kept; originate stripped; role-of-X-in-Y context stripped."""
+    assert subject_of(question) == expected
+
+
+@pytest.mark.parametrize("question", [
+    # Trigger verbs added in batch 2
+    "what started the industrial revolution",
+    "what ended the Cold War",
+    "what sparked the French Revolution",
+    "what stopped the plague",
+    "what brought about the Great Depression",
+])
+def test_causal_trigger_verbs(question):
+    """started/ended/sparked/stopped/brought about are causal trigger verbs."""
+    assert classify(question) == Intent.CAUSAL
+
+
+@pytest.mark.parametrize("question,expected", [
+    # Attribution strip handles started/ended/sparked/stopped/brought about
+    ("what started the industrial revolution", "the industrial revolution"),
+    ("what ended the Cold War", "the Cold War"),
+    ("what sparked the French Revolution", "the French Revolution"),
+    ("what stopped the plague", "the plague"),
+    ("what brought about the Great Depression", "the Great Depression"),
+    # Physics state-change verbs strip as trailing verbs
+    ("why does ice float on water", "ice"),
+    ("why does iron rust", "iron"),
+    ("what makes iron rust", "iron"),
+    ("why does water boil at 100 degrees", "water"),
+    ("why does water expand when it freezes", "water"),
+])
+def test_subject_of_trigger_verbs_and_physics(question, expected):
+    """started/ended/sparked trigger verbs and physics verbs strip cleanly."""
+    assert subject_of(question) == expected
 
 
 # --------------------------------------------------------------------------

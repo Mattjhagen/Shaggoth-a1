@@ -90,7 +90,7 @@ _CONTRAST = re.compile(
     r"\b(?:similar|similarity|similarities|in common|alike|same as|"
     # "related to" requires the preposition; plain "related" is enough for
     # "how are X and Y related" which asks about their connection, not difference.
-    r"related\b|relationship between)\b",
+    r"related\b|relationship between|connection between)\b",
     re.I,
 )
 _CAUSAL = re.compile(
@@ -98,7 +98,8 @@ _CAUSAL = re.compile(
     r"|\bhow (?:is|are|do|does|did|can|could|would|should) .+"
     r"|\bwhat (?:is|are) the (?:\w+\s+)?(?:cause|process|mechanism|effect|result|purpose|role|function|"
     r"impact|consequence)s? (?:of|behind|in)\b"
-    r"|\bwhat (?:leads?|trigger|triggers|drove|drives?|prompts?) .+\b"
+    r"|\bwhat (?:leads?|trigger[sd]?|triggers|drove|drives?|prompts?|"
+    r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|stop(?:ped|s)?|brought\s+about) .+\b"
     r"|\bwhat happens\b|\bwhat makes\b|\breason (?:for|why)\b"
     # Enabling/blocking verbs — the mechanism rather than the definition
     r"|\bwhat (?:enables?|allows?|permits?|prevents?|blocks?|stops?|inhibits?)\b"
@@ -138,7 +139,9 @@ _JOINERS = (
 # "how are ..." branch was never reached and "how are aeroponics and
 # hydroponics similar" yielded the subject "how are aeroponics".
 _LEAD_IN = re.compile(
-    r"^how (?:is|are|does|do)\s+"
+    # "how are X and Y related/similar" — optional adjective between "how" and
+    # the auxiliary handles "how similar are TCP and UDP".
+    r"^how (?:\w+\s+)?(?:is|are|does|do)\s+"
     r"|^what do\s+"
     r"|^what distinguishes\s+"
     r"|^what sets\s+"
@@ -152,14 +155,15 @@ _LEAD_IN = re.compile(
     # "which is faster X or Y" — strip "which is [adjective]" leaving subjects
     # Limited to one optional degree word ("more"/"less") plus one adjective.
     r"|^which (?:is|are|was|were)\s+(?:(?:more|less)\s+)?\w+\s+"
+    # "what is the difference/similarity/relationship/connection between X and Y"
     r"|^(?:what(?:'s| is| are)?\s+)?(?:the\s+)?"
-    r"(?:difference|differences|distinction|similarity|similarities)?\s*"
+    r"(?:difference|differences|distinction|similarity|similarities|relationship|connection)?\s*"
     r"(?:between\s+)?",
     re.I,
 )
 _TRAILING = re.compile(
-    r"\s*(?:different|differ|similar|alike|in common|have in common|"
-    r"compare|from each other|to each other)\s*\??\s*$",
+    r"\s*(?:different|differ|similar|similar to each other|alike|in common|have in common|"
+    r"compare|from each other|to each other|related|related to each other)\s*\??\s*$",
     re.I,
 )
 
@@ -207,11 +211,15 @@ def subject_of(question: str) -> str:
         r"(?:is|are|was|were|does|do|did|can|could|would|should|caus(?:ing|e[ds]?)|makes?|happens?)?\s*",
         "", text, flags=re.I,
     )
-    # After stripping "who", attribution verbs head the remainder:
+    # After stripping "who"/"what", attribution and trigger verbs head the remainder:
     # "who invented the telephone" → "invented the telephone" → "the telephone"
+    # "what started the industrial revolution" → "started the ..." → "the ..."
+    # "brought about" is two words so must be listed separately.
     text = re.sub(
         r"^(?:invented?|discover(?:ed|s)?|found(?:ed|s)?|built|creat(?:ed|es?)|"
-        r"wrote|written|painted?|composed?|designed?|develop(?:ed|s)?)\s+",
+        r"wrote|written|painted?|composed?|designed?|develop(?:ed|s)?|"
+        r"start(?:ed|s)?|end(?:ed|s)?|spark(?:ed|s)?|trigger(?:ed|s)?|stop(?:ped|s)?|"
+        r"brought\s+about)\s+",
         "", text, flags=re.I,
     )
     # Imperative enumeration: "list the planets" / "name the types of X"
@@ -224,6 +232,7 @@ def subject_of(question: str) -> str:
         r"(?:types?|kinds?|sorts?|categories|examples?|forms?|list)"
         r"\s+of\s+", "", text, flags=re.I
     )
+    _before_causal_noun_strip = text
     text = re.sub(
         # Accept an optional adjective ("main", "primary", "key") between
         # "the" and the noun: "the main cause of X" → "cause of X" → "X"
@@ -231,9 +240,17 @@ def subject_of(question: str) -> str:
         r"role|function|impact|consequence)s?"
         r"\s+(?:of|behind|in)\s+", "", text, flags=re.I,
     )
-    # Leading temporal/locative preposition left over after "what happens during X"
-    # → "during X" → strip "during" → "X"
-    text = re.sub(r"^during\s+", "", text, flags=re.I)
+    # When the causal-noun strip fired, a trailing "in/on <context>" phrase
+    # is scaffolding (e.g. "role of chlorophyll in photosynthesis" → "chlorophyll"),
+    # not part of the subject.  Guard on text-change so this strip only fires when
+    # "role of" / "function of" etc. was just removed — not on bare phrases like
+    # "planets in the solar system" where "in the solar system" belongs.
+    if text != _before_causal_noun_strip:
+        text = re.sub(r"\s+(?:in|on)\s+\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
+    # Leading temporal/locative conjunction left over after "what happens during/when X"
+    # → "during X" / "when X boils" → strip leading word → "X" / "X boils"
+    # (the trailing verb then strips the verb, yielding a clean subject)
+    text = re.sub(r"^(?:during|when)\s+", "", text, flags=re.I)
     # "what leads to X", "what triggers X" → X
     text = re.sub(
         r"^(?:leads?|trigger[sd]?|drove|drives?|prompts?)\s+(?:to\s+)?",
@@ -272,10 +289,17 @@ def subject_of(question: str) -> str:
         r"emit[s]?|absorb[s]?|reflect[s]?|refract[s]?|"
         # Immune/conflict/process verbs: "how does X fight Y", "how does X affect Y"
         r"fight[s]?|attack[s]?|defend[s]?|protect[s]?|affect[s]?|impact[s]?|"
+        # Physical / chemical state-change verbs: "why does ice float", "what makes iron rust"
+        r"float[s]?|sink[s]?|rust[s]?|boil[s]?|melt[s]?|freeze[sd]?|evaporate[sd]?|"
+        r"condense[sd]?|expand[s]?|contract[s]?|ignite[sd]?|"
         # Passive attribution: "when was X invented", "where was Y discovered"
         r"invent(?:ed|s)?|discover(?:ed|s)?|develop(?:ed|s)?|design(?:ed|s)?|"
-        # Extinction/state verbs: "why did the dinosaurs go extinct", "how did X fall"
-        r"go\s+extinct|fall[s]?|collapse[sd]?|rise[sd]?|rise"
+        # Origin verb: "where did humans originate"
+        r"originate[sd]?|"
+        # Extinction/movement verbs. Use negative lookahead (?!\s+of) so that
+        # noun forms like "the fall of X" and "the collapse of Y" are preserved —
+        # only the trailing verb use ("how did Rome fall") should be stripped.
+        r"go\s+extinct|fall[s]?(?!\s+of)|collapse[sd]?(?!\s+of)|rise[sd]?(?!\s+of)"
         r")\b.*$",
         "", text, flags=re.I,
     )
