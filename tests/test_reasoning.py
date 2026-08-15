@@ -11671,3 +11671,64 @@ def test_batch316_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is activewear",                                        "activewear"),
+    ("what is a swimwear",                                        "swimwear"),
+    ("what is footwear",                                          "footwear"),
+    ("what is knitwear",                                          "knitwear"),
+    ("what is sportswear",                                        "sportswear"),
+    ("what is a polar bear",                                      "polar bear"),
+    ("what is a teddy bear",                                      "teddy bear"),
+    ("what is a grizzly bear",                                    "grizzly bear"),
+    ("what is a crocodile tear",                                  "crocodile tear"),
+    ("what is a wear and tear",                                   "wear and tear"),
+    ("what is child care",                                        "child care"),
+    ("what is health care",                                       "health care"),
+    ("what is elder care",                                        "elder care"),
+    ("what is day care",                                          "day care"),
+    ("what is a market share",                                    "market share"),
+    ("what is a time share",                                      "time share"),
+    ("what is a spare tire",                                      "spare tire"),
+    ("what is a spare part",                                      "spare part"),
+    ("what is a blank stare",                                     "blank stare"),
+    ("what is a triple dare",                                     "triple dare"),
+])
+def test_batch317_subject_extraction(question, expected):
+    """Batch 317: adversarial — wear/bear/tear/care/share/spare/stare/dare noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a playground",                                      "playground"),
+    ("what is a campground",                                      "campground"),
+    ("what is a fairground",                                      "fairground"),
+    ("what is a burial ground",                                   "burial ground"),
+    ("what is a soundbite",                                       "soundbite"),
+    ("what is a surround sound",                                  "surround sound"),
+    ("what is ultrasound",                                        "ultrasound"),
+    ("what is a merry go round",                                  "merry go round"),
+    ("what is a roundabout",                                      "roundabout"),
+    ("what is a northbound",                                      "northbound"),
+    ("what is a southbound",                                      "southbound"),
+    ("what is outbound",                                          "outbound"),
+    ("what is inbound",                                           "inbound"),
+    ("what is a newfound",                                        "newfound"),
+    ("what is a gunshot wound",                                   "gunshot wound"),
+    ("what is a dismount",                                        "dismount"),
+    ("what is a surmount",                                        "surmount"),
+    ("what is a body count",                                      "body count"),
+    ("what is a headcount",                                       "headcount"),
+    ("what is a gunpoint",                                        "gunpoint"),
+    ("what is a knifepoint",                                      "knifepoint"),
+])
+def test_batch318_subject_extraction(question, expected):
+    """Batch 318: adversarial — ground/sound/round/bound/found/wound/mount/count/point noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )

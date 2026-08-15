@@ -1236,7 +1236,7 @@ def subject_of(question: str) -> str:
         # Guard "run" against compound nouns: "home run", "mile run", "fun run", "dry run",
         # "ski run", "test run", "bull run", "milk run", "trial run" must not be stripped.
         r"(?<!home )(?<!mile )(?<!fun )(?<!dry )(?<!ski )(?<!test )(?<!long )(?<!bull )(?<!milk )(?<!trial )run[s]?|"
-        r"jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|(?<!plain\s)speak[s]?|(?<!pep\s)(?<!pillow\s)(?<!small\s)talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?|come[s]?|return[s]?|arrive[sd]?|(?<!the )(?<!arithmetic )mean[s]?|"
+        r"jump[s]?|crawl[s]?|wag[s]?|beach(?:es|ed)?|(?<!plain\s)speak[s]?|(?<!pep\s)(?<!pillow\s)(?<!small\s)talk[s]?|colonize[sd]?|know[s]?|hold[s]?|go(?:es)?(?!\s+round\b)|come[s]?|return[s]?|arrive[sd]?|(?<!the )(?<!arithmetic )mean[s]?|"
         r"smell[s]?|(?<!blind\s)taste[s]?|see[s]?|hear[s]?|sense[s]?|(?<!speed\s)(?<!cold\s)(?<!lip\s)read[s]?|writ(?:e[s]?|ten)|coexist[s]?|"
         # Passive-participle verbs: "how is blood pressure measured" → "blood pressure"
         # Note: bare "rate" and plural "rates" are NOT here — they are almost always nouns
@@ -1565,7 +1565,7 @@ def subject_of(question: str) -> str:
         r"salty|sweet|sour|bitter|spicy|acidic|alkaline|toxic|magnetic|elastic|"
         r"conductive|insulating|semiconducting|superconducting|"
         r"transparent|opaque|flammable|volatile|reactive|inert|radioactive|"
-        r"valuable|expensive|cheap|rare|common|strong|weak|dense|flat|round|curved|"
+        r"valuable|expensive|cheap|rare|common|strong|weak|dense|flat|(?<!go\s)round|curved|"
         r"sticky|slippery|rough|smooth|thin|thick|narrow|tall|short|"
         r"similar|different|related|connected|distinct|unique|identical|"
         r"dangerous|harmful|safe|harmless|poisonous|helpful|useful|effective|important|"
