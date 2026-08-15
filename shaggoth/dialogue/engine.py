@@ -1851,6 +1851,18 @@ _DESCRIBE_FILTER = frozenset({
     # phrases like "protect against ransomware" (should be "ransomware") or
     # "botnet work" (should be "botnet").
     "against", "protect", "protects", "work", "works", "working",
+    # Causal verbs used in question scaffolding ("what leads to X", "what
+    # triggers X", "what drives X") — they name the causal relationship, not
+    # the topic being asked about.
+    "lead", "leads", "led", "trigger", "triggers", "triggered",
+    "drive", "drives", "drove", "prompt", "prompts", "prompted",
+    # Comparison verbs in question position ("what distinguishes X from Y")
+    # — "distinguishes" is the question verb, not part of the topic.
+    "distinguish", "distinguishes", "distinguished", "distinguishing",
+    # Existential verbs at the end of enumeration questions ("what kinds of X
+    # exist") — must be in _DESCRIBE_FILTER (not _WEAK_SUBJECT) so compound-
+    # noun preservation can't accidentally keep them after a substantive noun.
+    "exist", "exists", "existed",
 })
 
 # Words that survive keyword extraction but can never be the *subject* of a
@@ -1876,6 +1888,12 @@ _WEAK_SUBJECT = frozenset({
     # produce subject "cryptography", not "types cryptography".
     "type", "types", "kind", "kinds", "form", "forms",
     "example", "examples", "list",
+    # Question-frame nouns for purpose/mechanism questions ("what is the role
+    # of X", "what is the function of X") — "role" and "function" name the
+    # question type, not the topic.
+    "role", "function", "functions", "mechanism", "mechanisms",
+    "impact", "consequence", "consequences", "effect", "effects",
+    "process", "processes", "purpose", "purposes",
 })
 
 #: Used only when *researching* is False -- a promise-free admission that

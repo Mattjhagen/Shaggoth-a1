@@ -295,6 +295,40 @@ class ConversationFlowTests(unittest.TestCase):
             self.assertIn("botnet", result.lower(), result)
             self.assertNotIn("botnet work", result.lower(), result)
 
+    def test_describe_unknown_causal_verb_leads_filtered(self):
+        """'leads' in 'what leads to global warming' is question scaffolding."""
+        for _ in range(20):
+            result = describe_unknown("what leads to global warming", researching=False)
+            self.assertIn("global warming", result.lower(), result)
+            self.assertNotIn("leads", result.lower(), result)
+
+    def test_describe_unknown_causal_verb_triggers_filtered(self):
+        """'triggers' in 'what triggers an earthquake' is question scaffolding."""
+        for _ in range(20):
+            result = describe_unknown("what triggers an earthquake", researching=False)
+            self.assertIn("earthquake", result.lower(), result)
+            self.assertNotIn("triggers", result.lower(), result)
+
+    def test_describe_unknown_role_of_filtered(self):
+        """'role' in 'what is the role of mitochondria' is a question-frame noun."""
+        for _ in range(20):
+            result = describe_unknown("what is the role of mitochondria", researching=False)
+            self.assertIn("mitochondria", result.lower(), result)
+            self.assertNotIn("role", result.lower(), result)
+
+    def test_describe_unknown_exist_filtered_from_enumeration_question(self):
+        """'exist' at the end of an enumeration question is not the topic."""
+        for _ in range(20):
+            result = describe_unknown("what kinds of chemical reactions exist", researching=False)
+            self.assertIn("chemical reactions", result.lower(), result)
+            self.assertNotIn("exist", result.lower(), result)
+
+    def test_describe_unknown_distinguishes_filtered(self):
+        """'distinguishes' is the comparison verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("what distinguishes plants from animals", researching=False)
+            self.assertNotIn("distinguishes", result.lower(), result)
+
     def test_what_about_that_is_follow_up(self):
         self.assertTrue(is_follow_up("what about that"))
         self.assertTrue(is_follow_up("what about this?"))
