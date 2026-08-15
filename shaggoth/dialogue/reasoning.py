@@ -1169,7 +1169,8 @@ def subject_of(question: str) -> str:
         r"(?<!heat\s)(?<!sump\s)(?<!water\s)(?<!fuel\s)(?<!vacuum\s)pump[s]?|(?<!due )process(?:es)?|connect[s]?|"
         # Guard "cash flow" compound noun from being stripped.
         r"filter[s]?|(?<!cash\s)flow[s]?|carry|carries|digest[s]?|regulate[s]?|consume[sd]?|"
-        r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|pull[s]?|"
+        # Guard "muscle pull" compound noun from being stripped.
+        r"detoxif(?:y|ies)?|exchange[s]?|ferment[s]?|attract[s]?|(?<!muscle\s)pull[s]?|"
         r"erupt[s]?|eat[s]?|feed[s]?|hunt[s]?|drink[s]?|mix(?:es)?|catch(?:es)?|caught|"
         r"come[s]?\s+from|get[s]?|navigate[sd]?|find[s]?|"
         r"purr[s]?|bark[s]?|meow[s]?|howl[s]?|chirp[s]?|sing[s]?|hum[s]?|roar[s]?|growl[s]?|"
@@ -1239,7 +1240,8 @@ def subject_of(question: str) -> str:
         # Guard "margin call", "roll call", "curtain call", "covered call" compound nouns from being stripped.
         r"measure[sd]?|classif(?:ied|y|ies)?|(?<!margin\s)(?<!roll\s)(?<!curtain\s)(?<!covered\s)call(?:ed|s)?|rank(?:ed|s)?|rated|treat(?:ed|s)?|cure[sd]?|publish(?:ed|es)?|diagnos(?:ed|es)?|believe[sd]?|paint(?:ed|s)?|compil(?:ed|es)?|sculpt(?:ed|s)?|say[s]?|said|claim(?:ed|s)?|argue[sd]?|assert(?:ed|s)?|teach(?:es|t)?|"
         r"turn[s]?|transform[sd]?|"
-        r"shine[sd]?|glow[s]?|burn[s]?|move[sd]?|"
+        # Guard "rug burn", "chemical burn", "road burn" compound nouns.
+        r"shine[sd]?|glow[s]?|(?<!rug\s)(?<!chemical\s)(?<!road\s)burn[s]?|move[sd]?|"
         r"orbit[s]?|revolve[sd]?|rotate[sd]?|spin[s]?|live[sd]?|breathe[sd]?|"
         # "stock market crash" is a noun compound: guard crash with (?=\s) so it only
         # strips as a verb when followed by more content (e.g. "crash and lose data").

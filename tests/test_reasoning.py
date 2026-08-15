@@ -10830,3 +10830,93 @@ def test_batch288_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is free will",                                      "free will"),
+    ("what is determinism",                                    "determinism"),
+    ("what is moral relativism",                               "moral relativism"),
+    ("what is utilitarianism",                                 "utilitarianism"),
+    ("what is deontological ethics",                           "deontological ethics"),
+    ("what is virtue ethics",                                  "virtue ethics"),
+    ("what is the social contract",                            "social contract"),
+    ("what is moral realism",                                  "moral realism"),
+    ("what is nihilism",                                       "nihilism"),
+    ("what is existentialism",                                 "existentialism"),
+    ("what is the trolley problem",                            "trolley problem"),
+    ("what is cognitive dissonance",                           "cognitive dissonance"),
+    ("what is a logical fallacy",                              "logical fallacy"),
+    ("what is the burden of proof",                            "burden of proof"),
+    ("what is a straw man argument",                           "straw man argument"),
+    ("what is an ad hominem",                                  "ad hominem"),
+    ("what is a false dichotomy",                              "false dichotomy"),
+    ("what is the naturalistic fallacy",                       "naturalistic fallacy"),
+    ("what is ethical relativism",                             "ethical relativism"),
+    ("what is moral absolutism",                               "moral absolutism"),
+])
+def test_batch289_subject_extraction(question, expected):
+    """Batch 289: philosophy / ethics — concepts that look like verbs or propositions."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is nuclear fission",                                "nuclear fission"),
+    ("what is nuclear fusion",                                 "nuclear fusion"),
+    ("what is radioactive decay",                              "radioactive decay"),
+    ("what is quantum entanglement",                           "quantum entanglement"),
+    ("what is wave particle duality",                          "wave particle duality"),
+    ("what is the uncertainty principle",                      "uncertainty principle"),
+    ("what is superposition",                                  "superposition"),
+    ("what is dark matter",                                    "dark matter"),
+    ("what is dark energy",                                    "dark energy"),
+    ("what is a black hole",                                   "black hole"),
+    ("what is a quasar",                                       "quasar"),
+    ("what is antimatter",                                     "antimatter"),
+    ("what is thermal expansion",                              "thermal expansion"),
+    ("what is surface tension",                                "surface tension"),
+    ("what is viscosity",                                      "viscosity"),
+    ("what is capacitance",                                    "capacitance"),
+    ("what is inductance",                                     "inductance"),
+    ("what is a standing wave",                                "standing wave"),
+    ("what is resonance",                                      "resonance"),
+    ("what is a phase transition",                             "phase transition"),
+])
+def test_batch290_subject_extraction(question, expected):
+    """Batch 290: physics / science — fundamental concepts with action-like names."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("what is a service charge",                               "service charge"),
+    ("what is a cover charge",                                 "cover charge"),
+    ("what is a depth charge",                                 "depth charge"),
+    ("what is a hard drive",                                   "hard drive"),
+    ("what is a flash drive",                                  "flash drive"),
+    ("what is a test drive",                                   "test drive"),
+    ("what is a push notification",                            "push notification"),
+    ("what is a push up",                                      "push up"),
+    ("what is a pull request",                                 "pull request"),
+    ("what is a muscle pull",                                  "muscle pull"),
+    ("what is a ski lift",                                     "ski lift"),
+    ("what is a face lift",                                    "face lift"),
+    ("what is a drop down menu",                               "drop down menu"),
+    ("what is a raindrop",                                     "raindrop"),
+    ("what is a budget cut",                                   "budget cut"),
+    ("what is a paper cut",                                    "paper cut"),
+    ("what is a price cut",                                    "price cut"),
+    ("what is a rug burn",                                     "rug burn"),
+    ("what is a heartburn",                                    "heartburn"),
+    ("what is a freudian slip",                                "freudian slip"),
+])
+def test_batch291_subject_extraction(question, expected):
+    """Batch 291: adversarial charge/drive/push/pull/lift/drop/cut/burn as noun heads."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
