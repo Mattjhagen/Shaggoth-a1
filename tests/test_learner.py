@@ -91,6 +91,15 @@ class TestLearnerPipelineState:
         h = p.history(limit=5)
         assert len(h) == 5
 
+    def test_corrupt_history_falls_back_to_empty(self, tmp_path):
+        """A truncated or corrupt history file must not prevent instantiation."""
+        history_path = tmp_path / "history.json"
+        history_path.write_text("{bad json", encoding="utf-8")
+        p = _pipeline(tmp_path=tmp_path)
+        p.history_path = str(history_path)
+        p._load_history()
+        assert p._history == []
+
     def test_history_persistence(self, tmp_path):
         # Pipeline saves history to disk; a second instance loads it
         model_dir = tmp_path / "models"

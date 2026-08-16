@@ -52,7 +52,7 @@ def _post_json(url: str, payload: dict, headers: dict, timeout: float = _TIMEOUT
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        return json.loads(resp.read(10_485_760).decode("utf-8"))
 
 
 class ChatRESTModel(LanguageModel):
@@ -138,7 +138,7 @@ class ChatRESTModel(LanguageModel):
             text = self._chat(messages, max_tokens)
             self._last_error = None
             return text.strip()
-        except Exception as exc:  # noqa: BLE001 — a dead phone must not break a chat turn
+        except (OSError, RuntimeError, ValueError) as exc:
             self._last_error = f"{self.provider}: {exc}"
             print(f"[{self.provider}] generation failed: {exc}")
             return ""
@@ -179,8 +179,10 @@ class GeminiModel(ChatRESTModel):
 
     def _chat(self, messages: list[dict], max_tokens: int) -> str:
         system = "\n".join(m["content"] for m in messages if m["role"] == "system")
+        _ROLE_MAP = {"assistant": "model"}
         contents = [
-            {"role": m["role"], "parts": [{"text": m["content"]}]}
+            {"role": _ROLE_MAP.get(m["role"], m["role"]),
+             "parts": [{"text": m["content"]}]}
             for m in messages
             if m["role"] != "system"
         ]

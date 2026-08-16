@@ -205,6 +205,34 @@ class TestSaveReload:
         p.unlink()
         assert not eng.maybe_reload()
 
+    def test_save_and_reload_are_serialized(self, tmp_path):
+        import threading
+        eng = _engine(tmp_path)
+        eng.config["mood"] = "concurrent"
+        errors = []
+
+        def save_loop():
+            for _ in range(20):
+                try:
+                    eng.save()
+                except Exception as exc:
+                    errors.append(exc)
+
+        def reload_loop():
+            for _ in range(20):
+                try:
+                    eng.maybe_reload()
+                except Exception as exc:
+                    errors.append(exc)
+
+        t1 = threading.Thread(target=save_loop)
+        t2 = threading.Thread(target=reload_loop)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        assert errors == []
+
 
 # ---------------------------------------------------------------------------
 # as_dict

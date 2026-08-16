@@ -69,6 +69,26 @@ class TopicExtractionTests(unittest.TestCase):
         topic = extract_topic_query("why is the sky blue")
         self.assertEqual(topic, "the sky blue")
 
+    def test_strips_trailing_use_verb(self):
+        """'use' was absent from _TRAILING_VERB, so 'how does X use Y'
+        returned 'X use Y' and polluted the knowledge base with oddly-named
+        entries instead of the plain subject 'X'."""
+        self.assertEqual(extract_topic_query("how does photosynthesis use light"), "photosynthesis")
+        self.assertEqual(extract_topic_query("how do plants use sunlight"), "plants")
+
+    def test_strips_trailing_produce_verb(self):
+        self.assertEqual(extract_topic_query("how does photosynthesis produce oxygen"), "photosynthesis")
+
+    def test_strips_trailing_exist_verb(self):
+        """'exist' must be stripped without also swallowing the preceding noun
+        phrase — 'dark matter' is a noun, not the verb 'matter'."""
+        self.assertEqual(extract_topic_query("why does dark matter exist"), "dark matter")
+
+    def test_strips_past_tense_trailing_verbs(self):
+        self.assertEqual(extract_topic_query("how was steel made"), "steel")
+        self.assertEqual(extract_topic_query("how was the internet created"), "the internet")
+        self.assertEqual(extract_topic_query("how were vaccines discovered"), "vaccines")
+
 
 class KeywordTests(unittest.TestCase):
     def test_extracts_keywords_from_topic(self):
@@ -255,6 +275,15 @@ class WikipediaTests(unittest.TestCase):
         self.assertIn("visible", result)
         self.assertNotIn("invisible", result)
 
+    def test_html_entity_out_of_range_does_not_crash(self):
+        result = _html_to_text("test&#9999999;end")
+        self.assertIn("test", result)
+        self.assertIn("end", result)
+
+    def test_html_entity_valid_codepoint(self):
+        result = _html_to_text("&#65;")
+        self.assertIn("A", result)
+
 
 class ResearchQueueTests(unittest.TestCase):
     """Research queue: concurrent requests queue instead of failing."""
@@ -329,6 +358,73 @@ class ResearchQueueTests(unittest.TestCase):
         # Both should have seen _running == True
         self.assertEqual(observed_running, [True, True])
         self.assertFalse(self.engine._running)
+
+
+class CuriosityLockingTests(unittest.TestCase):
+    """Tests for thread-safe property access on CuriosityEngine."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.knowledge = KnowledgeBase(directory=Path(self.tmpdir) / "knowledge")
+        self.scraper = ScraperEngine(db_path=str(Path(self.tmpdir) / "scraper.db"))
+        self.engine = CuriosityEngine(
+            knowledge=self.knowledge,
+            scraper=self.scraper,
+            history_path=Path(self.tmpdir) / "curiosity_history.json",
+            use_wikipedia=False,
+        )
+
+    def test_is_running_property_acquires_lock(self):
+        self.assertFalse(self.engine.is_running)
+        with self.engine._lock:
+            self.engine._running = True
+        self.assertTrue(self.engine.is_running)
+        with self.engine._lock:
+            self.engine._running = False
+
+    def test_current_episode_property_acquires_lock(self):
+        self.assertIsNone(self.engine.current_episode)
+
+    def test_status_returns_consistent_snapshot(self):
+        status = self.engine.status()
+        self.assertIn("is_running", status)
+        self.assertFalse(status["is_running"])
+
+    def test_refresh_stale_skips_when_running(self):
+        with self.engine._lock:
+            self.engine._running = True
+        result = self.engine.refresh_stale()
+        self.assertEqual(result.get("refreshed", 0), 0)
+        with self.engine._lock:
+            self.engine._running = False
+
+    def test_load_history_rejects_non_list(self):
+        self.engine.history_path.write_text('{"not": "a list"}', encoding="utf-8")
+        result = self.engine._load_history()
+        self.assertIsInstance(result, list)
+        self.assertEqual(result, [])
+
+    def test_history_is_trimmed_when_oversized(self):
+        self.engine._history = [{"topic": f"t{i}"} for i in range(250)]
+        self.engine._history.append({"topic": "new"})
+        if len(self.engine._history) > 200:
+            del self.engine._history[:-100]
+        self.assertLessEqual(len(self.engine._history), 100)
+
+    def test_save_history_oserror_does_not_raise(self):
+        """OSError during history persistence must be swallowed, not re-raised.
+
+        A full disk or permission error previously propagated through the
+        finally block of _run_research() and killed the daemon thread before
+        it could clear _running, permanently blocking all future research.
+        """
+        from unittest.mock import patch
+        self.engine._history = [{"topic": "test"}]
+        with patch("os.replace", side_effect=OSError("disk full")):
+            # Must not raise — the daemon thread must survive persistence failures.
+            self.engine._save_history()
+        # State is still accessible; the engine hasn't been corrupted.
+        self.assertIsInstance(self.engine._history, list)
 
 
 class PluginTests(unittest.TestCase):

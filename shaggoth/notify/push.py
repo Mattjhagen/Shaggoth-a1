@@ -15,6 +15,9 @@ dropped when the push service says it is gone.
 from __future__ import annotations
 
 import json
+import logging
+import os
+import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
@@ -22,6 +25,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from ..config import CONFIG_DIR, DATA_DIR
+
+log = logging.getLogger(__name__)
 
 VAPID_PATH = CONFIG_DIR / "vapid.json"
 SUBSCRIPTIONS_PATH = DATA_DIR / "push_subscriptions.json"
@@ -114,12 +119,20 @@ class SubscriptionStore:
     def _save(self) -> None:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(
-                json.dumps(list(self._subs.values()), indent=2) + "\n",
-                encoding="utf-8",
-            )
+            data = json.dumps(list(self._subs.values()), indent=2) + "\n"
+            fd, tmp = tempfile.mkstemp(dir=str(self.path.parent), suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    fh.write(data)
+                os.replace(tmp, str(self.path))
+            except BaseException:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+                raise
         except OSError:
-            pass  # Losing the file is not worth failing a request over.
+            pass
 
     def add(self, subscription: dict) -> bool:
         """Register a browser. Returns False for a malformed payload."""
@@ -170,6 +183,17 @@ class SubscriptionStore:
         with self._lock:
             self._last_sent[endpoint] = now
 
+    def check_and_mark_sent(self, endpoint: str, min_interval: float,
+                            now: Optional[float] = None) -> bool:
+        """Atomically check rate limit and mark sent if allowed."""
+        now = time.time() if now is None else now
+        with self._lock:
+            last = self._last_sent.get(endpoint)
+            if last is not None and (now - last) < min_interval:
+                return False
+            self._last_sent[endpoint] = now
+            return True
+
 
 class PushSender:
     """Delivers notifications, off the calling thread, best-effort."""
@@ -183,6 +207,7 @@ class PushSender:
         self.store = store or SubscriptionStore()
         self.vapid = vapid or load_vapid()
         self.min_interval = min_interval
+        self._semaphore = threading.Semaphore(8)
 
     @property
     def available(self) -> bool:
@@ -215,28 +240,53 @@ class PushSender:
         """Fire and forget. Returns immediately."""
         if not self.available:
             return
-        payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
-        thread = threading.Thread(
-            target=self._send_all,
-            args=(payload, respect_rate_limit),
-            name="shaggoth-push",
-            daemon=True,
-        )
-        thread.start()
+        if not self._semaphore.acquire(blocking=False):
+            return
+        try:
+            payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
+            thread = threading.Thread(
+                target=self._guarded_send_all,
+                args=(payload, respect_rate_limit),
+                name="shaggoth-push",
+                daemon=True,
+            )
+            thread.start()
+        except Exception as exc:  # json/Thread/start failure before guarded wrapper runs
+            self._semaphore.release()
+            log.warning("[push] dispatch failed: %s", exc)
 
     def notify_session(self, session_id: str, title: str, body: str, url: str = "/",
                        tag: str = "shaggoth", respect_rate_limit: bool = True) -> None:
         """Send a notification to subscriptions in a specific session only."""
         if not self.available:
             return
-        payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
-        thread = threading.Thread(
-            target=self._send_to_session,
-            args=(session_id, payload, respect_rate_limit),
-            name="shaggoth-push",
-            daemon=True,
-        )
-        thread.start()
+        if not self._semaphore.acquire(blocking=False):
+            return
+        try:
+            payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
+            thread = threading.Thread(
+                target=self._guarded_send_to_session,
+                args=(session_id, payload, respect_rate_limit),
+                name="shaggoth-push",
+                daemon=True,
+            )
+            thread.start()
+        except Exception as exc:
+            self._semaphore.release()
+            log.warning("[push] dispatch failed: %s", exc)
+
+    def _guarded_send_all(self, payload: str, respect_rate_limit: bool) -> dict:
+        try:
+            return self._send_all(payload, respect_rate_limit)
+        finally:
+            self._semaphore.release()
+
+    def _guarded_send_to_session(self, session_id: str, payload: str,
+                                 respect_rate_limit: bool) -> dict:
+        try:
+            return self._send_to_session(session_id, payload, respect_rate_limit)
+        finally:
+            self._semaphore.release()
 
     def send_now(self, title: str, body: str, url: str = "/", tag: str = "shaggoth",
                  respect_rate_limit: bool = False) -> dict:
@@ -250,11 +300,13 @@ class PushSender:
         sent = failed = skipped = 0
         for subscription in self.store.all():
             endpoint = subscription_key(subscription)
-            if respect_rate_limit and not self.store.may_send(endpoint, self.min_interval):
-                skipped += 1
-                continue
+            if respect_rate_limit:
+                if not self.store.check_and_mark_sent(endpoint, self.min_interval):
+                    skipped += 1
+                    continue
             if self._send_one(subscription, payload):
-                self.store.mark_sent(endpoint)
+                if not respect_rate_limit:
+                    self.store.mark_sent(endpoint)
                 sent += 1
             else:
                 failed += 1
@@ -265,11 +317,13 @@ class PushSender:
         sent = failed = skipped = 0
         for subscription in self.store.by_session(session_id):
             endpoint = subscription_key(subscription)
-            if respect_rate_limit and not self.store.may_send(endpoint, self.min_interval):
-                skipped += 1
-                continue
+            if respect_rate_limit:
+                if not self.store.check_and_mark_sent(endpoint, self.min_interval):
+                    skipped += 1
+                    continue
             if self._send_one(subscription, payload):
-                self.store.mark_sent(endpoint)
+                if not respect_rate_limit:
+                    self.store.mark_sent(endpoint)
                 sent += 1
             else:
                 failed += 1

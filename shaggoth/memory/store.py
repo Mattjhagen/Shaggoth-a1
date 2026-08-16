@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 _WORD_RE = re.compile(r"[a-zA-Z][a-zA-Z'\-]{2,}")
-_ACRONYM_RE = re.compile(r"\b[A-Z]{2,5}\b")
+_ACRONYM_RE = re.compile(r"(?<!\w)[A-Z][A-Z0-9]{1,7}(?!\w)")
 
 # Common words that carry no topical signal.
 STOPWORDS = frozenset(
@@ -94,7 +94,33 @@ CREATE TABLE IF NOT EXISTS session_summaries (
     message_count INTEGER NOT NULL DEFAULT 0,
     ts REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS preferences (
+    user_id TEXT NOT NULL DEFAULT 'default',
+    category TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    confidence REAL NOT NULL DEFAULT 0.5,
+    source TEXT NOT NULL DEFAULT 'inferred',
+    ts REAL NOT NULL,
+    PRIMARY KEY (user_id, category, key)
+);
+CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL DEFAULT 'default',
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'active',
+    ts_created REAL NOT NULL,
+    ts_updated REAL NOT NULL,
+    UNIQUE(user_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
 """
+
+_MIGRATIONS = [
+    "ALTER TABLE facts ADD COLUMN confidence REAL NOT NULL DEFAULT 0.5",
+    "ALTER TABLE facts ADD COLUMN source TEXT NOT NULL DEFAULT 'pattern'",
+]
 
 # Pattern → fact key. First capture group becomes the value.
 FACT_PATTERNS: list[tuple[re.Pattern, str]] = [
@@ -148,7 +174,16 @@ class MemoryStore:
         self.db = sqlite3.connect(str(db_path), check_same_thread=False)
         with self._lock:
             self.db.executescript(SCHEMA)
+            self._run_migrations()
             self.db.commit()
+
+    def _run_migrations(self) -> None:
+        for sql in _MIGRATIONS:
+            try:
+                self.db.execute(sql)
+            except sqlite3.OperationalError as exc:
+                if "duplicate column name" not in str(exc).lower():
+                    raise
 
     # ----------------------------------------------------------- writing
     def add_message(self, session_id: str, role: str, content: str) -> int:
@@ -177,29 +212,29 @@ class MemoryStore:
                     if key == "location" and value.lower() in _NOT_A_LOCATION:
                         continue
                     found[key] = value
-                    self.set_fact(key, value, commit=False)
+                    confidence = 0.9 if key == "name" else 0.7
+                    self.set_fact(key, value, commit=False,
+                                  confidence=confidence, source="pattern")
             if found:
                 self.db.commit()
         return found
 
     def set_fact(self, key: str, value: str, user_id: str = "default",
-                 commit: bool = True) -> None:
+                 commit: bool = True, *, confidence: float = 0.5,
+                 source: str = "pattern") -> None:
         """Store or update a durable fact.
 
-        The single place that knows the `facts` schema. Two call sites
-        previously inlined this SQL with `ON CONFLICT(key)`, but the table is
-        keyed on `(key, user_id)` -- a partial conflict target matches no
-        constraint, so SQLite raised and fact storage crashed on every freshly
-        created database. Databases created before `user_id` existed have
-        `key` alone as the primary key and kept working, which is why the bug
-        stayed hidden in production while failing every test run.
+        ``confidence`` (0.0-1.0) indicates how certain the extraction is.
+        ``source`` records where the fact came from (pattern, user, plugin).
         """
         with self._lock:
             self.db.execute(
-                "INSERT INTO facts (key, value, user_id, ts) VALUES (?, ?, ?, ?) "
+                "INSERT INTO facts (key, value, user_id, ts, confidence, source) "
+                "VALUES (?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(key, user_id) DO UPDATE SET "
-                "value = excluded.value, ts = excluded.ts",
-                (key, value, user_id, time.time()),
+                "value = excluded.value, ts = excluded.ts, "
+                "confidence = excluded.confidence, source = excluded.source",
+                (key, value, user_id, time.time(), confidence, source),
             )
             if commit:
                 self.db.commit()
@@ -212,6 +247,16 @@ class MemoryStore:
             ).fetchone()
             return row[0] if row else None
 
+    def get_fact_with_meta(self, key: str, user_id: str = "default") -> dict | None:
+        with self._lock:
+            row = self.db.execute(
+                "SELECT value, confidence, source, ts FROM facts "
+                "WHERE key = ? AND user_id = ?", (key, user_id)
+            ).fetchone()
+        if not row:
+            return None
+        return {"value": row[0], "confidence": row[1], "source": row[2], "ts": row[3]}
+
     def all_facts(self, user_id: str = "default") -> dict[str, str]:
         with self._lock:
             return dict(
@@ -219,6 +264,17 @@ class MemoryStore:
                     "SELECT key, value FROM facts WHERE user_id = ?", (user_id,)
                 ).fetchall()
             )
+
+    def all_facts_with_meta(self, user_id: str = "default") -> dict[str, dict]:
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT key, value, confidence, source, ts FROM facts WHERE user_id = ?",
+                (user_id,),
+            ).fetchall()
+        return {
+            r[0]: {"value": r[1], "confidence": r[2], "source": r[3], "ts": r[4]}
+            for r in rows
+        }
 
     def history(self, session_id: str, limit: int = 50) -> list[dict]:
         with self._lock:
@@ -259,6 +315,7 @@ class MemoryStore:
                 WHERE k.word IN ({placeholders})
                   AND m.role = 'user'
                   AND m.session_id != ?
+                LIMIT 5000
                 """,
                 (*query_words, current_session),
             ).fetchall()
@@ -464,6 +521,184 @@ class MemoryStore:
             ).fetchall()
         return [{"id": r[0], "text": r[1], "ts": r[2]} for r in rows]
 
+    # --------------------------------------------------- preferences (profile)
+
+    def set_preference(
+        self, category: str, key: str, value: str,
+        user_id: str = "default", *,
+        confidence: float = 0.5, source: str = "inferred",
+    ) -> None:
+        with self._lock:
+            self.db.execute(
+                "INSERT INTO preferences (user_id, category, key, value, confidence, source, ts) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(user_id, category, key) DO UPDATE SET "
+                "value = excluded.value, confidence = excluded.confidence, "
+                "source = excluded.source, ts = excluded.ts",
+                (user_id, category, key, value, confidence, source, time.time()),
+            )
+            self.db.commit()
+
+    def get_preference(
+        self, category: str, key: str, user_id: str = "default",
+    ) -> str | None:
+        with self._lock:
+            row = self.db.execute(
+                "SELECT value FROM preferences "
+                "WHERE user_id = ? AND category = ? AND key = ?",
+                (user_id, category, key),
+            ).fetchone()
+        return row[0] if row else None
+
+    def preferences_by_category(
+        self, category: str, user_id: str = "default",
+    ) -> dict[str, str]:
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT key, value FROM preferences "
+                "WHERE user_id = ? AND category = ? ORDER BY key",
+                (user_id, category),
+            ).fetchall()
+        return dict(rows)
+
+    def all_preferences(self, user_id: str = "default") -> dict[str, dict[str, str]]:
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT category, key, value FROM preferences "
+                "WHERE user_id = ? ORDER BY category, key",
+                (user_id,),
+            ).fetchall()
+        result: dict[str, dict[str, str]] = {}
+        for cat, key, value in rows:
+            result.setdefault(cat, {})[key] = value
+        return result
+
+    _PROFILE_MAX_CHARS = 2000
+    _CREDENTIAL_RE = re.compile(
+        r"\bsk-[A-Za-z0-9_-]{16,}\b|"
+        r"\beyJ[A-Za-z0-9._-]{20,}\b|"
+        r"\bgh[pousr]_[A-Za-z0-9]{20,}\b|"
+        r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
+    )
+
+    def user_profile_context(self, user_id: str = "default") -> str:
+        """Build a natural-language summary of what we know about the user."""
+        facts = self.all_facts(user_id)
+        prefs = self.all_preferences(user_id)
+        if not facts and not prefs:
+            return ""
+
+        def _safe(v: str) -> str:
+            return self._CREDENTIAL_RE.sub("[redacted]", v)
+
+        parts = []
+        if facts:
+            items = [f"{k.replace('_', ' ')}: {_safe(v)}" for k, v in facts.items()]
+            parts.append("Known facts — " + "; ".join(items) + ".")
+        for cat, entries in prefs.items():
+            items = [f"{k}: {_safe(v)}" for k, v in entries.items()]
+            parts.append(f"{cat.title()} — " + "; ".join(items) + ".")
+        text = " ".join(parts)
+        if len(text) > self._PROFILE_MAX_CHARS:
+            text = text[: self._PROFILE_MAX_CHARS - 1] + "…"
+        return text
+
+    # ----------------------------------------------------- project memory
+
+    def add_project(
+        self, name: str, description: str = "",
+        user_id: str = "default",
+    ) -> int:
+        now = time.time()
+        with self._lock:
+            self.db.execute(
+                "INSERT INTO projects (user_id, name, description, status, ts_created, ts_updated) "
+                "VALUES (?, ?, ?, 'active', ?, ?) "
+                "ON CONFLICT(user_id, name) DO UPDATE SET "
+                "description = excluded.description, ts_updated = excluded.ts_updated",
+                (user_id, name, description, now, now),
+            )
+            self.db.commit()
+            row = self.db.execute(
+                "SELECT id FROM projects WHERE user_id = ? AND name = ?",
+                (user_id, name),
+            ).fetchone()
+        return row[0] if row else 0
+
+    def update_project(
+        self, name: str, *, description: str | None = None,
+        status: str | None = None, user_id: str = "default",
+    ) -> bool:
+        sets = []
+        params: list = []
+        if description is not None:
+            sets.append("description = ?")
+            params.append(description)
+        if status is not None:
+            sets.append("status = ?")
+            params.append(status)
+        if not sets:
+            return False
+        sets.append("ts_updated = ?")
+        params.append(time.time())
+        params.extend([user_id, name])
+        with self._lock:
+            cur = self.db.execute(
+                f"UPDATE projects SET {', '.join(sets)} "
+                "WHERE user_id = ? AND name = ?",
+                params,
+            )
+            self.db.commit()
+        return cur.rowcount > 0
+
+    def get_project(self, name: str, user_id: str = "default") -> dict | None:
+        with self._lock:
+            row = self.db.execute(
+                "SELECT id, name, description, status, ts_created, ts_updated "
+                "FROM projects WHERE user_id = ? AND name = ?",
+                (user_id, name),
+            ).fetchone()
+        if not row:
+            return None
+        return {
+            "id": row[0], "name": row[1], "description": row[2],
+            "status": row[3], "ts_created": row[4], "ts_updated": row[5],
+        }
+
+    def list_projects(
+        self, user_id: str = "default", status: str | None = "active",
+    ) -> list[dict]:
+        with self._lock:
+            if status:
+                rows = self.db.execute(
+                    "SELECT id, name, description, status, ts_created, ts_updated "
+                    "FROM projects WHERE user_id = ? AND status = ? "
+                    "ORDER BY ts_updated DESC",
+                    (user_id, status),
+                ).fetchall()
+            else:
+                rows = self.db.execute(
+                    "SELECT id, name, description, status, ts_created, ts_updated "
+                    "FROM projects WHERE user_id = ? ORDER BY ts_updated DESC",
+                    (user_id,),
+                ).fetchall()
+        return [
+            {"id": r[0], "name": r[1], "description": r[2],
+             "status": r[3], "ts_created": r[4], "ts_updated": r[5]}
+            for r in rows
+        ]
+
+    def project_context(self, user_id: str = "default") -> str:
+        """Build a context string about the user's active projects."""
+        projects = self.list_projects(user_id, status="active")
+        if not projects:
+            return ""
+        parts = []
+        for p in projects[:5]:
+            desc = f" — {p['description']}" if p['description'] else ""
+            parts.append(f"{p['name']}{desc}")
+        return "Active projects: " + "; ".join(parts) + "."
+
     def recent_user_messages(self, limit: int) -> list[str]:
         """Most recent distinct user message texts, newest first.
 
@@ -494,4 +729,5 @@ class MemoryStore:
         return [r[0] for r in rows]
 
     def close(self) -> None:
-        self.db.close()
+        with self._lock:
+            self.db.close()

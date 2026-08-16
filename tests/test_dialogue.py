@@ -117,6 +117,32 @@ class DialogueTests(unittest.TestCase):
         reply = engine.respond("I think bob@example.com is the contact", session_id="s1")
         self.assertNotIn("bob@example.com", reply.text)
 
+    def test_output_redaction_applies_to_citations(self):
+        from shaggoth.dialogue.engine import Reply
+        engine = make_engine()
+        reply = Reply(
+            text="clean text",
+            source="knowledge",
+            citations=[
+                {"topic": "Contacts", "snippet": "Email bob@example.com for info", "score": 0.9},
+            ],
+        )
+        reply = engine._finish(reply)
+        self.assertNotIn("bob@example.com", reply.citations[0]["snippet"])
+
+    def test_output_redaction_applies_to_tool_output(self):
+        from shaggoth.dialogue.engine import Reply
+        engine = make_engine()
+        reply = Reply(
+            text="clean text",
+            source="model",
+            tools_used=[
+                {"tool_name": "search", "arguments": {}, "output": "token ghp_AABBCCDDEE1234567890 found"},
+            ],
+        )
+        reply = engine._finish(reply)
+        self.assertNotIn("ghp_AABBCCDDEE1234567890", reply.tools_used[0]["output"])
+
     def test_conversation_is_persisted(self):
         engine = make_engine()
         engine.respond("hello", session_id="s1")
@@ -226,6 +252,212 @@ class ConversationFlowTests(unittest.TestCase):
         self.assertNotIn("lol fell", result)
         self.assertNotIn("Blank on lol", result)
 
+    def test_describe_unknown_compound_noun_machine_learning(self):
+        """'machine learning' must appear as the subject, not just 'machine'.
+
+        'learning' is in _WEAK_SUBJECT to stop "what have you been learning"
+        from echoing back "learning" as the topic. But when it immediately
+        follows a substantive word like "machine" it qualifies that word and
+        must be preserved as part of the compound noun.
+        """
+        for _ in range(20):
+            result = describe_unknown("what is machine learning", researching=False)
+            self.assertIn("machine learning", result.lower(), result)
+
+    def test_describe_unknown_enumeration_shape_words_filtered(self):
+        """'types of cryptography' should produce 'cryptography', not 'types cryptography'."""
+        for _ in range(20):
+            result = describe_unknown("what are the types of cryptography", researching=False)
+            self.assertIn("cryptography", result.lower(), result)
+            self.assertNotIn("types cryptography", result.lower(), result)
+
+    def test_describe_unknown_deep_learning_preserved(self):
+        """'deep learning' is another compound noun that should be kept intact."""
+        for _ in range(20):
+            result = describe_unknown("tell me about deep learning", researching=False)
+            self.assertIn("deep learning", result.lower(), result)
+
+    def test_describe_unknown_how_to_verb_filtered(self):
+        """HOW-TO verb 'protect' should not bleed into the fallback subject.
+
+        'how do I protect against ransomware' should echo 'ransomware', not
+        'protect against ransomware' or 'protect ransomware'.
+        """
+        for _ in range(20):
+            result = describe_unknown("how do I protect against ransomware", researching=False)
+            self.assertIn("ransomware", result.lower(), result)
+            self.assertNotIn("protect", result.lower(), result)
+
+    def test_describe_unknown_how_does_it_work_drops_work(self):
+        """'work' from 'how does it work' should not appear in the subject."""
+        for _ in range(20):
+            result = describe_unknown("what is a botnet and how does it work", researching=False)
+            self.assertIn("botnet", result.lower(), result)
+            self.assertNotIn("botnet work", result.lower(), result)
+
+    def test_describe_unknown_causal_verb_leads_filtered(self):
+        """'leads' in 'what leads to global warming' is question scaffolding."""
+        for _ in range(20):
+            result = describe_unknown("what leads to global warming", researching=False)
+            self.assertIn("global warming", result.lower(), result)
+            self.assertNotIn("leads", result.lower(), result)
+
+    def test_describe_unknown_causal_verb_triggers_filtered(self):
+        """'triggers' in 'what triggers an earthquake' is question scaffolding."""
+        for _ in range(20):
+            result = describe_unknown("what triggers an earthquake", researching=False)
+            self.assertIn("earthquake", result.lower(), result)
+            self.assertNotIn("triggers", result.lower(), result)
+
+    def test_describe_unknown_role_of_filtered(self):
+        """'role' in 'what is the role of mitochondria' is a question-frame noun."""
+        for _ in range(20):
+            result = describe_unknown("what is the role of mitochondria", researching=False)
+            self.assertIn("mitochondria", result.lower(), result)
+            self.assertNotIn("role", result.lower(), result)
+
+    def test_describe_unknown_exist_filtered_from_enumeration_question(self):
+        """'exist' at the end of an enumeration question is not the topic."""
+        for _ in range(20):
+            result = describe_unknown("what kinds of chemical reactions exist", researching=False)
+            self.assertIn("chemical reactions", result.lower(), result)
+            self.assertNotIn("exist", result.lower(), result)
+
+    def test_describe_unknown_distinguishes_filtered(self):
+        """'distinguishes' is the comparison verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("what distinguishes plants from animals", researching=False)
+            self.assertNotIn("distinguishes", result.lower(), result)
+
+    def test_describe_unknown_evolve_filtered(self):
+        """'evolve' is the process verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("how did humans evolve", researching=False)
+            self.assertIn("human", result.lower(), result)
+            self.assertNotIn("evolve", result.lower(), result)
+
+    def test_describe_unknown_emerged_filtered(self):
+        """'emerged' is the process verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("how did life emerge from the oceans", researching=False)
+            self.assertNotIn("emerged", result.lower(), result)
+            self.assertNotIn("emerge", result.lower(), result)
+
+    def test_describe_unknown_invented_filtered(self):
+        """'invented' is the question verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("who invented electricity", researching=False)
+            self.assertIn("electric", result.lower(), result)
+            self.assertNotIn("invented", result.lower(), result)
+
+    def test_describe_unknown_discovered_filtered(self):
+        """'discovered' is the question verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("who discovered penicillin", researching=False)
+            self.assertIn("penicillin", result.lower(), result)
+            self.assertNotIn("discovered", result.lower(), result)
+
+    def test_describe_unknown_happened_filtered(self):
+        """'happened' is the question verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("when did the Renaissance happen", researching=False)
+            self.assertIn("renaissance", result.lower(), result)
+            self.assertNotIn("happened", result.lower(), result)
+
+    def test_describe_unknown_collapsed_filtered(self):
+        """'collapsed' is the question verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("how did the Roman Empire collapse", researching=False)
+            self.assertIn("roman", result.lower(), result)
+            self.assertNotIn("collapsed", result.lower(), result)
+            self.assertNotIn("collapse", result.lower(), result)
+
+    def test_describe_unknown_wrote_filtered(self):
+        """'wrote' is the attribution verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("who wrote Hamlet", researching=False)
+            self.assertIn("hamlet", result.lower(), result)
+            self.assertNotIn("wrote", result.lower(), result)
+
+    def test_describe_unknown_founded_filtered(self):
+        """'founded' is the attribution verb, not part of the topic."""
+        for _ in range(20):
+            result = describe_unknown("who founded Apple", researching=False)
+            self.assertIn("apple", result.lower(), result)
+            self.assertNotIn("founded", result.lower(), result)
+
+    def test_describe_unknown_ww2_end_extracts_ww2(self):
+        """'when did WW2 end' should use 'ww2' as the subject, not 'end'."""
+        for _ in range(20):
+            result = describe_unknown("when did WW2 end", researching=False)
+            self.assertIn("ww2", result.lower(), result)
+            self.assertNotIn(" end", result.lower(), result)
+
+    def test_describe_unknown_end_filtered(self):
+        """'end' is a temporal verb that should not leak into the subject phrase."""
+        for _ in range(20):
+            result = describe_unknown("when did the war end", researching=False)
+            self.assertIn("war", result.lower(), result)
+            self.assertNotIn(" end", result.lower(), result)
+
+    def test_describe_unknown_start_filtered(self):
+        """'start' is a temporal verb in 'when did X start' questions."""
+        for _ in range(20):
+            result = describe_unknown("when did the Renaissance start", researching=False)
+            self.assertIn("renaissance", result.lower(), result)
+            self.assertNotIn("start", result.lower(), result)
+
+    def test_describe_unknown_finished_filtered(self):
+        """'finished' should not appear in the subject phrase."""
+        for _ in range(20):
+            result = describe_unknown("when did the project finish", researching=False)
+            self.assertIn("project", result.lower(), result)
+            self.assertNotIn("finish", result.lower(), result)
+
+    def test_describe_unknown_fight_filtered(self):
+        """'fight' / 'fights' should not leak into the subject phrase."""
+        for _ in range(20):
+            result = describe_unknown(
+                "how does the immune system fight viruses", researching=False
+            )
+            self.assertIn("immune", result.lower(), result)
+            self.assertNotIn("fight", result.lower(), result)
+
+    def test_describe_unknown_affect_filtered(self):
+        """'affect' / 'affects' should not leak into the subject phrase."""
+        for _ in range(20):
+            result = describe_unknown(
+                "how does stress affect the body", researching=False
+            )
+            self.assertIn("stress", result.lower(), result)
+            self.assertNotIn("affect", result.lower(), result)
+
+    def test_describe_unknown_defend_filtered(self):
+        """'defends' / 'defend' should not leak into the subject phrase."""
+        for _ in range(20):
+            result = describe_unknown(
+                "how does the body defend against infection", researching=False
+            )
+            self.assertNotIn("defend", result.lower(), result)
+
+    def test_describe_unknown_developed_filtered(self):
+        """'developed' is a passive attribution verb that should be filtered."""
+        for _ in range(20):
+            result = describe_unknown(
+                "when was the internet developed", researching=False
+            )
+            self.assertIn("internet", result.lower(), result)
+            self.assertNotIn("developed", result.lower(), result)
+
+    def test_describe_unknown_designed_filtered(self):
+        """'designed' is a passive attribution verb that should be filtered."""
+        for _ in range(20):
+            result = describe_unknown(
+                "who designed the Eiffel Tower", researching=False
+            )
+            self.assertIn("eiffel", result.lower(), result)
+            self.assertNotIn("designed", result.lower(), result)
+
     def test_what_about_that_is_follow_up(self):
         self.assertTrue(is_follow_up("what about that"))
         self.assertTrue(is_follow_up("what about this?"))
@@ -312,12 +544,15 @@ class GPTConversationTests(unittest.TestCase):
 
     def _make_gpt_engine(self, generate_return="Test GPT response."):
         from unittest.mock import MagicMock, PropertyMock
-        from shaggoth.models.openai_model import OpenAIModel
+        from shaggoth.models.openai_model import OpenAIModel, ToolLoopResult
         engine = make_engine()
         mock_gpt = MagicMock(spec=OpenAIModel)
         type(mock_gpt).configured = PropertyMock(return_value=True)
         mock_gpt.is_trained.return_value = True
         mock_gpt.generate_chat.return_value = generate_return
+        mock_gpt.generate_with_tools.return_value = ToolLoopResult(
+            text=generate_return, tool_calls=[], iterations=1,
+        )
         engine.model = mock_gpt
         return engine, mock_gpt
 
@@ -336,7 +571,7 @@ class GPTConversationTests(unittest.TestCase):
         reply = engine.respond("are you an LLM?", session_id="s1")
         self.assertIn("knowledge base", reply.text)
         self.assertNotEqual(reply.source, "fallback")
-        mock_gpt.generate_chat.assert_called()
+        mock_gpt.generate_with_tools.assert_called()
 
     def test_gpt_synthesizes_knowledge_instead_of_extracting(self):
         """With GPT configured, knowledge questions go through GPT for
@@ -353,9 +588,8 @@ class GPTConversationTests(unittest.TestCase):
                          "Photosynthesis is the process by which plants convert light. " * 20)
             engine.knowledge = kb
             reply = engine.respond("what is photosynthesis", session_id="s1")
-            # GPT should have been called with knowledge context
-            mock_gpt.generate_chat.assert_called()
-            call_kwargs = mock_gpt.generate_chat.call_args
+            mock_gpt.generate_with_tools.assert_called()
+            call_kwargs = mock_gpt.generate_with_tools.call_args
             self.assertIn("Photosynthesis", call_kwargs.kwargs.get("knowledge_context", ""))
             # The reply should be the GPT output, not extracted text
             self.assertIn("pretty fundamental", reply.text)
@@ -371,8 +605,30 @@ class GPTConversationTests(unittest.TestCase):
             )
             engine.knowledge = KnowledgeBase(td)
             reply = engine.respond("what is quantum computing", session_id="s1")
-            mock_gpt.generate_chat.assert_called()
+            mock_gpt.generate_with_tools.assert_called()
             self.assertEqual(reply.source, "fallback")
+
+    def test_gpt_answer_suppresses_research_push_notification(self):
+        """When GPT answers without KB context (source='fallback'), deferred
+        research should still be recorded but the push notification must NOT
+        fire — the user already has an answer."""
+        import tempfile
+        from unittest.mock import MagicMock
+        from shaggoth.knowledge.engine import KnowledgeBase
+        with tempfile.TemporaryDirectory() as td:
+            engine, _mock_gpt = self._make_gpt_engine(
+                "Quantum computing uses qubits to process information."
+            )
+            engine.knowledge = KnowledgeBase(td)
+            mock_dq = MagicMock()
+            mock_dq.record.return_value = object()  # truthy deferred token
+            engine.deferred_questions = mock_dq
+            mock_push = MagicMock()
+            engine.push_sender = mock_push
+            reply = engine.respond("what is quantum computing", session_id="s1")
+            self.assertEqual(reply.source, "fallback")
+            mock_dq.record.assert_called()  # research still queued
+            mock_push.notify_session.assert_not_called()  # no misleading notification
 
     def test_gpt_statement_without_knowledge_is_model(self):
         """A statement (not a question) should get source='model', not 'fallback'."""
@@ -384,7 +640,7 @@ class GPTConversationTests(unittest.TestCase):
             )
             engine.knowledge = KnowledgeBase(td)
             reply = engine.respond("the weather is nice today", session_id="s1")
-            mock_gpt.generate_chat.assert_called()
+            mock_gpt.generate_with_tools.assert_called()
             self.assertNotEqual(reply.source, "fallback")
 
     def test_no_gpt_falls_back_to_patterns(self):
@@ -411,6 +667,29 @@ class GPTConversationTests(unittest.TestCase):
         self.assertFalse(_is_about_self("what is photosynthesis"))
         self.assertFalse(_is_about_self("who is Albert Einstein"))
         self.assertFalse(_is_about_self("how does gravity work"))
+
+    def test_is_about_self_expanded_patterns(self):
+        from shaggoth.dialogue.engine import _is_about_self
+        self.assertTrue(_is_about_self("what model are you"))
+        self.assertTrue(_is_about_self("what language model are you"))
+        self.assertTrue(_is_about_self("what ai are you"))
+        self.assertTrue(_is_about_self("what's your name"))
+        self.assertTrue(_is_about_self("what is your purpose"))
+        self.assertTrue(_is_about_self("do you have feelings"))
+        self.assertTrue(_is_about_self("do you have consciousness"))
+        self.assertTrue(_is_about_self("are you sentient"))
+        self.assertTrue(_is_about_self("are you an ai"))
+        self.assertTrue(_is_about_self("are you a bot"))
+        self.assertTrue(_is_about_self("are you a robot"))
+        self.assertTrue(_is_about_self("who made you"))
+        self.assertTrue(_is_about_self("who built you"))
+        self.assertTrue(_is_about_self("who created you"))
+        self.assertTrue(_is_about_self("what were you built with"))
+        self.assertTrue(_is_about_self("how were you trained"))
+        self.assertTrue(_is_about_self("where do you come from"))
+        self.assertTrue(_is_about_self("tell me about yourself"))
+        self.assertFalse(_is_about_self("tell me about quantum physics"))
+        self.assertFalse(_is_about_self("what is DNA"))
 
 
 class NameInjectionTests(unittest.TestCase):
@@ -444,12 +723,16 @@ class RecallQualityGateTests(unittest.TestCase):
 
     def _make_gpt_engine_with_recall(self):
         from unittest.mock import MagicMock, PropertyMock
-        from shaggoth.models.openai_model import OpenAIModel
+        from shaggoth.models.openai_model import OpenAIModel, ToolLoopResult
         engine = make_engine()
         mock_gpt = MagicMock(spec=OpenAIModel)
         type(mock_gpt).configured = PropertyMock(return_value=True)
         mock_gpt.is_trained.return_value = True
-        mock_gpt.generate_chat.return_value = "Here's what I know about photosynthesis."
+        text = "Here's what I know about photosynthesis."
+        mock_gpt.generate_chat.return_value = text
+        mock_gpt.generate_with_tools.return_value = ToolLoopResult(
+            text=text, tool_calls=[], iterations=1,
+        )
         engine.model = mock_gpt
         return engine
 
@@ -458,6 +741,39 @@ class RecallQualityGateTests(unittest.TestCase):
         engine.memory.add_message("s1", "user", "I am building an LLM")
         reply = engine.respond("tell me about photosynthesis", session_id="s1")
         self.assertNotIn("you mentioned", reply.text)
+
+
+class RecalledEvictionTests(unittest.TestCase):
+    """The _recalled dict must not grow without bound across sessions."""
+
+    def test_recalled_dict_stays_bounded(self):
+        engine = make_engine()
+        for i in range(250):
+            sid = f"session-{i}"
+            engine._recalled.setdefault(sid, set())
+            if len(engine._recalled) > engine._recalled_max_sessions:
+                oldest = next(iter(engine._recalled))
+                if oldest != sid:
+                    del engine._recalled[oldest]
+        self.assertLessEqual(len(engine._recalled), engine._recalled_max_sessions + 1)
+
+    def test_recalled_max_sessions_default(self):
+        engine = make_engine()
+        self.assertEqual(engine._recalled_max_sessions, 200)
+
+
+class DuckTypeModelTests(unittest.TestCase):
+    """A non-OpenAI model with generate_chat but no .configured must not crash."""
+
+    def test_duck_type_model_without_configured_does_not_crash(self):
+        from unittest.mock import MagicMock
+        engine = make_engine()
+        mock = MagicMock()
+        del mock.configured
+        mock.generate_chat.return_value = "hello"
+        engine.model = mock
+        reply = engine.respond("hello", session_id="s1")
+        self.assertTrue(reply.text)
 
 
 if __name__ == "__main__":

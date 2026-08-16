@@ -7,6 +7,9 @@ that should be re-researched to keep the knowledge base current.
 from __future__ import annotations
 
 import json
+import os
+import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -29,6 +32,7 @@ class FreshnessTracker:
         self.freshness_path = Path(freshness_path) if freshness_path else FRESHNESS_PATH
         self.freshness_path.parent.mkdir(parents=True, exist_ok=True)
         self.stale_days = stale_days
+        self._lock = threading.Lock()
         self._records: dict[str, float] = self._load()
 
     def _load(self) -> dict[str, float]:
@@ -40,18 +44,30 @@ class FreshnessTracker:
         return {}
 
     def _save(self) -> None:
-        self.freshness_path.write_text(
-            json.dumps(self._records, indent=2), encoding="utf-8"
-        )
+        parent = self.freshness_path.parent
+        data = json.dumps(self._records, indent=2)
+        fd, tmp = tempfile.mkstemp(dir=str(parent), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(data)
+            os.replace(tmp, self.freshness_path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
 
     def record_update(self, topic: str) -> None:
         """Record that a topic was just researched/updated."""
-        self._records[topic.lower()] = time.time()
-        self._save()
+        with self._lock:
+            self._records[topic.lower()] = time.time()
+            self._save()
 
     def get_age_days(self, topic: str) -> float | None:
         """Return how many days since a topic was last updated, or None."""
-        ts = self._records.get(topic.lower())
+        with self._lock:
+            ts = self._records.get(topic.lower())
         if ts is None:
             return None
         return (time.time() - ts) / 86400

@@ -26,6 +26,7 @@ routes (except /health, /, and static files) require
 
 from __future__ import annotations
 
+import hmac
 import ipaddress
 import json
 import mimetypes
@@ -68,6 +69,8 @@ RATE_LIMITS: dict[str, list[float]] = {}
 _SITES_INIT_LOCK = threading.Lock()
 _RATE_LIMIT_LOCK = threading.Lock()
 PUSH_TOKENS: list[dict] = []
+_PUSH_LOCK = threading.Lock()
+_MAX_PUSH_TOKENS = 100
 
 # Peers whose forwarded-IP headers we believe. cloudflared runs on this host
 # and dials 127.0.0.1:8420, so the tunnel always shows up as loopback.
@@ -268,14 +271,24 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
         def _send_json(self, status: int, payload: dict) -> None:
             self._send(status, payload)
 
+        _MAX_BODY = 1_048_576  # 1 MiB
+
         def _read_json(self) -> dict:
-            length = int(self.headers.get("Content-Length") or 0)
-            if length == 0:
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except (ValueError, TypeError):
+                return {}
+            if length <= 0:
+                return {}
+            if length > self._MAX_BODY:
                 return {}
             try:
-                return json.loads(self.rfile.read(length))
-            except json.JSONDecodeError:
+                result = json.loads(self.rfile.read(length))
+            except (json.JSONDecodeError, UnicodeDecodeError):
                 return {}
+            if not isinstance(result, dict):
+                return {}
+            return result
 
         def _send_static(self, path: Path) -> None:
             if not path.exists() or not path.is_file():
@@ -298,7 +311,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             if not api_key:
                 return True
             auth = self.headers.get("Authorization", "")
-            if auth == f"Bearer {api_key}":
+            if hmac.compare_digest(auth, f"Bearer {api_key}"):
                 return True
             self._send_json(401, {"error": "unauthorized"})
             return False
@@ -585,12 +598,15 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             now = time.time()
             with _RATE_LIMIT_LOCK:
                 if len(RATE_LIMITS) > 4096:
-                    # An open endpoint sees a lot of distinct IPs; without this the
-                    # bucket map is an unbounded memory leak.
+                    _max_window = 3600.0
                     for stale_key in [
-                        k for k, v in RATE_LIMITS.items() if not v or v[-1] < now - window
+                        k for k, v in RATE_LIMITS.items() if not v or v[-1] < now - _max_window
                     ]:
                         RATE_LIMITS.pop(stale_key, None)
+                    if len(RATE_LIMITS) > 4096:
+                        by_recency = sorted(RATE_LIMITS, key=lambda k: RATE_LIMITS[k][-1] if RATE_LIMITS[k] else 0)
+                        for stale_key in by_recency[: len(RATE_LIMITS) - 4096]:
+                            RATE_LIMITS.pop(stale_key, None)
                 bucket = RATE_LIMITS.setdefault(key, [])
                 bucket[:] = [t for t in bucket if t > now - window]
                 if len(bucket) >= limit:
@@ -804,7 +820,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 # it hasn't displayed yet.
                 params = parse_qs(url.query)
                 session_id = (params.get("session_id") or ["default"])[0]
-                since_id = int((params.get("since_id") or ["0"])[0] or 0)
+                try:
+                    since_id = int((params.get("since_id") or ["0"])[0] or 0)
+                except (ValueError, TypeError):
+                    return self._send_json(400, {"error": "since_id must be an integer"})
                 try:
                     messages = engine.memory.proactive_messages_after(
                         session_id, since_id=since_id
@@ -859,7 +878,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 link_note = ""
                 url_in_message = extract_url(message)
                 if url_in_message:
-                    page = learner.scraper.fetch_page(url_in_message)
+                    try:
+                        page = learner.scraper.fetch_page(url_in_message)
+                    except Exception:
+                        page = None
                     if page and page.word_count:
                         title = clean_page_title(page.title) or url_in_message
                         engine.knowledge.add_entry(title, page.text)
@@ -906,7 +928,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 link_note = ""
                 url_in_message = extract_url(message)
                 if url_in_message and learner:
-                    page = learner.scraper.fetch_page(url_in_message)
+                    try:
+                        page = learner.scraper.fetch_page(url_in_message)
+                    except Exception:
+                        page = None
                     if page and page.word_count:
                         title = clean_page_title(page.title) or url_in_message
                         engine.knowledge.add_entry(title, page.text)
@@ -951,6 +976,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 meta = asdict(reply)
                 meta["reply"] = meta.pop("text")
                 self.wfile.write(f"data: {json.dumps({'done': True, **meta})}\n\n".encode())
+                self.wfile.flush()
                 return
 
             if path == "/guardrails/rules":
@@ -963,11 +989,17 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
 
             if path == "/learn/start":
                 body = self._read_json()
+                try:
+                    crawl_depth = max(0, min(int(body.get("crawl_depth", 1)), MAX_DEPTH))
+                    max_pages = max(1, min(int(body.get("max_pages", 20)), MAX_PAGES))
+                    training_steps = max(0, min(int(body.get("training_steps", 1000)), 10_000))
+                except (ValueError, TypeError):
+                    return self._send_json(400, {"error": "crawl_depth, max_pages, and training_steps must be integers"})
                 session = learner.learn(
                     urls=body.get("urls"),
-                    crawl_depth=body.get("crawl_depth", 1),
-                    max_pages=body.get("max_pages", 20),
-                    training_steps=body.get("training_steps", 1000),
+                    crawl_depth=crawl_depth,
+                    max_pages=max_pages,
+                    training_steps=training_steps,
                     background=True,
                 )
                 return self._send_json(202, {"ok": True, "session_id": session.session_id})
@@ -977,7 +1009,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if not critic:
                     return self._send_json(501, {"error": "critic not initialized"})
                 body = self._read_json()
-                limit = max(1, min(int(body.get("limit") or 3), 50))
+                try:
+                    limit = max(1, min(int(body.get("limit") or 3), 50))
+                except (ValueError, TypeError):
+                    return self._send_json(400, {"error": "limit must be an integer"})
                 return self._send_json(200, critic.run_batch(limit))
 
             if path == "/agents/run":
@@ -1034,6 +1069,8 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 body = self._read_json()
                 subscription = body.get("subscription") or body
                 session_id = body.get("session_id") or "default"
+                if not isinstance(subscription, dict):
+                    return self._send_json(400, {"error": "invalid subscription format"})
                 subscription["session_id"] = session_id
                 if not push.store.add(subscription):
                     return self._send_json(400, {"error": "invalid subscription"})
@@ -1065,7 +1102,7 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if not topic or not content:
                     return self._send_json(400, {"error": "topic and content required"})
                 fpath = engine.knowledge.add_entry(topic, content)
-                return self._send_json(201, {"ok": True, "topic": topic, "path": str(fpath)})
+                return self._send_json(201, {"ok": True, "topic": topic})
 
             if path == "/knowledge/remove":
                 body = self._read_json()
@@ -1090,11 +1127,29 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 platform = body.get("platform", "unknown")
                 if not token:
                     return self._send_json(400, {"error": "token is required"})
-                PUSH_TOKENS.append({"token": token, "platform": platform, "time": time.time()})
-                return self._send_json(200, {"ok": True, "tokens_registered": len(PUSH_TOKENS)})
+                with _PUSH_LOCK:
+                    for i, existing in enumerate(PUSH_TOKENS):
+                        if existing["token"] == token:
+                            PUSH_TOKENS[i] = {"token": token, "platform": platform, "time": time.time()}
+                            return self._send_json(200, {"ok": True, "tokens_registered": len(PUSH_TOKENS)})
+                    _STALE_AGE = 30 * 86400  # 30 days
+                    now = time.time()
+                    PUSH_TOKENS[:] = [t for t in PUSH_TOKENS if now - t.get("time", 0) < _STALE_AGE]
+                    if len(PUSH_TOKENS) >= _MAX_PUSH_TOKENS:
+                        return self._send_json(429, {"error": "too many tokens registered"})
+                    PUSH_TOKENS.append({"token": token, "platform": platform, "time": time.time()})
+                    count = len(PUSH_TOKENS)
+                return self._send_json(200, {"ok": True, "tokens_registered": count})
 
             if path == "/push/tokens":
-                return self._send_json(200, {"tokens": PUSH_TOKENS})
+                with _PUSH_LOCK:
+                    safe_tokens = [
+                        {"platform": t.get("platform", "unknown"),
+                         "registered": t.get("time", 0)}
+                        for t in PUSH_TOKENS
+                    ]
+                    count = len(PUSH_TOKENS)
+                return self._send_json(200, {"count": count, "tokens": safe_tokens})
 
             if path == "/scrape/seed":
                 body = self._read_json()
@@ -1121,8 +1176,11 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 # subject). Falls back to the raw topic when it is not
                 # question-shaped, so a plain "aeroponics" is untouched.
                 topic = extract_topic_query(topic) or topic
-                max_results = body.get("max_results", 5)
-                max_pages = body.get("max_pages", 3)
+                try:
+                    max_results = max(1, min(int(body.get("max_results", 5)), 20))
+                    max_pages = max(1, min(int(body.get("max_pages", 3)), MAX_PAGES))
+                except (ValueError, TypeError):
+                    return self._send_json(400, {"error": "max_results and max_pages must be integers"})
                 episode = curiosity.research_topic(
                     topic, max_results=max_results, max_pages=max_pages, background=True,
                 )
@@ -1170,7 +1228,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 topic = (body.get("topic") or "").strip()
                 if not topic:
                     return self._send_json(400, {"error": "topic is required"})
-                max_articles = body.get("max_articles", 3)
+                try:
+                    max_articles = max(1, min(int(body.get("max_articles", 3)), 20))
+                except (ValueError, TypeError):
+                    return self._send_json(400, {"error": "max_articles must be an integer"})
                 result = curiosity.ingest_wikipedia(topic, max_articles=max_articles)
                 return self._send_json(201, {"ok": True, "topic": topic, **result})
 
@@ -1178,7 +1239,10 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
                 if not curiosity:
                     return self._send_json(501, {"error": "curiosity engine not initialized"})
                 body = self._read_json()
-                max_topics = body.get("max_topics", 3)
+                try:
+                    max_topics = max(1, min(int(body.get("max_topics", 3)), 20))
+                except (ValueError, TypeError):
+                    return self._send_json(400, {"error": "max_topics must be an integer"})
                 result = curiosity.refresh_stale(max_topics=max_topics)
                 return self._send_json(200, result)
 
@@ -1210,20 +1274,35 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             """
             try:
                 return route(*args)
+            except BrokenPipeError:
+                pass
             except Exception:
                 traceback.print_exc()
                 try:
-                    return self._send_json(500, {
-                        "error": "internal error",
-                        "reply": "Something in my head just fell over. It's logged.",
-                        "source": "error",
-                    })
+                    if not self._headers_buffer:
+                        return self._send_json(500, {
+                            "error": "internal error",
+                            "reply": "Something in my head just fell over. It's logged.",
+                            "source": "error",
+                        })
                 except Exception:
-                    return None
+                    pass
+                return None
 
         def do_GET(self):
             url = urlparse(self.path)
-            self._guard(self._route_get, url.path, url)
+            path = url.path
+            if path not in ("/", "/health", ""):
+                _candidate_path = STATIC_DIR / path.lstrip("/")
+                try:
+                    _candidate_path.resolve().relative_to(STATIC_DIR.resolve())
+                    is_static = _candidate_path.is_file()
+                except (ValueError, OSError):
+                    is_static = False
+                if not is_static:
+                    if not self._rate_limit(self._client_ip(), limit=120):
+                        return
+            self._guard(self._route_get, path, url)
 
         def do_HEAD(self):
             """Serve HEAD as GET with the body suppressed.
@@ -1233,10 +1312,21 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             text/html -- which is actively misleading when you are debugging
             cache headers, and wrong for any client that HEADs before GET.
             """
+            url = urlparse(self.path)
+            path = url.path
+            if path not in ("/", "/health", ""):
+                _candidate_path = STATIC_DIR / path.lstrip("/")
+                try:
+                    _candidate_path.resolve().relative_to(STATIC_DIR.resolve())
+                    is_static = _candidate_path.is_file()
+                except (ValueError, OSError):
+                    is_static = False
+                if not is_static:
+                    if not self._rate_limit(self._client_ip(), limit=120):
+                        return
             self._suppress_body = True
             try:
-                url = urlparse(self.path)
-                self._guard(self._route_get, url.path, url)
+                self._guard(self._route_get, path, url)
             finally:
                 self._suppress_body = False
 
@@ -1252,12 +1342,14 @@ def make_handler(engine: DialogueEngine, learner: LearnerPipeline, api_key: str 
             url = urlparse(self.path)
             if not self._check_auth():
                 return
+            if not self._rate_limit(self._client_ip()):
+                return
             self._guard(self._route_delete, url.path, url)
 
     return Handler
 
 
-def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api_key: str = "") -> None:
+def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api_key: str = API_KEY) -> None:
     learner = LearnerPipeline()
     curiosity = CuriosityEngine(knowledge=engine.knowledge, scraper=learner.scraper)
     # Share with builtin plugins so research triggered by the curiosity plugin
@@ -1431,6 +1523,8 @@ def serve(engine: DialogueEngine, host: str = "127.0.0.1", port: int = 8420, api
     except KeyboardInterrupt:
         print("\nShutting down.")
         scheduler.stop()
+        critic.stop()
+        proactive.stop()
         if supervisor is not None:
             supervisor.stop()
         httpd.server_close()

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import random
 import threading
 from pathlib import Path
 from typing import Any
 
 from ..config import CONFIG_DIR
+
+log = logging.getLogger(__name__)
 
 DEFAULT_PERSONALITY: dict[str, Any] = {
     "version": 1,
@@ -33,17 +36,30 @@ class PersonalityEngine:
             self.save()
 
     def _load(self) -> None:
-        with open(self.path, encoding="utf-8") as fh:
-            loaded = json.load(fh)
-            self.config = {**DEFAULT_PERSONALITY, **loaded}
-        self._mtime = self.path.stat().st_mtime
+        try:
+            mtime = self.path.stat().st_mtime
+            with open(self.path, encoding="utf-8") as fh:
+                loaded = json.load(fh)
+                if not isinstance(loaded, dict):
+                    log.warning("[personality] %s: expected dict, got %s", self.path, type(loaded).__name__)
+                    self._mtime = mtime
+                    return
+                self.config = {**DEFAULT_PERSONALITY, **loaded}
+            self._mtime = mtime
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
+            log.warning("[personality] failed to load %s: %s", self.path, exc)
+            try:
+                self._mtime = self.path.stat().st_mtime
+            except OSError:
+                self._mtime = None
 
     def save(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.path, "w", encoding="utf-8") as fh:
-            json.dump(self.config, fh, indent=2)
-            fh.write("\n")
-        self._mtime = self.path.stat().st_mtime
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.path, "w", encoding="utf-8") as fh:
+                json.dump(self.config, fh, indent=2)
+                fh.write("\n")
+            self._mtime = self.path.stat().st_mtime
 
     def maybe_reload(self) -> bool:
         if not self.path.exists():

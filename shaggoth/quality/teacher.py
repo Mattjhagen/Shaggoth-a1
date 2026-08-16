@@ -29,6 +29,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -222,7 +223,10 @@ class AnthropicTeacher(_JudgeMixin):
             with urllib.request.urlopen(request, timeout=self.timeout) as r:
                 data = json.loads(r.read().decode())
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode(errors="replace")[:200]
+            try:
+                detail = exc.read().decode(errors="replace")[:200]
+            except OSError:
+                detail = "(body unreadable)"
             return "", time.time() - started, f"HTTP {exc.code}: {detail}"
         except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
             return "", time.time() - started, str(exc)
@@ -282,7 +286,10 @@ class OpenRouterTeacher(_JudgeMixin):
             with urllib.request.urlopen(request, timeout=self.timeout) as r:
                 data = json.loads(r.read().decode())
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode(errors="replace")[:200]
+            try:
+                detail = exc.read().decode(errors="replace")[:200]
+            except OSError:
+                detail = "(body unreadable)"
             return "", time.time() - started, f"HTTP {exc.code}: {detail}"
         except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
             return "", time.time() - started, str(exc)
@@ -325,16 +332,20 @@ class FallbackTeacher(_JudgeMixin):
             raise ValueError("FallbackTeacher needs at least one teacher")
         self._teachers = list(teachers)
         self._index = 0
+        self._lock = threading.Lock()
         self.model = self._teachers[0].model
 
     def available(self) -> bool:
         return any(t.available() for t in self._teachers[self._index:])
 
     def _advance(self, reason: str) -> None:
-        exhausted = self._teachers[self._index].model
-        self._index += 1
-        remaining = self._teachers[self._index:]
-        nxt = remaining[0].model if remaining else None
+        with self._lock:
+            if self._index >= len(self._teachers):
+                return
+            exhausted = self._teachers[self._index].model
+            self._index += 1
+            remaining = self._teachers[self._index:]
+            nxt = remaining[0].model if remaining else None
         print(
             f"[teacher] {exhausted} looks exhausted ({reason})"
             + (f"; falling back to {nxt}" if nxt else "; no teachers left")
@@ -342,8 +353,12 @@ class FallbackTeacher(_JudgeMixin):
 
     def _generate(self, prompt: str, max_tokens: int = MAX_TOKENS) -> tuple:
         text, seconds, error = "", 0.0, "no teacher configured"
-        while self._index < len(self._teachers):
-            teacher = self._teachers[self._index]
+        while True:
+            with self._lock:
+                idx = self._index
+                if idx >= len(self._teachers):
+                    break
+            teacher = self._teachers[idx]
             if not teacher.available():
                 self._advance("not available")
                 continue

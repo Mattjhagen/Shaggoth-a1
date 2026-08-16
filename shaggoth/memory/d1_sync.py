@@ -56,6 +56,7 @@ class D1Sync:
             target=self._worker, name="shaggoth-d1-sync", daemon=True
         )
         self._thread.start()
+        self._ensure_remote_schema()
 
     @property
     def configured(self) -> bool:
@@ -91,8 +92,62 @@ class D1Sync:
             try:
                 self._queue.get_nowait()
                 self._queue.put_nowait((sql, params))
-            except queue.Empty:
+            except (queue.Empty, queue.Full):
+                # Empty: another thread drained the slot we freed before we
+                # could refill; Full: another thread refilled it first.
+                # Either way, silently drop this write rather than raising.
                 pass
+
+    def _ensure_remote_schema(self) -> None:
+        """Enqueue idempotent DDL so the remote D1 schema matches local."""
+        if not self.configured:
+            return
+        creates = [
+            "CREATE TABLE IF NOT EXISTS messages ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "session_id TEXT NOT NULL, role TEXT NOT NULL, "
+            "content TEXT NOT NULL, ts REAL NOT NULL)",
+
+            "CREATE TABLE IF NOT EXISTS facts ("
+            "key TEXT NOT NULL, value TEXT NOT NULL, "
+            "user_id TEXT NOT NULL DEFAULT 'default', "
+            "ts REAL NOT NULL, "
+            "confidence REAL NOT NULL DEFAULT 0.5, "
+            "source TEXT NOT NULL DEFAULT 'pattern', "
+            "PRIMARY KEY (key, user_id))",
+
+            "CREATE TABLE IF NOT EXISTS preferences ("
+            "user_id TEXT NOT NULL DEFAULT 'default', "
+            "category TEXT NOT NULL, key TEXT NOT NULL, "
+            "value TEXT NOT NULL, "
+            "confidence REAL NOT NULL DEFAULT 0.5, "
+            "source TEXT NOT NULL DEFAULT 'inferred', "
+            "ts REAL NOT NULL, "
+            "PRIMARY KEY (user_id, category, key))",
+
+            "CREATE TABLE IF NOT EXISTS projects ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "user_id TEXT NOT NULL DEFAULT 'default', "
+            "name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', "
+            "status TEXT NOT NULL DEFAULT 'active', "
+            "ts_created REAL NOT NULL, ts_updated REAL NOT NULL, "
+            "UNIQUE(user_id, name))",
+        ]
+        for ddl in creates:
+            self._enqueue(ddl)
+
+        # If facts table existed before confidence/source were added,
+        # CREATE TABLE IF NOT EXISTS is a no-op and the columns are missing.
+        # D1 has no IF NOT EXISTS for ALTER TABLE, so the worker silently
+        # drops the "duplicate column" error on the second run.
+        alters = [
+            "ALTER TABLE facts ADD COLUMN confidence REAL NOT NULL DEFAULT 0.5",
+            "ALTER TABLE facts ADD COLUMN source TEXT NOT NULL DEFAULT 'pattern'",
+            "ALTER TABLE preferences ADD COLUMN confidence REAL NOT NULL DEFAULT 0.5",
+            "ALTER TABLE preferences ADD COLUMN source TEXT NOT NULL DEFAULT 'inferred'",
+        ]
+        for ddl in alters:
+            self._enqueue(ddl)
 
     def _worker(self) -> None:
         while True:
@@ -100,7 +155,11 @@ class D1Sync:
             try:
                 self._d1_query(sql, params)
             except Exception as exc:
-                print(f"[d1] sync failed: {exc}")
+                msg = str(exc)
+                for secret in (self._api_token, self._account_id, self._database_id):
+                    if secret:
+                        msg = msg.replace(secret, "[REDACTED]")
+                print(f"[d1] sync failed: {type(exc).__name__}: {msg}")
             finally:
                 self._queue.task_done()
 
@@ -115,25 +174,100 @@ class D1Sync:
         return mid
 
     def set_fact(self, key: str, value: str, user_id: str = "default",
-                 commit: bool = True) -> None:
-        self._local.set_fact(key, value, user_id=user_id, commit=commit)
+                 commit: bool = True, *, confidence: float = 0.5,
+                 source: str = "pattern") -> None:
+        self._local.set_fact(key, value, user_id=user_id, commit=commit,
+                             confidence=confidence, source=source)
         self._enqueue(
-            "INSERT INTO facts (key, value, user_id, ts) VALUES (?, ?, ?, ?) "
+            "INSERT INTO facts (key, value, user_id, ts, confidence, source) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(key, user_id) DO UPDATE SET "
-            "value = excluded.value, ts = excluded.ts",
-            [key, value, user_id, time.time()],
+            "value = excluded.value, ts = excluded.ts, "
+            "confidence = excluded.confidence, source = excluded.source",
+            [key, value, user_id, time.time(), confidence, source],
         )
 
     def extract_and_store_facts(self, text: str) -> dict:
         found = self._local.extract_and_store_facts(text)
         for key, value in found.items():
+            confidence = 0.9 if key == "name" else 0.7
             self._enqueue(
-                "INSERT INTO facts (key, value, user_id, ts) VALUES (?, ?, ?, ?) "
+                "INSERT INTO facts (key, value, user_id, ts, confidence, source) "
+                "VALUES (?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(key, user_id) DO UPDATE SET "
-                "value = excluded.value, ts = excluded.ts",
-                [key, value, "default", time.time()],
+                "value = excluded.value, ts = excluded.ts, "
+                "confidence = excluded.confidence, source = excluded.source",
+                [key, value, "default", time.time(), confidence, "pattern"],
             )
         return found
+
+    def set_preference(
+        self, category: str, key: str, value: str,
+        user_id: str = "default", *,
+        confidence: float = 0.5, source: str = "inferred",
+    ) -> None:
+        self._local.set_preference(
+            category, key, value, user_id=user_id,
+            confidence=confidence, source=source,
+        )
+        self._enqueue(
+            "INSERT INTO preferences (user_id, category, key, value, confidence, source, ts) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(user_id, category, key) DO UPDATE SET "
+            "value = excluded.value, confidence = excluded.confidence, "
+            "source = excluded.source, ts = excluded.ts",
+            [user_id, category, key, value, confidence, source, time.time()],
+        )
+
+    def add_project(
+        self, name: str, description: str = "",
+        user_id: str = "default",
+    ) -> int:
+        pid = self._local.add_project(name, description, user_id=user_id)
+        now = time.time()
+        if description:
+            self._enqueue(
+                "INSERT INTO projects (user_id, name, description, status, ts_created, ts_updated) "
+                "VALUES (?, ?, ?, 'active', ?, ?) "
+                "ON CONFLICT(user_id, name) DO UPDATE SET "
+                "description = excluded.description, ts_updated = excluded.ts_updated",
+                [user_id, name, description, now, now],
+            )
+        else:
+            self._enqueue(
+                "INSERT INTO projects (user_id, name, description, status, ts_created, ts_updated) "
+                "VALUES (?, ?, ?, 'active', ?, ?) "
+                "ON CONFLICT(user_id, name) DO UPDATE SET "
+                "ts_updated = excluded.ts_updated",
+                [user_id, name, description, now, now],
+            )
+        return pid
+
+    def update_project(
+        self, name: str, *, description: str | None = None,
+        status: str | None = None, user_id: str = "default",
+    ) -> bool:
+        result = self._local.update_project(
+            name, description=description, status=status, user_id=user_id,
+        )
+        sets = []
+        params: list = []
+        if description is not None:
+            sets.append("description = ?")
+            params.append(description)
+        if status is not None:
+            sets.append("status = ?")
+            params.append(status)
+        if sets:
+            sets.append("ts_updated = ?")
+            params.append(time.time())
+            params.extend([user_id, name])
+            self._enqueue(
+                f"UPDATE projects SET {', '.join(sets)} "
+                "WHERE user_id = ? AND name = ?",
+                params,
+            )
+        return result
 
     # --------------------------------------------------------- read delegation
 

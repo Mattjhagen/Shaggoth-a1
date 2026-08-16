@@ -139,9 +139,73 @@ def test_a_repair_is_marked_before_research_not_after(store):
     assert store.repair_queue(now=0) == []
 
 
+def test_repaired_dict_is_evicted_when_oversized(tmp_path):
+    path = tmp_path / "feedback.json"
+    store = FeedbackStore(path, cooldown=100.0)
+    from shaggoth.feedback.store import MAX_ENTRIES
+    for i in range(MAX_ENTRIES + 50):
+        store.mark_repaired(f"topic-{i}", now=float(i))
+    assert len(store._repaired) <= MAX_ENTRIES
+
+
+def test_repaired_dict_hard_cap_when_nothing_stale(tmp_path):
+    """When all entries are recent (nothing stale to evict), the hard cap
+    must still enforce MAX_ENTRIES by evicting the oldest entries."""
+    path = tmp_path / "feedback.json"
+    store = FeedbackStore(path, cooldown=100_000.0)
+    from shaggoth.feedback.store import MAX_ENTRIES
+    base = 1_000_000.0
+    for i in range(MAX_ENTRIES + 50):
+        store.mark_repaired(f"topic-{i}", now=base + i)
+    assert len(store._repaired) <= MAX_ENTRIES
+
+
+def test_status_repair_queue_consistent_with_items(store):
+    store.record("q", "bad", entries_used=["A"])
+    s = store.status()
+    assert s["bad"] == 1
+    assert s["repair_queue"] == 1
+
+
 def test_a_scheduler_without_feedback_still_works(tmp_path):
     from shaggoth.curiosity.scheduler import CuriosityScheduler, ScheduleConfig
 
     sched = CuriosityScheduler(FakeCuriosity(), ScheduleConfig(refresh_stale_when_idle=True))
     sched._cycle()
     assert sched.curiosity.stale_refreshes == 1
+
+
+# --------------------------------------------------------------------------
+# _load robustness: malformed items must not crash the constructor
+# --------------------------------------------------------------------------
+
+
+def test_load_skips_item_missing_verdict(tmp_path):
+    """A stored item with a question but no verdict must be silently dropped,
+    not crash FeedbackStore.__init__ with TypeError."""
+    import json
+    path = tmp_path / "feedback.json"
+    path.write_text(json.dumps({
+        "feedback": [
+            {"question": "what is gravity"},           # missing verdict -> skip
+            {"question": "what is light", "verdict": "good"},  # valid
+        ],
+        "repaired": {},
+    }), encoding="utf-8")
+    store = FeedbackStore(path)   # must not raise
+    assert len(store._items) == 1
+    assert store._items[0].question == "what is light"
+
+
+def test_load_skips_entirely_malformed_item(tmp_path):
+    import json
+    path = tmp_path / "feedback.json"
+    path.write_text(json.dumps({
+        "feedback": [
+            "not a dict",
+            {"question": "fine", "verdict": "bad"},
+        ],
+        "repaired": {},
+    }), encoding="utf-8")
+    store = FeedbackStore(path)
+    assert len(store._items) == 1

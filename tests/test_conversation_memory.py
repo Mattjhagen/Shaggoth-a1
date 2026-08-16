@@ -20,6 +20,7 @@ from shaggoth.dialogue.engine import (
     has_subject,
     is_follow_up,
 )
+from shaggoth.knowledge.engine import KnowledgeBase
 from shaggoth.memory import MemoryStore
 
 
@@ -409,9 +410,8 @@ def test_social_messages_never_trigger_fallback(engine):
 
 def test_bare_noun_answers_from_knowledge_when_available(tmp_path):
     """Typing just 'gravity' should answer from the KB, not claim ignorance."""
-    from shaggoth.memory import MemoryStore
-
-    engine = DialogueEngine(memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
+    kb = KnowledgeBase(tmp_path / "knowledge")
+    engine = DialogueEngine(knowledge=kb, memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
     engine.knowledge.add_entry(
         "Gravity",
         "Gravity is a fundamental force of nature. " * 20,
@@ -488,9 +488,8 @@ def test_describe_unknown_filters_filler_words():
 
 def test_short_definitional_article_not_repeated(tmp_path):
     """A short article should produce one sentence, not the same one 4x."""
-    from shaggoth.memory import MemoryStore
-
-    engine = DialogueEngine(memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
+    kb = KnowledgeBase(tmp_path / "knowledge")
+    engine = DialogueEngine(knowledge=kb, memory=MemoryStore(str(tmp_path / "m.db")), seed=1)
     engine.knowledge.add_entry(
         "Gravity",
         "Gravity is a fundamental force of nature. " * 20,
@@ -504,12 +503,15 @@ def test_gpt_follow_up_routes_through_model(tmp_path):
     """When GPT is configured, follow-ups should go through the model."""
     from unittest.mock import MagicMock, patch
     from shaggoth.memory import MemoryStore
-    from shaggoth.models.openai_model import OpenAIModel
+    from shaggoth.models.openai_model import OpenAIModel, ToolLoopResult
 
     mock_model = MagicMock(spec=OpenAIModel)
     mock_model.configured = True
     mock_model.is_trained.return_value = True
     mock_model.generate_chat.return_value = "Because gravity warps spacetime."
+    mock_model.generate_with_tools.return_value = ToolLoopResult(
+        text="Because gravity warps spacetime.", tool_calls=[], iterations=1,
+    )
 
     engine = DialogueEngine(
         memory=MemoryStore(str(tmp_path / "m.db")),
@@ -520,7 +522,6 @@ def test_gpt_follow_up_routes_through_model(tmp_path):
     reply = engine.respond("why?", session_id="s1")
     assert reply.source == "model"
     assert "spacetime" in reply.text.lower()
-    mock_model.generate_chat.assert_called()
 
 
 def test_gpt_follow_up_falls_back_without_model(tmp_path):

@@ -33,7 +33,15 @@ _TRAILING_VERB = re.compile(
     r"sounds?|tastes?|smells?|starts?|begins?|ends?|stops?|changes?|"
     r"grows?|moves?|lives?|dies?|costs?|gets?|makes?|comes?|takes?|"
     r"gives?|finds?|keeps?|holds?|turns?|becomes?|"
-    r"look like|sound like|differs?|compares?)\b.*$",
+    r"look like|sound like|differs?|compares?|"
+    # Verbs present in reasoning.subject_of() but missing here — their absence
+    # lets extract_topic_query("how does X use Y") return "X use Y" instead of
+    # "X", causing knowledge entries to be stored under the inflated title.
+    # Note: "matter/matters" is intentionally omitted because it doubles as a
+    # noun ("dark matter"), causing "why does dark matter exist" to lose its
+    # two-word subject when the earliest verb match wins.
+    r"uses?|produces?|exists?|"
+    r"made|created|formed|built|done|invented|discovered)\b.*$",
     re.I,
 )
 

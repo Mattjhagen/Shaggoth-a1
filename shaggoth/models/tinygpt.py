@@ -165,7 +165,7 @@ class TinyGPTModel(LanguageModel):
         opt = torch.optim.AdamW(self.model.parameters(), lr=lr)
         self.model.train()
         for step in range(steps):
-            ix = torch.randint(len(data) - self.cfg.block_size - 1, (batch_size,))
+            ix = torch.randint(len(data) - self.cfg.block_size, (batch_size,))
             x = torch.stack([data[i : i + self.cfg.block_size] for i in ix]).to(device)
             y = torch.stack(
                 [data[i + 1 : i + self.cfg.block_size + 1] for i in ix]
@@ -204,7 +204,7 @@ class TinyGPTModel(LanguageModel):
             json.dump({"config": asdict(self.cfg), "vocab_size": self.cfg.vocab_size}, fh)
 
     def load(self, path: str) -> None:
-        ckpt = torch.load(path, map_location="cpu")
+        ckpt = torch.load(path, map_location="cpu", weights_only=True)
         self.cfg = GPTConfig(**ckpt["config"])
         tok_path = str(path) + ".tok.json"
         if Path(tok_path).exists():

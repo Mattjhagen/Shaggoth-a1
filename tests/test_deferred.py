@@ -419,3 +419,34 @@ class TestOverflow:
         answered = store.answered()
         assert len(answered) == 1
         assert answered[0].answer == "The answer."
+
+
+# ---------------------------------------------------------------------------
+# _load robustness: malformed items must not crash the constructor
+# ---------------------------------------------------------------------------
+
+
+def test_load_skips_item_missing_topic(tmp_path):
+    """A stored item with a question but no topic must be silently dropped,
+    not crash DeferredQuestions.__init__ with TypeError."""
+    import json
+    path = tmp_path / "deferred.json"
+    path.write_text(json.dumps([
+        {"question": "what is gravity"},                          # missing topic -> skip
+        {"question": "what is light", "topic": "light"},         # valid
+    ]), encoding="utf-8")
+    store = DeferredQuestions(path=path)   # must not raise
+    assert len(store._items) == 1
+    assert store._items[0].question == "what is light"
+
+
+def test_load_skips_entirely_malformed_item(tmp_path):
+    """A non-dict item in the stored list must be silently dropped."""
+    import json
+    path = tmp_path / "deferred.json"
+    path.write_text(json.dumps([
+        "not a dict",
+        {"question": "what is sound", "topic": "sound"},         # valid
+    ]), encoding="utf-8")
+    store = DeferredQuestions(path=path)   # must not raise
+    assert len(store._items) == 1

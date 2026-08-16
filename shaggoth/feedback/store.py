@@ -23,6 +23,8 @@ getting attention instead of being permanently "done".
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import threading
 import time
 from dataclasses import asdict, dataclass, field
@@ -116,24 +118,38 @@ class FeedbackStore:
             raw = raw.get("feedback") or []
         for item in raw if isinstance(raw, list) else []:
             if isinstance(item, dict) and item.get("question"):
-                self._items.append(Feedback(**{
-                    k: v for k, v in item.items()
-                    if k in Feedback.__dataclass_fields__
-                }))
+                try:
+                    self._items.append(Feedback(**{
+                        k: v for k, v in item.items()
+                        if k in Feedback.__dataclass_fields__
+                    }))
+                except Exception:
+                    pass
 
     def _save(self) -> None:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(
+            payload = (
                 json.dumps(
                     {
                         "feedback": [asdict(i) for i in self._items],
                         "repaired": self._repaired,
                     },
                     indent=2,
-                ) + "\n",
-                encoding="utf-8",
+                )
+                + "\n"
             )
+            fd, tmp = tempfile.mkstemp(dir=self.path.parent, prefix=".feedback-")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    fh.write(payload)
+                os.replace(tmp, self.path)
+            except Exception:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+                raise
         except OSError:
             pass
 
@@ -184,18 +200,11 @@ class FeedbackStore:
 
     # -- the repair queue -------------------------------------------------
 
-    def repair_queue(self, now: Optional[float] = None) -> list:
-        """Entries that answer badly, worst first.
-
-        Only entries with more complaints than praise, and not repaired
-        within the cooldown.
-        """
+    def _repair_queue_from(
+        self, items: list, repaired: dict, now: Optional[float] = None,
+    ) -> list:
         now = time.time() if now is None else now
         tally: dict = {}
-        with self._lock:
-            items = list(self._items)
-            repaired = dict(self._repaired)
-
         for item in items:
             for topic in item.entries_used:
                 target = tally.setdefault(topic, RepairTarget(topic=topic, bad=0, good=0))
@@ -207,10 +216,6 @@ class FeedbackStore:
                     target.good += 1
 
         def off_cooldown(topic: str) -> bool:
-            # An entry that has never been repaired is always eligible.
-            # Defaulting its repair time to 0.0 and subtracting made it look
-            # like it had just been repaired at the epoch, which excluded
-            # every first-time complaint.
             if topic not in repaired:
                 return True
             return (now - repaired[topic]) >= self.cooldown
@@ -219,6 +224,17 @@ class FeedbackStore:
         out.sort(key=lambda t: (-t.score, t.topic))
         return out
 
+    def repair_queue(self, now: Optional[float] = None) -> list:
+        """Entries that answer badly, worst first.
+
+        Only entries with more complaints than praise, and not repaired
+        within the cooldown.
+        """
+        with self._lock:
+            items = list(self._items)
+            repaired = dict(self._repaired)
+        return self._repair_queue_from(items, repaired, now)
+
     def next_repair(self, now: Optional[float] = None) -> Optional[RepairTarget]:
         queue = self.repair_queue(now)
         return queue[0] if queue else None
@@ -226,7 +242,17 @@ class FeedbackStore:
     def mark_repaired(self, topic: str, now: Optional[float] = None) -> None:
         """Note that ``topic`` has been re-researched."""
         with self._lock:
-            self._repaired[topic] = time.time() if now is None else now
+            ts = time.time() if now is None else now
+            self._repaired[topic] = ts
+            if len(self._repaired) > MAX_ENTRIES:
+                cutoff = ts - 2 * self.cooldown
+                stale = [k for k, v in self._repaired.items() if v < cutoff]
+                for k in stale:
+                    del self._repaired[k]
+                if len(self._repaired) > MAX_ENTRIES:
+                    by_time = sorted(self._repaired.items(), key=lambda kv: kv[1])
+                    for k, _ in by_time[:len(self._repaired) - MAX_ENTRIES]:
+                        del self._repaired[k]
             self._save()
 
     # -- reading ----------------------------------------------------------
@@ -235,11 +261,14 @@ class FeedbackStore:
         with self._lock:
             good = sum(1 for i in self._items if i.verdict == GOOD)
             bad = sum(1 for i in self._items if i.verdict == BAD)
+            items_snapshot = list(self._items)
+            repaired_snapshot = dict(self._repaired)
+        queue = self._repair_queue_from(items_snapshot, repaired_snapshot)
         return {
             "total": good + bad,
             "good": good,
             "bad": bad,
-            "repair_queue": len(self.repair_queue()),
+            "repair_queue": len(queue),
         }
 
     def recent(self, limit: int = 20) -> list:

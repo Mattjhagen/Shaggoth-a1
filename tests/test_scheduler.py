@@ -206,3 +206,68 @@ def test_defaults_are_tuned_for_continuous_learning():
     assert config.interval_minutes <= 15
     assert config.min_message_count <= 2
     assert config.refresh_stale_when_idle is True
+
+
+# --------------------------------------------------------------------------
+# trigger() consumed-count fix
+# --------------------------------------------------------------------------
+
+
+class _FakeEpisode:
+    def __init__(self, topic):
+        self.episode_id = "ep-1"
+        self.topic = topic
+
+
+def test_trigger_only_drains_consumed_messages():
+    """trigger() must delete only the messages it actually analysed, not the
+    entire snapshot — otherwise messages arriving mid-trigger are lost."""
+    curiosity = FakeCuriosity()
+
+    original = curiosity.research_topic
+    def _research(topic, **kw):
+        original(topic, **kw)
+        return _FakeEpisode(topic)
+
+    curiosity.research_topic = _research
+    sched = _scheduler(curiosity, min_message_count=1, max_topics_per_cycle=1)
+
+    sched.record_message("topic-a")
+    sched.record_message("topic-b")
+    sched.record_message("topic-c")
+
+    result = sched.trigger()
+    assert result["triggered"] is True
+    assert result["topic"] == "topic-a"
+    assert sched.status()["buffered_messages"] == 2
+
+
+def test_trigger_returns_false_when_no_topics():
+    sched = _scheduler(FakeCuriosity(topic_for=lambda msg: None), min_message_count=1)
+    sched.record_message("hello")
+    result = sched.trigger()
+    assert result["triggered"] is False
+    assert sched.status()["buffered_messages"] == 1
+
+
+def test_trigger_keeps_messages_when_research_fails():
+    """Messages must survive a trigger() in which research_topic() raises.
+
+    The drain used to happen before research_topic(), so an exception there
+    permanently discarded the messages -- the user's questions were gone but
+    nothing had actually been researched.
+    """
+    class _FailCuriosity(FakeCuriosity):
+        def research_topic(self, topic, **kwargs):
+            raise RuntimeError("simulated research failure")
+
+    sched = _scheduler(_FailCuriosity(), min_message_count=1)
+    sched.record_message("gravity")
+
+    try:
+        sched.trigger()
+    except RuntimeError:
+        pass  # the exception propagates; that's expected
+
+    # The message must still be in the buffer for the next trigger call.
+    assert sched.status()["buffered_messages"] == 1

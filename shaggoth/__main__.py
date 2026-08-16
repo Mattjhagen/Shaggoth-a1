@@ -329,6 +329,42 @@ def cmd_wiki(settings: dict, query: str) -> int:
     return 0
 
 
+def cmd_benchmark(settings: dict, benchmark: str | None, output: str | None) -> int:
+    import time as _time
+    from .eval.harness import Harness
+    from .eval.scorer import score_run
+
+    engine = build_engine(settings)
+    engine.memory = MemoryStore(":memory:")
+    from .tools.builtin import build_tool_registry
+    engine.tools = build_tool_registry(
+        knowledge_base=engine.knowledge, memory_store=engine.memory
+    )
+    harness = Harness(engine, session_id="eval-bench")
+
+    benchmark_path = benchmark or None
+    print(f"Loading benchmark from {benchmark_path or 'bundled default'}")
+
+    t0 = _time.monotonic()
+    results = harness.run(benchmark_path=benchmark_path)
+    elapsed = _time.monotonic() - t0
+
+    if not results:
+        print("No tasks found.")
+        return 1
+
+    out = output or str(
+        DATA_DIR / "eval" / "runs" / f"eval-{_time.strftime('%Y%m%d-%H%M%S')}.jsonl"
+    )
+    harness.save_results(results, out)
+    print(f"Results written to {out}")
+
+    card = score_run(results)
+    print(f"\n{card.summary()}")
+    print(f"\nCompleted {card.total} tasks in {elapsed:.1f}s")
+    return 0 if card.failed == 0 else 1
+
+
 def cmd_knowledge_freshness(settings: dict) -> int:
     from .curiosity.freshness import FreshnessTracker
     from .knowledge.engine import KnowledgeBase
@@ -411,6 +447,10 @@ def main(argv: list[str] | None = None) -> int:
     p_agents = sub.add_parser("agents", help="show the onboard training crew")
     p_agents.add_argument("--run", metavar="NAME", default=None, help="run one agent now and print the result")
 
+    p_bench = sub.add_parser("benchmark", help="run eval benchmark and score results")
+    p_bench.add_argument("--benchmark", default=None, help="path to benchmark JSONL")
+    p_bench.add_argument("--output", default=None, help="path for results JSONL")
+
     args = parser.parse_args(argv)
     settings = load_settings()
 
@@ -439,6 +479,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_facts(settings)
     if args.command == "freshness":
         return cmd_knowledge_freshness(settings)
+    if args.command == "benchmark":
+        return cmd_benchmark(settings, args.benchmark, args.output)
     if args.command == "gui":
         return cmd_gui(settings)
     if args.command == "agents":

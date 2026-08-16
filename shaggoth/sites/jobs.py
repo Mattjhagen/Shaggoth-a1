@@ -142,18 +142,18 @@ class CrawlJobs:
 
     def _run(self, registry: SiteRegistry, site_id: str, job: CrawlJob,
              bounds: dict[str, Any]) -> None:
+        new_state = "failed"
         try:
             report = self._runner(registry, site_id, **bounds)
         except CrawlNotPermitted as exc:
             # Only reachable if the site was un-verified between the check
             # above and now. Recorded rather than swallowed.
             job.error = str(exc)
-            job.state = "failed"
         except Exception as exc:  # noqa: BLE001 - a job must always terminate
             job.error = f"{type(exc).__name__}: {exc}"
-            job.state = "failed"
         else:
             job.report = report.as_dict() if hasattr(report, "as_dict") else report
-            job.state = "done"
+            new_state = "done"
         finally:
             job.finished_at = time.time()
+            job.state = new_state

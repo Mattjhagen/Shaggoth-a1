@@ -10,6 +10,8 @@ Orchestrates:
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import time
 import threading
 from dataclasses import dataclass, asdict
@@ -60,13 +62,28 @@ class LearnerPipeline:
     def _load_history(self) -> None:
         path = Path(self.history_path)
         if path.exists():
-            self._history: list[dict] = json.loads(path.read_text(encoding="utf-8"))
+            try:
+                self._history: list[dict] = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                self._history = []
         else:
             self._history = []
 
     def _save_history(self) -> None:
-        Path(self.history_path).parent.mkdir(parents=True, exist_ok=True)
-        Path(self.history_path).write_text(json.dumps(self._history, indent=2), encoding="utf-8")
+        parent = Path(self.history_path).parent
+        parent.mkdir(parents=True, exist_ok=True)
+        data = json.dumps(self._history, indent=2)
+        fd, tmp = tempfile.mkstemp(dir=str(parent), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(data)
+            os.replace(tmp, self.history_path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
 
     @property
     def is_learning(self) -> bool:
@@ -175,10 +192,14 @@ class LearnerPipeline:
 
         finally:
             session.ended_at = time.time()
-            self._history.append(asdict(session))
-            self._save_history()
-            self._learning = False
-            self._current_session = None
+            with self._lock:
+                self._history.append(asdict(session))
+                try:
+                    self._save_history()
+                except Exception:
+                    pass
+                self._learning = False
+                self._current_session = None
 
     def active_model(self) -> tuple[str, str]:
         """The model actually on disk, as ``(kind, path)``.
@@ -202,16 +223,25 @@ class LearnerPipeline:
         """Return current learning status."""
         model_kind, active_path = self.active_model()
         model_exists = bool(active_path)
-        model_size = Path(active_path).stat().st_size if model_exists else 0
+        try:
+            model_size = Path(active_path).stat().st_size if model_exists else 0
+        except (FileNotFoundError, OSError):
+            model_size = 0
+        with self._lock:
+            is_learning = self._learning
+            session = self._current_session
+            current_session = asdict(session) if session else None
+            total_sessions = len(self._history)
+            last_session = self._history[-1] if self._history else None
         return {
-            "is_learning": self._learning,
-            "current_session": asdict(self._current_session) if self._current_session else None,
+            "is_learning": is_learning,
+            "current_session": current_session,
             "model_exists": model_exists,
             "model_kind": model_kind,
             "model_size_bytes": model_size,
             "model_path": active_path or self.model_path,
-            "total_sessions": len(self._history),
-            "last_session": self._history[-1] if self._history else None,
+            "total_sessions": total_sessions,
+            "last_session": last_session,
             "scraper_stats": self.scraper.stats(),
         }
 

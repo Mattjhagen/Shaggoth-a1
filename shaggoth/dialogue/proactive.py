@@ -114,14 +114,17 @@ def compose_proactive_message(
     parts = []
 
     # Opener — sometimes idle, sometimes topic-specific
-    if rng.random() < 0.4:
+    safe_topic = topic.replace("{", "{{").replace("}", "}}")
+    safe_snip = snip.replace("{", "{{").replace("}", "}}")
+
+    if rng.random() < 0.4 or not topic:
         parts.append(_pick(_IDLE_OPENERS, rng).format(count=count, s=plural))
     else:
-        parts.append(_pick(_TOPIC_OPENERS, rng).format(topic=topic))
+        parts.append(_pick(_TOPIC_OPENERS, rng).format(topic=safe_topic))
 
     # Middle — what was actually learned
     if snip:
-        parts.append(_pick(_FOLLOW_UPS, rng).format(snippet=snip, topic=topic))
+        parts.append(_pick(_FOLLOW_UPS, rng).format(snippet=safe_snip, topic=safe_topic))
 
     # Ending — question or observation
     if rng.random() < 0.65:
@@ -166,9 +169,8 @@ class ProactiveChatter:
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
         self._slack = slack
-        # Tracks (session_id, message_id) of messages we've sent, to avoid
-        # delivering the same proactive message twice over SSE.
-        self._sent: set[int] = set()
+        self._sent: dict[int, None] = {}
+        self._sent_max = 500
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -234,7 +236,10 @@ class ProactiveChatter:
         sent = 0
         for session_id in sessions[:self.config.max_per_cycle]:
             msg_id = self.engine.memory.add_message(session_id, "assistant", msg_text)
-            self._sent.add(msg_id)
+            self._sent[msg_id] = None
+            if len(self._sent) > self._sent_max:
+                for _ in range(len(self._sent) // 2):
+                    self._sent.pop(next(iter(self._sent)))
             sent += 1
 
         # Push notification — fire-and-forget, one to all subscribers

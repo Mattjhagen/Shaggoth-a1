@@ -16,10 +16,12 @@ Configure with:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Any, Optional
 
 from .base import GenerationError, LanguageModel
 
@@ -30,6 +32,60 @@ _DEFAULT_MAX_TOKENS = 512
 _RETRIES = 2
 _BACKOFF = 1.0
 _HISTORY_CHAR_BUDGET = 12_000
+
+
+def _trim_history(conversation_history: list[dict] | None) -> list[dict]:
+    """Pair-aware history trimming that fits within the character budget.
+
+    Groups turns into (user, assistant) pairs so trimming never orphans a
+    reply from its prompt. Keeps the most recent pairs first, truncating
+    oversized turns with a marker.
+    """
+    history_turns = []
+    for turn in (conversation_history or []):
+        role = turn.get("role")
+        content = turn.get("content") or ""
+        if role in ("user", "assistant") and content:
+            history_turns.append({"role": role, "content": content})
+
+    pairs: list[list[dict]] = []
+    i = 0
+    while i < len(history_turns):
+        if (history_turns[i]["role"] == "user"
+                and i + 1 < len(history_turns)
+                and history_turns[i + 1]["role"] == "assistant"):
+            pairs.append([history_turns[i], history_turns[i + 1]])
+            i += 2
+        else:
+            pairs.append([history_turns[i]])
+            i += 1
+
+    budget = _HISTORY_CHAR_BUDGET
+    kept_pairs: list[list[dict]] = []
+    for pair in reversed(pairs):
+        cost = sum(len(t["content"]) for t in pair)
+        if budget - cost < 0 and kept_pairs:
+            break
+        if cost > _HISTORY_CHAR_BUDGET:
+            marker = "...[truncated]"
+            cap = max(0, (_HISTORY_CHAR_BUDGET - len(marker) * len(pair)) // len(pair))
+            if cap == 0:
+                continue
+            pair = [
+                {**t, "content": t["content"][:cap] + marker}
+                if len(t["content"]) > cap else t
+                for t in pair
+            ]
+            cost = sum(len(t["content"]) for t in pair)
+        kept_pairs.append(pair)
+        budget -= cost
+    kept_pairs.reverse()
+
+    result: list[dict] = []
+    for pair in kept_pairs:
+        result.extend(pair)
+    return result
+
 
 #: System prompt that anchors GPT in Shaggoth's character. The personality
 #: engine's trait_prompt() is appended on top of this at call time.
@@ -167,49 +223,7 @@ class OpenAIModel(LanguageModel):
             system_parts.append(system_extra)
 
         messages = [{"role": "system", "content": "\n".join(system_parts)}]
-
-        history_turns = []
-        for turn in (conversation_history or []):
-            role = turn.get("role")
-            content = turn.get("content") or ""
-            if role in ("user", "assistant") and content:
-                history_turns.append({"role": role, "content": content})
-
-        # Group into (user, assistant) pairs so trimming never orphans a
-        # reply from its prompt.  Unpaired trailing turns form their own group.
-        pairs: list[list[dict]] = []
-        i = 0
-        while i < len(history_turns):
-            if (history_turns[i]["role"] == "user"
-                    and i + 1 < len(history_turns)
-                    and history_turns[i + 1]["role"] == "assistant"):
-                pairs.append([history_turns[i], history_turns[i + 1]])
-                i += 2
-            else:
-                pairs.append([history_turns[i]])
-                i += 1
-
-        budget = _HISTORY_CHAR_BUDGET
-        kept_pairs: list[list[dict]] = []
-        for pair in reversed(pairs):
-            cost = sum(len(t["content"]) for t in pair)
-            if budget - cost < 0 and kept_pairs:
-                break
-            if cost > _HISTORY_CHAR_BUDGET:
-                marker = "...[truncated]"
-                cap = max(0, (_HISTORY_CHAR_BUDGET - len(marker) * len(pair)) // len(pair))
-                pair = [
-                    {**t, "content": t["content"][:cap] + marker}
-                    if len(t["content"]) > cap else t
-                    for t in pair
-                ]
-                cost = sum(len(t["content"]) for t in pair)
-            kept_pairs.append(pair)
-            budget -= cost
-        kept_pairs.reverse()
-        for pair in kept_pairs:
-            messages.extend(pair)
-
+        messages.extend(_trim_history(conversation_history))
         messages.append({"role": "user", "content": user_message})
 
         last_exc: Exception | None = None
@@ -239,3 +253,171 @@ class OpenAIModel(LanguageModel):
         raise GenerationError(
             "My brain glitched — the language model didn't respond. Try again in a moment."
         ) from last_exc
+
+    # Tool-use loop -----------------------------------------------------------
+
+    def generate_with_tools(
+        self,
+        user_message: str,
+        *,
+        tools: "Any | None" = None,
+        knowledge_context: str = "",
+        conversation_history: list[dict] | None = None,
+        personality_context: str = "",
+        system_extra: str = "",
+        max_tokens: int = 0,
+        max_iterations: int = 5,
+    ) -> "ToolLoopResult":
+        """Chat completion with a plan-act-verify tool loop.
+
+        When the model requests tool calls, the harness executes them and
+        feeds the results back until the model produces a final text reply
+        or the iteration cap is hit.
+
+        Returns a ``ToolLoopResult`` with the final text, tool call log,
+        and iteration count.
+        """
+        from ..tools import ToolRegistry, ToolResult
+
+        if not self.configured:
+            return ToolLoopResult(text="", tool_calls=[], iterations=0)
+
+        if tools is None or not isinstance(tools, ToolRegistry) or len(tools) == 0:
+            text = self.generate_chat(
+                user_message=user_message,
+                knowledge_context=knowledge_context,
+                conversation_history=conversation_history,
+                personality_context=personality_context,
+                system_extra=system_extra,
+                max_tokens=max_tokens,
+            )
+            return ToolLoopResult(text=text, tool_calls=[], iterations=1)
+
+        max_tokens = max_tokens or self._max_tokens
+        openai_tools = tools.to_openai_tools()
+
+        system_parts = [_BASE_SYSTEM]
+        if personality_context:
+            system_parts.append(f"\n{personality_context}")
+        if knowledge_context:
+            system_parts.append(
+                "\nNotes from your own research — use these to answer, but talk "
+                "like a person, not a textbook:\n" + knowledge_context
+            )
+        system_parts.append(
+            "\nYou have tools available. Use them when the question requires "
+            "calculation, a time check, or a lookup you can't answer from the "
+            "context above. Don't use tools for things you already know."
+        )
+        if system_extra:
+            system_parts.append(system_extra)
+
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": "\n".join(system_parts)},
+        ]
+        messages.extend(_trim_history(conversation_history))
+        messages.append({"role": "user", "content": user_message})
+
+        all_tool_calls: list[ToolResult] = []
+        for iteration in range(1, max_iterations + 1):
+            last_exc: Exception | None = None
+            resp = None
+            for attempt in range(_RETRIES + 1):
+                try:
+                    client = self._client_instance()
+                    resp = client.chat.completions.create(
+                        model=self._model,
+                        messages=messages,
+                        tools=openai_tools,
+                        max_tokens=max_tokens,
+                        temperature=0.7,
+                    )
+                    break
+                except Exception as exc:
+                    last_exc = exc
+                    if _is_transient(exc) and attempt < _RETRIES:
+                        wait = _BACKOFF * (2 ** attempt)
+                        log.warning("[openai] tool-loop transient error (attempt %d/%d), retrying in %.1fs: %s",
+                                    attempt + 1, _RETRIES + 1, wait, exc)
+                        time.sleep(wait)
+                        continue
+                    log.error("[openai] tool-loop generation failed: %s", exc)
+                    raise GenerationError(
+                        "My brain glitched — the language model didn't respond."
+                    ) from exc
+            if resp is None:
+                raise GenerationError(
+                    "My brain glitched — the language model didn't respond."
+                ) from last_exc
+
+            choice = resp.choices[0]
+
+            if choice.finish_reason == "tool_calls" or (
+                choice.message.tool_calls and len(choice.message.tool_calls) > 0
+            ):
+                messages.append(choice.message)
+
+                for tc in choice.message.tool_calls:
+                    raw_args = tc.function.arguments or "{}"
+                    try:
+                        args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+                    except json.JSONDecodeError:
+                        args = {}
+
+                    result = tools.execute(tc.function.name, args)
+                    all_tool_calls.append(result)
+
+                    tool_content = result.output if not result.error else f"Error: {result.error}"
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": tool_content,
+                    })
+                continue
+
+            text = (choice.message.content or "").strip()
+            return ToolLoopResult(
+                text=text,
+                tool_calls=all_tool_calls,
+                iterations=iteration,
+            )
+
+        log.warning("[openai] tool loop hit iteration cap (%d); attempting final summary",
+                    max_iterations)
+        last_text = ""
+        if messages and messages[-1].get("role") == "tool":
+            for attempt in range(_RETRIES + 1):
+                try:
+                    client = self._client_instance()
+                    resp = client.chat.completions.create(
+                        model=self._model,
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        temperature=0.7,
+                    )
+                    last_text = (resp.choices[0].message.content or "").strip()
+                    break
+                except Exception as exc:  # noqa: BLE001
+                    if _is_transient(exc) and attempt < _RETRIES:
+                        time.sleep(_BACKOFF * (2 ** attempt))
+                        continue
+                    log.warning("[openai] tool-loop fallback failed: %s", exc)
+                    break
+
+        if not last_text and all_tool_calls:
+            log.warning("[openai] tool loop produced %d tool results but no final text",
+                        len(all_tool_calls))
+
+        return ToolLoopResult(
+            text=last_text,
+            tool_calls=all_tool_calls,
+            iterations=max_iterations,
+        )
+
+
+@dataclass
+class ToolLoopResult:
+    """Outcome of a tool-use generation loop."""
+    text: str
+    tool_calls: list = field(default_factory=list)
+    iterations: int = 1

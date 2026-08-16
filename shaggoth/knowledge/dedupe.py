@@ -142,6 +142,12 @@ def quarantine(plan: list, quarantine_dir: Path) -> list:
                 if not src.exists():
                     continue
                 quarantine_dir.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(src), str(quarantine_dir / src.name))
+                try:
+                    dest = quarantine_dir / src.name
+                    if dest.exists():
+                        dest = quarantine_dir / f"{src.stem}-{int(src.stat().st_mtime)}{src.suffix}"
+                    shutil.move(str(src), str(dest))
+                except FileNotFoundError:
+                    continue
                 moved.append(str(src))
     return moved

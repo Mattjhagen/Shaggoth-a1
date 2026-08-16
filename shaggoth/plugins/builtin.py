@@ -12,7 +12,7 @@ from datetime import datetime
 
 from . import PluginRegistry
 
-_MATH_RE = re.compile(r"^\s*(?:what(?:'s| is)\s+)?([\d\s+\-*/().%]+)\s*\??\s*$")
+_MATH_RE = re.compile(r"^\s*(?:what(?:'s| is)\s+)?([\d\s+\-*/().%]+)\s*\??\s*$", re.IGNORECASE)
 
 # Injected by server.py serve() so the curiosity plugin uses the shared engine
 # and fires the same deferred-answer and Slack callbacks as server-side research.
@@ -30,18 +30,35 @@ _OPS = {
 }
 
 
+_MAX_EXPONENT = 1000
+_MAX_AST_DEPTH = 20
+_MAX_RESULT_BITS = 10_000
+
+
 def _safe_eval(expr: str) -> float:
     """Evaluate arithmetic via the AST — no eval(), no names, no calls."""
 
-    def walk(node):
+    def walk(node, depth=0):
+        if depth > _MAX_AST_DEPTH:
+            raise ValueError("expression too deeply nested")
         if isinstance(node, ast.Expression):
-            return walk(node.body)
+            return walk(node.body, depth + 1)
         if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
             return node.value
         if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
-            return _OPS[type(node.op)](walk(node.left), walk(node.right))
+            left = walk(node.left, depth + 1)
+            right = walk(node.right, depth + 1)
+            if isinstance(node.op, ast.Pow) and abs(right) >= _MAX_EXPONENT:
+                raise ValueError(f"exponent too large (max {_MAX_EXPONENT})")
+            if isinstance(node.op, ast.Pow) and isinstance(left, int) and left != 0:
+                if left.bit_length() * abs(right) > _MAX_RESULT_BITS:
+                    raise ValueError("result would be too large")
+            result = _OPS[type(node.op)](left, right)
+            if isinstance(result, int) and result.bit_length() > _MAX_RESULT_BITS:
+                raise ValueError("intermediate result too large")
+            return result
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
-            return _OPS[type(node.op)](walk(node.operand))
+            return _OPS[type(node.op)](walk(node.operand, depth + 1))
         raise ValueError("unsupported expression")
 
     return walk(ast.parse(expr, mode="eval"))
@@ -69,7 +86,9 @@ def build_registry() -> PluginRegistry:
             return None
         try:
             result = _safe_eval(expr)
-        except (ValueError, SyntaxError, ZeroDivisionError):
+        except ZeroDivisionError:
+            return "That's a division by zero — I can't compute that."
+        except (ValueError, SyntaxError):
             return None
         pretty = int(result) if isinstance(result, float) and result.is_integer() else result
         return f"{expr} = {pretty}"
@@ -83,7 +102,7 @@ def build_registry() -> PluginRegistry:
             # Delegate to MemoryStore rather than re-inlining the schema --
             # this call site had drifted out of sync with the facts table and
             # raised on every fresh database.
-            memory.set_fact(key, value)
+            memory.set_fact(key, value, confidence=1.0, source="user")
             return f"Got it — I'll remember {match.group(1).strip()} is {value}."
         return None
 
@@ -91,10 +110,32 @@ def build_registry() -> PluginRegistry:
     def facts_plugin(text: str, memory=None, **_) -> str | None:
         if re.search(r"(?i)\bwhat do you (?:know|remember) about me\b", text) and memory:
             facts = memory.all_facts()
-            if not facts:
+            parts = []
+            if facts:
+                lines = "; ".join(f"{k.replace('_', ' ')}: {v}" for k, v in facts.items())
+                parts.append(lines)
+            try:
+                prefs = memory.all_preferences()
+                for cat, entries in prefs.items():
+                    if isinstance(entries, dict) and entries:
+                        items = "; ".join(f"{k}: {v}" for k, v in entries.items())
+                        parts.append(f"{cat}: {items}")
+            except (AttributeError, TypeError):
+                pass
+            try:
+                projects = memory.list_projects()
+                if projects and isinstance(projects, list):
+                    names = ", ".join(
+                        p["name"] for p in projects[:5]
+                        if isinstance(p, dict) and "name" in p
+                    )
+                    if names:
+                        parts.append(f"projects: {names}")
+            except (AttributeError, TypeError):
+                pass
+            if not parts:
                 return "Nothing yet! Tell me about yourself — your name, what you like, what you're building."
-            lines = "; ".join(f"{k.replace('_', ' ')}: {v}" for k, v in facts.items())
-            return f"Here's what I remember — {lines}."
+            return f"Here's what I remember — {'; '.join(parts)}."
         return None
 
     @registry.register("curiosity")
@@ -115,6 +156,8 @@ def build_registry() -> PluginRegistry:
             topic = match.group(1).strip()
             engine = _curiosity_engine or CuriosityEngine()
             episode = engine.research_topic(topic, background=True)
+            if episode is None:
+                return f"I couldn't start research on \"{topic}\" right now."
             return f"I'm researching \"{topic}\" now — I'll let you know when I find something. (episode {episode.episode_id})"
         return None
 

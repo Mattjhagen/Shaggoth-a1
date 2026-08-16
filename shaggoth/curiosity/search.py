@@ -70,7 +70,7 @@ def search_web(query: str, max_results: int = 5) -> list[SearchResult]:
 
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            html = resp.read().decode("utf-8", errors="replace")
+            html = resp.read(2_097_152).decode("utf-8", errors="replace")
     except (urllib.error.URLError, OSError):
         return []
 

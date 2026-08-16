@@ -153,6 +153,17 @@ class TestGeminiWire:
         self.m.generate_chat("q", max_tokens=77)
         assert self.calls[0][1]["generationConfig"]["maxOutputTokens"] == 77
 
+    def test_assistant_role_mapped_to_model(self, monkeypatch):
+        monkeypatch.setattr(cloud_mod, "_post_json", self.m._post)
+        self.m.generate_chat("q", conversation_history=[
+            {"role": "assistant", "content": "hi"},
+            {"role": "user", "content": "hello"},
+        ])
+        contents = self.calls[0][1]["contents"]
+        roles = [c["role"] for c in contents]
+        assert "assistant" not in roles
+        assert "model" in roles
+
 
 # ---------------------------------------------------------------------------
 # Cloudflare wire format

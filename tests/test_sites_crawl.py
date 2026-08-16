@@ -7,10 +7,11 @@ from shaggoth.sites.registry import SiteRegistry
 
 
 class StubPage:
-    def __init__(self, text, title="Page"):
+    def __init__(self, text, title="Page", _html=""):
         self.text = text
         self.title = title
         self.word_count = len(text.split())
+        self._html = _html
 
 
 class StubScraper:
@@ -20,7 +21,7 @@ class StubScraper:
         self.pages = pages or {}
         self.disallowed = set(disallowed)
         self.respect_robots = True
-        self._last_html = html
+        self._default_html = html
         self.fetched = []
 
     def robots_allows(self, url):
@@ -28,7 +29,10 @@ class StubScraper:
 
     def fetch_page(self, url, timeout=15):
         self.fetched.append(url)
-        return self.pages.get(url)
+        page = self.pages.get(url)
+        if page is not None and not page._html:
+            page._html = self._default_html
+        return page
 
 
 @pytest.fixture

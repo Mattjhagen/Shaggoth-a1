@@ -59,6 +59,33 @@ class TestSafeEval:
         with pytest.raises(ZeroDivisionError):
             _safe_eval("1 / 0")
 
+    def test_nested_exponent_dos_blocked(self):
+        with pytest.raises(ValueError, match="too deeply nested|too large"):
+            _safe_eval("(((2**999)**999)**999)")
+
+    def test_nested_exponent_bit_length_guard(self):
+        """(999**999) has ~9951 bits; (999**999)**999 would be ~10M bits."""
+        with pytest.raises(ValueError, match="too large"):
+            _safe_eval("(999**999)**999")
+
+    def test_intermediate_result_too_large(self):
+        with pytest.raises(ValueError, match="too large"):
+            _safe_eval("2 ** 10000")
+
+    def test_exponent_at_boundary_is_rejected(self):
+        with pytest.raises(ValueError, match="too large"):
+            _safe_eval("2 ** 1000")
+
+    def test_safe_exponent_still_works(self):
+        assert _safe_eval("2 ** 10") == 1024
+
+    def test_depth_limit_rejects_deep_nesting(self):
+        # Build a deeply nested binary expression: 1+1+1+1+...
+        # Python AST nests BinOps left-to-right, so 25 additions = 25 depth
+        expr = "+".join(["1"] * 25)
+        with pytest.raises(ValueError, match="too deeply nested"):
+            _safe_eval(expr)
+
 
 # ---------------------------------------------------------------------------
 # PluginRegistry
@@ -232,3 +259,39 @@ class TestPluginRegistry:
         # Either way it should not be the generic listing.
         if result is not None:
             assert "topics so far" not in result
+
+    # -- calculator case-insensitivity ----------------------------------------
+
+    def test_calc_capital_what_is_works(self):
+        """'What is 2 + 3?' should match the calculator (was broken before re.I)."""
+        result = self.reg.dispatch("What is 2 + 3?")
+        assert result is not None
+        assert "5" in result
+
+    def test_calc_capital_whats_works(self):
+        result = self.reg.dispatch("What's 10 * 5?")
+        assert result is not None
+        assert "50" in result
+
+    # -- calculator division-by-zero reply ------------------------------------
+
+    def test_calc_division_by_zero_returns_message_not_none(self):
+        """Previously returned None, which routed to knowledge retrieval."""
+        result = self.reg.dispatch("10 / 0")
+        assert result is not None
+        assert "zero" in result.lower() or "division" in result.lower()
+
+    # -- curiosity plugin None-episode guard ----------------------------------
+
+    def test_curiosity_handles_none_episode(self, monkeypatch):
+        """research_topic() can return None; the plugin must not AttributeError."""
+        import shaggoth.plugins.builtin as builtin
+        from unittest.mock import MagicMock
+
+        fake_engine = MagicMock()
+        fake_engine.research_topic.return_value = None
+        monkeypatch.setattr(builtin, "_curiosity_engine", fake_engine)
+        result = self.reg.dispatch("research quantum computing")
+        # Must return a string, not raise AttributeError
+        assert isinstance(result, str)
+        assert "quantum computing" in result

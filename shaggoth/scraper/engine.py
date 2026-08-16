@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import hashlib
 import html as html_mod
+import ipaddress
 import json
 import re
+import socket
 import sqlite3
 import threading
 import time
@@ -16,8 +18,59 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import urllib.robotparser
+from contextlib import contextmanager
 from dataclasses import dataclass, asdict
 from pathlib import Path
+
+
+_EXTRA_NON_GLOBAL = [
+    ipaddress.ip_network("100.64.0.0/10"),    # CGNAT (RFC 6598)
+    ipaddress.ip_network("192.0.0.0/24"),     # IETF Protocol Assignments
+    ipaddress.ip_network("198.18.0.0/15"),    # Benchmarking (RFC 2544)
+    ipaddress.ip_network("198.51.100.0/24"),  # Documentation TEST-NET-2
+    ipaddress.ip_network("203.0.113.0/24"),   # Documentation TEST-NET-3
+]
+
+
+def _is_non_global(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    if not addr.is_global:
+        return True
+    return any(addr in net for net in _EXTRA_NON_GLOBAL)
+
+
+class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Reject redirects to private/internal addresses (SSRF protection)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urllib.parse.urlparse(newurl)
+        if parsed.scheme not in ("http", "https"):
+            raise urllib.error.URLError(f"redirect to non-HTTP scheme: {parsed.scheme}")
+        hostname = parsed.hostname or ""
+        if not hostname:
+            raise urllib.error.URLError("redirect to URL with no hostname")
+        if hostname in ("localhost", "metadata.google.internal"):
+            raise urllib.error.URLError(f"redirect to blocked host: {hostname}")
+        try:
+            addr = ipaddress.ip_address(hostname)
+            if _is_non_global(addr):
+                raise urllib.error.URLError(f"redirect to non-global address: {hostname}")
+        except ValueError:
+            pass
+        try:
+            for info in socket.getaddrinfo(hostname, None, socket.AF_UNSPEC):
+                addr = ipaddress.ip_address(info[4][0])
+                if _is_non_global(addr):
+                    raise urllib.error.URLError(
+                        f"redirect to non-global address: {hostname} -> {addr}"
+                    )
+        except urllib.error.URLError:
+            raise
+        except (socket.gaierror, OSError):
+            pass
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_safe_opener = urllib.request.build_opener(_SafeRedirectHandler)
 
 #: Sent on every request the scraper makes.
 #:
@@ -53,6 +106,12 @@ def _clean_text(text: str) -> str:
     return text.strip()
 
 
+def _extract_meta_charset(html: str) -> str | None:
+    """Parse charset from an HTML <meta> tag; returns None if absent."""
+    m = re.search(r'<meta[^>]+charset=["\']?([^"\'>\s;]+)', html, re.IGNORECASE)
+    return m.group(1).strip().strip("\"'") if m else None
+
+
 def _html_to_text(html: str) -> str:
     """Extract visible text from HTML using regex. Robust against complex pages."""
     # Remove script, style, noscript blocks entirely
@@ -60,12 +119,18 @@ def _html_to_text(html: str) -> str:
     html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
     html = re.sub(r"<noscript[^>]*>.*?</noscript>", "", html, flags=re.DOTALL | re.IGNORECASE)
     html = re.sub(r"<!--.*?-->", "", html, flags=re.DOTALL)
-    # Replace block elements with newlines for paragraph breaks
-    html = re.sub(r"<(?:br|hr|p|div|h[1-6]|li|tr|blockquote)[^>]*>", "\n", html, flags=re.IGNORECASE)
+    # Replace block-level elements (opening AND closing) with newlines so that
+    # paragraph structure survives into the extracted text.
+    html = re.sub(r"</?(?:br|hr|p|div|h[1-6]|li|tr|blockquote)[^>]*>", "\n", html, flags=re.IGNORECASE)
     # Strip all remaining tags
     text = re.sub(r"<[^>]+>", " ", html)
     text = html_mod.unescape(text)
-    return _clean_text(text)
+    # Strip control characters and collapse horizontal whitespace, but preserve
+    # newlines so paragraph breaks remain in the corpus.
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
+    text = re.sub(r"[^\S\n]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 def _extract_title(html: str) -> str:
@@ -98,6 +163,8 @@ class ScrapedPage:
 class ScraperEngine:
     """Fetches web pages, extracts clean text, stores in SQLite for training."""
 
+    _CACHE_MAX = 200
+
     def __init__(self, db_path: str | None = None, respect_robots: bool = True):
         self.db_path = db_path or str(Path.home() / ".shaggoth" / "scraper.db")
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -105,9 +172,7 @@ class ScraperEngine:
         self.respect_robots = respect_robots
         #: origin -> (RobotFileParser | None, fetched_at)
         self._robots_cache: dict[str, tuple] = {}
-        #: Set by fetch_page() to the raw HTML of the last successfully fetched
-        #: HTML page so crawl() can extract links without a second HTTP request.
-        self._last_html: str = ""
+        self._robots_lock = threading.Lock()
         #: origin -> monotonic time of the last request to it. crawl() used to
         #: loop fetch_page() with no pause at all, which is fine against
         #: Wikipedia and rude against a small customer site on shared hosting.
@@ -128,7 +193,8 @@ class ScraperEngine:
             origin = f"{parts.scheme}://{parts.netloc}"
         except ValueError:
             return DEFAULT_CRAWL_DELAY
-        cached = self._robots_cache.get(origin)
+        with self._robots_lock:
+            cached = self._robots_cache.get(origin)
         parser = cached[0] if cached else None
         if parser is not None:
             try:
@@ -155,6 +221,9 @@ class ScraperEngine:
             # crawling the same origin queue behind each other instead of both
             # deciding they may go now.
             self._last_fetch[origin] = now + max(wait, 0.0)
+            if len(self._last_fetch) > self._CACHE_MAX:
+                oldest = min(self._last_fetch, key=self._last_fetch.get)
+                del self._last_fetch[oldest]
         if wait > 0:
             time.sleep(wait)
 
@@ -183,8 +252,14 @@ class ScraperEngine:
                 );
             """)
 
-    def _conn(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.db_path)
+    @contextmanager
+    def _conn(self):
+        conn = sqlite3.connect(self.db_path)
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     def add_seed(self, url: str) -> None:
         """Add a URL to the seed list for future crawling."""
@@ -236,23 +311,29 @@ class ScraperEngine:
 
         origin = f"{parts.scheme}://{parts.netloc}"
         now = time.time()
-        cached = self._robots_cache.get(origin)
+        with self._robots_lock:
+            cached = self._robots_cache.get(origin)
         if cached is None or now - cached[1] > ROBOTS_TTL_SECONDS:
+            # Fetch outside the lock — network I/O must not hold it.
             parser = urllib.robotparser.RobotFileParser()
             parser.set_url(origin + "/robots.txt")
             try:
                 request = urllib.request.Request(
                     origin + "/robots.txt", headers={"User-Agent": USER_AGENT}
                 )
-                with urllib.request.urlopen(request, timeout=timeout) as response:
+                with _safe_opener.open(request, timeout=timeout) as response:
                     parser.parse(
-                        response.read().decode("utf-8", errors="replace").splitlines()
+                        response.read(1_048_576).decode("utf-8", errors="replace").splitlines()
                     )
             except Exception:
                 # No robots.txt, or unreachable. Allowed by default.
                 parser = None
-            self._robots_cache[origin] = (parser, now)
-            cached = self._robots_cache[origin]
+            with self._robots_lock:
+                self._robots_cache[origin] = (parser, now)
+                if len(self._robots_cache) > self._CACHE_MAX:
+                    oldest = min(self._robots_cache, key=lambda k: self._robots_cache[k][1])
+                    del self._robots_cache[oldest]
+                cached = self._robots_cache[origin]
 
         parser = cached[0]
         if parser is None:
@@ -260,7 +341,33 @@ class ScraperEngine:
         try:
             return parser.can_fetch(USER_AGENT, url)
         except Exception:
+            return False
+
+    @staticmethod
+    def _is_private_url(url: str) -> bool:
+        """Block URLs targeting private/internal network addresses."""
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https"):
             return True
+        hostname = parsed.hostname or ""
+        if not hostname:
+            return True
+        if hostname in ("localhost", "metadata.google.internal"):
+            return True
+        try:
+            addr = ipaddress.ip_address(hostname)
+            if _is_non_global(addr):
+                return True
+        except ValueError:
+            pass
+        try:
+            for info in socket.getaddrinfo(hostname, None, socket.AF_UNSPEC):
+                addr = ipaddress.ip_address(info[4][0])
+                if _is_non_global(addr):
+                    return True
+        except (socket.gaierror, OSError):
+            pass
+        return False
 
     def fetch_page(self, url: str, timeout: int = 15) -> ScrapedPage | None:
         """Fetch a single URL, extract clean text, store in DB.
@@ -269,6 +376,9 @@ class ScraperEngine:
         any other failure so a blocked seed is visible in the scraper stats
         rather than silently absent.
         """
+        if self._is_private_url(url):
+            self._log(url, "error", "blocked: private/internal address")
+            return None
         if self.respect_robots and not self.robots_allows(url):
             self._log(url, "error", "blocked by robots.txt")
             return None
@@ -283,8 +393,8 @@ class ScraperEngine:
                     "Accept": "text/html,application/xhtml+xml,text/plain,application/json",
                 },
             )
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                raw = resp.read()
+            with _safe_opener.open(req, timeout=timeout) as resp:
+                raw = resp.read(10_485_760)  # 10 MiB cap
                 content_type = resp.headers.get("Content-Type", "")
                 charset = _extract_charset(content_type)
                 media_type = content_type.split(";", 1)[0].strip().lower()
@@ -294,11 +404,21 @@ class ScraperEngine:
                     charset = "utf-8"
                 if media_type in ("text/html", "application/xhtml+xml"):
                     html = raw.decode(charset, errors="replace")
-                    self._last_html = html
+                    # Honour <meta charset> when the HTTP header omitted it or
+                    # named a different codec -- common on older CMS platforms.
+                    meta_charset = _extract_meta_charset(html[:2048])
+                    if meta_charset:
+                        norm = lambda c: c.lower().replace("-", "")
+                        if norm(meta_charset) != norm(charset):
+                            try:
+                                "".encode(meta_charset)
+                                html = raw.decode(meta_charset, errors="replace")
+                            except LookupError:
+                                pass
                     title = _extract_title(html)
                     text = _html_to_text(html)
                 else:
-                    self._last_html = ""
+                    html = ""
                     title = url.split("/")[-1] or url
                     text = raw.decode(charset, errors="replace")
                     text = _clean_text(text)
@@ -312,6 +432,7 @@ class ScraperEngine:
                 scraped_at=time.time(),
                 content_hash=content_hash,
             )
+            page._html = html  # type: ignore[attr-defined]
             self._store_page(page)
             self._log(url, "ok", f"{page.word_count} words")
             return page
@@ -357,9 +478,9 @@ class ScraperEngine:
                     scraped.append(page)
                     if len(scraped) >= max_pages:
                         break
-                    # Reuse the HTML cached by fetch_page — no second HTTP request.
-                    if self._last_html:
-                        links = _extract_links(self._last_html, url)
+                    page_html = getattr(page, "_html", "")
+                    if page_html:
+                        links = _extract_links(page_html, url)
                         for link in links[:20]:
                             if link not in visited:
                                 self.add_seed(link)

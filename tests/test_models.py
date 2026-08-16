@@ -49,6 +49,24 @@ class MarkovTests(unittest.TestCase):
             self.assertEqual(loaded.order, 2)
             self.assertTrue(loaded.generate("the dog", max_tokens=10))
 
+    def test_load_corrupt_file_raises_runtime_error(self):
+        """load() must raise RuntimeError (not json.JSONDecodeError) on corrupt files."""
+        import pytest
+        with tempfile.TemporaryDirectory() as tmp:
+            bad_path = str(Path(tmp) / "bad.json")
+            with open(bad_path, "w") as fh:
+                fh.write("{bad json")
+            loaded = MarkovModel()
+            with pytest.raises(RuntimeError, match="Could not load"):
+                loaded.load(bad_path)
+
+    def test_load_missing_file_raises_runtime_error(self):
+        """load() must raise RuntimeError (not OSError) when the file is absent."""
+        import pytest
+        loaded = MarkovModel()
+        with pytest.raises(RuntimeError, match="Could not load"):
+            loaded.load("/nonexistent/path/model.json")
+
 
 class OpenAIHistoryBudgetTests(unittest.TestCase):
     """The OpenAI model trims old conversation turns to stay within budget."""

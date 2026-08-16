@@ -108,8 +108,10 @@ def test_robots_can_be_disabled_for_tests(tmp_path, monkeypatch):
     )
     calls = []
     monkeypatch.setattr(
-        "urllib.request.urlopen",
-        lambda *a, **k: calls.append(1) or (_ for _ in ()).throw(OSError("stop")),
+        "shaggoth.scraper.engine._safe_opener",
+        type("FakeOpener", (), {
+            "open": lambda self, *a, **k: calls.append(1) or (_ for _ in ()).throw(OSError("stop")),
+        })(),
     )
     scraper.fetch_page("https://example.com/page")
     assert calls, "robots gate should have been skipped"
@@ -137,7 +139,7 @@ def test_robots_result_is_cached_per_origin(scraper, monkeypatch):
         fetches.append(getattr(request, "full_url", request))
         return FakeResponse()
 
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setattr("shaggoth.scraper.engine._safe_opener", type("FakeOpener", (), {"open": staticmethod(fake_urlopen)})())
 
     for path in ("/a", "/b", "/c"):
         scraper.robots_allows("https://example.com" + path)
@@ -194,3 +196,168 @@ def test_charset_extraction_missing_defaults_to_utf8():
 def test_charset_extraction_case_insensitive():
     from shaggoth.scraper.engine import _extract_charset
     assert _extract_charset("text/html; Charset=WINDOWS-1252") == "WINDOWS-1252"
+
+
+# ---------------------------------------------------------------------------
+# SSRF protection: private/internal addresses must be blocked
+# ---------------------------------------------------------------------------
+
+def test_private_url_localhost_blocked():
+    assert ScraperEngine._is_private_url("http://localhost/secret")
+
+def test_private_url_127_blocked():
+    assert ScraperEngine._is_private_url("http://127.0.0.1/admin")
+
+def test_private_url_10_blocked():
+    assert ScraperEngine._is_private_url("http://10.0.0.1/internal")
+
+def test_private_url_192_168_blocked():
+    assert ScraperEngine._is_private_url("http://192.168.1.1/router")
+
+def test_private_url_ipv6_loopback_blocked():
+    assert ScraperEngine._is_private_url("http://[::1]/secret")
+
+def test_private_url_file_scheme_blocked():
+    assert ScraperEngine._is_private_url("file:///etc/passwd")
+
+def test_private_url_ftp_scheme_blocked():
+    assert ScraperEngine._is_private_url("ftp://internal.local/data")
+
+def test_private_url_metadata_blocked():
+    assert ScraperEngine._is_private_url("http://metadata.google.internal/computeMetadata/v1/")
+
+def test_private_url_cgnat_blocked():
+    assert ScraperEngine._is_private_url("http://100.64.0.1/internal")
+
+def test_private_url_benchmarking_blocked():
+    assert ScraperEngine._is_private_url("http://198.18.0.1/bench")
+
+def test_private_url_documentation_blocked():
+    assert ScraperEngine._is_private_url("http://198.51.100.1/docs")
+    assert ScraperEngine._is_private_url("http://203.0.113.1/docs")
+
+def test_public_url_allowed():
+    assert not ScraperEngine._is_private_url("https://example.com/page")
+
+def test_public_url_https_allowed():
+    assert not ScraperEngine._is_private_url("https://en.wikipedia.org/wiki/Python")
+
+def test_fetch_page_blocks_private_url(scraper, monkeypatch):
+    def should_not_run(*args, **kwargs):
+        raise AssertionError("fetched a private URL")
+    monkeypatch.setattr("urllib.request.urlopen", should_not_run)
+    assert scraper.fetch_page("http://127.0.0.1/admin") is None
+    logs = scraper.recent_logs(limit=5)
+    assert any("private" in (entry.get("message") or "") for entry in logs)
+
+
+def test_redirect_to_private_is_blocked(scraper, monkeypatch):
+    """A public URL that redirects to a private address must be blocked."""
+    from shaggoth.scraper.engine import _SafeRedirectHandler
+    import urllib.request
+    handler = _SafeRedirectHandler()
+    req = urllib.request.Request("http://evil.example.com/redir")
+    with pytest.raises(urllib.error.URLError, match="non-global"):
+        handler.redirect_request(req, None, 302, "Found", {}, "http://127.0.0.1/secret")
+
+
+def test_redirect_to_metadata_is_blocked(scraper, monkeypatch):
+    """Redirect to cloud metadata endpoint must be blocked."""
+    from shaggoth.scraper.engine import _SafeRedirectHandler
+    import urllib.request
+    handler = _SafeRedirectHandler()
+    req = urllib.request.Request("http://evil.example.com/redir")
+    with pytest.raises(urllib.error.URLError, match="blocked host"):
+        handler.redirect_request(req, None, 302, "Found", {}, "http://metadata.google.internal/v1/")
+
+
+# ---------------------------------------------------------------------------
+# _conn() context manager closes the connection
+# ---------------------------------------------------------------------------
+
+def test_conn_closes_connection_after_use(scraper):
+    """_conn() must close the SQLite connection when the block exits."""
+    with scraper._conn() as conn:
+        conn.execute("SELECT 1")
+    # After the context manager exits, the connection should be closed.
+    # Attempting to use it should raise ProgrammingError.
+    import sqlite3
+    with pytest.raises(sqlite3.ProgrammingError):
+        conn.execute("SELECT 1")
+
+
+def test_conn_closes_connection_on_exception(scraper):
+    """Connection must be closed even if the block raises."""
+    import sqlite3
+    try:
+        with scraper._conn() as conn:
+            raise ValueError("boom")
+    except ValueError:
+        pass
+    with pytest.raises(sqlite3.ProgrammingError):
+        conn.execute("SELECT 1")
+
+
+# ---------------------------------------------------------------------------
+# _html_to_text: paragraph preservation
+# ---------------------------------------------------------------------------
+
+
+def test_html_to_text_preserves_paragraph_breaks():
+    """Block elements must become newlines; previously _clean_text collapsed them."""
+    from shaggoth.scraper.engine import _html_to_text
+
+    html = "<p>First paragraph.</p><p>Second paragraph.</p>"
+    text = _html_to_text(html)
+    assert "\n" in text, "newlines must survive from <p> tags"
+    assert "First paragraph" in text
+    assert "Second paragraph" in text
+
+
+def test_html_to_text_closing_block_tags_become_newlines():
+    """</p>, </div> must also produce newlines (previously they became spaces)."""
+    from shaggoth.scraper.engine import _html_to_text
+
+    html = "<div>Alpha</div><div>Beta</div>"
+    text = _html_to_text(html)
+    assert "\n" in text
+    assert "Alpha" in text
+    assert "Beta" in text
+
+
+def test_html_to_text_strips_scripts_and_styles():
+    from shaggoth.scraper.engine import _html_to_text
+
+    html = "<script>alert('x')</script><style>.a{color:red}</style><p>Keep this.</p>"
+    text = _html_to_text(html)
+    assert "alert" not in text
+    assert "color" not in text
+    assert "Keep this" in text
+
+
+# ---------------------------------------------------------------------------
+# _extract_meta_charset
+# ---------------------------------------------------------------------------
+
+
+def test_extract_meta_charset_finds_charset_attribute():
+    from shaggoth.scraper.engine import _extract_meta_charset
+
+    html = '<html><head><meta charset="windows-1252"></head><body></body></html>'
+    assert _extract_meta_charset(html) == "windows-1252"
+
+
+def test_extract_meta_charset_case_insensitive():
+    from shaggoth.scraper.engine import _extract_meta_charset
+
+    html = '<META CHARSET="ISO-8859-1">'
+    result = _extract_meta_charset(html)
+    assert result is not None
+    assert result.upper() == "ISO-8859-1"
+
+
+def test_extract_meta_charset_returns_none_when_absent():
+    from shaggoth.scraper.engine import _extract_meta_charset
+
+    assert _extract_meta_charset("<html><head></head></html>") is None
+    assert _extract_meta_charset("") is None

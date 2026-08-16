@@ -59,6 +59,37 @@ DEFAULT_CONFIG: dict[str, Any] = {
             ],
             "message": "Not doing that one. Ask me something else.",
         },
+        {
+            "id": "no-weapons",
+            "type": "topic_refuse",
+            "enabled": True,
+            "flag": "red",
+            "min_hits": 1,
+            "keywords": [
+                "make a bomb", "build a bomb",
+                "make an explosive", "build explosives",
+                "make poison", "synthesize poison",
+                "make a weapon", "build a weapon",
+                "make a gun", "build a gun", "print a gun", "3d print gun",
+                "make napalm", "make thermite",
+                "make mustard gas", "make nerve agent",
+                "make ricin", "make anthrax",
+            ],
+            "exclude": [
+                "bomb shelter", "bomb squad", "bomb disposal",
+                "bomb threat", "bomb scare",
+                "poison ivy", "poison oak", "poison control",
+                "poison dart frog",
+                "gun safe", "gun safety", "gun control",
+                "gun license", "gun permit", "gun laws",
+                "weapon inspection", "weapon safety",
+                "explosive detection",
+            ],
+            "message": (
+                "I don't help with weapons, explosives, or harmful substances. "
+                "Ask me something I can actually be useful for."
+            ),
+        },
     ],
     "output_rules": [
         {
@@ -116,9 +147,18 @@ class GuardrailEngine:
 
     def _load(self) -> None:
         assert self.path is not None
-        with open(self.path, encoding="utf-8") as fh:
-            self.config = json.load(fh)
-        self._mtime = self.path.stat().st_mtime
+        try:
+            with open(self.path, encoding="utf-8") as fh:
+                self.config = json.load(fh)
+            self._mtime = self.path.stat().st_mtime
+        except (OSError, ValueError):
+            # Corrupt or unreadable config — fall back to safe defaults so a
+            # crash-truncated file does not prevent the server from starting.
+            import logging
+            logging.getLogger(__name__).warning(
+                "guardrails: could not load %s, using defaults", self.path
+            )
+            self.config = json.loads(json.dumps(DEFAULT_CONFIG))
 
     def save(self) -> None:
         if self.path is None:
@@ -149,8 +189,21 @@ class GuardrailEngine:
             raise ValueError("rule needs 'id' and 'type'")
         if any(r["id"] == rule["id"] for r in self.rules()):
             raise ValueError(f"rule id already exists: {rule['id']}")
+        rtype = rule.get("type")
+        if rtype in ("regex_block", "redact"):
+            pattern = rule.get("pattern")
+            if not pattern or not isinstance(pattern, str):
+                raise ValueError(f"rule type {rtype!r} requires a 'pattern' string")
+            if len(pattern) > 1000:
+                raise ValueError("pattern too long (max 1000 characters)")
+            try:
+                re.compile(pattern)
+            except re.error as exc:
+                raise ValueError(f"invalid regex pattern: {exc}") from exc
+            if re.search(r"\([^)]*[+*][^)]*\)[+*?{]", pattern):
+                raise ValueError("pattern contains nested quantifiers (potential ReDoS)")
         rule.setdefault("enabled", True)
-        bucket = "output_rules" if rule["type"] in ("redact", "max_length") else "input_rules"
+        bucket = "output_rules" if rtype in ("redact", "max_length") else "input_rules"
         with self._lock:
             self.config.setdefault(bucket, []).append(rule)
             self.save()
@@ -186,7 +239,7 @@ class GuardrailEngine:
                 continue
             rtype = rule.get("type")
             flag_level = rule.get("flag", "red")
-            rid = rule["id"]
+            rid = rule.get("id", "unknown")
 
             if rtype == "regex_block":
                 if re.search(rule["pattern"], text):
@@ -198,16 +251,42 @@ class GuardrailEngine:
                         flag=flag_level,
                     )
             elif rtype == "topic_refuse":
-                hits = sum(
-                    1 for kw in rule.get("keywords", [])
-                    if re.search(
+                keywords = rule.get("keywords", [])
+                _articles = {"a", "an", "the"}
+                kw_patterns = []
+                for kw in keywords:
+                    words = [w for w in kw.lower().split() if w not in _articles]
+                    if not words:
+                        continue
+                    kw_patterns.append((kw, re.compile(
                         r"\b" + r"\s+(?:a\s+|an\s+|the\s+)?".join(
-                            re.escape(w) for w in kw.lower().split()
-                        ) + r"\b",
-                        lowered,
-                    )
-                )
-                if hits >= int(rule.get("min_hits", 1)):
+                            re.escape(w) for w in words
+                        ) + r"\b"
+                    )))
+                matched_kws = [
+                    (kw, m) for kw, pat in kw_patterns
+                    if (m := pat.search(lowered))
+                ]
+                if not matched_kws:
+                    continue
+
+                excludes = rule.get("exclude", [])
+                if excludes:
+                    check_text = lowered
+                    for ex in excludes:
+                        check_text = re.sub(
+                            r"(?<!\w)" + re.escape(ex.lower()) + r"(?!\w)",
+                            " ",
+                            check_text,
+                        )
+                    matched_kws = [
+                        (kw, m) for kw, pat in kw_patterns
+                        if (m := pat.search(check_text))
+                    ]
+                    if not matched_kws:
+                        continue
+
+                if len(matched_kws) >= int(rule.get("min_hits", 1)):
                     msg = rule.get("message", f"Flagged. [{FLAG_WORD}]")
                     return Verdict(
                         allowed=False,

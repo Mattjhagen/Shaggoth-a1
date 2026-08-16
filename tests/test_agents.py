@@ -120,6 +120,53 @@ class TestAgentBase(unittest.TestCase):
         # And it is still scheduled: one bad turn does not retire an agent.
         self.assertGreater(agent.due_in(), 0)
 
+    def test_failure_does_not_inflate_avg_seconds(self):
+        """A failed run must not add to seconds_spent; avg_seconds stays 0."""
+        clock = FakeClock()
+        agent = ExplodingAgent(clock=clock)
+        clock.advance(10 * 60)
+        agent.run()
+        self.assertEqual(agent.stats.seconds_spent, 0.0)
+        self.assertEqual(agent.status()["avg_seconds"], 0.0)
+
+    def test_agent_has_per_run_lock(self):
+        """Agent._lock must exist to serialize concurrent run() calls."""
+        import threading
+        agent = CountingAgent()
+        self.assertTrue(hasattr(agent, "_lock"))
+        self.assertIsInstance(agent._lock, type(threading.Lock()))
+
+    def test_concurrent_run_calls_serialize(self):
+        """Two simultaneous run() calls must not execute work() in parallel."""
+        import threading
+        import time as _time
+        clock = FakeClock()
+        order = []
+        gate = threading.Event()
+
+        class BlockingAgent(Agent):
+            name = "blocking"
+            default_cadence_minutes = 1.0
+
+            def work(inner) -> dict:  # noqa: N805
+                order.append("start")
+                gate.wait(timeout=2.0)
+                order.append("end")
+                return {}
+
+        agent = BlockingAgent(clock=clock)
+        t1 = threading.Thread(target=agent.run)
+        t2 = threading.Thread(target=agent.run)
+        t1.start()
+        _time.sleep(0.05)   # let t1 acquire the lock and block inside work()
+        t2.start()
+        _time.sleep(0.05)   # t2 should now be blocked on the lock
+        gate.set()          # release t1; t2 then acquires lock and runs
+        t1.join(timeout=3.0)
+        t2.join(timeout=3.0)
+        # Serialized: ["start","end","start","end"]. Concurrent would show two starts.
+        self.assertEqual(order, ["start", "end", "start", "end"])
+
     def test_skip_is_not_a_failure(self):
         clock = FakeClock()
         agent = SkippingAgent(clock=clock)
@@ -232,6 +279,14 @@ class TestSupervisor(unittest.TestCase):
 
         sup = Supervisor([CountingAgent()])
         json.dumps(sup.status())
+
+    def test_add_acquires_lock(self):
+        clock = FakeClock()
+        sup = Supervisor([], clock=clock)
+        agent = CountingAgent(clock=clock)
+        sup.add(agent)
+        self.assertIn(agent, sup.agents)
+        self.assertEqual(len(sup.agents), 1)
 
 
 # --------------------------------------------------------------------------

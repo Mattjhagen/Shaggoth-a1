@@ -394,3 +394,102 @@ class TestPushSenderSend:
     def test_notify_session_does_not_raise_when_unavailable(self):
         sender = PushSender(vapid=VapidConfig())
         sender.notify_session("sess1", "title", "body")
+
+
+# ---------------------------------------------------------------------------
+# Atomic check_and_mark_sent
+# ---------------------------------------------------------------------------
+
+class TestCheckAndMarkSent:
+    def test_returns_true_on_first_send(self):
+        store = _store()
+        assert store.check_and_mark_sent("ep1", min_interval=3600)
+
+    def test_returns_false_within_interval(self):
+        store = _store()
+        now = time.time()
+        store.check_and_mark_sent("ep1", min_interval=3600, now=now)
+        assert not store.check_and_mark_sent("ep1", min_interval=3600, now=now + 10)
+
+    def test_returns_true_after_interval(self):
+        store = _store()
+        past = time.time() - 7200
+        store.check_and_mark_sent("ep1", min_interval=3600, now=past)
+        assert store.check_and_mark_sent("ep1", min_interval=3600)
+
+
+# ---------------------------------------------------------------------------
+# Atomic file write
+# ---------------------------------------------------------------------------
+
+class TestAtomicSave:
+    def test_save_creates_file(self, tmp_path):
+        path = tmp_path / "subs.json"
+        store = SubscriptionStore(path=path)
+        store.add(_valid_sub())
+        assert path.exists()
+        data = json.loads(path.read_text())
+        assert len(data) == 1
+
+    def test_save_survives_reread(self, tmp_path):
+        path = tmp_path / "subs.json"
+        store = SubscriptionStore(path=path)
+        store.add(_valid_sub("https://a.com"))
+        store.add(_valid_sub("https://b.com"))
+        store2 = SubscriptionStore(path=path)
+        assert len(store2) == 2
+
+
+# ---------------------------------------------------------------------------
+# Semaphore-guarded sends
+# ---------------------------------------------------------------------------
+
+class TestSemaphoreGuard:
+    def test_sender_has_semaphore(self):
+        sender = PushSender(vapid=VapidConfig())
+        assert hasattr(sender, "_semaphore")
+
+    def test_guarded_send_all_acquires_semaphore(self):
+        import threading
+        store = _store()
+        store.add(_valid_sub())
+
+        fake_pw = MagicMock()
+        fake_pw.WebPushException = Exception
+        fake_pw.webpush = MagicMock(return_value=None)
+
+        with patch.dict("sys.modules", {"pywebpush": fake_pw}):
+            sender = PushSender(store=store, vapid=_vapid(), min_interval=0)
+            sem = threading.Semaphore(1)
+            sender._semaphore = sem
+            result = sender._guarded_send_all('{"title":"T"}', respect_rate_limit=False)
+        assert result["sent"] == 1
+
+    def test_notify_dispatch_failure_releases_semaphore(self):
+        """Semaphore must be released when thread dispatch fails before the
+        guarded wrapper starts.  Previously, json.dumps/Thread/start raising
+        would leak the permit; after 8 leaks all notifications were dropped."""
+        import threading
+
+        sender = PushSender(store=_store(), vapid=_vapid(), min_interval=0)
+        initial_value = sender._semaphore._value  # type: ignore[attr-defined]
+
+        with patch("threading.Thread") as mock_thread_cls:
+            mock_thread_cls.return_value.start.side_effect = RuntimeError("no resources")
+            sender.notify("T", "B")
+
+        # Semaphore should be back at its original value (permit was released).
+        assert sender._semaphore._value == initial_value  # type: ignore[attr-defined]
+
+    def test_notify_session_dispatch_failure_releases_semaphore(self):
+        """Same guarantee for notify_session()."""
+        import threading
+
+        sender = PushSender(store=_store(), vapid=_vapid(), min_interval=0)
+        initial_value = sender._semaphore._value  # type: ignore[attr-defined]
+
+        with patch("threading.Thread") as mock_thread_cls:
+            mock_thread_cls.return_value.start.side_effect = RuntimeError("no resources")
+            sender.notify_session("sess-1", "T", "B")
+
+        assert sender._semaphore._value == initial_value  # type: ignore[attr-defined]

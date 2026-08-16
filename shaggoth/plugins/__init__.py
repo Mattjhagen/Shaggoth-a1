@@ -20,7 +20,10 @@ Registering a feature:
 
 from __future__ import annotations
 
+import logging
 from typing import Callable, Optional
+
+log = logging.getLogger(__name__)
 
 PluginFunc = Callable[..., Optional[str]]
 
@@ -44,7 +47,7 @@ class PluginRegistry:
             try:
                 result = func(text, **context)
             except Exception as exc:  # noqa: BLE001
-                print(f"[plugin:{name}] dispatch failed: {exc}")
+                log.warning("[plugin:%s] dispatch failed: %s", name, exc)
                 continue
             if result is not None:
                 return result

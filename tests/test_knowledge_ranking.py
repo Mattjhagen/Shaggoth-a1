@@ -128,6 +128,35 @@ def test_body_route_is_off_without_content():
     assert not knowledge_is_relevant("Chapter 23", "who is Ellie Finch")
 
 
+def test_gravity_does_not_match_earthquakes_query():
+    """'what causes earthquakes' must not return the Gravity article.
+
+    'Gravity causes the Earth to orbit…' contains 'causes' and 'earth',
+    and 'earth' previously stem-matched 'earthquakes' (5/11 < 55%
+    threshold, but old code had no per-long-word floor).
+    """
+    from shaggoth.dialogue.engine import knowledge_is_relevant
+
+    gravity_body = (
+        "Gravity is the fundamental force that causes all objects with mass "
+        "to attract one another. "
+        "Mass causes gravity by curving spacetime. "
+        "Gravity causes the Earth to orbit the Sun and objects to fall toward the ground."
+    )
+    assert not knowledge_is_relevant("Gravity", "what causes earthquakes", gravity_body)
+
+
+def test_stem_match_earth_does_not_match_earthquakes():
+    """'earth' should not stem-match 'earthquakes' in body-discusses context.
+
+    5/11 ≈ 0.45 is below the 0.55 min_long_frac floor used by _body_discusses.
+    """
+    from shaggoth.dialogue.engine import _body_discusses
+
+    content = "Gravity causes the Earth to orbit the Sun and objects to fall."
+    assert not _body_discusses(content, {"earthquakes"})
+
+
 def test_body_discusses_cleans_citations():
     from shaggoth.dialogue.engine import _body_discusses
 
@@ -143,6 +172,39 @@ def test_body_discusses_ignores_noise_sentences():
     assert not _body_discusses(
         "This article has multiple issues with Ellie Finch references.",
         {"ellie", "finch"},
+    )
+
+
+def test_body_discusses_incidental_mention_in_long_article():
+    """A single co-occurrence sentence inside a long article is a passing
+    reference, not evidence the article is about that topic.
+
+    'Gravitational waves propagate at the speed of light' makes 'speed' and
+    'light' co-occur in Gravity, but Gravity is not about the speed of light.
+    """
+    from shaggoth.dialogue.engine import _body_discusses, knowledge_is_relevant
+
+    gravity_body = (
+        "Gravity is the fundamental force that causes all objects with mass "
+        "to attract one another. "
+        "Mass causes gravity by curving spacetime. "
+        "Newton's law describes gravity as proportional to mass and inversely "
+        "proportional to the square of distance. "
+        "The gravitational constant G determines the strength of gravity. "
+        "Gravity causes the Earth to orbit the Sun and objects to fall. "
+        "On Earth, gravity accelerates falling objects at approximately 9.8 "
+        "metres per second squared. "
+        "Gravity is the weakest of the four fundamental forces yet dominates "
+        "at cosmic scales. "
+        "Black holes form when gravity causes the collapse of matter to extreme "
+        "density so not even light can escape. "
+        "Gravitational waves are ripples in spacetime that propagate at the "
+        "speed of light. "
+        "Gravity has not yet been reconciled with quantum mechanics."
+    )
+    assert not _body_discusses(gravity_body, {"speed", "light"})
+    assert not knowledge_is_relevant(
+        "Gravity", "what is the speed of light", gravity_body
     )
 
 
@@ -212,6 +274,15 @@ def test_acronym_keyword_extraction():
     assert "uk" in kw
 
 
+def test_acronym_keyword_extraction_alphanumeric():
+    """extract_keywords must capture alphanumeric acronyms like WW2, CO2, MP3."""
+    from shaggoth.memory.store import extract_keywords
+    assert "ww2" in extract_keywords("when did WW2 end")
+    assert "co2" in extract_keywords("CO2 emissions are rising")
+    assert "mp3" in extract_keywords("what is an MP3 file")
+    assert "ww1" in extract_keywords("who started WW1")
+
+
 def test_slug_never_returns_empty():
     assert KnowledgeBase.slug_for("!!!") == "untitled"
     assert KnowledgeBase.slug_for("") == "untitled"
@@ -237,7 +308,51 @@ def test_remove_entry_finds_what_add_entry_wrote(tmp_path):
     base = KnowledgeBase(tmp_path)
     base.add_entry("- Algebra", "Algebra is a branch of mathematics. " * 30)
     assert base.remove_entry("- Algebra")
-    assert base.list_entries() == []
+
+
+def test_title_boost_never_produces_negative_score(tmp_path):
+    """An entry with a long title and only partial query overlap must remain
+    reachable even when the old penalty-subtract exceeded the boost.
+
+    Old formula: score += BOOST*(1/4) - BOOST*(4/5)*0.5 = 2.0 - 3.2 = -1.2;
+    combined with a tiny BM25 of ~0.29 this summed to -0.91 and the entry was
+    silently dropped by the 'if score > 0' guard. The fix clamps the net title
+    contribution to max(0, add - sub) so a partially-matching long title never
+    turns a small-BM25 entry invisible.
+    """
+    kb = KnowledgeBase(tmp_path)
+    kb.add_entry(
+        "Entanglement Swapping Bell Inequality Violations",
+        "Entanglement is described.",
+    )
+    # query_words = {quantum, mechanics, science, entanglement} → 4 terms
+    # title overlap = 1 ("entanglement"), leftover = 4
+    results = kb.query("quantum mechanics science entanglement", limit=5, min_score=0.0)
+    topics = [e.topic for e, _ in results]
+    assert "Entanglement Swapping Bell Inequality Violations" in topics
+
+
+def test_disambiguation_penalty_applies_in_reranker(tmp_path):
+    """A disambiguation page with high chunk density must not outscore the
+    canonical article after reranking."""
+    kb = KnowledgeBase(tmp_path)
+    kb.add_entry(
+        "Evolution",
+        "Evolution is the change in heritable characteristics of biological populations. "
+        "Natural selection is the primary mechanism. "
+        + "Evolution biology species. " * 50,
+    )
+    kb.add_entry(
+        "Evolution Disambiguation",
+        "Evolution may refer to: evolution in biology, "
+        "Evolution a 2001 film, Evolution the album by Ciara. "
+        "Evolution biology film album evolution evolution biology. " * 20,
+    )
+    results = kb.query("what is evolution biology", limit=5, min_score=0.0)
+    assert results, "should find at least one result"
+    assert results[0][0].topic == "Evolution", (
+        f"canonical article should rank first; got {[e.topic for e, _ in results]}"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -330,3 +445,47 @@ def test_relevance_stem_match_rejects_unrelated():
         "what is gravitational force",
         "Gravel is a type of rock fragment.",
     )
+
+
+# --------------------------------------------------------------------------
+# Write serialization: concurrent add/remove must not interleave
+# --------------------------------------------------------------------------
+
+
+def test_knowledge_engine_has_write_lock(tmp_path):
+    """The write lock must exist and serialize add/remove operations."""
+    kb = KnowledgeBase(tmp_path)
+    assert hasattr(kb, "_write_lock"), "KnowledgeBase must have _write_lock"
+    kb.add_entry("Alpha", "Alpha content. " * 20)
+    kb.add_entry("Beta", "Beta content. " * 20)
+    topics = [e["topic"] for e in kb.list_entries()]
+    assert "Alpha" in topics
+    assert "Beta" in topics
+    kb.remove_entry("Alpha")
+    topics_after = [e["topic"] for e in kb.list_entries()]
+    assert "Alpha" not in topics_after
+    assert "Beta" in topics_after
+
+
+def test_concurrent_add_entries_dont_lose_data(tmp_path):
+    """Two threads adding entries simultaneously must both succeed."""
+    import threading
+    kb = KnowledgeBase(tmp_path)
+    errors = []
+
+    def add_entry(name, content):
+        try:
+            kb.add_entry(name, content)
+        except Exception as e:
+            errors.append(e)
+
+    t1 = threading.Thread(target=add_entry, args=("Topic1", "Content one. " * 20))
+    t2 = threading.Thread(target=add_entry, args=("Topic2", "Content two. " * 20))
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+    assert not errors
+    topics = {e["topic"] for e in kb.list_entries()}
+    assert "Topic1" in topics
+    assert "Topic2" in topics

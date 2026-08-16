@@ -221,3 +221,51 @@ def test_rate_limiter_is_active_without_an_api_key():
     limiter = source[source.index("def _rate_limit"):]
     limiter = limiter[: limiter.index("def log_message")]
     assert "if not api_key:\n                return True" not in limiter
+
+
+def test_auth_uses_timing_safe_comparison():
+    """Auth must use hmac.compare_digest to prevent timing attacks."""
+    import inspect
+
+    from shaggoth import server
+
+    source = inspect.getsource(server.make_handler)
+    auth_block = source[source.index("def _check_auth"):]
+    auth_block = auth_block[:auth_block.index("def _client_ip")]
+    assert "hmac.compare_digest" in auth_block
+
+
+def test_delete_has_rate_limiting():
+    """do_DELETE must call _rate_limit like do_POST does."""
+    import inspect
+
+    from shaggoth import server
+
+    source = inspect.getsource(server.make_handler)
+    delete_block = source[source.index("def do_DELETE"):]
+    delete_block = delete_block[:delete_block.index("return Handler")]
+    assert "_rate_limit" in delete_block
+
+
+def test_read_json_has_body_size_cap():
+    """_read_json must cap Content-Length to prevent DoS."""
+    import inspect
+
+    from shaggoth import server
+
+    source = inspect.getsource(server.make_handler)
+    read_block = source[source.index("def _read_json"):]
+    read_block = read_block[:read_block.index("def _send_static")]
+    assert "_MAX_BODY" in read_block
+
+
+def test_push_tokens_protected_by_lock():
+    """PUSH_TOKENS mutations must be synchronized."""
+    import inspect
+
+    from shaggoth import server
+
+    source = inspect.getsource(server.make_handler)
+    push_block = source[source.index("/push/register"):]
+    push_block = push_block[:push_block.index("/push/tokens")]
+    assert "_PUSH_LOCK" in push_block
