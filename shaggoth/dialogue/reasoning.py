@@ -560,6 +560,13 @@ def subject_of(question: str) -> str:
     if text != _before_between:
         # "brain and the mind" → "brain and mind" (strip article after "and")
         text = re.sub(r"\s+and\s+(?:the|a|an)\s+", " and ", text, flags=re.I)
+    # "pros and cons of solar energy" → "solar energy" (meta-comparison prefix)
+    text = re.sub(
+        r"^(?:pros?\s+and\s+cons?|advantages?\s+and\s+disadvantages?|"
+        r"strengths?\s+and\s+weaknesses?|benefits?\s+and\s+(?:drawbacks?|downsides?))"
+        r"\s+of\s+(?:the\s+|a\s+|an\s+)?",
+        "", text, flags=re.I,
+    )
     _before_scaffold_strip = text
     text = re.sub(
         # Allow up to two leading article/quantifier/modifier words:
@@ -1067,7 +1074,7 @@ def subject_of(question: str) -> str:
         "", text, flags=re.I,
     )
     # Guard "scope of work", "statement of work", "body of work" compound nouns.
-    text = re.sub(r"(?<!of)\s+work[s]?\s*$", "", text, flags=re.I)
+    text = re.sub(r"(?<!of)(?<!remote)(?<!hard)(?<!grunt)(?<!dirty)(?<!social)\s+work[s]?\s*$", "", text, flags=re.I)
     # "what does caffeine do to the brain" → QW strip → "caffeine do to the brain"
     # Strip "do to [article] NOUN[S]" tail → "caffeine"
     text = re.sub(r"\s+do\s+to\s+(?:(?:the|a|an|your|our|your)\s+)?\w+(?:\s+\w+)?\s*$", "", text, flags=re.I)
@@ -1289,7 +1296,9 @@ def subject_of(question: str) -> str:
         # "sea level rise", "temperature rise", "price rise", "power rise" are noun compounds.
         # "free fall", "hard fall" are noun compounds — guard fall with lookbehinds.
         r"go\s+extinct|(?<!free\s)(?<!hard\s)fall[s]?(?!\s+of)|collapse[sd]?(?!\s+of)|(?<!level\s)(?<!price\s)(?<!wage\s)(?<!power\s)rise[sd]?(?!\s+of)|"
-        r"work[s]?"
+        # work[s]? guards include \s so they see "remote " not just "emote" — the \s+
+        # preceding the OR group consumed the space, so the lookbehind must include it.
+        r"(?<!of\s)(?<!remote\s)(?<!hard\s)(?<!grunt\s)(?<!dirty\s)(?<!social\s)work[s]?"
         r")\b.*$",
         "", text, flags=re.I,
     )
@@ -1528,7 +1537,7 @@ def subject_of(question: str) -> str:
     text = re.sub(r"\s+in\s+the\s+(?!middle\b)\w+(?:\s+\w+){0,2}\s*$", "", text, flags=re.I)
     # Second-pass work[s] strip: "voting work" → "voting" when "in the X" was just removed.
     # The primary work strip at line 717 fires before location strips, so it misses this residue.
-    text = re.sub(r"(?<!of)\s+work[s]?\s*$", "", text, flags=re.I)
+    text = re.sub(r"(?<!of)(?<!remote)(?<!hard)(?<!grunt)(?<!dirty)(?<!social)\s+work[s]?\s*$", "", text, flags=re.I)
     # "foods are high in protein" → "protein"; "milk is rich in calcium" → "calcium"
     # Pattern: "X is/are [adj] in NUTRIENT/CONTENT" → NUTRIENT (the content is the lookup target)
     # Must fire before the bare-in strip below which would strip " in protein" → "foods are high".

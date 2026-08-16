@@ -13864,3 +13864,121 @@ def test_batch381_subject_extraction(question, expected):
     assert result == expected, (
         f"subject_of({question!r}): expected {expected!r}, got {result!r}"
     )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "market" compound nouns
+    ("what is a stock market",                                   "stock market"),
+    ("what is a bear market",                                    "bear market"),
+    ("what is a bull market",                                    "bull market"),
+    ("what is a farmers market",                                 "farmers market"),
+    ("what is a black market",                                   "black market"),
+    ("what is a flea market",                                    "flea market"),
+    ("what is market cap",                                       "market cap"),
+    # "trade" compound nouns
+    ("what is a trade deficit",                                  "trade deficit"),
+    ("what is a trade surplus",                                  "trade surplus"),
+    ("what is a trade war",                                      "trade war"),
+    ("what is free trade",                                       "free trade"),
+    # "business" compound nouns
+    ("what is a sole proprietorship",                            "sole proprietorship"),
+    ("what is a limited liability company",                      "limited liability company"),
+    ("what is a startup",                                        "startup"),
+    ("what is a franchise",                                      "franchise"),
+    # "bank" compound nouns
+    ("what is a central bank",                                   "central bank"),
+    ("what is a blood bank",                                     "blood bank"),
+    ("what is a food bank",                                      "food bank"),
+    ("what is a sperm bank",                                     "sperm bank"),
+    ("what is a data bank",                                      "data bank"),
+    # financial instruments
+    ("what is a mutual fund",                                    "mutual fund"),
+    ("what is a hedge fund",                                     "hedge fund"),
+    ("what is venture capital",                                  "venture capital"),
+])
+def test_batch382_subject_extraction(question, expected):
+    """Batch 382: market/trade/business/bank compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # cooking methods — verb-like modifiers
+    ("what is a slow cook",                                      "slow cook"),
+    ("what is a stir fry",                                       "stir fry"),
+    ("what is a deep fry",                                       "deep fry"),
+    ("what is a pan fry",                                        "pan fry"),
+    ("what is a bake sale",                                      "bake sale"),
+    # food compound nouns with potential verb tails
+    ("what is a cookbook",                                       "cookbook"),
+    ("what is a cookout",                                        "cookout"),
+    ("what is a takeout",                                        "takeout"),
+    ("what is a leftover",                                       "leftover"),
+    # "bread" compound nouns
+    ("what is cornbread",                                        "cornbread"),
+    ("what is sourdough",                                        "sourdough"),
+    ("what is a flatbread",                                      "flatbread"),
+    ("what is a breadcrumb",                                     "breadcrumb"),
+    # "milk" compound nouns
+    ("what is buttermilk",                                       "buttermilk"),
+    ("what is skim milk",                                        "skim milk"),
+    ("what is a milk shake",                                     "milk shake"),
+    # "fruit" compound nouns
+    ("what is a grapefruit",                                     "grapefruit"),
+    ("what is a passionfruit",                                   "passionfruit"),
+    ("what is a breadfruit",                                     "breadfruit"),
+    # "sugar" compound nouns
+    ("what is brown sugar",                                      "brown sugar"),
+    ("what is powdered sugar",                                   "powdered sugar"),
+    # condiments
+    ("what is hot sauce",                                        "hot sauce"),
+    ("what is fish sauce",                                       "fish sauce"),
+])
+def test_batch383_subject_extraction(question, expected):
+    """Batch 383: food preparation and kitchen compound nouns — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
+
+
+@pytest.mark.parametrize("question,expected", [
+    # "what are X" → X
+    ("what are tectonic plates",                                 "tectonic plates"),
+    ("what are black holes",                                     "black holes"),
+    ("what are stem cells",                                      "stem cells"),
+    ("what are neurotransmitters",                               "neurotransmitters"),
+    ("what are antibiotics",                                     "antibiotics"),
+    # "what are the X of Y" → Y (the property owner)
+    ("what are the symptoms of covid",                           "covid"),
+    ("what are the effects of climate change",                   "climate change"),
+    ("what are the causes of inflation",                         "inflation"),
+    ("what are the stages of sleep",                             "sleep"),
+    ("what are the branches of government",                      "government"),
+    # "what are some examples of X" → X
+    ("what are some examples of renewable energy",               "renewable energy"),
+    ("what are some examples of metaphors",                      "metaphors"),
+    # "what are the pros and cons of X" → X
+    ("what are the pros and cons of solar energy",               "solar energy"),
+    ("what are the pros and cons of remote work",                "remote work"),
+    # "what are the types of X" → X
+    ("what are the types of clouds",                             "clouds"),
+    ("what are the types of cancer",                             "cancer"),
+    ("what are the types of volcanoes",                          "volcanoes"),
+    # "what are the main X" → X
+    ("what are the main planets",                                "planets"),
+    ("what are the main elements",                               "elements"),
+    ("what are the main organs",                                 "organs"),
+    # plural compound nouns
+    ("what are blood vessels",                                   "blood vessels"),
+    ("what are nerve cells",                                     "nerve cells"),
+    ("what are food webs",                                       "food webs"),
+])
+def test_batch384_subject_extraction(question, expected):
+    """Batch 384: plural forms, collection queries, pros/cons of — all clean."""
+    result = subject_of(question)
+    assert result == expected, (
+        f"subject_of({question!r}): expected {expected!r}, got {result!r}"
+    )
